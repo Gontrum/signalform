@@ -108,7 +108,7 @@ jobs:
             --output-dir dist-release/
 
       - name: Upload tarball artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: signalform-${{ steps.version.outputs.version }}-${{ matrix.platform }}
           path: dist-release/*.tar.gz
