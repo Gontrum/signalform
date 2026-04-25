@@ -7,6 +7,8 @@
 
 A self-hosted music player interface for [Lyrion Music Server (LMS)](https://lyrion.org/). Browse your local library, Qobuz, and Tidal from a single web UI — with artist enrichment via Last.fm and Fanart.tv.
 
+![Signalform artist overview](docs/images/readme/artist-overview.png)
+
 ## What is Signalform?
 
 Signalform sits in front of your existing LMS installation and gives it a modern web interface. It does not replace LMS — LMS still manages your music library, streaming service integrations, and audio output. Signalform adds:
@@ -17,6 +19,28 @@ Signalform sits in front of your existing LMS installation and gives it a modern
 - **Queue management** and playback control
 - **Radio mode** — continuous playback based on artist similarity
 - **PWA support** — installable on desktop and mobile via browser
+
+## Interface
+
+Signalform is built around fast browsing, rich artist context, and simple playback control.
+
+### Search and playback
+
+Search local and streaming libraries side by side while keeping the current queue and player controls visible.
+
+![Signalform search results](docs/images/readme/search-results.png)
+
+### Artist detail and discovery
+
+Artist pages combine biographies, tags, related releases, and streaming results in one place.
+
+![Signalform search autocomplete](docs/images/readme/search-autocomplete.png)
+
+### Setup and configuration
+
+Configure LMS connectivity, player selection, language, and optional enrichment APIs from the built-in settings flow.
+
+![Signalform settings](docs/images/readme/settings.png)
 
 ## Architecture
 
