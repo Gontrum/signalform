@@ -1,0 +1,37 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Test output
+coverage/
+packages/frontend/test-results/
+packages/frontend/playwright-report/
+
+# Environment variables (may contain secrets)
+.env
+.env.local
+.env.*
+.env-*
+
+# Runtime config (contains secrets — LMS host, player ID, API keys)
+packages/backend/config.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Temporary files
+*.tmp
+*.bak
+.cache/
+.tmp/
+
+# OS
+Thumbs.db

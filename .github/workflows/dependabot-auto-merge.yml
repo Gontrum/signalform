@@ -1,0 +1,71 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.base.ref == 'main' && github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Decide whether this PR is safe to auto-merge
+        id: decision
+        env:
+          PACKAGE_ECOSYSTEM: ${{ steps.metadata.outputs.package-ecosystem }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.metadata.outputs.dependency-type }}
+        run: |
+          should_merge=false
+
+          if [ "${UPDATE_TYPE}" = "version-update:semver-patch" ]; then
+            should_merge=true
+          elif [ "${PACKAGE_ECOSYSTEM}" = "npm" ] \
+            && [ "${UPDATE_TYPE}" = "version-update:semver-minor" ] \
+            && [ "${DEPENDENCY_TYPE}" = "direct:development" ]; then
+            should_merge=true
+          elif [ "${PACKAGE_ECOSYSTEM}" = "github-actions" ] \
+            && [ "${UPDATE_TYPE}" = "version-update:semver-minor" ]; then
+            should_merge=true
+          fi
+
+          echo "should_merge=${should_merge}" >> "${GITHUB_OUTPUT}"
+
+      - name: Enable auto-merge
+        if: steps.decision.outputs.should_merge == 'true'
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pullRequestId = context.payload.pull_request.node_id;
+            await github.graphql(
+              `
+                mutation EnableAutoMerge($pullRequestId: ID!) {
+                  enablePullRequestAutoMerge(input: {
+                    pullRequestId: $pullRequestId,
+                    mergeMethod: SQUASH
+                  }) {
+                    pullRequest {
+                      number
+                    }
+                  }
+                }
+              `,
+              { pullRequestId }
+            );

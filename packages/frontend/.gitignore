@@ -1,0 +1,25 @@
+# Build outputs
+dist/
+dist-ssr/
+dev-dist/
+
+# Test output
+coverage/
+test-results/
+playwright-report/
+__screenshots__/
+
+# Environment variables
+.env
+.env.*
+*.local
+
+# Vite cache
+.vite/
+*.timestamp-*-*.mjs
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# ESLint cache
+.eslintcache

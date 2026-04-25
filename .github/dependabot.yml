@@ -1,0 +1,127 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions-safe:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # npm packages (root)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "javascript"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      root-dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      root-production-patches:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  # npm packages (frontend)
+  - package-ecosystem: "npm"
+    directory: "/packages/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "frontend"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      frontend-dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      frontend-production-patches:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  # npm packages (backend)
+  - package-ecosystem: "npm"
+    directory: "/packages/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "backend"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      backend-dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      backend-production-patches:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  # npm packages (shared)
+  - package-ecosystem: "npm"
+    directory: "/packages/shared"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "shared"
+    open-pull-requests-limit: 5
+    versioning-strategy: increase
+    groups:
+      shared-dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      shared-production-patches:
+        dependency-type: "production"
+        update-types:
+          - "patch"
+
+  # Docker
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+    open-pull-requests-limit: 5
+    groups:
+      docker-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"

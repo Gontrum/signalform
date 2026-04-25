@@ -1,0 +1,10 @@
+# Coverage reports
+coverage/
+.nyc_output/
+
+# Build outputs
+dist/
+build/
+
+# Dependencies
+node_modules/

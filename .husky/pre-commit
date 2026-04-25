@@ -1,0 +1,12 @@
+# Run lint-staged (Prettier + ESLint on staged files only)
+pnpm exec lint-staged
+
+# Sync Prettier formatting across all packages and stage results.
+# Ensures quality-gate runs (pnpm run format) don't leave formatted-but-unstaged
+# files behind in other packages. Uses 'git add -u' (tracked files only).
+# Note: pnpm flags must come BEFORE 'run' to avoid forwarding them as script args.
+pnpm --silent -r run format 2>/dev/null || true
+git add -u packages/ 2>/dev/null || true
+
+# Full type-check, lint, and tests run in CI.
+# Keep this hook fast (< 10 s) so --no-verify stays unnecessary.
