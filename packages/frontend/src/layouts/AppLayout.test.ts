@@ -114,6 +114,14 @@ describe('AppLayout', () => {
     await thenLayoutTransitionsWithAnimation(context.wrapper)
   })
 
+  it('uses dynamic viewport height on phone and tablet layouts', async () => {
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    await thenLayoutUsesDynamicViewportHeight(context.wrapper)
+  })
+
   // AC1–AC3: Scroll containment — right panel must be height-bounded and overflow-clipped
   it('right panel has h-full and overflow-hidden for scroll containment (AC1-AC3)', async () => {
     const context = await givenViewportIsTablet()
@@ -131,6 +139,7 @@ describe('AppLayout', () => {
     await whenLayoutIsMounted(context.wrapper)
 
     await thenMiniPlayerIsVisible(context.wrapper)
+    await thenMiniPlayerReservesSafeAreaSpace(context.wrapper)
   })
 
   // AC1: Mini-player hidden on phone when no track is playing
@@ -271,6 +280,11 @@ describe('AppLayout', () => {
     )
   }
 
+  const thenLayoutUsesDynamicViewportHeight = async (wrapper: VueWrapper): Promise<void> => {
+    const container = wrapper.find('[data-testid="layout-container"]')
+    expect(container.classes()).toContain('h-dvh')
+  }
+
   const thenRightPanelHasScrollContainment = async (wrapper: VueWrapper): Promise<void> => {
     const rightPanel = wrapper.find('[data-testid="right-panel"]')
     expect(rightPanel.classes()).toContain('h-full')
@@ -282,6 +296,15 @@ describe('AppLayout', () => {
     expect(miniPlayer.exists()).toBe(true)
     expect(wrapper.find('[data-testid="mini-player-title"]').text()).toBe('Test Track')
     expect(wrapper.find('[data-testid="mini-player-artist"]').text()).toBe('Test Artist')
+  }
+
+  const thenMiniPlayerReservesSafeAreaSpace = async (wrapper: VueWrapper): Promise<void> => {
+    const miniPlayer = wrapper.find('[data-testid="mini-player"]')
+    const leftPanel = wrapper.find('[data-testid="left-panel"]')
+
+    expect(miniPlayer.classes()).toContain('bottom-[env(safe-area-inset-bottom)]')
+    expect(miniPlayer.classes()).toContain('pb-[calc(0.75rem+env(safe-area-inset-bottom))]')
+    expect(leftPanel.classes()).toContain('pb-[calc(4rem+env(safe-area-inset-bottom))]')
   }
 
   const thenMiniPlayerIsHidden = async (wrapper: VueWrapper): Promise<void> => {

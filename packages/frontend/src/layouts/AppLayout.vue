@@ -15,7 +15,7 @@ const navigateToNowPlaying = (): void => {
 <template>
   <div
     data-testid="layout-container"
-    class="flex h-screen w-full transition-all duration-300 ease-out"
+    class="flex h-dvh min-h-0 w-full transition-all duration-300 ease-out"
     :class="{
       'flex-row gap-6': isTablet || isDesktop,
       'flex-col': isPhone,
@@ -28,7 +28,7 @@ const navigateToNowPlaying = (): void => {
       :class="{
         'w-full md:w-[60%]': isTablet || isDesktop,
         'w-full': isPhone,
-        'pb-16': isPhone && playbackStore.hasCurrentTrack,
+        'pb-[calc(4rem+env(safe-area-inset-bottom))]': isPhone && playbackStore.hasCurrentTrack,
       }"
     >
       <slot name="left" />
@@ -49,7 +49,7 @@ const navigateToNowPlaying = (): void => {
       v-if="isPhone && playbackStore.hasCurrentTrack"
       data-testid="mini-player"
       type="button"
-      class="fixed bottom-0 left-0 right-0 z-50 flex w-full items-center gap-3 border-t border-neutral-200 bg-white px-4 py-3 shadow-lg"
+      class="fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-50 flex w-full items-center gap-3 border-t border-neutral-200 bg-white px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lg"
       aria-label="Open Now Playing"
       @click="navigateToNowPlaying"
       @keydown.space.prevent="navigateToNowPlaying"

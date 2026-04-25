@@ -13,7 +13,7 @@ const goBack = (): void => {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col bg-white">
+  <div class="flex h-dvh min-h-0 flex-col bg-white pb-[env(safe-area-inset-bottom)]">
     <!-- Header with back button -->
     <div class="flex flex-shrink-0 items-center border-b border-neutral-200 px-4 py-3">
       <button

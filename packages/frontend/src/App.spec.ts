@@ -45,7 +45,7 @@ describe('App.vue', () => {
 
   it('renders fullscreen layout container', async () => {
     const wrapper = await createMountedApp()
-    expect(wrapper.find('.h-screen').exists()).toBe(true)
+    expect(wrapper.find('.h-dvh').exists()).toBe(true)
   })
 
   it('has RouterView for page content', async () => {

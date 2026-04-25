@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-screen w-full overflow-hidden bg-neutral-50">
+  <div class="h-dvh min-h-0 w-full overflow-hidden bg-neutral-50">
     <RouterView />
   </div>
 </template>
