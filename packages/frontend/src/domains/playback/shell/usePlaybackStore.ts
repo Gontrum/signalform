@@ -72,6 +72,43 @@ export const usePlaybackStore = defineStore('playback', () => {
     calculateProgressPercent(currentTime.value, trackDuration.value),
   )
 
+  const applyPlaybackSnapshot = (
+    status: 'playing' | 'paused' | 'stopped',
+    nextCurrentTime: number,
+    track?: TrackInfo,
+    nextQueuePreview?: readonly QueuePreviewItem[],
+  ): void => {
+    const playbackState = getPlaybackState(status)
+    isPlaying.value = playbackState.isPlaying
+    isPaused.value = playbackState.isPaused
+    currentTime.value = nextCurrentTime
+
+    if (track !== undefined) {
+      currentTrack.value = track
+      trackDuration.value = track.duration ?? null
+    }
+
+    if (nextQueuePreview !== undefined) {
+      queuePreview.value = nextQueuePreview
+    }
+  }
+
+  const reconcileTransportState = async (
+    expectedStatus: 'playing' | 'paused',
+  ): Promise<boolean> => {
+    const statusResult = await getPlaybackStatus()
+
+    if (!statusResult.ok) {
+      return false
+    }
+
+    const { status, currentTime: nextCurrentTime, currentTrack: track } = statusResult.value
+
+    applyPlaybackSnapshot(status, nextCurrentTime, track)
+
+    return status === expectedStatus
+  }
+
   // ── WebSocket Integration (Imperative Shell) ──────────────
   // Subscribe and register handlers immediately at store initialization.
   // The store lives for the entire app lifetime (Pinia keeps it alive across navigation),
@@ -82,19 +119,12 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   // Listen to player status changes
   on('player.statusChanged', (payload: PlayerStatusPayload) => {
-    const status = payload.status
-    const playbackState = getPlaybackState(status)
-    isPlaying.value = playbackState.isPlaying
-    isPaused.value = playbackState.isPaused
-
-    setCurrentTime(normalizeCurrentTime(status, payload.currentTime))
-
-    if (payload.currentTrack) {
-      currentTrack.value = mapStatusTrackToTrackInfo(payload.currentTrack)
-      trackDuration.value = payload.currentTrack.duration
-    }
-
-    queuePreview.value = payload.queuePreview ?? []
+    applyPlaybackSnapshot(
+      payload.status,
+      normalizeCurrentTime(payload.status, payload.currentTime),
+      payload.currentTrack ? mapStatusTrackToTrackInfo(payload.currentTrack) : undefined,
+      payload.queuePreview ?? [],
+    )
   })
 
   // Listen to track changes
@@ -155,7 +185,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     const result = await pausePlayback()
 
     if (!result.ok) {
-      error.value = mapPlaybackErrorMessage(result.error, 'pause')
+      const didReconcile = await reconcileTransportState('paused')
+      error.value = didReconcile ? null : mapPlaybackErrorMessage(result.error, 'pause')
       isLoading.value = false
       return
     }
@@ -176,7 +207,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     const result = await resumePlayback()
 
     if (!result.ok) {
-      error.value = mapPlaybackErrorMessage(result.error, 'resume')
+      const didReconcile = await reconcileTransportState('playing')
+      error.value = didReconcile ? null : mapPlaybackErrorMessage(result.error, 'resume')
       isLoading.value = false
       return
     }
@@ -396,19 +428,8 @@ export const usePlaybackStore = defineStore('playback', () => {
       return // Silently fail — WebSocket will sync on next status change
     }
 
-    const { status, currentTime, currentTrack: track } = result.value
-    const playbackState = getPlaybackState(status)
-    isPlaying.value = playbackState.isPlaying
-    isPaused.value = playbackState.isPaused
-
-    setCurrentTime(currentTime)
-
-    if (track) {
-      currentTrack.value = track
-      if (track.duration !== undefined) {
-        trackDuration.value = track.duration
-      }
-    }
+    const { status, currentTime: nextCurrentTime, currentTrack: track } = result.value
+    applyPlaybackSnapshot(status, nextCurrentTime, track)
   }
 
   /**

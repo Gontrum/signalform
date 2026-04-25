@@ -43,6 +43,7 @@ export const useQueueDrag = ({
   reorderTrack,
   dropMessages,
 }: UseQueueDragArgs): UseQueueDragResult => {
+  const touchMoveListenerOptions: AddEventListenerOptions = { passive: false }
   const dragFromIndex = ref<number | null>(null)
   const dragOverIndex = ref<number | null>(null)
   const dragTrackId = ref<string | null>(null)
@@ -108,6 +109,8 @@ export const useQueueDrag = ({
   }
 
   const handleDocumentTouchMove = (event: TouchEvent): void => {
+    event.preventDefault()
+
     const touch = event.touches[0]
     if (touch === undefined) {
       return
@@ -117,7 +120,7 @@ export const useQueueDrag = ({
   }
 
   const handleDocumentTouchEnd = (): void => {
-    document.removeEventListener('touchmove', handleDocumentTouchMove)
+    document.removeEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.removeEventListener('touchend', handleDocumentTouchEnd)
     document.removeEventListener('touchcancel', handleDocumentTouchEnd)
     commitReorder()
@@ -126,7 +129,7 @@ export const useQueueDrag = ({
   onBeforeUnmount(() => {
     document.removeEventListener('mousemove', handleDocumentMouseMove)
     document.removeEventListener('mouseup', handleDocumentMouseUp)
-    document.removeEventListener('touchmove', handleDocumentTouchMove)
+    document.removeEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.removeEventListener('touchend', handleDocumentTouchEnd)
     document.removeEventListener('touchcancel', handleDocumentTouchEnd)
   })
@@ -151,6 +154,8 @@ export const useQueueDrag = ({
       return
     }
 
+    event.preventDefault()
+
     const touch = event.touches[0]
     if (touch === undefined) {
       return
@@ -162,7 +167,7 @@ export const useQueueDrag = ({
     isTouchDragging.value = true
     updateDragTargetFromPoint(touch.clientX, touch.clientY)
 
-    document.addEventListener('touchmove', handleDocumentTouchMove)
+    document.addEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.addEventListener('touchend', handleDocumentTouchEnd)
     document.addEventListener('touchcancel', handleDocumentTouchEnd)
   }

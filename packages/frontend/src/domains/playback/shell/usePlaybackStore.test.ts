@@ -51,10 +51,13 @@ vi.mock('@/utils/runtimeUrls', () => ({
 
 import { usePlaybackStore } from './usePlaybackStore'
 import {
+  pausePlayback,
+  resumePlayback,
   setVolume as apiSetVolume,
   getVolume as apiGetVolume,
   seek as apiSeek,
   getCurrentTime as apiGetCurrentTime,
+  getPlaybackStatus,
 } from '@/platform/api/playbackApi'
 import type { PlaybackApiError } from '@/platform/api/playbackApi'
 
@@ -64,6 +67,9 @@ const mockSetVolume = vi.mocked(apiSetVolume)
 const mockGetVolume = vi.mocked(apiGetVolume)
 const mockSeek = vi.mocked(apiSeek)
 const mockGetCurrentTime = vi.mocked(apiGetCurrentTime)
+const mockPausePlayback = vi.mocked(pausePlayback)
+const mockResumePlayback = vi.mocked(resumePlayback)
+const mockGetPlaybackStatus = vi.mocked(getPlaybackStatus)
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
@@ -218,6 +224,56 @@ describe('stop', () => {
     expect(store.isPaused).toBe(false)
     expect(store.currentTrack).toBeNull()
     expect(store.error).toBeNull()
+  })
+})
+
+describe('pause and resume reconciliation', () => {
+  it('treats pause as successful when the API call errors but status is already paused', async () => {
+    mockPausePlayback.mockResolvedValue(err(networkErr))
+    mockGetPlaybackStatus.mockResolvedValue(
+      ok({ status: 'paused', currentTime: 12, currentTrack: undefined }),
+    )
+
+    const store = usePlaybackStore()
+    store.$patch({ isPlaying: true, isPaused: false })
+
+    await store.pause()
+
+    expect(store.error).toBeNull()
+    expect(store.isPaused).toBe(true)
+    expect(store.isPlaying).toBe(false)
+  })
+
+  it('treats resume as successful when the API call errors but status is already playing', async () => {
+    mockResumePlayback.mockResolvedValue(err(networkErr))
+    mockGetPlaybackStatus.mockResolvedValue(
+      ok({ status: 'playing', currentTime: 24, currentTrack: undefined }),
+    )
+
+    const store = usePlaybackStore()
+    store.$patch({ isPlaying: false, isPaused: true })
+
+    await store.resume()
+
+    expect(store.error).toBeNull()
+    expect(store.isPaused).toBe(false)
+    expect(store.isPlaying).toBe(true)
+  })
+
+  it('keeps the error when pause fails and the fetched status is not paused', async () => {
+    mockPausePlayback.mockResolvedValue(err(networkErr))
+    mockGetPlaybackStatus.mockResolvedValue(
+      ok({ status: 'playing', currentTime: 9, currentTrack: undefined }),
+    )
+
+    const store = usePlaybackStore()
+    store.$patch({ isPlaying: true, isPaused: false })
+
+    await store.pause()
+
+    expect(store.error).not.toBeNull()
+    expect(store.isPlaying).toBe(true)
+    expect(store.isPaused).toBe(false)
   })
 })
 

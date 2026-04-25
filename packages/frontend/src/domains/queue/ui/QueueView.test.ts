@@ -401,6 +401,42 @@ describe('QueueView', () => {
     wrapper.unmount()
   })
 
+  it('prevents native page scrolling while a touch reorder is active', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="1"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    const reorderButton = wrapper.findAll('[data-testid="queue-track-reorder"]')[0]
+    expect(reorderButton?.classes()).toContain('touch-none')
+
+    const touchStartEvent = new TouchEvent('touchstart', {
+      touches: [createTouch(20, 20)],
+      cancelable: true,
+    })
+    reorderButton?.element.dispatchEvent(touchStartEvent)
+    await nextTick()
+
+    const touchMoveEvent = new TouchEvent('touchmove', {
+      touches: [createTouch(40, 40)],
+      cancelable: true,
+    })
+
+    document.dispatchEvent(touchMoveEvent)
+    expect(touchMoveEvent.defaultPrevented).toBe(true)
+
+    document.dispatchEvent(new TouchEvent('touchend'))
+    await flushPromises()
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
   it('shows top-side drop hint when dragging upward to an earlier row', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
 

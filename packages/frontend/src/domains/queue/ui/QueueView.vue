@@ -280,11 +280,11 @@ const isRadioTrack = (index: number): boolean => isQueueRadioTrack(index, radioB
                 <button
                   type="button"
                   data-testid="queue-track-reorder"
-                  class="min-h-11 min-w-11 rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  class="min-h-11 min-w-11 touch-none select-none rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
                   :disabled="isMutatingQueue || isJumping"
                   :aria-label="`Reorder ${track.title}`"
                   @mousedown="startMouseDrag($event, track.id, index)"
-                  @touchstart.passive="startTouchDrag($event, track.id, index)"
+                  @touchstart="startTouchDrag($event, track.id, index)"
                 >
                   <span aria-hidden="true">↕</span>
                 </button>
