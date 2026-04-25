@@ -1,0 +1,41 @@
+# Auto-detect text files
+* text=auto
+
+# Source code
+*.ts text eol=lf
+*.tsx text eol=lf
+*.vue text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Lockfiles (don't merge)
+pnpm-lock.yaml merge=binary
+
+# Images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+
+# Fonts
+*.woff binary
+*.woff2 binary
+
+# Archives
+*.tar binary
+*.gz binary
+*.zip binary
+
+# Linguist overrides (for GitHub stats)
+*.md linguist-documentation
+docs/** linguist-documentation

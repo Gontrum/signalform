@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"] # All branches
+  pull_request:
+    branches: [main] # PRs to main
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  quality-check:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [22.x]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @signalform/shared build
+
+      - name: Run ESLint
+        run: pnpm -r lint
+
+      - name: Run TypeScript type-check
+        run: pnpm -r type-check
+
+      - name: Run Prettier check
+        run: pnpm -r format:check
+
+      - name: Run tests with coverage
+        run: pnpm -r test:coverage
+
+      - name: Build production
+        run: pnpm -r build
+
+      - name: Run shellcheck
+        run: shellcheck install.sh scripts/build-release.sh
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: quality-check
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @signalform/shared build
+
+      - name: Build frontend
+        run: pnpm --filter frontend build-only
+
+      - name: Install Playwright browsers (Chromium only)
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      - name: Run E2E tests (mocked, no LMS required)
+        run: pnpm --filter frontend test:e2e:ci
+
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: packages/frontend/playwright-report/
+          retention-days: 7

@@ -1,0 +1,51 @@
+{
+  "name": "signalform-plugins",
+  "description": "LSP plugins for Signalform",
+  "owner": { "name": "David" },
+  "plugins": [
+    {
+      "name": "typescript-lsp",
+      "description": "TypeScript/JavaScript LSP",
+      "version": "1.0.0",
+      "author": { "name": "David", "email": "d@example.com" },
+      "source": "./.claude-plugin/plugins/typescript-lsp",
+      "strict": false,
+      "lspServers": {
+        "typescript": {
+          "command": "vtsls",
+          "args": ["--stdio"],
+          "extensionToLanguage": {
+            ".ts": "typescript",
+            ".tsx": "typescriptreact",
+            ".js": "javascript",
+            ".jsx": "javascriptreact",
+            ".mts": "typescript",
+            ".cts": "typescript"
+          }
+        }
+      }
+    },
+    {
+      "name": "vue-lsp",
+      "description": "Vue 3 LSP (v2 server)",
+      "version": "1.0.0",
+      "author": { "name": "David", "email": "d@example.com" },
+      "source": "./.claude-plugin/plugins/vue-lsp",
+      "strict": false,
+      "lspServers": {
+        "vue": {
+          "command": "vue-language-server",
+          "args": ["--stdio"],
+          "extensionToLanguage": {
+            ".vue": "vue"
+          },
+          "initializationOptions": {
+            "typescript": {
+              "tsdk": "node_modules/typescript/lib"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

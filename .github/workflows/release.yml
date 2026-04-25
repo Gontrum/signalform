@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: Full CI suite + shellcheck — gates the build
+  # ---------------------------------------------------------------------------
+  quality-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @signalform/shared build
+
+      - name: Run ESLint
+        run: pnpm -r lint
+
+      - name: Run TypeScript type-check
+        run: pnpm -r type-check
+
+      - name: Run Prettier check
+        run: pnpm -r format:check
+
+      - name: Run tests with coverage
+        run: pnpm -r test:coverage
+
+      - name: Build production
+        run: pnpm -r build
+
+      - name: Shellcheck installer scripts
+        run: shellcheck install.sh scripts/build-release.sh
+
+  # ---------------------------------------------------------------------------
+  # Job 2: Build per-platform release tarballs
+  # ---------------------------------------------------------------------------
+  build-assets:
+    needs: quality-check
+
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux-x64
+          - runner: ubuntu-24.04-arm
+            platform: linux-arm64
+          - runner: macos-latest
+            platform: darwin-arm64
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build release tarball
+        run: |
+          bash scripts/build-release.sh \
+            --version "${{ steps.version.outputs.version }}" \
+            --output-dir dist-release/
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: signalform-${{ steps.version.outputs.version }}-${{ matrix.platform }}
+          path: dist-release/*.tar.gz
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Job 3: Create GitHub Release and attach all platform tarballs
+  # ---------------------------------------------------------------------------
+  create-release:
+    needs: build-assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: signalform-*
+          merge-multiple: true
+          path: dist-release/
+
+      - name: List release assets
+        run: ls -lh dist-release/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: dist-release/*.tar.gz
+          generate_release_notes: true
+
+  docker-image:
+    needs: quality-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/gontrum/signalform
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

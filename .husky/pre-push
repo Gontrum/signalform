@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+# Run unit tests, type-check, and lint before pushing.
+# E2E tests (pnpm test:e2e:ci) require a production build and are left to CI.
+# Run them manually before pushing if you changed E2E-relevant code:
+#   pnpm test:e2e:ci
+
+pnpm test && pnpm type-check && pnpm lint

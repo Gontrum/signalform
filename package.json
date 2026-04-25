@@ -1,0 +1,57 @@
+{
+  "name": "signalform",
+  "version": "0.9.0",
+  "private": true,
+  "type": "module",
+  "description": "Signalform - Music Player Monorepo",
+  "packageManager": "pnpm@9.15.2",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "start:production": "node scripts/start-production-stack.mjs",
+    "measure:lms-host": "node scripts/measure-lms-host-viability.mjs",
+    "verify:production": "node scripts/verify-production-stack.mjs",
+    "test": "pnpm -r run test",
+    "test:unit": "pnpm -r run test",
+    "test:coverage": "pnpm -r run test -- --coverage",
+    "lint": "pnpm -r run lint",
+    "lint:fix": "pnpm -r run lint -- --fix",
+    "type-check": "pnpm -r run type-check",
+    "format": "pnpm -r run format",
+    "format:check": "pnpm -r run format:check",
+    "knip": "knip",
+    "test:e2e:ci": "pnpm --filter frontend run build && pnpm --filter frontend run test:e2e:ci",
+    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip",
+    "quality-gates": "pnpm run precommit",
+    "version:bump": "node scripts/bump-version.mjs",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "packages/**/src/**/*.{ts,tsx,vue}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "packages/**/*.{js,cjs,mjs}": [
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "eslint-plugin-functional": "^9.0.4",
+    "husky": "^9.1.7",
+    "knip": "^6.7.0",
+    "lint-staged": "^16.4.0",
+    "prettier": "3.8.3",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
