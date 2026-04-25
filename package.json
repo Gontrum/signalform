@@ -41,7 +41,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.59.0",
     "@typescript-eslint/parser": "^8.59.0",
-    "eslint": "^9.39.4",
+    "eslint": "^10.2.1",
     "eslint-plugin-boundaries": "^6.0.2",
     "eslint-plugin-functional": "^9.0.4",
     "husky": "^9.1.7",
