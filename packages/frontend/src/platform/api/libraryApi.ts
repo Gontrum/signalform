@@ -3,6 +3,7 @@ import type { Result } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult, fetchVoidResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
+import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type { LibraryAlbumsResponse, RescanStatus } from '@/domains/library/core/types'
 
 export type {
@@ -51,6 +52,13 @@ export const getLibraryAlbums = async (
     },
     {
       schema: LibraryAlbumsResponseSchema,
+      mapValue: (value: LibraryAlbumsResponse): LibraryAlbumsResponse => ({
+        ...value,
+        albums: value.albums.map((album) => ({
+          ...album,
+          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+        })),
+      }),
       mapHttpError: async (response) => ({
         type: 'SERVER_ERROR',
         status: response.status,

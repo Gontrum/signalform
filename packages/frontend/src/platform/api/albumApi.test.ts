@@ -46,6 +46,9 @@ describe('albumApi', () => {
       if (result.ok) {
         expect(result.value.id).toBe('42')
         expect(result.value.title).toBe('Dark Side of the Moon')
+        expect(result.value.coverArtUrl).toBe(
+          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F1%2Fcover.jpg',
+        )
         expect(result.value.tracks).toHaveLength(1)
       }
     })

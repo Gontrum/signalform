@@ -7,9 +7,10 @@
  * Uses setActivePinia(createPinia()) for isolated store per test.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { ok, err } from '@signalform/shared'
+import { flushPromises } from '@vue/test-utils'
 
 // ─── Hoisted mock factories ───────────────────────────────────────────────────
 
@@ -76,6 +77,11 @@ const mockGetPlaybackStatus = vi.mocked(getPlaybackStatus)
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
+  mockGetPlaybackStatus.mockResolvedValue(err(networkErr))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 // ─── setVolume — rollback paths ───────────────────────────────────────────────
@@ -277,6 +283,107 @@ describe('pause and resume reconciliation', () => {
   })
 })
 
+describe('initial playback sync', () => {
+  it('fetches playback status immediately when the store is created', async () => {
+    mockGetPlaybackStatus.mockResolvedValueOnce(
+      ok({
+        status: 'playing',
+        currentTime: 18,
+        currentTrack: {
+          id: 'track-1',
+          title: 'Money',
+          artist: 'Pink Floyd',
+          album: 'The Dark Side of the Moon',
+          url: 'file:///music/money.flac',
+          source: 'local',
+          duration: 382,
+        },
+      }),
+    )
+
+    const store = usePlaybackStore()
+    await flushPromises()
+
+    expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(1)
+    expect(store.currentTrack?.title).toBe('Money')
+    expect(store.currentTime).toBe(18)
+    expect(store.hasCurrentTrack).toBe(true)
+  })
+
+  it('clears a stale track when the refreshed status has no current track', async () => {
+    mockGetPlaybackStatus.mockResolvedValueOnce(
+      ok({
+        status: 'stopped',
+        currentTime: 0,
+        currentTrack: undefined,
+      }),
+    )
+
+    const store = usePlaybackStore()
+    store.$patch({
+      currentTrack: {
+        id: 'stale-track',
+        title: 'Stale',
+        artist: 'Artist',
+        album: 'Album',
+        url: 'file:///stale.flac',
+        source: 'local',
+      },
+      trackDuration: 120,
+      isPlaying: true,
+    })
+
+    await flushPromises()
+
+    expect(store.currentTrack).toBeNull()
+    expect(store.trackDuration).toBeNull()
+    expect(store.isPlaying).toBe(false)
+  })
+
+  it('re-syncs playback status when the app regains focus', async () => {
+    mockGetPlaybackStatus
+      .mockResolvedValueOnce(
+        ok({
+          status: 'paused',
+          currentTime: 11,
+          currentTrack: {
+            id: 'track-1',
+            title: 'Before',
+            artist: 'Artist',
+            album: 'Album',
+            url: 'file:///before.flac',
+            source: 'local',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          status: 'playing',
+          currentTime: 44,
+          currentTrack: {
+            id: 'track-2',
+            title: 'After',
+            artist: 'Artist',
+            album: 'Album',
+            url: 'file:///after.flac',
+            source: 'local',
+          },
+        }),
+      )
+
+    const store = usePlaybackStore()
+    await flushPromises()
+
+    window.dispatchEvent(new Event('focus'))
+    await flushPromises()
+
+    expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(2)
+    expect(store.currentTrack?.title).toBe('After')
+    expect(store.currentTime).toBe(44)
+    expect(store.isCurrentlyPlaying).toBe(true)
+  })
+})
+
 // ─── seekToPosition — rollback ────────────────────────────────────────────────
 
 describe('seekToPosition', () => {
@@ -376,5 +483,33 @@ describe('WebSocket player.statusChanged handler', () => {
 
     expect(store.isPlaying).toBe(false)
     expect(store.isPaused).toBe(true)
+  })
+})
+
+describe('progress ticking', () => {
+  it('increments current time locally while playback is running', async () => {
+    vi.useFakeTimers()
+    mockGetPlaybackStatus.mockResolvedValueOnce(
+      ok({
+        status: 'playing',
+        currentTime: 5,
+        currentTrack: {
+          id: 'track-1',
+          title: 'Time',
+          artist: 'Pink Floyd',
+          album: 'The Dark Side of the Moon',
+          url: 'file:///music/time.flac',
+          source: 'local',
+          duration: 10,
+        },
+      }),
+    )
+
+    const store = usePlaybackStore()
+    await flushPromises()
+
+    vi.advanceTimersByTime(3000)
+
+    expect(store.currentTime).toBe(8)
   })
 })

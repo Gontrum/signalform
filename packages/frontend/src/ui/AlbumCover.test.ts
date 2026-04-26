@@ -64,11 +64,14 @@ describe('AlbumCover', () => {
     )
   })
 
-  it('has loading="lazy" on thumbnail image', () => {
+  it('loads the thumbnail eagerly for the visible now-playing cover', () => {
     const wrapper = mount(AlbumCover, {
       props: { coverArtUrl: 'http://localhost:9000/music/123/cover.jpg' },
     })
-    expect(wrapper.find('[data-testid="album-cover-thumbnail"]').attributes('loading')).toBe('lazy')
+    const thumbnail = wrapper.find('[data-testid="album-cover-thumbnail"]')
+    expect(thumbnail.attributes('loading')).toBe('eager')
+    expect(thumbnail.attributes('fetchpriority')).toBe('high')
+    expect(thumbnail.attributes('decoding')).toBe('async')
   })
 
   it('has responsive size classes on container', () => {
@@ -125,11 +128,14 @@ describe('AlbumCover', () => {
     )
   })
 
-  it('has loading="lazy" on full-res image', async () => {
+  it('loads the full-resolution image eagerly after the thumbnail resolves', async () => {
     const wrapper = mount(AlbumCover, {
       props: { coverArtUrl: 'http://localhost:9000/music/123/cover.jpg' },
     })
     await wrapper.find('[data-testid="album-cover-thumbnail"]').trigger('load')
-    expect(wrapper.find('[data-testid="album-cover-image"]').attributes('loading')).toBe('lazy')
+    const fullImage = wrapper.find('[data-testid="album-cover-image"]')
+    expect(fullImage.attributes('loading')).toBe('eager')
+    expect(fullImage.attributes('fetchpriority')).toBe('high')
+    expect(fullImage.attributes('decoding')).toBe('async')
   })
 })

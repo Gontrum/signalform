@@ -48,6 +48,9 @@ describe('artistApi', () => {
         expect(result.value.id).toBe('42')
         expect(result.value.name).toBe('Pink Floyd')
         expect(result.value.albums).toHaveLength(2)
+        expect(result.value.albums[0]?.coverArtUrl).toBe(
+          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F101%2Fcover.jpg',
+        )
       }
     })
 
@@ -249,6 +252,9 @@ describe('artistApi', () => {
         expect(result.value.localAlbums).toHaveLength(1)
         expect(result.value.tidalAlbums).toHaveLength(1)
         expect(result.value.localAlbums[0]?.title).toBe('Pablo Honey')
+        expect(result.value.localAlbums[0]?.coverArtUrl).toBe(
+          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F101%2Fcover.jpg',
+        )
       }
     })
 

@@ -11,6 +11,8 @@ import { nextTick } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
 import PlaybackControls from '@/domains/playback/ui/PlaybackControls.vue'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
+import { getPlaybackStatus } from '@/platform/api/playbackApi'
+import { ok } from '@signalform/shared'
 
 // Mock the playback API
 vi.mock('@/platform/api/playbackApi', async () => {
@@ -34,6 +36,7 @@ type TestContext = {
   readonly resumeSpy: ReturnType<typeof vi.spyOn>
   readonly skipToNextSpy: ReturnType<typeof vi.spyOn>
   readonly skipToPreviousSpy: ReturnType<typeof vi.spyOn>
+  readonly store: ReturnType<typeof usePlaybackStore>
   readonly wrapper: VueWrapper
 }
 
@@ -129,8 +132,21 @@ describe('PlaybackControls', () => {
     })
 
     it('calls resume when paused', async () => {
-      await givenTrackIsPaused()
       const context = await whenPlaybackControlsIsMounted()
+      context.store.$patch({
+        isPlaying: false,
+        isPaused: true,
+        currentTrack: {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+          url: 'file:///test.flac',
+          source: 'local',
+          duration: 180,
+        },
+      })
+      await nextTick()
 
       await whenPlayPauseButtonIsClicked(context.wrapper)
 
@@ -211,27 +227,26 @@ describe('PlaybackControls', () => {
   // -----------------------------------------------------------------------------
 
   const givenTrackIsPlaying = async (): Promise<void> => {
+    vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
+      ok({
+        status: 'playing',
+        currentTime: 0,
+        currentTrack: {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+          url: 'file:///test.flac',
+          source: 'local',
+          duration: 180,
+        },
+      }),
+    )
+
     const store = usePlaybackStore()
     store.$patch({
       isPlaying: true,
       isPaused: false,
-      currentTrack: {
-        id: '1',
-        title: 'Test Track',
-        artist: 'Test Artist',
-        album: 'Test Album',
-        url: 'file:///test.flac',
-        duration: 180,
-      },
-    })
-    await nextTick()
-  }
-
-  const givenTrackIsPaused = async (): Promise<void> => {
-    const store = usePlaybackStore()
-    store.$patch({
-      isPlaying: true,
-      isPaused: true,
       currentTrack: {
         id: '1',
         title: 'Test Track',
@@ -262,6 +277,7 @@ describe('PlaybackControls', () => {
       resumeSpy: vi.spyOn(store, 'resume'),
       skipToNextSpy: vi.spyOn(store, 'skipToNext'),
       skipToPreviousSpy: vi.spyOn(store, 'skipToPrevious'),
+      store,
       wrapper,
     }
   }
@@ -373,7 +389,8 @@ describe('PlaybackControls', () => {
   }
 
   const thenResumeWasCalled = async (context: TestContext): Promise<void> => {
-    expect(context.resumeSpy).toHaveBeenCalled()
+    expect(context.store.isPaused).toBe(false)
+    expect(context.store.isPlaying).toBe(true)
   }
 
   const thenPlayIconIsVisible = async (wrapper: VueWrapper): Promise<void> => {

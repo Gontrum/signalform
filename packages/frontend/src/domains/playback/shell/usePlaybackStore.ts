@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   playTrack,
   nextTrack,
@@ -33,6 +33,13 @@ import {
 } from '@/domains/playback/core/service'
 import type { TrackInfo } from '@/domains/playback/core/types'
 
+const globalPlaybackSyncHandler = ref<(() => void) | null>(null)
+const hasRegisteredGlobalPlaybackSyncListeners = ref(false)
+
+const invokeGlobalPlaybackSync = (): void => {
+  globalPlaybackSyncHandler.value?.()
+}
+
 /**
  * Playback Store
  *
@@ -62,6 +69,8 @@ export const usePlaybackStore = defineStore('playback', () => {
   // LMS connectivity state (S02: actionable error with retry)
   const lmsError = ref<string | null>(null)
   const isRetryingLms = ref(false)
+  const hasInitializedSync = ref(false)
+  const progressClock = ref<ReturnType<typeof setInterval> | null>(null)
 
   // ── Getters (Functional Core) ─────────────────────────────
   const hasCurrentTrack = computed(() => currentTrack.value !== null)
@@ -75,7 +84,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const applyPlaybackSnapshot = (
     status: 'playing' | 'paused' | 'stopped',
     nextCurrentTime: number,
-    track?: TrackInfo,
+    track?: TrackInfo | null,
     nextQueuePreview?: readonly QueuePreviewItem[],
   ): void => {
     const playbackState = getPlaybackState(status)
@@ -85,12 +94,38 @@ export const usePlaybackStore = defineStore('playback', () => {
 
     if (track !== undefined) {
       currentTrack.value = track
-      trackDuration.value = track.duration ?? null
+      trackDuration.value = track?.duration ?? null
     }
 
     if (nextQueuePreview !== undefined) {
       queuePreview.value = nextQueuePreview
     }
+  }
+
+  const stopProgressClock = (): void => {
+    if (progressClock.value !== null) {
+      clearInterval(progressClock.value)
+      progressClock.value = null
+    }
+  }
+
+  const startProgressClock = (): void => {
+    if (progressClock.value !== null) {
+      return
+    }
+
+    progressClock.value = setInterval(() => {
+      if (!isPlaying.value || isPaused.value || currentTrack.value === null) {
+        stopProgressClock()
+        return
+      }
+
+      const nextTime = currentTime.value + 1
+      const maxDuration = trackDuration.value
+
+      currentTime.value =
+        maxDuration === null ? nextTime : Math.min(nextTime, Math.max(maxDuration, 0))
+    }, 1000)
   }
 
   const reconcileTransportState = async (
@@ -104,9 +139,54 @@ export const usePlaybackStore = defineStore('playback', () => {
 
     const { status, currentTime: nextCurrentTime, currentTrack: track } = statusResult.value
 
-    applyPlaybackSnapshot(status, nextCurrentTime, track)
+    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null)
 
     return status === expectedStatus
+  }
+
+  const fetchCurrentStatus = async (): Promise<void> => {
+    const result = await getPlaybackStatus()
+    if (!result.ok) {
+      return // Silently fail — WebSocket will sync on next status change
+    }
+
+    const { status, currentTime: nextCurrentTime, currentTrack: track } = result.value
+    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null)
+  }
+
+  const syncPlaybackState = (): void => {
+    void fetchCurrentStatus().catch(() => undefined)
+  }
+
+  const initializePlaybackSync = (): void => {
+    if (hasInitializedSync.value) {
+      return
+    }
+
+    hasInitializedSync.value = true
+    globalPlaybackSyncHandler.value = syncPlaybackState
+    syncPlaybackState()
+
+    if (hasRegisteredGlobalPlaybackSyncListeners.value) {
+      return
+    }
+
+    hasRegisteredGlobalPlaybackSyncListeners.value = true
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          invokeGlobalPlaybackSync()
+        }
+      })
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', invokeGlobalPlaybackSync)
+      window.addEventListener('pageshow', invokeGlobalPlaybackSync)
+      window.addEventListener('orientationchange', invokeGlobalPlaybackSync)
+      window.addEventListener('resize', invokeGlobalPlaybackSync)
+    }
   }
 
   // ── WebSocket Integration (Imperative Shell) ──────────────
@@ -122,7 +202,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     applyPlaybackSnapshot(
       payload.status,
       normalizeCurrentTime(payload.status, payload.currentTime),
-      payload.currentTrack ? mapStatusTrackToTrackInfo(payload.currentTrack) : undefined,
+      payload.currentTrack ? mapStatusTrackToTrackInfo(payload.currentTrack) : null,
       payload.queuePreview ?? [],
     )
   })
@@ -147,6 +227,7 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   on('system.lmsReconnected', (_payload: SystemEventPayload) => {
     lmsError.value = null
+    syncPlaybackState()
   })
 
   // ── Actions (Imperative Shell) ────────────────────────────
@@ -416,23 +497,6 @@ export const usePlaybackStore = defineStore('playback', () => {
   }
 
   /**
-   * Fetch current playback status via HTTP and populate store state.
-   *
-   * Called once at store initialization so "Now Playing" is populated
-   * immediately on page load, without waiting for the first WebSocket
-   * player.statusChanged event (which only fires when status changes).
-   */
-  const fetchCurrentStatus = async (): Promise<void> => {
-    const result = await getPlaybackStatus()
-    if (!result.ok) {
-      return // Silently fail — WebSocket will sync on next status change
-    }
-
-    const { status, currentTime: nextCurrentTime, currentTrack: track } = result.value
-    applyPlaybackSnapshot(status, nextCurrentTime, track)
-  }
-
-  /**
    * Retry LMS connection — polls GET /health, re-subscribes socket on success
    */
   const retryLmsConnection = async (): Promise<void> => {
@@ -446,11 +510,27 @@ export const usePlaybackStore = defineStore('playback', () => {
       lmsError.value = null
       isRetryingLms.value = false
       subscribe()
+      syncPlaybackState()
       return
     }
 
     isRetryingLms.value = false
   }
+
+  watch(
+    () => [isPlaying.value, isPaused.value, currentTrack.value] as const,
+    ([playing, paused, track]) => {
+      if (playing && !paused && track !== null) {
+        startProgressClock()
+        return
+      }
+
+      stopProgressClock()
+    },
+    { immediate: true },
+  )
+
+  initializePlaybackSync()
 
   return {
     // State

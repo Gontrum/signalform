@@ -286,6 +286,19 @@ describe('fetchAutocomplete', () => {
     await thenResultContainsAutocompleteQuery(result, 'Pink')
   })
 
+  it('proxies insecure autocomplete album covers through the backend cover route', async () => {
+    await givenBackendReturnsAutocompleteSuccess()
+
+    const result = await whenFetchAutocompleteIsCalled('Pink')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.suggestions[0]?.albumCover).toBe(
+        '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F11%2Fcover.jpg',
+      )
+    }
+  })
+
   it('handles network errors', async () => {
     await givenBackendIsUnreachable()
 
@@ -336,9 +349,11 @@ describe('fetchAutocomplete', () => {
       json: async () => ({
         suggestions: [
           {
-            id: 'artist-1',
-            type: 'artist',
+            id: 'album-1',
+            type: 'album',
             artist: 'Pink Floyd',
+            album: 'The Wall',
+            albumCover: 'http://localhost:9000/music/11/cover.jpg',
           },
         ],
         query: 'Pink',
@@ -486,6 +501,22 @@ describe('fetchFullResults', () => {
     await thenFullResultContainsAlbums(result)
   })
 
+  it('proxies insecure album and artist cover URLs through the backend cover route', async () => {
+    await givenBackendReturnsFullResults()
+
+    const result = await whenFetchFullResultsIsCalled('Pink Floyd')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.albums[0]?.coverArtUrl).toBe(
+        '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F101%2Fcover.jpg',
+      )
+      expect(result.value.artists[0]?.coverArtUrl).toBe(
+        '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F201%2Fcover.jpg',
+      )
+    }
+  })
+
   it('handles network errors', async () => {
     await givenBackendIsUnreachable()
 
@@ -546,9 +577,16 @@ describe('fetchFullResults', () => {
             title: 'The Wall',
             artist: 'Pink Floyd',
             trackCount: 26,
+            coverArtUrl: 'http://localhost:9000/music/101/cover.jpg',
           },
         ],
-        artists: [{ name: 'Pink Floyd', artistId: '42' }],
+        artists: [
+          {
+            name: 'Pink Floyd',
+            artistId: '42',
+            coverArtUrl: 'http://localhost:9000/music/201/cover.jpg',
+          },
+        ],
         query: 'Pink Floyd',
         totalResults: 1,
       }),

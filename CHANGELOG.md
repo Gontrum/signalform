@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.3] - 2026-04-26
+
+### Fixed
+
+- iPhone/PWA playback now loads the current track immediately on app start
+- Playback progress stays in sync more reliably after focus, rotation, pause, and resume
+- Queue drag-and-drop on iPhone suppresses accidental text selection and touch-callout interference
+- LMS cover art now loads through the backend proxy, avoiding mixed-content and direct LMS reachability issues on mobile PWAs
+
+### Changed
+
+- Added automated regression coverage for playback sync, mobile queue drag handling, and proxied cover-art loading
+
+---
+
 ## [0.9.0] - 2026-04-24
 
 ### 🎉 Initial Public Release
@@ -90,5 +105,6 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/Gontrum/signalform/releases/tag/v0.9.3
 [0.9.0]: https://github.com/Gontrum/signalform/releases/tag/v0.9.0

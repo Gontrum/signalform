@@ -51,6 +51,30 @@ export const useQueueDrag = ({
 
   const isDragActive = computed(() => dragFromIndex.value !== null)
 
+  const preventSelectionWhileDragging = (event: Event): void => {
+    event.preventDefault()
+  }
+
+  const enableTouchDragProtections = (): void => {
+    document.addEventListener('selectstart', preventSelectionWhileDragging)
+    document.addEventListener('contextmenu', preventSelectionWhileDragging)
+    document.addEventListener('dragstart', preventSelectionWhileDragging)
+
+    document.body.style.setProperty('user-select', 'none')
+    document.body.style.setProperty('-webkit-user-select', 'none')
+    document.body.style.setProperty('-webkit-touch-callout', 'none')
+  }
+
+  const disableTouchDragProtections = (): void => {
+    document.removeEventListener('selectstart', preventSelectionWhileDragging)
+    document.removeEventListener('contextmenu', preventSelectionWhileDragging)
+    document.removeEventListener('dragstart', preventSelectionWhileDragging)
+
+    document.body.style.removeProperty('user-select')
+    document.body.style.removeProperty('-webkit-user-select')
+    document.body.style.removeProperty('-webkit-touch-callout')
+  }
+
   const clearDragState = (): void => {
     dragFromIndex.value = null
     dragOverIndex.value = null
@@ -123,6 +147,7 @@ export const useQueueDrag = ({
     document.removeEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.removeEventListener('touchend', handleDocumentTouchEnd)
     document.removeEventListener('touchcancel', handleDocumentTouchEnd)
+    disableTouchDragProtections()
     commitReorder()
   }
 
@@ -132,6 +157,7 @@ export const useQueueDrag = ({
     document.removeEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.removeEventListener('touchend', handleDocumentTouchEnd)
     document.removeEventListener('touchcancel', handleDocumentTouchEnd)
+    disableTouchDragProtections()
   })
 
   const startMouseDrag = (event: MouseEvent, trackId: string, trackIndex: number): void => {
@@ -166,6 +192,7 @@ export const useQueueDrag = ({
     dragTrackId.value = trackId
     isTouchDragging.value = true
     updateDragTargetFromPoint(touch.clientX, touch.clientY)
+    enableTouchDragProtections()
 
     document.addEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.addEventListener('touchend', handleDocumentTouchEnd)

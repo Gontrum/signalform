@@ -437,6 +437,41 @@ describe('QueueView', () => {
     wrapper.unmount()
   })
 
+  it('prevents text selection while a touch reorder is active and restores the page afterwards', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="1"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    const reorderButton = wrapper.findAll('[data-testid="queue-track-reorder"]')[0]
+    reorderButton?.element.dispatchEvent(
+      new TouchEvent('touchstart', {
+        touches: [createTouch(20, 20)],
+        cancelable: true,
+      }),
+    )
+    await nextTick()
+
+    const selectStartEvent = new Event('selectstart', { cancelable: true })
+    document.dispatchEvent(selectStartEvent)
+
+    expect(selectStartEvent.defaultPrevented).toBe(true)
+    expect(document.body.style.getPropertyValue('user-select')).toBe('none')
+
+    document.dispatchEvent(new TouchEvent('touchend'))
+    await flushPromises()
+
+    expect(document.body.style.getPropertyValue('user-select')).toBe('')
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
   it('shows top-side drop hint when dragging upward to an earlier row', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
 

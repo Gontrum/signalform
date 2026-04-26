@@ -3,6 +3,8 @@ import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
 import AppLayout from './AppLayout.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
+import { getPlaybackStatus } from '@/platform/api/playbackApi'
+import { ok } from '@signalform/shared'
 
 vi.mock('@/platform/api/playbackApi', async () => {
   const { ok } = await import('@signalform/shared')
@@ -203,6 +205,21 @@ describe('AppLayout', () => {
   }
 
   const givenTrackIsPlaying = async (): Promise<void> => {
+    vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
+      ok({
+        status: 'playing',
+        currentTime: 0,
+        currentTrack: {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+          url: 'track://1',
+          source: 'local',
+        },
+      }),
+    )
+
     const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
     const store = usePlaybackStore()
     store.$patch({

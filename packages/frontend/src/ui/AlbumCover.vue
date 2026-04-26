@@ -95,7 +95,9 @@ const handleFullResError = (): void => {
       data-testid="album-cover-thumbnail"
       class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
       :class="thumbnailLoaded ? 'opacity-100' : 'opacity-0'"
-      loading="lazy"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
       @load="handleThumbnailLoad"
       @error="handleError"
     />
@@ -109,7 +111,9 @@ const handleFullResError = (): void => {
       data-testid="album-cover-image"
       class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300"
       :class="fullLoaded ? 'opacity-100' : 'opacity-0'"
-      loading="lazy"
+      loading="eager"
+      fetchpriority="high"
+      decoding="async"
       @load="handleFullLoad"
       @error="handleFullResError"
     />

@@ -5,6 +5,8 @@ import SearchResultsList from './SearchResultsList.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 import type { TrackResult, AlbumResult, ArtistResult } from '../core/types'
+import { getPlaybackStatus } from '@/platform/api/playbackApi'
+import { ok } from '@signalform/shared'
 
 // SearchResultsList uses useArtistImages which calls getArtistHeroImage
 vi.mock('@/platform/api/heroImageApi', async () => {
@@ -377,6 +379,21 @@ describe('SearchResultsList', () => {
   })
 
   it('emits pause event when pause button is clicked for currently playing track', async () => {
+    vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
+      ok({
+        status: 'playing',
+        currentTime: 0,
+        currentTrack: {
+          id: '1',
+          title: 'Comfortably Numb',
+          artist: 'Pink Floyd',
+          album: 'The Wall',
+          url: 'track://1',
+          source: 'local',
+        },
+      }),
+    )
+
     const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
     const store = usePlaybackStore()
 

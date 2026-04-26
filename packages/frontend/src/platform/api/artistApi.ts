@@ -3,6 +3,7 @@ import type { Result } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
+import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type {
   ArtistAlbum,
   ArtistApiError,
@@ -57,6 +58,17 @@ export const getArtistByName = async (
     },
     {
       schema: ArtistByNameResponseSchema,
+      mapValue: (value: ArtistByNameResponse): ArtistByNameResponse => ({
+        ...value,
+        localAlbums: value.localAlbums.map((album) => ({
+          ...album,
+          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+        })),
+        tidalAlbums: value.tidalAlbums.map((album) => ({
+          ...album,
+          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+        })),
+      }),
       mapHttpError: async (response) => {
         const message =
           (await parseErrorBody(response)) ?? `Artist by-name fetch failed: HTTP ${response.status}`
@@ -79,6 +91,13 @@ export const getArtistDetail = async (
     },
     {
       schema: ArtistDetailResponseSchema,
+      mapValue: (value: ArtistDetailResponse): ArtistDetailResponse => ({
+        ...value,
+        albums: value.albums.map((album) => ({
+          ...album,
+          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+        })),
+      }),
       mapHttpError: async (response) => {
         const message =
           (await parseErrorBody(response)) ?? `Artist fetch failed: HTTP ${response.status}`

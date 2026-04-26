@@ -1,4 +1,4 @@
-import { computed, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
@@ -20,10 +20,6 @@ type UseNowPlayingPanelResult = {
 export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const router = useRouter()
   const playbackStore = usePlaybackStore()
-
-  onMounted(() => {
-    void playbackStore.fetchCurrentStatus().catch(() => undefined)
-  })
 
   watch(
     () => playbackStore.error,

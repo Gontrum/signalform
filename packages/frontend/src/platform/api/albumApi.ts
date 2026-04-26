@@ -4,6 +4,7 @@ import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
 import { AudioQualitySchema } from '@/platform/api/commonSchemas'
+import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type { AlbumApiError, AlbumDetailResponse, AlbumTrack } from '@/domains/album/core/types'
 
 const AlbumTrackSchema = z.object({
@@ -43,6 +44,10 @@ export const getAlbumDetail = async (
     },
     {
       schema: AlbumDetailResponseSchema,
+      mapValue: (value: AlbumDetailResponse): AlbumDetailResponse => ({
+        ...value,
+        coverArtUrl: proxyCoverArtUrl(value.coverArtUrl),
+      }),
       mapHttpError: async (response) => {
         const message =
           (await parseErrorBody(response)) ?? `Album fetch failed: HTTP ${response.status}`

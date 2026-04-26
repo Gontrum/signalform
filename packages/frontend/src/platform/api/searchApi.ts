@@ -3,6 +3,7 @@ import type { Result, AudioQuality } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult } from '@/platform/api/requestResult'
 import { AudioQualitySchema } from '@/platform/api/commonSchemas'
+import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type {
   AlbumResult,
   ArtistResult,
@@ -179,6 +180,13 @@ export const fetchAutocomplete = async (
     },
     {
       schema: AutocompleteResponseSchema,
+      mapValue: (value: AutocompleteResponse): AutocompleteResponse => ({
+        ...value,
+        suggestions: value.suggestions.map((suggestion) => ({
+          ...suggestion,
+          albumCover: proxyCoverArtUrl(suggestion.albumCover),
+        })),
+      }),
       mapHttpError: mapSearchHttpError('Autocomplete failed'),
       mapThrownError: mapSearchThrownError,
       mapParseError: mapSearchParseError,
@@ -201,6 +209,17 @@ export const fetchFullResults = async (
     },
     {
       schema: SearchResultsResponseSchema,
+      mapValue: (value: SearchResultsResponse): SearchResultsResponse => ({
+        ...value,
+        albums: value.albums.map((album) => ({
+          ...album,
+          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+        })),
+        artists: value.artists.map((artist) => ({
+          ...artist,
+          coverArtUrl: proxyCoverArtUrl(artist.coverArtUrl),
+        })),
+      }),
       mapHttpError: mapSearchHttpError('Search failed'),
       mapThrownError: mapSearchThrownError,
       mapParseError: mapSearchParseError,

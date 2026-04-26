@@ -44,6 +44,9 @@ describe('libraryApi', () => {
       if (result.ok) {
         expect(result.value.albums).toHaveLength(1)
         expect(result.value.albums[0]?.id).toBe('42')
+        expect(result.value.albums[0]?.coverArtUrl).toBe(
+          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2Fabc123%2Fcover.jpg',
+        )
         expect(result.value.totalCount).toBe(1)
       }
     })
