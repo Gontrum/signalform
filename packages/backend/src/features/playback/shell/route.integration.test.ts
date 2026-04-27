@@ -732,7 +732,7 @@ describe("POST /api/playback/play-track-list - Integration Tests", () => {
     expect(mockPlaybackEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),
@@ -1411,7 +1411,13 @@ describe("GET /api/playback/status", () => {
         time: 42,
         duration: 240,
         volume: 70,
-        queuePreview: [],
+        queuePreview: [
+          {
+            id: "124",
+            title: "Us and Them",
+            artist: "Pink Floyd",
+          },
+        ],
         currentTrack: {
           id: "123",
           title: "Money",
@@ -1435,10 +1441,22 @@ describe("GET /api/playback/status", () => {
       readonly status: string;
       readonly currentTime: number;
       readonly currentTrack: { readonly title: string };
+      readonly queuePreview: readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly artist: string;
+      }[];
     }>();
     expect(body.status).toBe("playing");
     expect(body.currentTime).toBe(42);
     expect(body.currentTrack.title).toBe("Money");
+    expect(body.queuePreview).toEqual([
+      {
+        id: "124",
+        title: "Us and Them",
+        artist: "Pink Floyd",
+      },
+    ]);
   });
 
   it("maps LMS mode 'pause' to status 'paused'", async () => {

@@ -9,6 +9,12 @@ const VolumeResponseSchema = z.object({ level: z.number() })
 
 const TimeResponseSchema = z.object({ seconds: z.number() })
 
+const QueuePreviewItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artist: z.string(),
+})
+
 const CurrentTrackStatusSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -27,6 +33,7 @@ const PlaybackStatusResponseSchema = z.object({
   status: z.enum(['playing', 'paused', 'stopped']),
   currentTime: z.number(),
   currentTrack: CurrentTrackStatusSchema.optional(),
+  queuePreview: z.array(QueuePreviewItemSchema),
 })
 
 export type PlaybackStatusResponse = z.infer<typeof PlaybackStatusResponseSchema>

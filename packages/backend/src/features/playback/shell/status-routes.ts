@@ -273,9 +273,9 @@ export const registerStatusRoutes = (
   /**
    * GET /api/playback/status
    *
-   * Full player state snapshot (mode, position, current track).
+   * Full player state snapshot (mode, position, current track, up-next preview).
    * Called once on frontend init before the first WebSocket event arrives.
-   * 200: { status, currentTime, currentTrack? } | 503
+   * 200: { status, currentTime, currentTrack?, queuePreview } | 503
    */
   fastify.get(
     "/api/playback/status",
@@ -296,7 +296,7 @@ export const registerStatusRoutes = (
         );
       }
 
-      const { mode, time, duration, currentTrack } = result.value;
+      const { mode, time, duration, currentTrack, queuePreview } = result.value;
       const statusMap = {
         play: "playing",
         pause: "paused",
@@ -323,6 +323,7 @@ export const registerStatusRoutes = (
               audioQuality: currentTrack.audioQuality,
             }
           : undefined,
+        queuePreview,
       });
     },
   );

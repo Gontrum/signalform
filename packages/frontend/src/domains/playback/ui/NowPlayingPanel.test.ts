@@ -5,6 +5,22 @@ import NowPlayingPanel from '@/domains/playback/ui/NowPlayingPanel.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 
+type MockQueueTrack = {
+  readonly id: string
+  readonly position: number
+  readonly title: string
+  readonly artist: string
+}
+
+let mockQueueTracks: readonly MockQueueTrack[] = []
+
+const mockQueueStore = {
+  get tracks(): readonly MockQueueTrack[] {
+    return mockQueueTracks
+  },
+  fetchQueue: vi.fn().mockResolvedValue(undefined),
+}
+
 // Mock the playback API
 vi.mock('@/platform/api/playbackApi', async () => {
   const { ok } = await import('@signalform/shared')
@@ -14,9 +30,18 @@ vi.mock('@/platform/api/playbackApi', async () => {
     getVolume: vi.fn().mockResolvedValue(ok(50)),
     getPlaybackStatus: vi
       .fn()
-      .mockResolvedValue(ok({ status: 'stopped', currentTime: 0, currentTrack: null })),
+      .mockResolvedValue(
+        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
+      ),
   }
 })
+
+vi.mock(
+  '@/domains/queue/shell/useQueueStore',
+  (): { readonly useQueueStore: () => typeof mockQueueStore } => ({
+    useQueueStore: () => mockQueueStore,
+  }),
+)
 
 describe('NowPlayingPanel', () => {
   type TestContext = {
@@ -27,6 +52,8 @@ describe('NowPlayingPanel', () => {
   beforeEach(() => {
     setupTestEnv()
     vi.clearAllMocks()
+    mockQueueTracks = []
+    mockQueueStore.fetchQueue.mockResolvedValue(undefined)
   })
 
   const createRouter = async (): Promise<Router> => {
@@ -56,6 +83,21 @@ describe('NowPlayingPanel', () => {
     const context = await createMountedContext()
 
     await thenPlaceholderTextContains(context.wrapper, 'Search and play music')
+  })
+
+  it('shows queued tracks when playback is stopped but the queue has items', async () => {
+    mockQueueTracks = [
+      { id: '2', position: 1, title: 'Me Against the Music', artist: 'Britney Spears' },
+      { id: '3', position: 2, title: 'Toxic', artist: 'Britney Spears' },
+    ]
+
+    const context = await createMountedContext()
+
+    expect(context.wrapper.find('[data-testid="queued-empty-state"]').exists()).toBe(true)
+    const items = context.wrapper.findAll('[data-testid="queued-empty-state-item"]')
+    expect(items).toHaveLength(2)
+    expect(items[0]!.text()).toContain('Me Against the Music')
+    expect(items[1]!.text()).toContain('Toxic')
   })
 
   it('has Apple aesthetic styling', async () => {
@@ -126,6 +168,7 @@ describe('NowPlayingPanel', () => {
   const createMountedContext = async (): Promise<TestContext> => {
     const router = await createRouter()
     const wrapper = mount(NowPlayingPanel, { global: { plugins: [router] } })
+    await flushPromises()
     await nextTick()
     return { router, wrapper }
   }

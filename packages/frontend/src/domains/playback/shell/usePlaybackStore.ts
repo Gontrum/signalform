@@ -137,9 +137,14 @@ export const usePlaybackStore = defineStore('playback', () => {
       return false
     }
 
-    const { status, currentTime: nextCurrentTime, currentTrack: track } = statusResult.value
+    const {
+      status,
+      currentTime: nextCurrentTime,
+      currentTrack: track,
+      queuePreview: nextQueuePreview,
+    } = statusResult.value
 
-    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null)
+    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
 
     return status === expectedStatus
   }
@@ -150,8 +155,13 @@ export const usePlaybackStore = defineStore('playback', () => {
       return // Silently fail — WebSocket will sync on next status change
     }
 
-    const { status, currentTime: nextCurrentTime, currentTrack: track } = result.value
-    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null)
+    const {
+      status,
+      currentTime: nextCurrentTime,
+      currentTrack: track,
+      queuePreview: nextQueuePreview,
+    } = result.value
+    applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
   }
 
   const syncPlaybackState = (): void => {

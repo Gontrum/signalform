@@ -9,6 +9,7 @@ import { useI18nStore } from '@/app/i18nStore'
 
 const {
   playbackStore,
+  queuedTracks,
   sourceTooltip,
   trackAnnouncement,
   alsoAvailableText,
@@ -207,6 +208,38 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
       <p class="text-sm text-neutral-500">
         {{ t('nowPlaying.emptySubtitle') }}
       </p>
+
+      <div
+        v-if="queuedTracks.length > 0"
+        class="mt-6 w-full max-w-sm text-left"
+        data-testid="queued-empty-state"
+        aria-label="Queued tracks"
+      >
+        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          {{ t('nowPlaying.upNext') }}
+        </h3>
+        <ul class="space-y-1">
+          <li
+            v-for="track in queuedTracks"
+            :key="track.id"
+            data-testid="queued-empty-state-item"
+            class="overflow-hidden"
+          >
+            <p class="truncate text-sm">
+              <span class="font-medium text-neutral-800">{{ track.title }}</span>
+              <span class="text-neutral-500"> · {{ track.artist }}</span>
+            </p>
+          </li>
+        </ul>
+        <button
+          type="button"
+          data-testid="view-full-queue-empty-state"
+          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-400 underline hover:text-neutral-600 focus:outline-none focus:text-neutral-600"
+          @click="navigateToQueue"
+        >
+          {{ t('nowPlaying.viewFullQueue') }}
+        </button>
+      </div>
     </div>
 
     <!-- Error State -->

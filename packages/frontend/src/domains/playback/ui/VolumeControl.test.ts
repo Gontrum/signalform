@@ -25,7 +25,9 @@ vi.mock('@/platform/api/playbackApi', async () => {
     getCurrentTime: vi.fn().mockResolvedValue(ok(0)),
     getPlaybackStatus: vi
       .fn()
-      .mockResolvedValue(ok({ status: 'stopped', currentTime: 0, currentTrack: null })),
+      .mockResolvedValue(
+        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
+      ),
   }
 })
 

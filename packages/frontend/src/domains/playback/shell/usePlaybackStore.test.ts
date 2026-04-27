@@ -237,7 +237,7 @@ describe('pause and resume reconciliation', () => {
   it('treats pause as successful when the API call errors but status is already paused', async () => {
     mockPausePlayback.mockResolvedValue(err(networkErr))
     mockGetPlaybackStatus.mockResolvedValue(
-      ok({ status: 'paused', currentTime: 12, currentTrack: undefined }),
+      ok({ status: 'paused', currentTime: 12, currentTrack: undefined, queuePreview: [] }),
     )
 
     const store = usePlaybackStore()
@@ -253,7 +253,7 @@ describe('pause and resume reconciliation', () => {
   it('treats resume as successful when the API call errors but status is already playing', async () => {
     mockResumePlayback.mockResolvedValue(err(networkErr))
     mockGetPlaybackStatus.mockResolvedValue(
-      ok({ status: 'playing', currentTime: 24, currentTrack: undefined }),
+      ok({ status: 'playing', currentTime: 24, currentTrack: undefined, queuePreview: [] }),
     )
 
     const store = usePlaybackStore()
@@ -269,7 +269,7 @@ describe('pause and resume reconciliation', () => {
   it('keeps the error when pause fails and the fetched status is not paused', async () => {
     mockPausePlayback.mockResolvedValue(err(networkErr))
     mockGetPlaybackStatus.mockResolvedValue(
-      ok({ status: 'playing', currentTime: 9, currentTrack: undefined }),
+      ok({ status: 'playing', currentTime: 9, currentTrack: undefined, queuePreview: [] }),
     )
 
     const store = usePlaybackStore()
@@ -298,6 +298,13 @@ describe('initial playback sync', () => {
           source: 'local',
           duration: 382,
         },
+        queuePreview: [
+          {
+            id: 'track-2',
+            title: 'Brain Damage',
+            artist: 'Pink Floyd',
+          },
+        ],
       }),
     )
 
@@ -307,6 +314,13 @@ describe('initial playback sync', () => {
     expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(1)
     expect(store.currentTrack?.title).toBe('Money')
     expect(store.currentTime).toBe(18)
+    expect(store.queuePreview).toEqual([
+      {
+        id: 'track-2',
+        title: 'Brain Damage',
+        artist: 'Pink Floyd',
+      },
+    ])
     expect(store.hasCurrentTrack).toBe(true)
   })
 
@@ -316,6 +330,7 @@ describe('initial playback sync', () => {
         status: 'stopped',
         currentTime: 0,
         currentTrack: undefined,
+        queuePreview: [],
       }),
     )
 
@@ -354,6 +369,13 @@ describe('initial playback sync', () => {
             url: 'file:///before.flac',
             source: 'local',
           },
+          queuePreview: [
+            {
+              id: 'track-2',
+              title: 'Before Next',
+              artist: 'Artist',
+            },
+          ],
         }),
       )
       .mockResolvedValueOnce(
@@ -368,6 +390,13 @@ describe('initial playback sync', () => {
             url: 'file:///after.flac',
             source: 'local',
           },
+          queuePreview: [
+            {
+              id: 'track-3',
+              title: 'After Next',
+              artist: 'Artist',
+            },
+          ],
         }),
       )
 
@@ -380,6 +409,13 @@ describe('initial playback sync', () => {
     expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(2)
     expect(store.currentTrack?.title).toBe('After')
     expect(store.currentTime).toBe(44)
+    expect(store.queuePreview).toEqual([
+      {
+        id: 'track-3',
+        title: 'After Next',
+        artist: 'Artist',
+      },
+    ])
     expect(store.isCurrentlyPlaying).toBe(true)
   })
 })
@@ -493,6 +529,7 @@ describe('progress ticking', () => {
       ok({
         status: 'playing',
         currentTime: 5,
+        queuePreview: [],
         currentTrack: {
           id: 'track-1',
           title: 'Time',

@@ -12,7 +12,9 @@ vi.mock('@/platform/api/playbackApi', async () => {
     playTrack: vi.fn().mockResolvedValue(ok(undefined)),
     setVolume: vi.fn().mockResolvedValue(ok(undefined)),
     getVolume: vi.fn().mockResolvedValue(ok(50)),
-    getPlaybackStatus: vi.fn().mockResolvedValue(ok({ status: 'stopped', currentTime: 0 })),
+    getPlaybackStatus: vi
+      .fn()
+      .mockResolvedValue(ok({ status: 'stopped', currentTime: 0, queuePreview: [] })),
     pausePlayback: vi.fn().mockResolvedValue(ok(undefined)),
     resumePlayback: vi.fn().mockResolvedValue(ok(undefined)),
     nextTrack: vi.fn().mockResolvedValue(ok(undefined)),
@@ -209,6 +211,7 @@ describe('AppLayout', () => {
       ok({
         status: 'playing',
         currentTime: 0,
+        queuePreview: [],
         currentTrack: {
           id: '1',
           title: 'Test Track',

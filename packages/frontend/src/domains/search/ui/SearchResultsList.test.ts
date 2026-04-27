@@ -26,7 +26,9 @@ vi.mock('@/platform/api/playbackApi', async () => {
     getVolume: vi.fn().mockResolvedValue(ok(50)),
     getPlaybackStatus: vi
       .fn()
-      .mockResolvedValue(ok({ status: 'stopped', currentTime: 0, currentTrack: null })),
+      .mockResolvedValue(
+        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
+      ),
   }
 })
 
@@ -383,6 +385,7 @@ describe('SearchResultsList', () => {
       ok({
         status: 'playing',
         currentTime: 0,
+        queuePreview: [],
         currentTrack: {
           id: '1',
           title: 'Comfortably Numb',
