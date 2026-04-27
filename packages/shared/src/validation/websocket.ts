@@ -64,6 +64,7 @@ const QueueTrackSchema = z.object({
   album: z.string(),
   duration: z.number().nonnegative(),
   isCurrent: z.boolean(),
+  addedBy: z.enum(["user", "radio"]).optional(),
   source: z.enum(["local", "qobuz", "tidal"]).optional(),
   audioQuality: AudioQualitySchema.optional(),
 });
@@ -112,6 +113,7 @@ export const SystemEventPayloadSchema = z.object({
 export const QueueUpdatedPayloadSchema = z.object({
   playerId: z.string().min(1),
   tracks: z.array(QueueTrackSchema).readonly(),
+  radioModeActive: z.boolean(),
   radioBoundaryIndex: z.number().int().nonnegative().optional(),
   timestamp: z.number().positive(),
 });

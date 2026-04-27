@@ -33,12 +33,19 @@ import {
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 import type { RadioUnavailablePayload } from "@signalform/shared";
 import {
+  annotateRadioQueueTracks,
   getRadioQueueState,
+  recordRadioQueueBoundary,
   resetRadioRuntimeState,
-  setRadioBoundaryIndex,
+  setRadioModeEnabledState,
   setRadioProcessing,
   setRadioRecentArtists,
 } from "./radio-state.js";
+import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
+import {
+  getQueueTrackRepeatKey,
+  getSearchResultRepeatKey,
+} from "../core/identity.js";
 
 // Number of radio tracks to add per queue-end trigger
 const RADIO_BATCH_SIZE = 5;
@@ -165,6 +172,7 @@ const selectBestTrackUrl = (
 type RadioAcc = {
   readonly artists: readonly string[];
   readonly urls: readonly string[];
+  readonly trackKeys: readonly string[];
 };
 
 /**
@@ -235,6 +243,17 @@ export type RadioEngine = {
     seedArtist: string,
     seedTitle: string,
   ) => Promise<ReplenishOutcome>;
+  readonly setModeEnabled: (enabled: boolean) => Promise<
+    | {
+        readonly status: "success";
+        readonly queueProjection: ReturnType<typeof annotateRadioQueueTracks>;
+      }
+    | {
+        readonly status: "failed";
+        readonly reason: "busy" | "queue-fetch-failed" | "queue-update-failed";
+        readonly error: string;
+      }
+  >;
 };
 
 export const createRadioEngine = (
@@ -402,6 +421,9 @@ export const createRadioEngine = (
           };
         }
         const preRadioQueueLength = preRadioQueueResult.value.length;
+        const recentQueueTrackKeys = preRadioQueueResult.value
+          .slice(-10)
+          .map((track) => getQueueTrackRepeatKey(track));
 
         // Step 5: Search LMS for each candidate and add to queue (sequential — avoids overwhelming LMS)
         // Process ALL diversity-filtered candidates (up to LASTFM_SIMILAR_LIMIT=50) until
@@ -511,6 +533,29 @@ export const createRadioEngine = (
               return acc;
             }
 
+            const bestResult =
+              queryResults.find((result) => result.url === bestUrl) ?? null;
+            const repeatKey =
+              bestResult !== null
+                ? getSearchResultRepeatKey(bestResult)
+                : getQueueTrackRepeatKey({
+                    artist: candidate.artist,
+                    title: candidate.name,
+                  });
+
+            if (
+              acc.trackKeys.includes(repeatKey) ||
+              recentQueueTrackKeys.includes(repeatKey)
+            ) {
+              logger.info("Radio: skipping recent duplicate track", {
+                event: "radio.recent_duplicate_skipped",
+                trigger,
+                artist: candidate.artist,
+                title: candidate.name,
+              });
+              return acc;
+            }
+
             // Skip if this URL was already added in this batch.
             // Different last.fm candidates can resolve to the same track URL (local or Tidal)
             // (e.g. "Lisa Dream" and "Adele When We Were Young" both match "Holiday.flac"),
@@ -550,11 +595,13 @@ export const createRadioEngine = (
             return {
               artists: [...acc.artists, candidate.artist],
               urls: [...acc.urls, bestUrl],
+              trackKeys: [...acc.trackKeys, repeatKey],
             };
           },
           Promise.resolve({
             artists: [] as readonly string[],
             urls: [] as readonly string[],
+            trackKeys: recentQueueTrackKeys,
           }),
         );
 
@@ -662,11 +709,15 @@ export const createRadioEngine = (
           };
         }
 
-        setRadioBoundaryIndex(preRadioQueueLength);
+        const queueProjection = recordRadioQueueBoundary(
+          queueResult.value,
+          preRadioQueueLength,
+        );
         io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
           playerId,
-          tracks: queueResult.value,
-          radioBoundaryIndex: preRadioQueueLength,
+          tracks: queueProjection.tracks,
+          radioModeActive: queueProjection.radioModeActive,
+          radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
           timestamp: Date.now(),
         });
 
@@ -676,13 +727,13 @@ export const createRadioEngine = (
           seedArtist,
           seedTitle,
           tracksAdded: addedArtists.length,
-          radioBoundaryIndex: preRadioQueueLength,
+          radioBoundaryIndex: queueProjection.radioBoundaryIndex,
         });
 
         return {
           status: "success",
           preRadioQueueLength,
-          postQueueTracks: queueResult.value,
+          postQueueTracks: queueProjection.tracks,
           tracksAdded: addedArtists.length,
         };
       })
@@ -713,6 +764,18 @@ export const createRadioEngine = (
     seedArtist: string,
     seedTitle: string,
   ): Promise<void> => {
+    if (!getRadioQueueState().isEnabled) {
+      logger.info(
+        "Radio: queue-end trigger ignored because radio mode is disabled",
+        {
+          event: "radio.queue_end_skipped_disabled",
+          seedArtist,
+          seedTitle,
+        },
+      );
+      return;
+    }
+
     const replenishResult = await replenishRadioQueue(
       seedArtist,
       seedTitle,
@@ -743,8 +806,126 @@ export const createRadioEngine = (
     seedArtist: string,
     seedTitle: string,
   ): Promise<ReplenishOutcome> => {
+    if (!getRadioQueueState().isEnabled) {
+      logger.info(
+        "Radio: removal replenish ignored because radio mode is disabled",
+        {
+          event: "radio.remove_skipped_disabled",
+          seedArtist,
+          seedTitle,
+        },
+      );
+      return { status: "skipped", reason: "batch-empty" };
+    }
+
     return replenishRadioQueue(seedArtist, seedTitle, "queue-remove");
   };
 
-  return { handleQueueEnd, replenishAfterRemoval };
+  const setModeEnabled: RadioEngine["setModeEnabled"] = async (enabled) => {
+    if (getRadioQueueState().isProcessing) {
+      return {
+        status: "failed",
+        reason: "busy",
+        error: "Radio mode is currently updating the queue. Please try again.",
+      };
+    }
+
+    const previousEnabledState = getRadioQueueState().isEnabled;
+    const radioTrackSignaturesBeforeToggle =
+      getRadioQueueState().radioTrackSignatures;
+
+    const queueResult = await lmsClient.getQueue();
+    if (!queueResult.ok || queueResult.value === undefined) {
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: queueResult.ok
+          ? "Unknown queue fetch failure"
+          : (queueResult.error.message ?? "Unknown queue fetch failure"),
+      };
+    }
+
+    const removalIndexes = !enabled
+      ? getUpcomingRadioRemovalIndexes(
+          queueResult.value,
+          radioTrackSignaturesBeforeToggle,
+        )
+      : [];
+
+    const removalFailure = await removalIndexes.reduce<
+      Promise<
+        | undefined
+        | {
+            readonly status: "failed";
+            readonly reason: "queue-update-failed";
+            readonly error: string;
+          }
+      >
+    >(async (failurePromise, trackIndex) => {
+      const existingFailure = await failurePromise;
+      if (existingFailure !== undefined) {
+        return existingFailure;
+      }
+
+      const removeResult = await lmsClient.removeFromQueue(trackIndex);
+      if (removeResult.ok) {
+        return undefined;
+      }
+
+      return {
+        status: "failed",
+        reason: "queue-update-failed",
+        error:
+          removeResult.error.message ??
+          "Could not remove radio tracks while disabling radio mode",
+      };
+    }, Promise.resolve(undefined));
+
+    if (removalFailure !== undefined) {
+      return removalFailure;
+    }
+
+    if (!enabled) {
+      resetRadioRuntimeState();
+      setRadioModeEnabledState(false);
+    }
+
+    const refreshedQueueResult = await lmsClient.getQueue();
+    if (!refreshedQueueResult.ok || refreshedQueueResult.value === undefined) {
+      setRadioModeEnabledState(enabled ? previousEnabledState : false);
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: refreshedQueueResult.ok
+          ? "Unknown queue refresh failure"
+          : (refreshedQueueResult.error.message ??
+            "Unknown queue refresh failure"),
+      };
+    }
+
+    if (enabled) {
+      setRadioModeEnabledState(true);
+    }
+
+    const queueProjection = annotateRadioQueueTracks(
+      refreshedQueueResult.value,
+    );
+    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
+      playerId,
+      tracks: queueProjection.tracks,
+      radioModeActive: queueProjection.radioModeActive,
+      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
+      timestamp: Date.now(),
+    });
+
+    logger.info("Radio mode toggled", {
+      event: enabled ? "radio.enabled" : "radio.disabled",
+      enabled,
+      removedRadioTracks: removalIndexes.length,
+    });
+
+    return { status: "success", queueProjection };
+  };
+
+  return { handleQueueEnd, replenishAfterRemoval, setModeEnabled };
 };

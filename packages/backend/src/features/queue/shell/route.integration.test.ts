@@ -8,7 +8,10 @@ import {
 } from "../../../adapters/lms-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import { createQueueRoute } from "./route.js";
-import { setRadioBoundaryIndex } from "../../radio-mode/shell/radio-state.js";
+import {
+  resetRadioRuntimeState,
+  setRadioBoundaryIndex,
+} from "../../radio-mode/shell/radio-state.js";
 import type { FastifyInstance } from "fastify";
 
 const TEST_LMS_CONFIG = {
@@ -104,8 +107,9 @@ const mockLmsClient = createMockLmsClient();
 const mockIo = createMockIo();
 const mockEmit = mockIo.emit;
 
-const mockRadioRemovalPolicy = {
+const mockRadioController = {
   handleRemoval: vi.fn(),
+  setModeEnabled: vi.fn(),
 };
 
 const tidalSearchMockClient = createMockLmsClient();
@@ -117,7 +121,7 @@ describe("GET /api/queue", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -148,7 +152,8 @@ describe("GET /api/queue", () => {
 
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({
-      tracks,
+      tracks: [{ ...tracks[0], addedBy: "user" }],
+      radioModeActive: true,
       radioBoundaryIndex: null,
     });
   });
@@ -177,7 +182,7 @@ describe("GET /api/queue", () => {
     ];
     mockLmsClient.getQueue.mockResolvedValue(ok(boundaryTracks));
 
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
       tracks: boundaryTracks,
       radioBoundaryIndex: 1,
@@ -191,7 +196,7 @@ describe("GET /api/queue", () => {
       mockLmsClient,
       mockIo.io,
       "test-player-id",
-      mockRadioRemovalPolicy,
+      mockRadioController,
     );
     await radioServer.ready();
 
@@ -209,7 +214,11 @@ describe("GET /api/queue", () => {
 
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({
-      tracks: boundaryTracks,
+      tracks: [
+        { ...boundaryTracks[0], addedBy: "user" },
+        { ...boundaryTracks[1], addedBy: "radio" },
+      ],
+      radioModeActive: true,
       radioBoundaryIndex: 1,
     });
 
@@ -233,6 +242,76 @@ describe("GET /api/queue", () => {
   });
 });
 
+describe("POST /api/queue/radio-mode", () => {
+  let server: FastifyInstance;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    resetMockLmsClient(mockLmsClient);
+    resetMockIo(mockIo);
+    resetRadioRuntimeState();
+    server = Fastify();
+    createQueueRoute(
+      server,
+      mockLmsClient,
+      mockIo.io,
+      "test-player-id",
+      mockRadioController,
+    );
+    await server.ready();
+  });
+
+  afterEach(() => {
+    void server.close();
+  });
+
+  it("returns queue snapshot after enabling radio mode", async () => {
+    mockRadioController.setModeEnabled.mockResolvedValue({
+      status: "success",
+      queueProjection: {
+        tracks: [],
+        radioModeActive: true,
+        radioBoundaryIndex: null,
+      },
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/radio-mode",
+      headers: { "Content-Type": "application/json" },
+      payload: { enabled: true },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
+  });
+
+  it("returns 409 when radio mode toggle is busy", async () => {
+    mockRadioController.setModeEnabled.mockResolvedValue({
+      status: "failed",
+      reason: "busy",
+      error: "Radio mode is currently updating the queue. Please try again.",
+    });
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/radio-mode",
+      headers: { "Content-Type": "application/json" },
+      payload: { enabled: false },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body)).toEqual({
+      message: "Radio mode is currently updating the queue. Please try again.",
+      code: "RADIO_MODE_BUSY",
+    });
+  });
+});
+
 describe("POST /api/queue/jump", () => {
   let server: FastifyInstance;
 
@@ -240,7 +319,7 @@ describe("POST /api/queue/jump", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -338,7 +417,7 @@ describe("POST /api/queue/jump", () => {
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),
@@ -370,7 +449,7 @@ describe("POST /api/queue/add", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -449,7 +528,7 @@ describe("POST /api/queue/add", () => {
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),
@@ -535,7 +614,7 @@ describe("POST /api/queue/add-album", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -655,7 +734,7 @@ describe("POST /api/queue/add-track-list", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -718,7 +797,7 @@ describe("POST /api/queue/add-track-list", () => {
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),
@@ -792,14 +871,14 @@ describe("POST /api/queue/remove", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(
       server,
       mockLmsClient,
       mockIo.io,
       "test-player-id",
-      mockRadioRemovalPolicy,
+      mockRadioController,
     );
     await server.ready();
   });
@@ -894,7 +973,7 @@ describe("POST /api/queue/remove", () => {
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),
@@ -947,7 +1026,7 @@ describe("POST /api/queue/remove", () => {
 
     mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
       tracks: replenishedTracks,
       radioBoundaryIndex: 1,
@@ -963,7 +1042,7 @@ describe("POST /api/queue/remove", () => {
 
     expect(response.statusCode).toBe(204);
     // handleRemoval was called with the correct removed track info
-    expect(mockRadioRemovalPolicy.handleRemoval).toHaveBeenCalledWith({
+    expect(mockRadioController.handleRemoval).toHaveBeenCalledWith({
       removedTrack: {
         artist: "Radio Artist",
         title: "Radio Seed",
@@ -1045,7 +1124,7 @@ describe("POST /api/queue/remove", () => {
 
     mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
       postQueueTracks: replenishedTracks,
       preRadioQueueLength: 1,
@@ -1064,7 +1143,11 @@ describe("POST /api/queue/remove", () => {
       "player.queue.updated",
       expect.objectContaining({
         playerId: "test-player-id",
-        tracks: replenishedTracks,
+        tracks: [
+          { ...replenishedTracks[0], addedBy: "user" },
+          { ...replenishedTracks[1], addedBy: "radio" },
+          { ...replenishedTracks[2], addedBy: "radio" },
+        ],
         radioBoundaryIndex: 1,
       }),
     );
@@ -1143,7 +1226,7 @@ describe("POST /api/queue/remove", () => {
 
     mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
       tracks: replenishedTracks,
       radioBoundaryIndex: 4,
@@ -1158,7 +1241,7 @@ describe("POST /api/queue/remove", () => {
     });
 
     expect(response.statusCode).toBe(204);
-    expect(mockRadioRemovalPolicy.handleRemoval).toHaveBeenCalledWith({
+    expect(mockRadioController.handleRemoval).toHaveBeenCalledWith({
       removedTrack: {
         artist: "Radio Artist Two",
         title: "Radio Two",
@@ -1169,7 +1252,13 @@ describe("POST /api/queue/remove", () => {
       "player.queue.updated",
       expect.objectContaining({
         playerId: "test-player-id",
-        tracks: replenishedTracks,
+        tracks: [
+          { ...replenishedTracks[0], addedBy: "user" },
+          { ...replenishedTracks[1], addedBy: "user" },
+          { ...replenishedTracks[2], addedBy: "radio" },
+          { ...replenishedTracks[3], addedBy: "radio" },
+          { ...replenishedTracks[4], addedBy: "radio" },
+        ],
         radioBoundaryIndex: 2,
       }),
     );
@@ -1205,7 +1294,7 @@ describe("POST /api/queue/remove", () => {
       .mockResolvedValueOnce(ok(preRemovalQueue))
       .mockResolvedValueOnce(ok(postRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
       tracksAdded: 1,
     });
@@ -1223,7 +1312,7 @@ describe("POST /api/queue/remove", () => {
       "player.queue.updated",
       expect.objectContaining({
         playerId: "test-player-id",
-        tracks: postRemovalQueue,
+        tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
       }),
     );
   });
@@ -1266,11 +1355,11 @@ describe("POST /api/queue/remove", () => {
     });
 
     expect(response.statusCode).toBe(204);
-    expect(mockRadioRemovalPolicy.handleRemoval).not.toHaveBeenCalled();
+    expect(mockRadioController.handleRemoval).not.toHaveBeenCalled();
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks: postRemovalQueue,
+        tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
         playerId: "test-player-id",
       }),
     );
@@ -1295,7 +1384,7 @@ describe("POST /api/queue/remove", () => {
       .mockResolvedValueOnce(ok(preRemovalQueue))
       .mockResolvedValueOnce(ok(postRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioRemovalPolicy.handleRemoval.mockResolvedValue({
+    mockRadioController.handleRemoval.mockResolvedValue({
       status: "failed",
       reason: "queue-fetch-failed",
       error: "refresh failed",
@@ -1309,7 +1398,7 @@ describe("POST /api/queue/remove", () => {
     });
 
     expect(response.statusCode).toBe(204);
-    expect(mockRadioRemovalPolicy.handleRemoval).toHaveBeenCalledOnce();
+    expect(mockRadioController.handleRemoval).toHaveBeenCalledOnce();
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
@@ -1336,7 +1425,7 @@ describe("POST /api/queue/remove", () => {
 
     expect(response.statusCode).toBe(204);
     expect(mockLmsClient.removeFromQueue).toHaveBeenCalledWith(0);
-    expect(mockRadioRemovalPolicy.handleRemoval).not.toHaveBeenCalled();
+    expect(mockRadioController.handleRemoval).not.toHaveBeenCalled();
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({ tracks: [], playerId: "test-player-id" }),
@@ -1368,7 +1457,7 @@ describe("POST /api/queue/reorder", () => {
     vi.clearAllMocks();
     resetMockLmsClient(mockLmsClient);
     resetMockIo(mockIo);
-    setRadioBoundaryIndex(null);
+    resetRadioRuntimeState();
     server = Fastify();
     createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
     await server.ready();
@@ -1473,7 +1562,7 @@ describe("POST /api/queue/reorder", () => {
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
       expect.objectContaining({
-        tracks,
+        tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
         playerId: "test-player-id",
         timestamp: expect.any(Number),
       }),

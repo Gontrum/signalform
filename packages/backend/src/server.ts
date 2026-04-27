@@ -17,7 +17,6 @@ import {
   startStatusPolling,
 } from "./infrastructure/websocket/index.js";
 import { createRadioEngine } from "./features/radio-mode/index.js";
-import { getRadioQueueState } from "./features/radio-mode/shell/radio-state.js";
 import { createEnrichmentRoute } from "./features/enrichment/index.js";
 import { createFanartClient } from "./adapters/fanart-client/index.js";
 import { createSetupRoute } from "./features/setup/index.js";
@@ -254,7 +253,6 @@ export const createServer = async (): Promise<FastifyInstance> => {
         config.playerId,
         1000,
         radioEngine.handleQueueEnd,
-        () => getRadioQueueState().radioBoundaryIndex,
       ),
     server,
   );
@@ -290,6 +288,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
       }
       return result;
     },
+    setModeEnabled: radioEngine.setModeEnabled,
   });
 
   createConfigRoute(server, (newConfig: AppConfig) => {

@@ -2,11 +2,14 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import type { Ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import {
+  getQueueAutoScrollDelta,
   getQueueDropIndicatorLabel,
+  getQueueDropPosition,
   isQueueDropTarget,
   isQueueRowBusy,
   parseQueueTrackIndex,
 } from '../core/service'
+import type { QueueDropPosition } from '../core/types'
 
 type UseQueueDragArgs = {
   readonly isJumping: Ref<boolean>
@@ -26,12 +29,15 @@ type UseQueueDragResult = {
   readonly dragTrackId: Ref<string | null>
   readonly isTouchDragging: Ref<boolean>
   readonly isDragActive: Readonly<Ref<boolean>>
+  readonly dragOverlayStyle: Readonly<Ref<Record<string, string> | null>>
   readonly clearDragState: () => void
   readonly startMouseDrag: (event: MouseEvent, trackId: string, trackIndex: number) => void
   readonly startTouchDrag: (event: TouchEvent, trackId: string, trackIndex: number) => void
   readonly isRowBusy: (trackId: string) => boolean
   readonly isDropTarget: (trackIndex: number) => boolean
+  readonly getDropPosition: (trackIndex: number) => QueueDropPosition | null
   readonly getDropIndicatorLabel: (trackIndex: number) => string | null
+  readonly setScrollContainer: (el: Element | ComponentPublicInstance | null) => void
   readonly scrollBoundaryIntoView: (el: Element | ComponentPublicInstance | null) => void
 }
 
@@ -48,8 +54,22 @@ export const useQueueDrag = ({
   const dragOverIndex = ref<number | null>(null)
   const dragTrackId = ref<string | null>(null)
   const isTouchDragging = ref(false)
+  const dragPointerX = ref<number | null>(null)
+  const dragPointerY = ref<number | null>(null)
+  const scrollContainer = ref<HTMLElement | null>(null)
+  const autoScrollIntervalId = ref<number | null>(null)
 
   const isDragActive = computed(() => dragFromIndex.value !== null)
+  const dragOverlayStyle = computed<Record<string, string> | null>(() => {
+    if (dragPointerX.value === null || dragPointerY.value === null || dragTrackId.value === null) {
+      return null
+    }
+
+    return {
+      left: `${dragPointerX.value + 12}px`,
+      top: `${dragPointerY.value + 18}px`,
+    }
+  })
 
   const preventSelectionWhileDragging = (event: Event): void => {
     event.preventDefault()
@@ -75,10 +95,20 @@ export const useQueueDrag = ({
     document.body.style.removeProperty('-webkit-touch-callout')
   }
 
+  const stopAutoScroll = (): void => {
+    if (autoScrollIntervalId.value !== null) {
+      window.clearInterval(autoScrollIntervalId.value)
+      autoScrollIntervalId.value = null
+    }
+  }
+
   const clearDragState = (): void => {
+    stopAutoScroll()
     dragFromIndex.value = null
     dragOverIndex.value = null
     dragTrackId.value = null
+    dragPointerX.value = null
+    dragPointerY.value = null
     isTouchDragging.value = false
   }
 
@@ -108,6 +138,44 @@ export const useQueueDrag = ({
     }
   }
 
+  const syncAutoScroll = (): void => {
+    const container = scrollContainer.value
+    const pointerY = dragPointerY.value
+    const pointerX = dragPointerX.value
+
+    if (container === null || pointerY === null || pointerX === null) {
+      stopAutoScroll()
+      return
+    }
+
+    const rect = container.getBoundingClientRect()
+    const scrollDelta = getQueueAutoScrollDelta(pointerY, rect.top, rect.bottom, {
+      thresholdPx: 64,
+      maxStepPx: 20,
+    })
+
+    if (scrollDelta === 0) {
+      stopAutoScroll()
+      return
+    }
+
+    if (autoScrollIntervalId.value !== null) {
+      return
+    }
+
+    autoScrollIntervalId.value = window.setInterval(() => {
+      container.scrollBy({ top: scrollDelta })
+      updateDragTargetFromPoint(pointerX, pointerY)
+    }, 16)
+  }
+
+  const updatePointer = (clientX: number, clientY: number): void => {
+    dragPointerX.value = clientX
+    dragPointerY.value = clientY
+    updateDragTargetFromPoint(clientX, clientY)
+    syncAutoScroll()
+  }
+
   const commitReorder = (): void => {
     const fromIndex = dragFromIndex.value
     const toIndex = dragOverIndex.value
@@ -123,7 +191,7 @@ export const useQueueDrag = ({
   }
 
   const handleDocumentMouseMove = (event: MouseEvent): void => {
-    updateDragTargetFromPoint(event.clientX, event.clientY)
+    updatePointer(event.clientX, event.clientY)
   }
 
   const handleDocumentMouseUp = (): void => {
@@ -140,7 +208,7 @@ export const useQueueDrag = ({
       return
     }
 
-    updateDragTargetFromPoint(touch.clientX, touch.clientY)
+    updatePointer(touch.clientX, touch.clientY)
   }
 
   const handleDocumentTouchEnd = (): void => {
@@ -157,6 +225,7 @@ export const useQueueDrag = ({
     document.removeEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
     document.removeEventListener('touchend', handleDocumentTouchEnd)
     document.removeEventListener('touchcancel', handleDocumentTouchEnd)
+    stopAutoScroll()
     disableTouchDragProtections()
   })
 
@@ -170,6 +239,7 @@ export const useQueueDrag = ({
     dragOverIndex.value = trackIndex
     dragTrackId.value = trackId
     isTouchDragging.value = false
+    updatePointer(event.clientX, event.clientY)
 
     document.addEventListener('mousemove', handleDocumentMouseMove)
     document.addEventListener('mouseup', handleDocumentMouseUp)
@@ -191,7 +261,7 @@ export const useQueueDrag = ({
     dragOverIndex.value = trackIndex
     dragTrackId.value = trackId
     isTouchDragging.value = true
-    updateDragTargetFromPoint(touch.clientX, touch.clientY)
+    updatePointer(touch.clientX, touch.clientY)
     enableTouchDragProtections()
 
     document.addEventListener('touchmove', handleDocumentTouchMove, touchMoveListenerOptions)
@@ -205,8 +275,20 @@ export const useQueueDrag = ({
   const isDropTarget = (trackIndex: number): boolean =>
     isQueueDropTarget(trackIndex, dragOverIndex.value, dragFromIndex.value)
 
+  const getDropPosition = (trackIndex: number): QueueDropPosition | null => {
+    if (!isDropTarget(trackIndex)) {
+      return null
+    }
+
+    return getQueueDropPosition(dragOverIndex.value, dragFromIndex.value)
+  }
+
   const getDropIndicatorLabel = (trackIndex: number): string | null =>
     getQueueDropIndicatorLabel(trackIndex, dragOverIndex.value, dragFromIndex.value, dropMessages)
+
+  const setScrollContainer = (el: Element | ComponentPublicInstance | null): void => {
+    scrollContainer.value = el instanceof HTMLElement ? el : null
+  }
 
   const scrollBoundaryIntoView = (el: Element | ComponentPublicInstance | null): void => {
     if (el instanceof HTMLElement) {
@@ -220,12 +302,15 @@ export const useQueueDrag = ({
     dragTrackId,
     isTouchDragging,
     isDragActive,
+    dragOverlayStyle,
     clearDragState,
     startMouseDrag,
     startTouchDrag,
     isRowBusy,
     isDropTarget,
+    getDropPosition,
     getDropIndicatorLabel,
+    setScrollContainer,
     scrollBoundaryIntoView,
   }
 }

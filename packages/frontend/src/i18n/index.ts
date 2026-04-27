@@ -84,6 +84,8 @@ export type MessageKey =
   | 'queue.dropAfter'
   | 'queue.dropBefore'
   | 'queue.dragging'
+  | 'queue.dragOverlay'
+  | 'queue.nowPlayingLabel'
   | 'settings.section.general'
   | 'settings.section.integration'
   | 'settings.section.experience'
@@ -113,6 +115,9 @@ export type MessageKey =
   | 'artist.similarHeading'
   | 'artist.similarInLibrarySr'
   | 'artist.similarMatch'
+  | 'queue.radioModeToggle'
+  | 'queue.radioModeOn'
+  | 'queue.radioModeOff'
   | 'queue.radioModeSeparator'
   | 'queue.updating'
   | 'common.tryAgain'
@@ -190,6 +195,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.dropAfter': 'Release to move after this track.',
     'queue.dropBefore': 'Release to move before this track.',
     'queue.dragging': 'Dragging this row… release on a highlighted target.',
+    'queue.dragOverlay': 'Moving track',
+    'queue.nowPlayingLabel': 'Now Playing',
     'setup.title': 'Initial setup',
     'setup.next': 'Next',
     'setup.back': 'Back',
@@ -231,6 +238,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.similarHeading': 'You might also like',
     'artist.similarInLibrarySr': 'In library',
     'artist.similarMatch': '{percent}% match',
+    'queue.radioModeToggle': 'Radio',
+    'queue.radioModeOn': 'Radio mode is on',
+    'queue.radioModeOff': 'Radio mode is off',
     'queue.radioModeSeparator': '— Radio Mode —',
     'queue.updating': 'Updating queue…',
     'common.tryAgain': 'Try Again',
@@ -308,6 +318,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.dropAfter': 'Nach diesem Titel einfügen.',
     'queue.dropBefore': 'Vor diesem Titel einfügen.',
     'queue.dragging': 'Zeile wird verschoben… lasse sie auf einem markierten Ziel los.',
+    'queue.dragOverlay': 'Titel wird verschoben',
+    'queue.nowPlayingLabel': 'Läuft gerade',
     'setup.title': 'Ersteinrichtung',
     'setup.next': 'Weiter',
     'setup.back': 'Zurück',
@@ -350,6 +362,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.similarHeading': 'Das könnte dir auch gefallen',
     'artist.similarInLibrarySr': 'In Bibliothek',
     'artist.similarMatch': '{percent}% Übereinstimmung',
+    'queue.radioModeToggle': 'Radio',
+    'queue.radioModeOn': 'Radiomodus ist an',
+    'queue.radioModeOff': 'Radiomodus ist aus',
     'queue.radioModeSeparator': '— Radiomodus —',
     'queue.updating': 'Warteschlange wird aktualisiert…',
     'common.tryAgain': 'Erneut versuchen',

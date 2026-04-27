@@ -21,6 +21,7 @@ import {
   PLAYER_UPDATES_ROOM,
 } from "../../../infrastructure/websocket/index.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
+import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js";
 
 const PlayAlbumRequestSchema = z.object({
   albumId: z.string().min(1, "Album ID is required"),
@@ -96,9 +97,12 @@ export const registerTidalRoutes = (
 
         const queueResult = await lmsClient.getQueue();
         if (queueResult.ok) {
+          const queueProjection = annotateRadioQueueTracks(queueResult.value);
           io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
             playerId,
-            tracks: queueResult.value,
+            tracks: queueProjection.tracks,
+            radioModeActive: queueProjection.radioModeActive,
+            radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
             timestamp: Date.now(),
           });
         }
@@ -150,9 +154,12 @@ export const registerTidalRoutes = (
 
       const queueResult = await lmsClient.getQueue();
       if (queueResult.ok) {
+        const queueProjection = annotateRadioQueueTracks(queueResult.value);
         io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
           playerId,
-          tracks: queueResult.value,
+          tracks: queueProjection.tracks,
+          radioModeActive: queueProjection.radioModeActive,
+          radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
           timestamp: Date.now(),
         });
       }
@@ -221,9 +228,12 @@ export const registerTidalRoutes = (
 
     const queueResult = await lmsClient.getQueue();
     if (queueResult.ok) {
+      const queueProjection = annotateRadioQueueTracks(queueResult.value);
       io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
         playerId,
-        tracks: queueResult.value,
+        tracks: queueProjection.tracks,
+        radioModeActive: queueProjection.radioModeActive,
+        radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
         timestamp: Date.now(),
       });
     } else {

@@ -15,12 +15,14 @@ const QueueTrackSchema = z.object({
   album: z.string(),
   duration: z.number(),
   isCurrent: z.boolean(),
+  addedBy: z.enum(['user', 'radio']).optional(),
   source: z.enum(['local', 'qobuz', 'tidal']).optional(),
   audioQuality: AudioQualitySchema.optional(),
 })
 
 const QueueResponseSchema = z.object({
   tracks: z.array(QueueTrackSchema),
+  radioModeActive: z.boolean(),
   radioBoundaryIndex: z.number().nullable(),
 })
 
@@ -179,9 +181,43 @@ export const reorderQueue = async (
   )
 }
 
+export const setRadioMode = async (
+  enabled: boolean,
+): Promise<
+  Result<
+    {
+      readonly tracks: readonly QueueTrack[]
+      readonly radioModeActive: boolean
+      readonly radioBoundaryIndex: number | null
+    },
+    QueueApiError
+  >
+> => {
+  return await fetchJsonResult(
+    getApiUrl('/api/queue/radio-mode'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+      signal: AbortSignal.timeout(15000),
+    },
+    {
+      schema: QueueResponseSchema,
+      mapHttpError: async (response) =>
+        await mapMutationError(response, 'Failed to update radio mode'),
+      mapThrownError: (error) => mapThrownError(error, 'Radio mode request'),
+      mapParseError: (message) => ({ type: 'PARSE_ERROR', message }),
+    },
+  )
+}
+
 export const getQueue = async (): Promise<
   Result<
-    { readonly tracks: readonly QueueTrack[]; readonly radioBoundaryIndex: number | null },
+    {
+      readonly tracks: readonly QueueTrack[]
+      readonly radioModeActive: boolean
+      readonly radioBoundaryIndex: number | null
+    },
     QueueApiError
   >
 > => {

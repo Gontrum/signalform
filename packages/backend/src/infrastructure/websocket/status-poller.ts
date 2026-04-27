@@ -6,6 +6,7 @@
 
 import type { FastifyInstance } from "fastify";
 import { setTimeout as delay } from "node:timers/promises";
+import { annotateRadioQueueTracks } from "../../features/radio-mode/shell/radio-state.js";
 import type {
   PlayerStatus,
   LmsError,
@@ -76,7 +77,6 @@ export const startStatusPolling = (
   playerId: string,
   intervalMs: number = 1000,
   onQueueEnd?: (seedArtist: string, seedTitle: string) => Promise<void>,
-  getRadioBoundaryIndex?: () => number | null,
 ): (() => void) => {
   const pollingAbortController = new AbortController();
 
@@ -262,11 +262,15 @@ export const startStatusPolling = (
                 return previousStatus;
               }
               if (queueResult.ok && queueResult.value) {
-                const radioBoundaryIndex = getRadioBoundaryIndex?.() ?? null;
+                const queueProjection = annotateRadioQueueTracks(
+                  queueResult.value,
+                );
                 io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
                   playerId,
-                  tracks: queueResult.value,
-                  radioBoundaryIndex: radioBoundaryIndex ?? undefined,
+                  tracks: queueProjection.tracks,
+                  radioModeActive: queueProjection.radioModeActive,
+                  radioBoundaryIndex:
+                    queueProjection.radioBoundaryIndex ?? undefined,
                   timestamp: Date.now(),
                 });
                 app.log.info(

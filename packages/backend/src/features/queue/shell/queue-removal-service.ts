@@ -18,8 +18,8 @@ import type {
 import type { QueueTrack } from "@signalform/shared";
 import { fromThrowable } from "@signalform/shared";
 import {
+  recordRadioQueueBoundary,
   getRadioQueueState,
-  setRadioBoundaryIndex,
 } from "../../radio-mode/shell/radio-state.js";
 import {
   PLAYER_QUEUE_UPDATED,
@@ -164,13 +164,18 @@ export const handleQueueRemoval = async (
         replenishResult.tracks ?? replenishResult.postQueueTracks;
 
       if (radioBoundaryIndex !== undefined && replenishedTracks !== undefined) {
-        setRadioBoundaryIndex(radioBoundaryIndex);
+        const queueProjection = recordRadioQueueBoundary(
+          replenishedTracks,
+          radioBoundaryIndex,
+        );
         const emitResult = fromThrowable(
           () =>
             io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
               playerId,
-              tracks: replenishedTracks,
-              radioBoundaryIndex,
+              tracks: queueProjection.tracks,
+              radioModeActive: queueProjection.radioModeActive,
+              radioBoundaryIndex:
+                queueProjection.radioBoundaryIndex ?? undefined,
               timestamp: Date.now(),
             }),
           (error: unknown) => error,

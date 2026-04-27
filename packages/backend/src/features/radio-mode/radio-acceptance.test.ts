@@ -416,20 +416,26 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
         value: [makeLmsSearchResult("Artist A", "Track A")],
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
-      getQueue: vi.fn().mockResolvedValue({
-        ok: true,
-        value: [
-          {
-            id: "1",
-            position: 1,
-            title: "Track A",
-            artist: "Artist A",
-            album: "",
-            duration: 240,
-            isCurrent: false,
-          },
-        ],
-      }),
+      getQueue: vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          value: [],
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          value: [
+            {
+              id: "1",
+              position: 1,
+              title: "Track A",
+              artist: "Artist A",
+              album: "",
+              duration: 240,
+              isCurrent: false,
+            },
+          ],
+        }),
       getStatus: vi.fn().mockResolvedValue({
         ok: true,
         value: {

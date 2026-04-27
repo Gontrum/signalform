@@ -64,6 +64,7 @@ export type SystemEventPayload = {
 export type QueueUpdatedPayload = {
   readonly playerId: string;
   readonly tracks: readonly QueueTrack[];
+  readonly radioModeActive: boolean;
   readonly radioBoundaryIndex?: number; // 0-based index of first radio track; absent if not radio-triggered
   readonly timestamp: number;
 };

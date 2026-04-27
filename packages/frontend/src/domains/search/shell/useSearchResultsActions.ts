@@ -1,6 +1,7 @@
 import { ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
+import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
 import { useTransientSet } from '@/app/useTransientSet'
 import { playTrackList, playTidalSearchAlbum } from '@/platform/api/playbackApi'
 import {
@@ -65,6 +66,7 @@ export const useSearchResultsActions = ({
   artists,
 }: UseSearchResultsActionsArgs): UseSearchResultsActionsResult => {
   const playbackStore = usePlaybackStore()
+  const queueStore = useQueueStore()
   const selectedTrack = ref<TrackResult | null>(null)
   const coverErrors = ref<Record<string, boolean>>({})
   const tidalFallbackCovers = ref<Record<string, string>>({})
@@ -82,6 +84,14 @@ export const useSearchResultsActions = ({
   const artistImageState = ref<{ readonly getImage: (name: string) => string | null }>({
     getImage: () => null,
   })
+
+  const syncQueueSnapshot = async (): Promise<void> => {
+    try {
+      await queueStore.fetchQueue()
+    } catch {
+      // Queue refresh is best-effort after successful add actions.
+    }
+  }
 
   watch(
     () => artists,
@@ -141,6 +151,7 @@ export const useSearchResultsActions = ({
     const response = await addToQueue(result.url)
     if (response.ok) {
       trackQueueSuccess.add(result.id)
+      await syncQueueSnapshot()
     } else {
       trackQueueError.add(result.id)
     }
@@ -150,6 +161,7 @@ export const useSearchResultsActions = ({
     const response = await addAlbumToQueue(albumId)
     if (response.ok) {
       albumQueueSuccess.add(resultId)
+      await syncQueueSnapshot()
     } else {
       albumQueueError.add(resultId)
     }
@@ -200,6 +212,7 @@ export const useSearchResultsActions = ({
     const response = await addTrackListToQueue(trackUrls)
     if (response.ok) {
       addTrackListQueueSuccess.add(albumId)
+      await syncQueueSnapshot()
     } else {
       addTrackListQueueError.add(albumId)
     }
@@ -218,6 +231,7 @@ export const useSearchResultsActions = ({
     const response = await addTidalSearchAlbumToQueue(albumTitle, artist, trackUrls)
     if (response.ok) {
       addTrackListQueueSuccess.add(albumId)
+      await syncQueueSnapshot()
     } else {
       addTrackListQueueError.add(albumId)
     }

@@ -26,6 +26,7 @@ vi.mock('@/platform/api/queueApi', () => ({
   jumpToTrack: vi.fn(),
   removeFromQueue: vi.fn(),
   reorderQueue: vi.fn(),
+  setRadioMode: vi.fn(),
 }))
 
 vi.mock('@/app/useWebSocket', () => ({
@@ -45,12 +46,14 @@ import {
   jumpToTrack as apiJumpToTrack,
   removeFromQueue as apiRemoveFromQueue,
   reorderQueue as apiReorderQueue,
+  setRadioMode as apiSetRadioMode,
 } from '@/platform/api/queueApi'
 
 const mockGetQueue = vi.mocked(getQueue)
 const mockJumpToTrack = vi.mocked(apiJumpToTrack)
 const mockRemoveFromQueue = vi.mocked(apiRemoveFromQueue)
 const mockReorderQueue = vi.mocked(apiReorderQueue)
+const mockSetRadioMode = vi.mocked(apiSetRadioMode)
 
 const makeTrack = (overrides: Partial<QueueTrack> = {}): QueueTrack => ({
   id: '1',
@@ -60,6 +63,7 @@ const makeTrack = (overrides: Partial<QueueTrack> = {}): QueueTrack => ({
   album: 'Album',
   duration: 200,
   isCurrent: false,
+  addedBy: 'user',
   ...overrides,
 })
 
@@ -85,6 +89,8 @@ describe('useQueueStore', () => {
     expect(store.lastMutationError).toBeNull()
     expect(store.isMutatingQueue).toBe(false)
     expect(store.isRadioMode).toBe(false)
+    expect(store.isRadioModeUpdating).toBe(false)
+    expect(store.radioModeError).toBeNull()
     expect(store.radioBoundaryIndex).toBeNull()
     expect(store.radioUnavailableMessage).toBeNull()
   })
@@ -92,12 +98,15 @@ describe('useQueueStore', () => {
   it('fetchQueue() success: updates tracks and clears error', async () => {
     const track1 = makeTrack({ id: '1', title: 'First' })
     const track2 = makeTrack({ id: '2', position: 2, title: 'Second' })
-    mockGetQueue.mockResolvedValue(ok({ tracks: [track1, track2], radioBoundaryIndex: null }))
+    mockGetQueue.mockResolvedValue(
+      ok({ tracks: [track1, track2], radioModeActive: true, radioBoundaryIndex: null }),
+    )
 
     const store = useQueueStore()
     await store.fetchQueue()
 
     expect(store.tracks).toEqual([track1, track2])
+    expect(store.isRadioMode).toBe(true)
     expect(store.error).toBeNull()
     expect(store.isLoading).toBe(false)
   })
@@ -172,6 +181,7 @@ describe('useQueueStore', () => {
     mockGetQueue.mockResolvedValue(
       ok({
         tracks: [makeTrack({ id: 'fresh-track', title: 'Fresh Track' })],
+        radioModeActive: false,
         radioBoundaryIndex: null,
       }),
     )
@@ -200,12 +210,14 @@ describe('useQueueStore', () => {
     handler!({
       playerId: 'test',
       tracks: [makeTrack({ id: 'track-3', position: 1 })],
+      radioModeActive: true,
       radioBoundaryIndex: 1,
       timestamp: Date.now(),
     })
 
     expect(store.reorderBusyTrackId).toBeNull()
     expect(store.lastMutationError).toBeNull()
+    expect(store.isRadioMode).toBe(true)
     expect(store.radioBoundaryIndex).toBe(1)
   })
 
@@ -216,6 +228,7 @@ describe('useQueueStore', () => {
     mockGetQueue.mockResolvedValue(
       ok({
         tracks: [makeTrack({ id: 'refetched-track', title: 'Refetched' })],
+        radioModeActive: false,
         radioBoundaryIndex: null,
       }),
     )
@@ -272,19 +285,27 @@ describe('useQueueStore', () => {
     expect(store.lastMutationError).toBeNull()
   })
 
-  it('setRadioMode(true) sets isRadioMode to true', () => {
+  it('setRadioMode(true) updates isRadioMode from backend snapshot', async () => {
+    mockSetRadioMode.mockResolvedValue(
+      ok({ tracks: [], radioModeActive: true, radioBoundaryIndex: null }),
+    )
+
     const store = useQueueStore()
-    store.setRadioMode(true)
+    await store.setRadioMode(true)
 
     expect(store.isRadioMode).toBe(true)
   })
 
-  it('setRadioMode(false) sets isRadioMode to false after true', () => {
-    const store = useQueueStore()
-    store.setRadioMode(true)
-    store.setRadioMode(false)
+  it('setRadioMode(false) stores backend error when toggle fails', async () => {
+    mockSetRadioMode.mockResolvedValue(
+      err({ type: 'SERVER_ERROR', status: 503, message: 'Radio mode controller unavailable' }),
+    )
 
-    expect(store.isRadioMode).toBe(false)
+    const store = useQueueStore()
+    await store.setRadioMode(false)
+
+    expect(store.radioModeError).toBe('Radio mode controller unavailable')
+    expect(store.isRadioModeUpdating).toBe(false)
   })
 
   it('currentTrack getter: returns track with isCurrent === true', () => {
@@ -351,8 +372,15 @@ describe('useQueueStore', () => {
     const handler = getCapturedHandler('player.queue.updated')
     expect(handler).toBeDefined()
 
-    handler!({ playerId: 'test', tracks: [], radioBoundaryIndex: 3, timestamp: Date.now() })
+    handler!({
+      playerId: 'test',
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: 3,
+      timestamp: Date.now(),
+    })
 
+    expect(store.isRadioMode).toBe(true)
     expect(store.radioBoundaryIndex).toBe(3)
   })
 
@@ -360,10 +388,17 @@ describe('useQueueStore', () => {
     const store = useQueueStore()
 
     const handler = getCapturedHandler('player.queue.updated')
-    handler!({ playerId: 'test', tracks: [], radioBoundaryIndex: 2, timestamp: Date.now() })
+    handler!({
+      playerId: 'test',
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: 2,
+      timestamp: Date.now(),
+    })
     expect(store.radioBoundaryIndex).toBe(2)
 
-    handler!({ playerId: 'test', tracks: [], timestamp: Date.now() })
+    handler!({ playerId: 'test', tracks: [], radioModeActive: false, timestamp: Date.now() })
+    expect(store.isRadioMode).toBe(false)
     expect(store.radioBoundaryIndex).toBeNull()
   })
 
@@ -374,7 +409,7 @@ describe('useQueueStore', () => {
     const handler = getCapturedHandler('player.queue.updated')
     expect(handler).toBeDefined()
 
-    handler!({ playerId: 'test', tracks: newTracks, timestamp: Date.now() })
+    handler!({ playerId: 'test', tracks: newTracks, radioModeActive: false, timestamp: Date.now() })
 
     expect(store.tracks).toEqual(newTracks)
   })
@@ -383,6 +418,7 @@ describe('useQueueStore', () => {
     mockGetQueue.mockResolvedValue(
       ok({
         tracks: [makeTrack({ id: '1', isCurrent: true }), makeTrack({ id: '2', position: 2 })],
+        radioModeActive: true,
         radioBoundaryIndex: 1,
       }),
     )
@@ -391,17 +427,46 @@ describe('useQueueStore', () => {
     await store.fetchQueue()
 
     expect(store.tracks).toHaveLength(2)
+    expect(store.isRadioMode).toBe(true)
     expect(store.radioBoundaryIndex).toBe(1)
   })
 
-  it('fetchQueue() guard: does not call getQueue if already loading', async () => {
-    mockGetQueue.mockImplementation(() => new Promise(() => {}))
+  it('fetchQueue() queues one follow-up refresh when called again while loading', async () => {
+    let hasPendingFirstFetch = false
+    let releaseFirstFetch: () => void = () => undefined
+    mockGetQueue
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve): void => {
+            hasPendingFirstFetch = true
+            releaseFirstFetch = (): void =>
+              resolve(ok({ tracks: [], radioModeActive: false, radioBoundaryIndex: null }))
+          }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          tracks: [makeTrack({ id: 'refetched-track', title: 'Refetched Track' })],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      )
 
     const store = useQueueStore()
-    void store.fetchQueue()
-    await store.fetchQueue()
+    const firstFetch = store.fetchQueue()
+    const secondFetch = store.fetchQueue()
 
     expect(mockGetQueue).toHaveBeenCalledTimes(1)
+    expect(store.isLoading).toBe(true)
+
+    expect(hasPendingFirstFetch).toBe(true)
+    const flushFirstFetch: () => void = releaseFirstFetch
+    flushFirstFetch()
+
+    await Promise.all([firstFetch, secondFetch])
+
+    expect(mockGetQueue).toHaveBeenCalledTimes(2)
+    expect(store.isLoading).toBe(false)
+    expect(store.tracks[0]?.id).toBe('refetched-track')
   })
 
   it('6.8: radioUnavailableMessage starts as null', () => {
@@ -468,7 +533,9 @@ describe('useQueueStore', () => {
 
   it('fetchQueue() clears jumpError from a previous failed jump', async () => {
     mockJumpToTrack.mockResolvedValue(err({ type: 'NETWORK_ERROR', message: 'failed' }))
-    mockGetQueue.mockResolvedValue(ok({ tracks: [], radioBoundaryIndex: null }))
+    mockGetQueue.mockResolvedValue(
+      ok({ tracks: [], radioModeActive: false, radioBoundaryIndex: null }),
+    )
 
     const store = useQueueStore()
     await store.jumpToTrack(0)

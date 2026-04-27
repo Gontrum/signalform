@@ -8,12 +8,13 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { err } from '@signalform/shared'
+import { err, ok } from '@signalform/shared'
 
 // ─── Hoisted mocks ────────────────────────────────────────────────────────────
 
-const { mockSearchTidalArtists } = vi.hoisted(() => ({
+const { mockSearchTidalArtists, mockQueueFetch } = vi.hoisted(() => ({
   mockSearchTidalArtists: vi.fn(),
+  mockQueueFetch: vi.fn(),
 }))
 
 vi.mock('@/platform/api/tidalArtistsApi', () => ({
@@ -36,6 +37,12 @@ vi.mock('@/domains/playback/shell/usePlaybackStore', () => ({
   usePlaybackStore: (): { readonly isCurrentlyPlaying: false; readonly currentTrack: null } => ({
     isCurrentlyPlaying: false,
     currentTrack: null,
+  }),
+}))
+
+vi.mock('@/domains/queue/shell/useQueueStore', () => ({
+  useQueueStore: (): { readonly fetchQueue: typeof mockQueueFetch } => ({
+    fetchQueue: mockQueueFetch,
   }),
 }))
 
@@ -116,6 +123,7 @@ const makeTidalArtistResult = (
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
+  mockQueueFetch.mockResolvedValue(undefined)
 })
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -222,5 +230,25 @@ describe('onAlbumCoverLoad — Tidal cover fallback', () => {
     onAlbumCoverLoad(event, makeAlbum())
 
     expect(mockSearchTidalArtists).not.toHaveBeenCalled()
+  })
+})
+
+describe('queue synchronization after successful add actions', () => {
+  it('refreshes the queue store after adding a single track to the queue', async () => {
+    const { addToQueue } = await import('@/platform/api/queueApi')
+    vi.mocked(addToQueue).mockResolvedValue(ok(undefined))
+
+    const { handleAddToQueue } = useSearchResultsActions({})
+
+    await handleAddToQueue({
+      id: 'track-1',
+      title: 'Toxic',
+      artist: 'Britney Spears',
+      album: 'In the Zone',
+      url: 'file:///music/britney-spears/toxic.flac',
+      source: 'local',
+    })
+
+    expect(mockQueueFetch).toHaveBeenCalledTimes(1)
   })
 })

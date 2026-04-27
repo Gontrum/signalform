@@ -17,10 +17,8 @@ import type {
   LmsClient,
   LmsError,
 } from "../../../adapters/lms-client/index.js";
-import {
-  getRadioQueueState,
-  setRadioBoundaryIndex,
-} from "../../radio-mode/shell/radio-state.js";
+import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js";
+import type { QueueTrack } from "@signalform/shared";
 import {
   PLAYER_QUEUE_UPDATED,
   PLAYER_UPDATES_ROOM,
@@ -35,6 +33,26 @@ import {
   handleQueueRemoval,
   type RadioRemovalPolicy,
 } from "./queue-removal-service.js";
+
+type RadioModeController = {
+  readonly setModeEnabled: (enabled: boolean) => Promise<
+    | {
+        readonly status: "success";
+        readonly queueProjection: {
+          readonly tracks: readonly QueueTrack[];
+          readonly radioModeActive: boolean;
+          readonly radioBoundaryIndex: number | null;
+        };
+      }
+    | {
+        readonly status: "failed";
+        readonly reason: "busy" | "queue-fetch-failed" | "queue-update-failed";
+        readonly error: string;
+      }
+  >;
+};
+
+type RadioController = Partial<RadioRemovalPolicy & RadioModeController>;
 
 // Generic queue error message used by sendLmsError
 const queueLmsMessage = (error: LmsError): string => {
@@ -57,7 +75,7 @@ export const createQueueRoute = (
   lmsClient: LmsClient,
   io: TypedSocketIOServer,
   playerId: string,
-  radioRemovalPolicy?: RadioRemovalPolicy,
+  radioController?: RadioController,
 ): void => {
   // ---------------------------------------------------------------------------
   // Shared helpers
@@ -77,21 +95,15 @@ export const createQueueRoute = (
       return;
     }
 
-    const radioBoundaryIndex = getRadioQueueState().radioBoundaryIndex;
-    if (
-      radioBoundaryIndex !== null &&
-      radioBoundaryIndex >= queueResult.value.length
-    ) {
-      setRadioBoundaryIndex(null);
-    }
+    const queueProjection = annotateRadioQueueTracks(queueResult.value);
 
     const emitResult = fromThrowable(
       () =>
         io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
           playerId,
-          tracks: queueResult.value,
-          radioBoundaryIndex:
-            getRadioQueueState().radioBoundaryIndex ?? undefined,
+          tracks: queueProjection.tracks,
+          radioModeActive: queueProjection.radioModeActive,
+          radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
           timestamp: Date.now(),
         }),
       (error: unknown) => error,
@@ -124,9 +136,48 @@ export const createQueueRoute = (
         "LMS get queue failed",
       );
     }
+    const queueProjection = annotateRadioQueueTracks(lmsResult.value);
     return reply.code(200).send({
-      tracks: lmsResult.value,
-      radioBoundaryIndex: getRadioQueueState().radioBoundaryIndex,
+      tracks: queueProjection.tracks,
+      radioModeActive: queueProjection.radioModeActive,
+      radioBoundaryIndex: queueProjection.radioBoundaryIndex,
+    });
+  });
+
+  fastify.post("/api/queue/radio-mode", async (request, reply) => {
+    const body = isBodyRecord(request.body) ? request.body : null;
+    const enabled = body?.["enabled"];
+
+    if (typeof enabled !== "boolean") {
+      return reply.code(400).send({
+        message: "enabled must be a boolean",
+        code: "INVALID_INPUT",
+      });
+    }
+
+    if (radioController?.setModeEnabled === undefined) {
+      return reply.code(503).send({
+        message: "Radio mode controller unavailable",
+        code: "RADIO_MODE_UNAVAILABLE",
+      });
+    }
+
+    const result = await radioController.setModeEnabled(enabled);
+    if (result.status === "failed") {
+      const statusCode = result.reason === "busy" ? 409 : 503;
+      return reply.code(statusCode).send({
+        message: result.error,
+        code:
+          result.reason === "busy"
+            ? "RADIO_MODE_BUSY"
+            : "RADIO_MODE_UPDATE_FAILED",
+      });
+    }
+
+    return reply.code(200).send({
+      tracks: result.queueProjection.tracks,
+      radioModeActive: result.queueProjection.radioModeActive,
+      radioBoundaryIndex: result.queueProjection.radioBoundaryIndex,
     });
   });
 
@@ -391,7 +442,10 @@ export const createQueueRoute = (
       playerId,
       log: fastify.log,
       emitQueueUpdate,
-      radioRemovalPolicy,
+      radioRemovalPolicy:
+        radioController?.handleRemoval !== undefined
+          ? { handleRemoval: radioController.handleRemoval }
+          : undefined,
     });
 
     if (!removalResult.ok) {

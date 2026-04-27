@@ -7,6 +7,7 @@ import {
   jumpToTrack as apiJumpToTrack,
   removeFromQueue as apiRemoveFromQueue,
   reorderQueue as apiReorderQueue,
+  setRadioMode as apiSetRadioMode,
 } from '@/platform/api/queueApi'
 import {
   getCurrentQueueTrack,
@@ -24,8 +25,12 @@ export const useQueueStore = defineStore('queue', () => {
   const reorderBusyTrackId = ref<string | null>(null)
   const lastMutationError = ref<string | null>(null)
   const isRadioMode = ref(false)
+  const isRadioModeUpdating = ref(false)
+  const radioModeError = ref<string | null>(null)
   const radioBoundaryIndex = ref<number | null>(null)
   const radioUnavailableMessage = ref<string | null>(null)
+  const pendingQueueRefresh = ref(false)
+  const activeQueueFetch = ref<Promise<void> | null>(null)
 
   const currentTrack = computed(() => getCurrentQueueTrack(tracks.value))
   const upcomingTracks = computed(() => getUpcomingQueueTracks(tracks.value))
@@ -35,30 +40,54 @@ export const useQueueStore = defineStore('queue', () => {
 
   const applyQueueUpdate = (payload: QueueUpdatedPayload): void => {
     tracks.value = payload.tracks
+    isRadioMode.value = payload.radioModeActive
     radioBoundaryIndex.value = payload.radioBoundaryIndex ?? null
     removeBusyTrackId.value = null
     reorderBusyTrackId.value = null
     lastMutationError.value = null
   }
 
-  const fetchQueue = async (): Promise<void> => {
-    if (isLoading.value) {
-      return
-    }
+  const applyQueueSnapshot = (snapshot: {
+    readonly tracks: readonly QueueTrack[]
+    readonly radioModeActive: boolean
+    readonly radioBoundaryIndex: number | null
+  }): void => {
+    tracks.value = snapshot.tracks
+    isRadioMode.value = snapshot.radioModeActive
+    radioBoundaryIndex.value = snapshot.radioBoundaryIndex
+  }
 
+  const runQueueFetch = async (): Promise<void> => {
+    pendingQueueRefresh.value = false
     jumpError.value = null
-    isLoading.value = true
 
     const result = await getQueue()
     if (result.ok) {
-      tracks.value = result.value.tracks
-      radioBoundaryIndex.value = result.value.radioBoundaryIndex
+      applyQueueSnapshot(result.value)
       error.value = null
     } else {
       error.value = result.error.message
     }
 
-    isLoading.value = false
+    if (pendingQueueRefresh.value) {
+      await runQueueFetch()
+    }
+  }
+
+  const fetchQueue = async (): Promise<void> => {
+    if (activeQueueFetch.value !== null) {
+      pendingQueueRefresh.value = true
+      await activeQueueFetch.value
+      return
+    }
+
+    isLoading.value = true
+    activeQueueFetch.value = runQueueFetch().finally(() => {
+      activeQueueFetch.value = null
+      isLoading.value = false
+    })
+
+    await activeQueueFetch.value
   }
 
   const updateQueue = (newTracks: readonly QueueTrack[]): void => {
@@ -126,8 +155,22 @@ export const useQueueStore = defineStore('queue', () => {
     lastMutationError.value = null
   }
 
-  const setRadioMode = (enabled: boolean): void => {
-    isRadioMode.value = enabled
+  const setRadioMode = async (enabled: boolean): Promise<void> => {
+    if (isRadioModeUpdating.value) {
+      return
+    }
+
+    isRadioModeUpdating.value = true
+    radioModeError.value = null
+
+    const result = await apiSetRadioMode(enabled)
+    if (result.ok) {
+      applyQueueSnapshot(result.value)
+    } else {
+      radioModeError.value = mapQueueMutationError(result.error, 'Failed to update radio mode')
+    }
+
+    isRadioModeUpdating.value = false
   }
 
   const { on, subscribe } = useWebSocket()
@@ -167,6 +210,8 @@ export const useQueueStore = defineStore('queue', () => {
     lastMutationError,
     isMutatingQueue,
     isRadioMode,
+    isRadioModeUpdating,
+    radioModeError,
     radioBoundaryIndex,
     radioUnavailableMessage,
     currentTrack,

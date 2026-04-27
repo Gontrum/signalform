@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import { ok, err, type Result, type QueueTrack } from '@signalform/shared'
 import QueueView from './QueueView.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
+import { getQueueEntryKey } from '@/domains/queue/core/service'
 
 type CapturedEventName =
   | 'player.queue.updated'
@@ -41,6 +42,7 @@ vi.mock('@/platform/api/queueApi', () => ({
   jumpToTrack: vi.fn(),
   removeFromQueue: vi.fn(),
   reorderQueue: vi.fn(),
+  setRadioMode: vi.fn(),
 }))
 
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
@@ -49,6 +51,7 @@ import {
   jumpToTrack,
   removeFromQueue,
   reorderQueue,
+  setRadioMode,
   type QueueApiError,
 } from '@/platform/api/queueApi'
 
@@ -56,16 +59,9 @@ const mockGetQueue = vi.mocked(getQueue)
 const mockJumpToTrack = vi.mocked(jumpToTrack)
 const mockRemoveFromQueue = vi.mocked(removeFromQueue)
 const mockReorderQueue = vi.mocked(reorderQueue)
+const mockSetRadioMode = vi.mocked(setRadioMode)
 
-const makeTracks = (): ReadonlyArray<{
-  readonly id: string
-  readonly position: number
-  readonly title: string
-  readonly artist: string
-  readonly album: string
-  readonly duration: number
-  readonly isCurrent: boolean
-}> => [
+const makeTracks = (): readonly QueueTrack[] => [
   {
     id: '1',
     position: 1,
@@ -74,6 +70,7 @@ const makeTracks = (): ReadonlyArray<{
     album: 'Album',
     duration: 180,
     isCurrent: false,
+    addedBy: 'user',
   },
   {
     id: '2',
@@ -83,6 +80,7 @@ const makeTracks = (): ReadonlyArray<{
     album: 'Album',
     duration: 200,
     isCurrent: false,
+    addedBy: 'user',
   },
   {
     id: '3',
@@ -92,11 +90,13 @@ const makeTracks = (): ReadonlyArray<{
     album: 'Album',
     duration: 240,
     isCurrent: false,
+    addedBy: 'user',
   },
 ]
 
 type QueueResponse = {
   readonly tracks: readonly QueueTrack[]
+  readonly radioModeActive: boolean
   readonly radioBoundaryIndex: number | null
 }
 type QueueResult = Result<QueueResponse, QueueApiError>
@@ -104,8 +104,9 @@ type QueueResult = Result<QueueResponse, QueueApiError>
 const makeQueueResponse = (
   tracks = makeTracks(),
   radioBoundaryIndex: number | null = null,
+  radioModeActive: boolean = false,
 ): QueueResult => {
-  const response: QueueResponse = { tracks, radioBoundaryIndex }
+  const response: QueueResponse = { tracks, radioModeActive, radioBoundaryIndex }
   return ok(response)
 }
 
@@ -151,6 +152,11 @@ describe('QueueView', () => {
     mockRemoveFromQueue.mockResolvedValue(ok(undefined))
     mockReorderQueue.mockResolvedValue(ok(undefined))
     mockJumpToTrack.mockResolvedValue(ok(undefined))
+    mockSetRadioMode.mockResolvedValue(makeQueueResponse())
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('shows loading state while fetching', async () => {
@@ -198,6 +204,22 @@ describe('QueueView', () => {
     expect(trackRows[1]?.text()).toContain('Track B')
   })
 
+  it('renders radio-mode toggle from queue snapshot and calls backend toggle on click', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks(), null, true))
+    mockSetRadioMode.mockResolvedValue(makeQueueResponse(makeTracks(), null, false))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const toggle = wrapper.find('[data-testid="radio-mode-toggle"]')
+    expect(toggle.attributes('aria-checked')).toBe('true')
+
+    await toggle.trigger('click')
+
+    expect(mockSetRadioMode).toHaveBeenCalledWith(false)
+  })
+
   it('renders separate jump, reorder, and remove controls per row', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
 
@@ -221,6 +243,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 200,
           isCurrent: false,
+          addedBy: 'user',
         },
         {
           id: '2',
@@ -230,6 +253,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 300,
           isCurrent: true,
+          addedBy: 'user',
         },
       ]),
     )
@@ -255,6 +279,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 225,
           isCurrent: false,
+          addedBy: 'user',
         },
       ]),
     )
@@ -350,16 +375,19 @@ describe('QueueView', () => {
 
     await wrapper.findAll('[data-testid="queue-track-reorder"]')[0]?.trigger('mousedown', {
       clientX: 10,
-      clientY: 10,
+      clientY: 100,
       button: 0,
     })
 
     expect(wrapper.find('[data-testid="queue-drag-state"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drag-overlay"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drag-overlay"]').text()).toContain('Track A')
 
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 30 }))
     await nextTick()
 
     expect(wrapper.find('[data-testid="queue-drop-indicator"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="queue-drop-indicator"]').text()).toContain(
       'Release to move after this track.',
     )
@@ -369,6 +397,56 @@ describe('QueueView', () => {
 
     expect(mockReorderQueue).toHaveBeenCalledWith(0, 2)
     expect(wrapper.find('[data-testid="queue-drag-state"]').exists()).toBe(false)
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('auto-scrolls the queue container while dragging near an edge', async () => {
+    vi.useFakeTimers()
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="2"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    const scrollContainerElement = wrapper.find('ul[aria-label="Queue tracks"]').element
+    expect(scrollContainerElement).toBeInstanceOf(HTMLElement)
+    const scrollContainer =
+      scrollContainerElement instanceof HTMLElement ? scrollContainerElement : document.body
+    const scrollBySpy = vi.spyOn(scrollContainer, 'scrollBy')
+    vi.spyOn(scrollContainer, 'getBoundingClientRect').mockImplementation(
+      (): DOMRect =>
+        ({
+          top: 0,
+          bottom: 200,
+          left: 0,
+          right: 300,
+          width: 300,
+          height: 200,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    )
+
+    await wrapper.findAll('[data-testid="queue-track-reorder"]')[0]?.trigger('mousedown', {
+      clientX: 10,
+      clientY: 10,
+      button: 0,
+    })
+
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 20, clientY: 196 }))
+    vi.advanceTimersByTime(64)
+
+    expect(scrollBySpy).toHaveBeenCalled()
+
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
 
     elementFromPointSpy.mockRestore()
     wrapper.unmount()
@@ -491,6 +569,7 @@ describe('QueueView', () => {
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 5 }))
     await nextTick()
 
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="queue-drop-indicator"]').text()).toContain(
       'Release to move before this track.',
     )
@@ -583,7 +662,7 @@ describe('QueueView', () => {
     await flushPromises()
 
     const store = useQueueStore()
-    store.$patch({ removeBusyTrackId: '2' })
+    store.$patch({ removeBusyTrackId: getQueueEntryKey(makeTracks()[1]!) })
     await nextTick()
 
     const rows = wrapper.findAll('[data-testid="queue-track"]')
@@ -599,7 +678,7 @@ describe('QueueView', () => {
     await flushPromises()
 
     const store = useQueueStore()
-    store.$patch({ reorderBusyTrackId: '1' })
+    store.$patch({ reorderBusyTrackId: getQueueEntryKey(makeTracks()[0]!) })
     await nextTick()
 
     expect(wrapper.findAll('[data-testid="queue-track-reorder"]')[0]?.attributes('disabled')).toBe(
@@ -620,7 +699,11 @@ describe('QueueView', () => {
 
     getCapturedHandler('player.queue.updated')?.({
       playerId: 'test-player',
-      tracks: makeTracks(),
+      tracks: [
+        makeTracks()[0]!,
+        { ...makeTracks()[1]!, addedBy: 'radio' },
+        { ...makeTracks()[2]!, addedBy: 'radio' },
+      ],
       radioBoundaryIndex: 1,
       timestamp: Date.now(),
     })
@@ -643,6 +726,59 @@ describe('QueueView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="radio-boundary"]').exists()).toBe(false)
+  })
+
+  it('keeps duplicate queue ids isolated by position-specific row keys', async () => {
+    const duplicateIdTracks: readonly QueueTrack[] = [
+      {
+        id: 'shared-id',
+        position: 1,
+        title: 'Cold Hearted',
+        artist: 'Paula Abdul',
+        album: 'Forever Your Girl',
+        duration: 231,
+        isCurrent: true,
+        addedBy: 'radio',
+      },
+      {
+        id: 'shared-id',
+        position: 2,
+        title: 'Cold Hearted',
+        artist: 'Paula Abdul',
+        album: 'Forever Your Girl',
+        duration: 231,
+        isCurrent: false,
+        addedBy: 'radio',
+      },
+      {
+        id: 'shared-id',
+        position: 3,
+        title: 'Play',
+        artist: 'Jennifer Lopez',
+        album: 'J.Lo',
+        duration: 211,
+        isCurrent: false,
+        addedBy: 'user',
+      },
+    ]
+    mockGetQueue.mockResolvedValue(makeQueueResponse(duplicateIdTracks, 0, true))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const store = useQueueStore()
+    store.$patch({ removeBusyTrackId: getQueueEntryKey(duplicateIdTracks[1]!) })
+    await nextTick()
+
+    const rows = wrapper.findAll('[data-testid="queue-track"]')
+    expect(rows).toHaveLength(3)
+    expect(rows[0]?.attributes('data-busy')).toBe('false')
+    expect(rows[1]?.attributes('data-busy')).toBe('true')
+    expect(rows[2]?.attributes('data-busy')).toBe('false')
+    expect(rows[0]?.classes()).not.toContain('bg-sky-100/60')
+    expect(rows[1]?.classes()).toContain('bg-sky-100/60')
+    expect(rows[2]?.classes()).not.toContain('bg-sky-100/60')
   })
 
   it('scrolls boundary into view when radioBoundaryIndex first appears', async () => {
@@ -677,6 +813,7 @@ describe('QueueView', () => {
         album: 'B',
         duration: 200,
         isCurrent: true,
+        addedBy: 'radio' as const,
       },
       {
         id: '2',
@@ -686,6 +823,7 @@ describe('QueueView', () => {
         album: 'D',
         duration: 180,
         isCurrent: false,
+        addedBy: 'radio' as const,
       },
     ]
     mockGetQueue.mockResolvedValue(makeQueueResponse(currentTracks))
@@ -705,7 +843,33 @@ describe('QueueView', () => {
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
     expect(trackRows[0]?.classes()).toContain('bg-blue-50')
     expect(trackRows[0]?.classes()).not.toContain('bg-sky-100/60')
+    expect(wrapper.find('[data-testid="queue-current-badge"]').text()).toContain('Now Playing')
     expect(trackRows[1]?.classes()).toContain('bg-sky-100/60')
+  })
+
+  it('keeps radio tint on radio tracks after reorder-style updates', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks(), 1))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    getCapturedHandler('player.queue.updated')?.({
+      playerId: 'test-player',
+      tracks: [
+        { ...makeTracks()[1]!, position: 1, addedBy: 'radio' },
+        { ...makeTracks()[0]!, position: 2, addedBy: 'user' },
+        { ...makeTracks()[2]!, position: 3, addedBy: 'radio' },
+      ],
+      radioBoundaryIndex: 0,
+      timestamp: Date.now(),
+    })
+    await nextTick()
+
+    const trackRows = wrapper.findAll('[data-testid="queue-track"]')
+    expect(trackRows[0]?.classes()).toContain('bg-sky-100/60')
+    expect(trackRows[1]?.classes()).not.toContain('bg-sky-100/60')
+    expect(trackRows[2]?.classes()).toContain('bg-sky-100/60')
   })
 
   it('shows radio unavailable banner when radioUnavailableMessage is set', async () => {
@@ -771,6 +935,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 200,
           isCurrent: true,
+          addedBy: 'user',
         },
       ]),
     )
@@ -792,6 +957,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 180,
           isCurrent: true,
+          addedBy: 'user',
         },
       ],
       timestamp: Date.now(),
@@ -866,6 +1032,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 200,
           isCurrent: true,
+          addedBy: 'user',
         },
         {
           id: '3',
@@ -875,6 +1042,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 240,
           isCurrent: false,
+          addedBy: 'radio',
         },
         {
           id: '1',
@@ -884,6 +1052,7 @@ describe('QueueView', () => {
           album: 'Album',
           duration: 180,
           isCurrent: false,
+          addedBy: 'user',
         },
       ],
       radioBoundaryIndex: 1,

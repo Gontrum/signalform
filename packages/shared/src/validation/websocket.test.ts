@@ -362,6 +362,7 @@ describe("QueueUpdatedPayloadSchema", () => {
           source: "local" as const,
         },
       ],
+      radioModeActive: false,
       timestamp: Date.now(),
     };
 
@@ -373,6 +374,7 @@ describe("QueueUpdatedPayloadSchema", () => {
     const payload = {
       playerId: "player-1",
       tracks: [],
+      radioModeActive: true,
       radioBoundaryIndex: 3,
       timestamp: Date.now(),
     };
@@ -385,6 +387,7 @@ describe("QueueUpdatedPayloadSchema", () => {
     const payload = {
       playerId: "player-1",
       tracks: [],
+      radioModeActive: false,
       timestamp: Date.now(),
     };
 

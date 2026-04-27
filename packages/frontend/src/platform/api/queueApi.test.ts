@@ -5,6 +5,7 @@ import {
   addTrackListToQueue,
   removeFromQueue,
   reorderQueue,
+  setRadioMode,
 } from './queueApi'
 
 const fetchMock = vi.fn()
@@ -61,8 +62,10 @@ describe('queueApi', () => {
               album: 'The Wall',
               duration: 382,
               isCurrent: true,
+              addedBy: 'user',
             },
           ],
+          radioModeActive: true,
           radioBoundaryIndex: 0,
         }),
       })
@@ -73,6 +76,8 @@ describe('queueApi', () => {
       if (result.ok) {
         expect(result.value.tracks).toHaveLength(1)
         expect(result.value.tracks[0]?.title).toBe('Comfortably Numb')
+        expect(result.value.tracks[0]?.addedBy).toBe('user')
+        expect(result.value.radioModeActive).toBe(true)
         expect(result.value.radioBoundaryIndex).toBe(0)
       }
     })
@@ -115,6 +120,29 @@ describe('queueApi', () => {
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.type).toBe('PARSE_ERROR')
+      }
+    })
+  })
+
+  describe('setRadioMode', () => {
+    it('calls /api/queue/radio-mode with enabled in body and returns queue snapshot', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      })
+
+      const result = await setRadioMode(false)
+
+      const { url, options } = getFetchCall(0)
+      expect(url).toContain('/api/queue/radio-mode')
+      expect(parseJsonBody(options.body)).toEqual({ enabled: false })
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.radioModeActive).toBe(false)
       }
     })
   })

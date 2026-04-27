@@ -22,6 +22,13 @@ import type {
   ServerToClientEvents,
 } from "@signalform/shared";
 import { createRadioEngine } from "./radio-service.js";
+import {
+  getRadioQueueState,
+  resetRadioRuntimeState,
+  setRadioModeEnabledState,
+  setRadioTrackSignatures,
+} from "./radio-state.js";
+import { getQueueTrackSignature } from "../core/identity.js";
 
 // --- Test helpers -----------------------------------------------------------
 
@@ -105,6 +112,9 @@ type MockLmsClient = LmsClient & {
   readonly addToQueue: ReturnType<typeof vi.fn<LmsClient["addToQueue"]>>;
   readonly getQueue: ReturnType<typeof vi.fn<LmsClient["getQueue"]>>;
   readonly getStatus: ReturnType<typeof vi.fn<LmsClient["getStatus"]>>;
+  readonly removeFromQueue: ReturnType<
+    typeof vi.fn<LmsClient["removeFromQueue"]>
+  >;
   readonly resume: ReturnType<typeof vi.fn<LmsClient["resume"]>>;
   readonly nextTrack: ReturnType<typeof vi.fn<LmsClient["nextTrack"]>>;
 };
@@ -163,6 +173,9 @@ const createMockLmsClient = (): MockLmsClient => ({
       queuePreview: [],
     },
   }),
+  removeFromQueue: vi
+    .fn<LmsClient["removeFromQueue"]>()
+    .mockResolvedValue(ok(undefined)),
   resume: vi.fn<LmsClient["resume"]>().mockResolvedValue(ok(undefined)),
   nextTrack: vi.fn<LmsClient["nextTrack"]>().mockResolvedValue(ok(undefined)),
 });
@@ -209,6 +222,7 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
       queuePreview: [],
     },
   });
+  mockLmsClient.removeFromQueue.mockReset().mockResolvedValue(ok(undefined));
   mockLmsClient.resume.mockReset().mockResolvedValue(ok(undefined));
   mockLmsClient.nextTrack.mockReset().mockResolvedValue(ok(undefined));
 };
@@ -235,6 +249,7 @@ beforeEach(() => {
   resetMockIo(fixtures.mockIo);
   resetMockLastFmClient(fixtures.mockLastFmClient);
   resetMockLmsClient(fixtures.mockLmsClient);
+  resetRadioRuntimeState();
 });
 // --- 5.1: getSimilarTracks called with seed -----------------------------------
 
@@ -1531,6 +1546,79 @@ describe("intra-batch URL deduplication — same file URL not added twice", () =
   });
 });
 
+describe("recent queue repeat protection", () => {
+  test("skips a candidate when the same artist and title already appear in the recent queue tail", async () => {
+    fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
+      ok: true,
+      value: [
+        makeSimilarTrack("Stacey Q", "Two of Hearts"),
+        makeSimilarTrack("Whitney Houston", "How Will I Know"),
+      ],
+    });
+
+    fixtures.mockLmsClient.search.mockImplementation(
+      async (
+        query,
+      ): Promise<{
+        readonly ok: true;
+        readonly value: readonly SearchResult[];
+      }> => {
+        if (query.toLowerCase().includes("stacey q")) {
+          return {
+            ok: true,
+            value: [makeLmsSearchResult("Stacey Q", "Two of Hearts")],
+          };
+        }
+
+        return {
+          ok: true,
+          value: [makeLmsSearchResult("Whitney Houston", "How Will I Know")],
+        };
+      },
+    );
+
+    fixtures.mockLmsClient.getQueue.mockResolvedValue({
+      ok: true,
+      value: [
+        {
+          id: "queue-1",
+          position: 1,
+          title: "Two of Hearts",
+          artist: "Stacey Q",
+          album: "Better Than Heaven",
+          duration: 240,
+          isCurrent: true,
+          source: "tidal",
+        },
+      ],
+    });
+    fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+
+    await engine.handleQueueEnd("Madonna", "Vogue");
+
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledTimes(1);
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledWith(
+      "file:///music/Whitney%20Houston/How%20Will%20I%20Know.mp3",
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Radio: skipping recent duplicate track",
+      expect.objectContaining({
+        event: "radio.recent_duplicate_skipped",
+        artist: "Stacey Q",
+        title: "Two of Hearts",
+      }),
+    );
+  });
+});
+
 // --- M3 concurrency guard: second handleQueueEnd call dropped while first in progress ---
 
 describe("M3 concurrency guard: second handleQueueEnd call dropped while first is in progress", () => {
@@ -1668,7 +1756,7 @@ describe("queue-remove replenish flow", () => {
       "player.queue.updated",
       expect.objectContaining({
         playerId: "player-1",
-        radioBoundaryIndex: 2,
+        radioBoundaryIndex: undefined,
       }),
     );
     expect(fixtures.mockEmit).not.toHaveBeenCalledWith(
@@ -1931,5 +2019,148 @@ describe("resetRadioRuntimeState clears radioBoundaryIndex", () => {
     expect(getRadioQueueState().radioBoundaryIndex).toBeNull();
     expect(getRadioQueueState().isProcessing).toBe(false);
     expect(getRadioQueueState().recentArtists).toEqual([]);
+  });
+});
+
+describe("radio mode lifecycle", () => {
+  test("handleQueueEnd skips replenishment while radio mode is disabled", async () => {
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+    setRadioModeEnabledState(false);
+
+    await engine.handleQueueEnd("Miles Davis", "So What");
+
+    expect(fixtures.mockLastFmClient.getSimilarTracks).not.toHaveBeenCalled();
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Radio: queue-end trigger ignored because radio mode is disabled",
+      expect.objectContaining({
+        event: "radio.queue_end_skipped_disabled",
+      }),
+    );
+  });
+
+  test("setModeEnabled(false) removes upcoming radio tracks and emits inactive queue snapshot", async () => {
+    fixtures.mockLmsClient.getQueue
+      .mockResolvedValueOnce({
+        ok: true,
+        value: [
+          {
+            id: "radio-current",
+            position: 1,
+            title: "Current Radio",
+            artist: "Radio Artist",
+            album: "Radio Album",
+            duration: 180,
+            isCurrent: true,
+            source: "tidal",
+          },
+          {
+            id: "radio-next",
+            position: 2,
+            title: "Next Radio",
+            artist: "Radio Artist",
+            album: "Radio Album",
+            duration: 180,
+            isCurrent: false,
+            source: "tidal",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: [
+          {
+            id: "radio-current",
+            position: 1,
+            title: "Current Radio",
+            artist: "Radio Artist",
+            album: "Radio Album",
+            duration: 180,
+            isCurrent: true,
+            source: "tidal",
+          },
+        ],
+      });
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+    setRadioTrackSignatures([
+      getQueueTrackSignature({
+        id: "radio-current",
+        position: 1,
+        title: "Current Radio",
+        artist: "Radio Artist",
+        album: "Radio Album",
+        duration: 180,
+        isCurrent: true,
+        addedBy: "radio",
+        source: "tidal",
+      }),
+      getQueueTrackSignature({
+        id: "radio-next",
+        position: 2,
+        title: "Next Radio",
+        artist: "Radio Artist",
+        album: "Radio Album",
+        duration: 180,
+        isCurrent: false,
+        addedBy: "radio",
+        source: "tidal",
+      }),
+    ]);
+
+    const result = await engine.setModeEnabled(false);
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        status: "success",
+      }),
+    );
+    expect(fixtures.mockLmsClient.removeFromQueue).toHaveBeenCalledWith(1);
+
+    const queueUpdatedCall =
+      fixtures.mockEmit.mock.calls.find(isQueueUpdatedCall);
+    expect(queueUpdatedCall).toBeDefined();
+    expect(queueUpdatedCall?.[1]).toEqual(
+      expect.objectContaining({
+        radioModeActive: false,
+        radioBoundaryIndex: undefined,
+      }),
+    );
+  });
+
+  test("setModeEnabled(true) keeps radio mode disabled when queue fetch fails", async () => {
+    fixtures.mockLmsClient.getQueue.mockResolvedValueOnce({
+      ok: false,
+      error: { type: "NetworkError", message: "connection refused" },
+    });
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+    setRadioModeEnabledState(false);
+
+    const result = await engine.setModeEnabled(true);
+
+    expect(result).toEqual({
+      status: "failed",
+      reason: "queue-fetch-failed",
+      error: "connection refused",
+    });
+    expect(getRadioQueueState().isEnabled).toBe(false);
   });
 });

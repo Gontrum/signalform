@@ -1,5 +1,7 @@
 import type { QueueTrack } from '@signalform/shared'
-import type { QueueMutationError } from './types'
+import type { QueueAutoScrollConfig, QueueDropPosition, QueueMutationError } from './types'
+
+export const getQueueEntryKey = (track: QueueTrack): string => `${track.position}:${track.id}`
 
 export const mapQueueMutationError = (
   error: QueueMutationError,
@@ -20,14 +22,19 @@ export const getUpcomingQueueTracks = (tracks: readonly QueueTrack[]): readonly 
   return currentIndex === -1 ? [] : tracks.slice(currentIndex + 1)
 }
 
-export const isRadioTrack = (trackIndex: number, radioBoundaryIndex: number | null): boolean =>
-  radioBoundaryIndex !== null && trackIndex >= radioBoundaryIndex
+export const isRadioTrack = (
+  track: QueueTrack,
+  trackIndex: number,
+  radioBoundaryIndex: number | null,
+): boolean =>
+  track.addedBy === 'radio' ||
+  (track.addedBy === undefined && radioBoundaryIndex !== null && trackIndex >= radioBoundaryIndex)
 
 export const isQueueRowBusy = (
-  trackId: string,
+  trackKey: string,
   removeBusyTrackId: string | null,
   reorderBusyTrackId: string | null,
-): boolean => removeBusyTrackId === trackId || reorderBusyTrackId === trackId
+): boolean => removeBusyTrackId === trackKey || reorderBusyTrackId === trackKey
 
 export const isQueueDropTarget = (
   trackIndex: number,
@@ -35,17 +42,29 @@ export const isQueueDropTarget = (
   dragFromIndex: number | null,
 ): boolean => dragOverIndex === trackIndex && dragFromIndex !== null && dragFromIndex !== trackIndex
 
+export const getQueueDropPosition = (
+  dragOverIndex: number | null,
+  dragFromIndex: number | null,
+): QueueDropPosition | null => {
+  if (dragOverIndex === null || dragFromIndex === null || dragOverIndex === dragFromIndex) {
+    return null
+  }
+
+  return dragFromIndex < dragOverIndex ? 'after' : 'before'
+}
+
 export const getQueueDropIndicatorLabel = (
   trackIndex: number,
   dragOverIndex: number | null,
   dragFromIndex: number | null,
   messages: { readonly before: string; readonly after: string },
 ): string | null => {
-  if (!isQueueDropTarget(trackIndex, dragOverIndex, dragFromIndex) || dragFromIndex === null) {
+  const dropPosition = getQueueDropPosition(dragOverIndex, dragFromIndex)
+  if (!isQueueDropTarget(trackIndex, dragOverIndex, dragFromIndex) || dropPosition === null) {
     return null
   }
 
-  return dragFromIndex < trackIndex ? messages.after : messages.before
+  return dropPosition === 'after' ? messages.after : messages.before
 }
 
 export const parseQueueTrackIndex = (indexValue: string | undefined): number | null => {
@@ -55,4 +74,28 @@ export const parseQueueTrackIndex = (indexValue: string | undefined): number | n
 
   const parsedIndex = Number.parseInt(indexValue, 10)
   return Number.isNaN(parsedIndex) ? null : parsedIndex
+}
+
+export const getQueueAutoScrollDelta = (
+  pointerClientY: number,
+  containerTop: number,
+  containerBottom: number,
+  config: QueueAutoScrollConfig,
+): number => {
+  const topZoneBottom = containerTop + config.thresholdPx
+  const bottomZoneTop = containerBottom - config.thresholdPx
+
+  if (pointerClientY < topZoneBottom) {
+    const distanceIntoZone = topZoneBottom - pointerClientY
+    const intensity = Math.min(distanceIntoZone / config.thresholdPx, 1)
+    return -Math.max(1, Math.round(config.maxStepPx * intensity))
+  }
+
+  if (pointerClientY > bottomZoneTop) {
+    const distanceIntoZone = pointerClientY - bottomZoneTop
+    const intensity = Math.min(distanceIntoZone / config.thresholdPx, 1)
+    return Math.max(1, Math.round(config.maxStepPx * intensity))
+  }
+
+  return 0
 }

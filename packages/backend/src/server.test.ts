@@ -320,6 +320,14 @@ describe("createServer", () => {
     startStatusPollingMock.mockImplementation(() => vi.fn());
     createRadioEngineMock.mockReturnValue({
       handleQueueEnd: vi.fn(async () => undefined),
+      setModeEnabled: vi.fn(async () => ({
+        status: "success",
+        queueProjection: {
+          tracks: [],
+          radioModeActive: true,
+          radioBoundaryIndex: null,
+        },
+      })),
     });
 
     createConfigRouteMock.mockImplementation(() => undefined);
@@ -349,13 +357,16 @@ describe("createServer", () => {
     const healthArgs = createHealthRouteMock.mock.calls[0];
     const searchArgs = createSearchRouteMock.mock.calls[0];
     const metadataArgs = createMetadataRouteMock.mock.calls[0];
+    const queueArgs = createQueueRouteMock.mock.calls[0];
 
     expect(healthArgs).toBeDefined();
     expect(searchArgs).toBeDefined();
     expect(metadataArgs).toBeDefined();
+    expect(queueArgs).toBeDefined();
 
     const lmsProxy = healthArgs?.[1];
     const lmsConfigProxy = metadataArgs?.[2];
+    const radioController = queueArgs?.[4];
 
     expect(healthArgs?.[0]).toBe(server);
     expect(searchArgs?.[0]).toBe(server);
@@ -363,10 +374,18 @@ describe("createServer", () => {
     expect(createLmsClientMock).toHaveBeenCalledWith(DEFAULT_LMS_CONFIG);
     expect(lmsProxy).toBeDefined();
     expect(lmsConfigProxy).toBeDefined();
+    expect(radioController).toBeDefined();
 
-    if (!lmsProxy || !lmsConfigProxy) {
+    if (!lmsProxy || !lmsConfigProxy || !radioController) {
       return;
     }
+
+    expect(radioController).toEqual(
+      expect.objectContaining({
+        handleRemoval: expect.any(Function),
+        setModeEnabled: expect.any(Function),
+      }),
+    );
 
     await lmsProxy.getStatus();
 

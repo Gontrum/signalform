@@ -58,7 +58,7 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const abortControllerRef = ref<AbortController | null>(null)
   const showMinLengthHint = ref(false)
   const showLoadingIndicator = ref(false)
-  const loadingTimer = ref<number | null>(null)
+  const loadingTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const activeIndex = ref(-1)
 
   const showFullResults = computed(
