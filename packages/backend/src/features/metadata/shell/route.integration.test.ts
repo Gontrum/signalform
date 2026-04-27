@@ -21,6 +21,12 @@ const defaultConfig: LmsConfig = {
 
 type MockLmsClient = LmsClient & {
   readonly search: ReturnType<typeof vi.fn<LmsClient["search"]>>;
+  readonly searchTidalArtists: ReturnType<
+    typeof vi.fn<LmsClient["searchTidalArtists"]>
+  >;
+  readonly getTidalArtistAlbums: ReturnType<
+    typeof vi.fn<LmsClient["getTidalArtistAlbums"]>
+  >;
   readonly play: ReturnType<typeof vi.fn<LmsClient["play"]>>;
   readonly pause: ReturnType<typeof vi.fn<LmsClient["pause"]>>;
   readonly resume: ReturnType<typeof vi.fn<LmsClient["resume"]>>;
@@ -47,6 +53,12 @@ type MockLmsClient = LmsClient & {
 const createMockLmsClient = (): MockLmsClient => ({
   ...createLmsClient(defaultConfig),
   search: vi.fn<LmsClient["search"]>().mockResolvedValue(ok([])),
+  searchTidalArtists: vi
+    .fn<LmsClient["searchTidalArtists"]>()
+    .mockResolvedValue(ok({ artists: [], count: 0 })),
+  getTidalArtistAlbums: vi
+    .fn<LmsClient["getTidalArtistAlbums"]>()
+    .mockResolvedValue(ok({ albums: [], count: 0 })),
   play: vi.fn<LmsClient["play"]>().mockResolvedValue(ok(undefined)),
   pause: vi.fn<LmsClient["pause"]>().mockResolvedValue(ok(undefined)),
   resume: vi.fn<LmsClient["resume"]>().mockResolvedValue(ok(undefined)),
@@ -539,6 +551,72 @@ describe("GET /api/artist/by-name", () => {
     const body = parseArtistByNameBody(response.body);
     expect(body.localAlbums).toHaveLength(0);
     expect(body.tidalAlbums).toHaveLength(1);
+  });
+
+  it("falls back to dedicated Tidal artist browse when search returns no Tidal albums", async () => {
+    mockLmsClient.search.mockResolvedValue(ok([]));
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({
+        artists: [
+          {
+            id: "7_the bangles_the%20bangles.2.0",
+            name: "The Bangles",
+            image: "/imageproxy/bangles-artist.jpg",
+          },
+        ],
+        count: 1,
+      }),
+    );
+    mockLmsClient.getTidalArtistAlbums.mockResolvedValue(
+      ok({
+        albums: [
+          {
+            id: "7_the bangles.2.0.1.0",
+            name: "Different Light",
+            image: "/imageproxy/different-light.jpg",
+          },
+        ],
+        count: 1,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/by-name?name=The+Bangles",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseArtistByNameBody(response.body);
+    expect(body.localAlbums).toHaveLength(0);
+    expect(body.tidalAlbums).toHaveLength(1);
+    expect(body.tidalAlbums[0]?.title).toBe("Different Light");
+  });
+
+  it("does not fall back to the first Tidal artist when there is no exact artist-name match", async () => {
+    mockLmsClient.search.mockResolvedValue(ok([]));
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({
+        artists: [
+          {
+            id: "7_bangles-cover-band.2.0",
+            name: "Bangles Cover Band",
+            image: "/imageproxy/bangles-cover-band.jpg",
+          },
+        ],
+        count: 1,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/by-name?name=The+Bangles",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseArtistByNameBody(response.body);
+    expect(body.localAlbums).toHaveLength(0);
+    expect(body.tidalAlbums).toHaveLength(0);
+    expect(mockLmsClient.getTidalArtistAlbums).not.toHaveBeenCalled();
   });
 
   // AC7: passes artist name to lmsClient.search

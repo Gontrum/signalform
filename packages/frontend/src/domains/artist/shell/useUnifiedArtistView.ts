@@ -10,12 +10,8 @@ import {
 import { useArtistImages } from '@/domains/enrichment/shell/useArtistImage'
 import { getArtistByName } from '@/platform/api/artistApi'
 import { getAlbumDetailId, getArtistNameQuery, setCoverError } from '../core/service'
-import type {
-  ArtistByNameAlbum,
-  ArtistByNameResponse,
-  SimilarArtistMatch,
-  UnifiedArtistStatus,
-} from '../core/types'
+import type { ArtistByNameAlbum, SimilarArtistMatch, UnifiedArtistStatus } from '../core/types'
+import type { ArtistByNameResponse } from '../core/types'
 
 type UseUnifiedArtistViewResult = {
   readonly status: Ref<UnifiedArtistStatus>

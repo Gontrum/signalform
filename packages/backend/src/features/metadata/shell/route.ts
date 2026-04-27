@@ -4,11 +4,13 @@ import type {
   LmsClient,
   LmsConfig,
   SearchResult,
+  TidalSearchArtistRaw,
 } from "../../../adapters/lms-client/index.js";
 import { getAlbumDetail, getArtistDetail } from "./service.js";
 import { getCachedAlbum, setCachedAlbum } from "./cache.js";
 import type { AlbumDetail } from "../core/types.js";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
+import { mapTidalArtistSearch } from "../../tidal-artists/core/service.js";
 
 const AlbumParamsSchema = z.object({
   albumId: z.string().trim().min(1, "Album ID is required"),
@@ -115,6 +117,62 @@ const groupTidalAlbums = (
     return new Map([...acc, [key, nextEntry]]);
   }, new Map<string, AlbumEntry>());
   return Array.from(albumMap.values());
+};
+
+const findMatchingTidalArtistId = (
+  name: string,
+  rawArtists: {
+    readonly artists: readonly TidalSearchArtistRaw[];
+    readonly count: number;
+  },
+  config: LmsConfig,
+): string | null => {
+  const baseUrl = `http://${config.host}:${config.port}`;
+  const mappedArtists = mapTidalArtistSearch(
+    rawArtists.artists,
+    rawArtists.count,
+    baseUrl,
+  ).artists;
+  const normalizedName = normalizeArtist(name);
+  const exactMatch = mappedArtists.find(
+    (artist) => normalizeArtist(artist.name) === normalizedName,
+  );
+
+  return exactMatch?.artistId ?? null;
+};
+
+const getFallbackTidalAlbums = async (
+  name: string,
+  lmsClient: LmsClient,
+  config: LmsConfig,
+): Promise<ReadonlyArray<AlbumEntry>> => {
+  const artistSearchResult = await lmsClient.searchTidalArtists(name, 0, 10);
+  if (!artistSearchResult.ok) {
+    return [];
+  }
+
+  const artistId = findMatchingTidalArtistId(
+    name,
+    artistSearchResult.value,
+    config,
+  );
+  if (artistId === null) {
+    return [];
+  }
+
+  const albumsResult = await lmsClient.getTidalArtistAlbums(artistId, 0, 250);
+  if (!albumsResult.ok) {
+    return [];
+  }
+
+  const baseUrl = `http://${config.host}:${config.port}`;
+  return albumsResult.value.albums.map((album) => ({
+    id: album.id,
+    title: album.name,
+    artist: name,
+    source: "tidal",
+    coverArtUrl: album.image ? `${baseUrl}${album.image}` : undefined,
+  }));
 };
 
 export const createMetadataRoute = (
@@ -238,9 +296,16 @@ export const createMetadataRoute = (
           r.albumartist !== undefined && normalizeArtist(r.artist) === norm;
         return matchesAlbumArtist || matchesTrackArtist;
       });
+      const localAlbums = groupLocalAlbums(tracks);
+      const tidalAlbumsFromSearch = groupTidalAlbums(tracks);
+      const tidalAlbums =
+        tidalAlbumsFromSearch.length > 0
+          ? tidalAlbumsFromSearch
+          : await getFallbackTidalAlbums(name, lmsClient, config);
+
       return reply.code(200).send({
-        localAlbums: groupLocalAlbums(tracks),
-        tidalAlbums: groupTidalAlbums(tracks),
+        localAlbums,
+        tidalAlbums,
       });
     },
   );

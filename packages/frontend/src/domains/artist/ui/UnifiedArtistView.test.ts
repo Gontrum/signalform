@@ -198,6 +198,20 @@ describe('UnifiedArtistView', () => {
     expect(context.wrapper.find('[data-testid="tidal-section"]').exists()).toBe(false)
   })
 
+  it('renders empty tidal state from a single snapshot without retrying artist lookup', async () => {
+    const { getArtistByName } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({
+      ok: true,
+      value: makeResponse({ tidalAlbums: [] }),
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    expect(getArtistByName).toHaveBeenCalledTimes(1)
+    expect(context.wrapper.find('[data-testid="tidal-section"]').exists()).toBe(false)
+  })
+
   it('shows empty state when both sections are empty', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistByName).mockResolvedValue({
