@@ -5,14 +5,50 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const DEV_SERVICE_WORKER_RECOVERY_SCRIPT = `
+self.addEventListener('install', () => {
+  void self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const cacheKeys = await caches.keys()
+    await Promise.all(cacheKeys.map(async (cacheKey) => caches.delete(cacheKey)))
+    await self.registration.unregister()
+
+    const clients = await self.clients.matchAll({ type: 'window' })
+    await Promise.all(clients.map(async (client) => client.navigate(client.url)))
+  })())
+})
+`.trim()
+
+const createDevServiceWorkerRecoveryPlugin = () => ({
+  name: 'signalform-dev-service-worker-recovery',
+  apply: 'serve' as const,
+  configureServer(server: import('vite').ViteDevServer) {
+    server.middlewares.use('/sw.js', (_request, response) => {
+      response.setHeader('Content-Type', 'application/javascript; charset=utf-8')
+      response.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+      response.end(DEV_SERVICE_WORKER_RECOVERY_SCRIPT)
+    })
+  },
+})
+
+export const shouldServeDevServiceWorkerRecovery = (enablePwaInDev: boolean): boolean =>
+  !enablePwaInDev
+
 export const createViteConfig = (mode: string): UserConfig => {
   const env = loadEnv(mode, process.cwd(), '')
   const enablePwaInDev = env.VITE_ENABLE_PWA_DEV === 'true'
+  const devRecoveryPlugins = shouldServeDevServiceWorkerRecovery(enablePwaInDev)
+    ? [createDevServiceWorkerRecoveryPlugin()]
+    : []
 
   return {
     plugins: [
       vue(),
       vueDevTools(),
+      ...devRecoveryPlugins,
       VitePWA({
         registerType: 'autoUpdate',
         devOptions: {

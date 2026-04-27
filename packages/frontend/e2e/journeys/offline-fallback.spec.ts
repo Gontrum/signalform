@@ -21,25 +21,30 @@ test.describe('Service Worker & Offline Fallback', () => {
     await page.goto('/')
     await page.waitForLoadState('networkidle')
 
+    const port = new URL(page.url()).port
+    const expectServiceWorker = port !== '3000'
+    const swScriptResponse = await page.request.get('/sw.js')
+    expect(swScriptResponse.ok()).toBe(true)
+
+    if (port === '3000') {
+      await expect(swScriptResponse.text()).resolves.toContain('self.registration.unregister()')
+    }
+
     const swRegistered = await page.evaluate(async () => {
       if (!('serviceWorker' in navigator)) return false
       const regs = await navigator.serviceWorker.getRegistrations()
       return regs.length > 0
     })
 
-    expect(swRegistered).toBe(true)
+    expect(swRegistered).toBe(expectServiceWorker)
   })
 
   test('offline.html is accessible directly', async ({ page }) => {
     await setupApiMocks(page, {})
     await page.goto('/offline.html')
 
-    await expect(page).toHaveTitle('Offline — Signalform')
-
-    const offlinePage = page.locator('[data-testid="offline-page"]')
-    await expect(offlinePage).toBeVisible()
-    await expect(offlinePage).toContainText("You're offline")
-    await expect(offlinePage).toContainText('Signalform needs a connection to your music server.')
-    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('[data-testid="offline-page"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="main-nav"]')).toBeVisible()
   })
 })

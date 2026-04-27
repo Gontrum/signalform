@@ -33,12 +33,58 @@
         cursor: pointer;
       }
     </style>
+    <script>
+      const isLocalDevHost = () =>
+        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+
+      const clearDevOfflineState = async () => {
+        const registrations =
+          'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistrations() : []
+
+        await Promise.all(
+          registrations.map(async (registration) => {
+            await registration.unregister()
+          }),
+        )
+
+        if ('caches' in window) {
+          const cacheKeys = await caches.keys()
+          await Promise.all(
+            cacheKeys.map(async (cacheKey) => {
+              await caches.delete(cacheKey)
+            }),
+          )
+        }
+
+      }
+
+      const recoverAndReload = async () => {
+        if (isLocalDevHost()) {
+          await clearDevOfflineState()
+        }
+
+        window.location.assign('/')
+      }
+
+      window.addEventListener('load', () => {
+        const retryButton = document.getElementById('retry-button')
+        retryButton?.addEventListener('click', () => {
+          void recoverAndReload()
+        })
+
+        if (!isLocalDevHost() || navigator.onLine !== true) {
+          return
+        }
+
+        void recoverAndReload()
+      })
+    </script>
   </head>
   <body>
     <div class="container" data-testid="offline-page">
       <h1>You're offline</h1>
       <p>Signalform needs a connection to your music server. Check that you're on the same network and try again.</p>
-      <button onclick="window.location.reload()">Try again</button>
+      <button id="retry-button">Try again</button>
     </div>
   </body>
 </html>
