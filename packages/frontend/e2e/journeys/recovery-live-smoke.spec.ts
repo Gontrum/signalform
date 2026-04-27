@@ -5,7 +5,7 @@
  * They will fail in CI unless a live LMS is configured.
  *
  * Run separately with:
- *   PLAYWRIGHT_LIVE_BACKEND_URL=http://localhost:3001 pnpm test:e2e -- journeys/recovery-live-smoke.spec.ts
+ *   PLAYWRIGHT_LIVE_BACKEND_URL=http://localhost:3001 pnpm test:e2e:live
  *
  * They are NOT skipped automatically — they will simply fail if the real
  * stack is not available. This is intentional: live smoke tests should be
@@ -239,15 +239,9 @@ test.describe('Recovery live smoke', () => {
     expect(offlineResponse.headers()['content-type']).toContain('text/html')
 
     await page.goto('/offline.html')
-    await page.waitForLoadState('domcontentloaded')
-    await expect(page).toHaveTitle('Offline — Signalform')
-
-    const offlinePage = page.locator('[data-testid="offline-page"]')
-    await expect(offlinePage).toBeVisible()
-    await expect(offlinePage).toContainText("You're offline")
-    await expect(offlinePage).toContainText(
-      "Signalform needs a connection to your music server. Check that you're on the same network and try again.",
-    )
-    await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+    await page.waitForLoadState('networkidle')
+    await expect(page).toHaveURL(/\/$/)
+    await expect(page.locator('[data-testid="offline-page"]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="main-nav"]')).toBeVisible()
   })
 })

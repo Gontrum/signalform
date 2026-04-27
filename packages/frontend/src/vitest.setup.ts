@@ -7,6 +7,7 @@
  *
  * We also keep test output quieter by:
  * - preventing real socket.io connections in unit tests
+ * - preventing accidental real fetches to the dev server in unit tests
  * - filtering Vue Router "no match" warnings from intentionally minimal test routers
  * - suppressing known unhandled local dev-server connection noise in happy-dom
  */
@@ -40,6 +41,16 @@ if (shouldReplaceLocalStorage) {
 if (shouldReplaceSessionStorage) {
   vi.stubGlobal('sessionStorage', new Storage())
 }
+
+// Prevent unit tests from attempting real HTTP requests against the local dev server.
+// Individual tests can still override this with vi.stubGlobal('fetch', ...) when they
+// want to assert concrete request/response behavior.
+vi.stubGlobal(
+  'fetch',
+  vi.fn(() =>
+    Promise.reject(new Error('Unexpected test fetch: provide an explicit mock for this request')),
+  ),
+)
 
 // Prevent unit tests from opening real socket.io connections to the dev server.
 vi.mock('socket.io-client', () => {

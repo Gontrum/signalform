@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--no-warnings node ./node_modules/vitest/vitest.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:live": "playwright test e2e/journeys/recovery-live-smoke.spec.ts",
     "test:e2e:ci": "playwright test --config=playwright.ci.config.ts",
     "test:unit": "NODE_OPTIONS=--no-warnings node ./node_modules/vitest/vitest.mjs run",
     "test:setup": "NODE_OPTIONS=--no-warnings node ./node_modules/vitest/vitest.mjs run --config vitest.setup.config.ts",

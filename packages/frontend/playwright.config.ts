@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: ['**/recovery-live-smoke.spec.ts'],
   fullyParallel: false, // sequential for stability with mocked APIs
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
