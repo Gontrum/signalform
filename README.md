@@ -124,7 +124,7 @@ docker run -d \
   --restart unless-stopped \
   -p 3001:3001 \
   -v "$(pwd)/signalform-config:/app/config" \
-  ghcr.io/gontrum/signalform:v0.9.3
+  ghcr.io/gontrum/signalform:v0.9.4
 ```
 
 ### Installer options

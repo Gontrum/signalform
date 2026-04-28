@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.4] - 2026-04-28
+
+### Fixed
+
+- Radio mode now keeps its enabled state consistent on toggle errors and avoids immediate recent-repeat suggestions more reliably
+- Queue syncing is more robust after search add-actions and in stopped-state playback views
+- Unified artist pages load Tidal albums more reliably while avoiding ambiguous fallback matches
+- Queue rendering stays stable with duplicate tracks and long-list reorder interactions
+- Local development recovers more safely from stale service workers and reports missing backend `.env` files more clearly
+
+### Changed
+
+- Live recovery smoke tests are now isolated from the default frontend E2E run
+- Added regression coverage for radio toggle rollback, queued refresh races, artist fallback matching, and dev service-worker recovery
+
+---
+
 ## [0.9.3] - 2026-04-26
 
 ### Fixed
@@ -105,6 +122,7 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/Gontrum/signalform/releases/tag/v0.9.4
 [0.9.3]: https://github.com/Gontrum/signalform/releases/tag/v0.9.3
 [0.9.0]: https://github.com/Gontrum/signalform/releases/tag/v0.9.0
