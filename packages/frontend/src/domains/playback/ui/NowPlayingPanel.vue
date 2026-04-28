@@ -98,7 +98,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
           <p
             v-if="alsoAvailableText"
             data-testid="also-available-now-playing"
-            class="text-xs text-neutral-400"
+            class="text-xs text-neutral-600"
           >
             {{ alsoAvailableText }}
           </p>
@@ -147,7 +147,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
       <!-- Queue Preview (Story 4.6) -->
       <div class="mt-4 w-full max-w-sm" data-testid="queue-preview" aria-label="Upcoming tracks">
-        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
           {{ t('nowPlaying.upNext') }}
         </h3>
         <ul v-if="playbackStore.queuePreview.length > 0" class="space-y-1">
@@ -163,13 +163,13 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
             </p>
           </li>
         </ul>
-        <p v-else data-testid="queue-empty" class="text-sm text-neutral-400">
+        <p v-else data-testid="queue-empty" class="text-sm text-neutral-600">
           {{ t('nowPlaying.queueEmpty') }}
         </p>
         <button
           type="button"
           data-testid="view-full-queue"
-          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-400 underline hover:text-neutral-600 focus:outline-none focus:text-neutral-600"
+          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
           @click="navigateToQueue"
         >
           {{ t('nowPlaying.viewFullQueue') }}
@@ -215,7 +215,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
         data-testid="queued-empty-state"
         aria-label="Queued tracks"
       >
-        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+        <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
           {{ t('nowPlaying.upNext') }}
         </h3>
         <ul class="space-y-1">
@@ -234,7 +234,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
         <button
           type="button"
           data-testid="view-full-queue-empty-state"
-          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-400 underline hover:text-neutral-600 focus:outline-none focus:text-neutral-600"
+          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
           @click="navigateToQueue"
         >
           {{ t('nowPlaying.viewFullQueue') }}

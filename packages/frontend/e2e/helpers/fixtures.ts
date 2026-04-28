@@ -132,7 +132,8 @@ export const libraryAlbumsResponse = {
 
 /**
  * 1-track queue for Journey 5 (add to queue + jump).
- * Must match QueueResponseSchema: { tracks: [...], radioBoundaryIndex: number | null }
+ * Must match QueueResponseSchema:
+ * { tracks: [...], radioModeActive: boolean, radioBoundaryIndex: number | null }
  */
 export const singleTrackQueueResponse = {
   tracks: [
@@ -147,12 +148,14 @@ export const singleTrackQueueResponse = {
       source: 'local' as const,
     },
   ],
+  radioModeActive: false,
   radioBoundaryIndex: null,
 }
 
 /**
  * 3-track queue for Journey 6 (radio mode — radioBoundaryIndex injected via Pinia).
- * Must match QueueResponseSchema: { tracks: [...], radioBoundaryIndex: number | null }
+ * Must match QueueResponseSchema:
+ * { tracks: [...], radioModeActive: boolean, radioBoundaryIndex: number | null }
  */
 export const radioQueueResponse = {
   tracks: [
@@ -187,6 +190,7 @@ export const radioQueueResponse = {
       source: 'local' as const,
     },
   ],
+  radioModeActive: true,
   radioBoundaryIndex: null,
 }
 
@@ -292,11 +296,11 @@ const parseQueueTrack = (value: unknown): LiveQueueTrackSnapshot | null => {
 }
 
 const parseQueueResponse = (body: unknown): readonly LiveQueueTrackSnapshot[] => {
-  if (!Array.isArray(body)) {
-    throw new Error('Queue API returned a non-array payload')
+  if (!isObject(body) || !Array.isArray(body['tracks'])) {
+    throw new Error('Queue API returned an invalid queue snapshot payload')
   }
 
-  return body.map((track, index) => {
+  return body['tracks'].map((track, index) => {
     const parsed = parseQueueTrack(track)
     if (parsed === null) {
       throw new Error(`Queue API returned an invalid track at index ${String(index)}`)
