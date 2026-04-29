@@ -94,6 +94,39 @@ const makeTracks = (): readonly QueueTrack[] => [
   },
 ]
 
+const makeDuplicateSignatureTracks = (): readonly QueueTrack[] => [
+  {
+    id: 'user-track',
+    position: 1,
+    title: 'Two of Hearts',
+    artist: 'Stacey Q',
+    album: 'Better Than Heaven',
+    duration: 231,
+    isCurrent: false,
+    addedBy: 'user',
+  },
+  {
+    id: 'radio-track',
+    position: 2,
+    title: 'Two of Hearts',
+    artist: 'Stacey Q',
+    album: 'Better Than Heaven (Deluxe)',
+    duration: 231,
+    isCurrent: false,
+    addedBy: 'radio',
+  },
+  {
+    id: 'next-radio-track',
+    position: 3,
+    title: 'Vogue',
+    artist: 'Madonna',
+    album: 'The Immaculate Collection',
+    duration: 240,
+    isCurrent: false,
+    addedBy: 'radio',
+  },
+]
+
 type QueueResponse = {
   readonly tracks: readonly QueueTrack[]
   readonly radioModeActive: boolean
@@ -636,6 +669,7 @@ describe('QueueView', () => {
     })
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 30 }))
     document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
     await nextTick()
 
     await reorderButtons[1]?.trigger('mousedown', {
@@ -648,7 +682,10 @@ describe('QueueView', () => {
     await nextTick()
 
     expect(mockReorderQueue).toHaveBeenCalledTimes(1)
-    expect(wrapper.findAll('[data-testid="queue-track"]')[0]?.attributes('data-busy')).toBe('true')
+    const reorderedRows = wrapper.findAll('[data-testid="queue-track"]')
+    expect(reorderedRows[0]?.attributes('data-track-id')).toBe('2')
+    expect(reorderedRows[2]?.attributes('data-track-id')).toBe('1')
+    expect(wrapper.find('[data-testid="queue-track-busy"]').exists()).toBe(false)
 
     elementFromPointSpy.mockRestore()
     wrapper.unmount()
@@ -779,6 +816,24 @@ describe('QueueView', () => {
     expect(rows[0]?.classes()).not.toContain('bg-sky-100/60')
     expect(rows[1]?.classes()).toContain('bg-sky-100/60')
     expect(rows[2]?.classes()).not.toContain('bg-sky-100/60')
+  })
+
+  it('renders duplicate user/radio occurrences with a stable boundary and tint separation', async () => {
+    const duplicateTracks = makeDuplicateSignatureTracks()
+    mockGetQueue.mockResolvedValue(makeQueueResponse(duplicateTracks, 1, true))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-testid="queue-track"]')
+    expect(rows).toHaveLength(3)
+    expect(wrapper.find('[data-testid="radio-boundary"]').exists()).toBe(true)
+    expect(rows[0]?.text()).toContain('Two of Hearts')
+    expect(rows[1]?.text()).toContain('Two of Hearts')
+    expect(rows[0]?.classes()).not.toContain('bg-sky-100/60')
+    expect(rows[1]?.classes()).toContain('bg-sky-100/60')
+    expect(rows[2]?.classes()).toContain('bg-sky-100/60')
   })
 
   it('scrolls boundary into view when radioBoundaryIndex first appears', async () => {
@@ -968,39 +1023,74 @@ describe('QueueView', () => {
     expect(mockGetQueue).toHaveBeenCalledTimes(1)
   })
 
-  it('player.queue.updated clears busy and error UI after a remove succeeds', async () => {
+  it('successful remove clears busy and error UI immediately from the mutation response', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
-    mockRemoveFromQueue.mockResolvedValue(ok(undefined))
+    mockRemoveFromQueue.mockResolvedValue(
+      ok({
+        tracks: makeTracks().slice(1),
+        radioModeActive: false,
+        radioBoundaryIndex: null,
+      }),
+    )
 
     const router = await makeQueueRouter()
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
-
-    await wrapper.findAll('[data-testid="queue-track-remove"]')[0]?.trigger('click')
-    await nextTick()
-
-    expect(wrapper.findAll('[data-testid="queue-track"]')[0]?.attributes('data-busy')).toBe('true')
 
     const store = useQueueStore()
     store.$patch({ lastMutationError: 'Stale mutation failure' })
     await nextTick()
     expect(wrapper.find('[data-testid="queue-mutation-error"]').exists()).toBe(true)
 
-    getCapturedHandler('player.queue.updated')?.({
-      playerId: 'test-player',
-      tracks: makeTracks().slice(1),
-      timestamp: Date.now(),
-    })
+    await wrapper.findAll('[data-testid="queue-track-remove"]')[0]?.trigger('click')
     await nextTick()
 
+    expect(wrapper.findAll('[data-testid="queue-track"]')[0]?.attributes('data-busy')).toBe('false')
     expect(wrapper.find('[data-testid="queue-mutation-error"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="queue-track-busy"]').exists()).toBe(false)
     expect(mockGetQueue).toHaveBeenCalledTimes(1)
   })
 
-  it('player.queue.updated clears reorder busy state and preserves radio/current rendering', async () => {
+  it('successful reorder clears busy state and preserves radio/current rendering', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
-    mockReorderQueue.mockResolvedValue(ok(undefined))
+    mockReorderQueue.mockResolvedValue(
+      ok({
+        tracks: [
+          {
+            id: '2',
+            position: 1,
+            title: 'Track B',
+            artist: 'Artist',
+            album: 'Album',
+            duration: 200,
+            isCurrent: true,
+            addedBy: 'user',
+          },
+          {
+            id: '3',
+            position: 2,
+            title: 'Track C',
+            artist: 'Artist',
+            album: 'Album',
+            duration: 240,
+            isCurrent: false,
+            addedBy: 'radio',
+          },
+          {
+            id: '1',
+            position: 3,
+            title: 'Track A',
+            artist: 'Artist',
+            album: 'Album',
+            duration: 180,
+            isCurrent: false,
+            addedBy: 'user',
+          },
+        ],
+        radioModeActive: true,
+        radioBoundaryIndex: 1,
+      }),
+    )
 
     const elementFromPointSpy = vi
       .spyOn(document, 'elementFromPoint')
@@ -1017,47 +1107,7 @@ describe('QueueView', () => {
     })
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 30 }))
     document.dispatchEvent(new MouseEvent('mouseup'))
-    await nextTick()
-
-    expect(wrapper.findAll('[data-testid="queue-track"]')[0]?.attributes('data-busy')).toBe('true')
-
-    getCapturedHandler('player.queue.updated')?.({
-      playerId: 'test-player',
-      tracks: [
-        {
-          id: '2',
-          position: 1,
-          title: 'Track B',
-          artist: 'Artist',
-          album: 'Album',
-          duration: 200,
-          isCurrent: true,
-          addedBy: 'user',
-        },
-        {
-          id: '3',
-          position: 2,
-          title: 'Track C',
-          artist: 'Artist',
-          album: 'Album',
-          duration: 240,
-          isCurrent: false,
-          addedBy: 'radio',
-        },
-        {
-          id: '1',
-          position: 3,
-          title: 'Track A',
-          artist: 'Artist',
-          album: 'Album',
-          duration: 180,
-          isCurrent: false,
-          addedBy: 'user',
-        },
-      ],
-      radioBoundaryIndex: 1,
-      timestamp: Date.now(),
-    })
+    await flushPromises()
     await nextTick()
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')

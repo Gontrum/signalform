@@ -119,7 +119,7 @@ const draggedTrack = computed(
 </script>
 
 <template>
-  <div data-testid="queue-view" class="p-6">
+  <div data-testid="queue-view" class="flex h-full min-h-0 flex-col p-6">
     <MainNavBar />
     <button
       type="button"
@@ -230,7 +230,7 @@ const draggedTrack = computed(
       v-else
       :ref="setScrollContainer"
       :class="[
-        'max-h-[calc(100vh-8rem)] overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1',
+        'min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-4',
         isJumping ? 'pointer-events-none opacity-60' : '',
       ]"
       aria-label="Queue tracks"
@@ -287,12 +287,21 @@ const draggedTrack = computed(
             {{ getDropIndicatorLabel(index) }}
           </div>
 
-          <div class="flex items-start gap-3 sm:items-center">
+          <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
+            <span
+              :class="[
+                'pt-0.5 text-right text-sm',
+                track.isCurrent ? 'text-neutral-600' : 'text-neutral-400',
+              ]"
+            >
+              {{ track.position }}
+            </span>
+
             <button
               type="button"
               data-testid="queue-track-jump"
               :class="[
-                'min-h-11 min-w-0 flex-1 rounded-md px-2 py-2 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500',
+                'min-h-10 min-w-0 rounded-lg px-2 py-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500',
                 isRowBusy(getTrackKey(track)) || isMutatingQueue
                   ? 'cursor-not-allowed opacity-70'
                   : 'hover:bg-neutral-50',
@@ -303,82 +312,69 @@ const draggedTrack = computed(
               @click="handleJumpToTrack(track.position - 1)"
               @keydown="handleQueueItemKeydown"
             >
-              <div class="flex items-center gap-3">
-                <span
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <p
+                    class="truncate text-sm font-medium text-neutral-900"
+                    :class="{ 'text-blue-700': track.isCurrent }"
+                  >
+                    {{ track.title }}
+                  </p>
+                  <span
+                    v-if="track.isCurrent"
+                    data-testid="queue-current-badge"
+                    class="inline-flex flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
+                  >
+                    {{ t('queue.nowPlayingLabel') }}
+                  </span>
+                </div>
+
+                <p
                   :class="[
-                    'w-8 flex-shrink-0 text-right text-sm',
-                    track.isCurrent ? 'text-neutral-600' : 'text-neutral-400',
+                    'mt-0.5 truncate text-xs',
+                    track.isCurrent ? 'text-neutral-600' : 'text-neutral-500',
                   ]"
                 >
-                  {{ track.position }}
-                </span>
-                <div class="min-w-0 flex-1">
-                  <div class="flex items-center gap-2">
-                    <p
-                      class="truncate text-sm font-medium text-neutral-900"
-                      :class="{ 'text-blue-700': track.isCurrent }"
-                    >
-                      {{ track.title }}
-                    </p>
-                    <span
-                      v-if="track.isCurrent"
-                      data-testid="queue-current-badge"
-                      class="inline-flex flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700"
-                    >
-                      {{ t('queue.nowPlayingLabel') }}
-                    </span>
-                  </div>
-                  <p
-                    :class="[
-                      'truncate text-xs',
-                      track.isCurrent ? 'text-neutral-600' : 'text-neutral-500',
-                    ]"
+                  {{ track.artist }}<span v-if="track.album"> · {{ track.album }}</span>
+                </p>
+
+                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <QualityBadge
+                    v-if="track.source || track.audioQuality"
+                    :source="track.source ?? 'unknown'"
+                    :quality="track.audioQuality"
+                  />
+                  <span
+                    :class="['text-xs', track.isCurrent ? 'text-neutral-600' : 'text-neutral-500']"
                   >
-                    {{ track.artist }}<span v-if="track.album"> · {{ track.album }}</span>
-                  </p>
+                    {{ formatSeconds(track.duration) }}
+                  </span>
                 </div>
               </div>
             </button>
 
-            <div
-              class="ml-auto flex flex-shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center"
-            >
-              <div class="flex items-center gap-2">
-                <QualityBadge
-                  v-if="track.source || track.audioQuality"
-                  :source="track.source ?? 'unknown'"
-                  :quality="track.audioQuality"
-                />
-                <span
-                  :class="['text-sm', track.isCurrent ? 'text-neutral-600' : 'text-neutral-500']"
-                >
-                  {{ formatSeconds(track.duration) }}
-                </span>
-              </div>
-
-              <div class="flex items-center gap-2 self-stretch sm:self-auto">
-                <button
-                  type="button"
-                  data-testid="queue-track-reorder"
-                  class="min-h-11 min-w-11 touch-none select-none rounded-md border border-neutral-200 px-3 py-2 text-sm text-neutral-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="isMutatingQueue || isJumping"
-                  :aria-label="`Reorder ${track.title}`"
-                  @mousedown="startMouseDrag($event, getTrackKey(track), index)"
-                  @touchstart="startTouchDrag($event, getTrackKey(track), index)"
-                >
-                  <span aria-hidden="true">↕</span>
-                </button>
-                <button
-                  type="button"
-                  data-testid="queue-track-remove"
-                  class="min-h-11 min-w-11 rounded-md border border-red-200 px-3 py-2 text-sm text-red-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                  :disabled="isMutatingQueue || isJumping"
-                  :aria-label="`Remove ${track.title}`"
-                  @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
-                >
-                  <span aria-hidden="true">✕</span>
-                </button>
-              </div>
+            <div class="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="queue-track-reorder"
+                class="min-h-9 min-w-9 touch-none select-none rounded-lg border border-neutral-200 px-2 py-2 text-xs text-neutral-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="isMutatingQueue || isJumping"
+                :aria-label="`Reorder ${track.title}`"
+                @mousedown="startMouseDrag($event, getTrackKey(track), index)"
+                @touchstart="startTouchDrag($event, getTrackKey(track), index)"
+              >
+                <span aria-hidden="true">↕</span>
+              </button>
+              <button
+                type="button"
+                data-testid="queue-track-remove"
+                class="min-h-9 min-w-9 rounded-lg border border-red-200 px-2 py-2 text-xs text-red-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="isMutatingQueue || isJumping"
+                :aria-label="`Remove ${track.title}`"
+                @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
+              >
+                <span aria-hidden="true">✕</span>
+              </button>
             </div>
           </div>
 
