@@ -62,6 +62,9 @@ export const usePlaybackStore = defineStore('playback', () => {
   // Progress state
   const currentTime = ref<number>(0)
   const trackDuration = ref<number | null>(null)
+  const pendingSeekTarget = ref<number | null>(null)
+  const queuedSeekTarget = ref<number | null>(null)
+  const isSeekRequestInFlight = ref(false)
 
   // Queue preview state (Story 4.6)
   const queuePreview = ref<readonly QueuePreviewItem[]>([])
@@ -90,7 +93,17 @@ export const usePlaybackStore = defineStore('playback', () => {
     const playbackState = getPlaybackState(status)
     isPlaying.value = playbackState.isPlaying
     isPaused.value = playbackState.isPaused
-    currentTime.value = nextCurrentTime
+
+    const nextTrackId = track?.id
+    const currentTrackId = currentTrack.value?.id
+    const shouldPreserveOptimisticSeekTime =
+      pendingSeekTarget.value !== null &&
+      status !== 'stopped' &&
+      (track === undefined || nextTrackId === currentTrackId)
+
+    if (!shouldPreserveOptimisticSeekTime) {
+      currentTime.value = nextCurrentTime
+    }
 
     if (track !== undefined) {
       currentTrack.value = track
@@ -162,6 +175,49 @@ export const usePlaybackStore = defineStore('playback', () => {
       queuePreview: nextQueuePreview,
     } = result.value
     applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
+  }
+
+  const fetchCurrentTime = async (): Promise<boolean> => {
+    const result = await apiGetCurrentTime()
+
+    if (!result.ok) {
+      error.value = mapPlaybackErrorMessage(result.error, 'time')
+      return false
+    }
+
+    currentTime.value = result.value
+    return true
+  }
+
+  const runSeekMutation = async (seconds: number): Promise<void> => {
+    pendingSeekTarget.value = seconds
+    currentTime.value = seconds
+
+    const result = await apiSeek(seconds)
+
+    if (!result.ok) {
+      pendingSeekTarget.value = null
+      queuedSeekTarget.value = null
+      error.value = mapPlaybackErrorMessage(result.error, 'seek')
+      await fetchCurrentTime()
+      return
+    }
+
+    const didReconcileCurrentTime = await fetchCurrentTime()
+    pendingSeekTarget.value = null
+
+    if (!didReconcileCurrentTime) {
+      return
+    }
+
+    const nextQueuedSeekTarget = queuedSeekTarget.value
+    if (nextQueuedSeekTarget === null || nextQueuedSeekTarget === seconds) {
+      queuedSeekTarget.value = null
+      return
+    }
+
+    queuedSeekTarget.value = null
+    await runSeekMutation(nextQueuedSeekTarget)
   }
 
   const syncPlaybackState = (): void => {
@@ -459,33 +515,22 @@ export const usePlaybackStore = defineStore('playback', () => {
       return
     }
 
-    // Optimistic update (immediate visual feedback)
-    currentTime.value = seconds
+    error.value = null
 
-    const result = await apiSeek(seconds)
-
-    if (!result.ok) {
-      error.value = mapPlaybackErrorMessage(result.error, 'seek')
-      // Rollback on error - fetch current time
-      await fetchCurrentTime()
+    if (isSeekRequestInFlight.value) {
+      pendingSeekTarget.value = seconds
+      queuedSeekTarget.value = seconds
+      currentTime.value = seconds
       return
     }
 
-    // Success - optimistic update already done
-  }
+    isSeekRequestInFlight.value = true
 
-  /**
-   * Fetch current playback time
-   */
-  const fetchCurrentTime = async (): Promise<void> => {
-    const result = await apiGetCurrentTime()
-
-    if (!result.ok) {
-      error.value = mapPlaybackErrorMessage(result.error, 'time')
-      return
+    try {
+      await runSeekMutation(seconds)
+    } finally {
+      isSeekRequestInFlight.value = false
     }
-
-    currentTime.value = result.value
   }
 
   /**

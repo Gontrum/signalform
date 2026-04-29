@@ -72,6 +72,19 @@ const mockPausePlayback = vi.mocked(pausePlayback)
 const mockResumePlayback = vi.mocked(resumePlayback)
 const mockGetPlaybackStatus = vi.mocked(getPlaybackStatus)
 
+const createDeferred = <T>(): {
+  readonly promise: Promise<T>
+  readonly resolve: (value: T) => void
+} => {
+  let resolve!: (value: T) => void
+
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise
+  })
+
+  return { promise, resolve }
+}
+
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -423,15 +436,17 @@ describe('initial playback sync', () => {
 // ─── seekToPosition — rollback ────────────────────────────────────────────────
 
 describe('seekToPosition', () => {
-  it('applies optimistic update and calls API', async () => {
+  it('applies optimistic update, calls API, and reconciles current time', async () => {
     mockSeek.mockResolvedValue(ok(undefined))
+    mockGetCurrentTime.mockResolvedValue(ok(92))
 
     const store = usePlaybackStore()
     store.$patch({ trackDuration: 300 })
     await store.seekToPosition(90)
 
-    expect(store.currentTime).toBe(90)
+    expect(store.currentTime).toBe(92)
     expect(mockSeek).toHaveBeenCalledWith(90)
+    expect(mockGetCurrentTime).toHaveBeenCalledTimes(1)
   })
 
   it('rolls back to fetched time when API fails', async () => {
@@ -464,6 +479,86 @@ describe('seekToPosition', () => {
     expect(store.error).not.toBeNull()
     // Time unchanged
     expect(store.currentTime).toBe(30)
+  })
+
+  it('serializes concurrent seeks and commits the latest queued target afterwards', async () => {
+    const firstSeek = createDeferred<ReturnType<typeof ok<void>>>()
+    mockSeek.mockReturnValueOnce(firstSeek.promise).mockResolvedValueOnce(ok(undefined))
+    mockGetCurrentTime.mockResolvedValueOnce(ok(90)).mockResolvedValueOnce(ok(120))
+
+    const store = usePlaybackStore()
+    store.$patch({ trackDuration: 300, currentTime: 30 })
+
+    const firstRequest = store.seekToPosition(90)
+    expect(store.currentTime).toBe(90)
+
+    await store.seekToPosition(120)
+    expect(store.currentTime).toBe(120)
+    expect(mockSeek).toHaveBeenCalledTimes(1)
+
+    firstSeek.resolve(ok(undefined))
+    await firstRequest
+
+    expect(mockSeek).toHaveBeenCalledTimes(2)
+    expect(mockSeek).toHaveBeenNthCalledWith(1, 90)
+    expect(mockSeek).toHaveBeenNthCalledWith(2, 120)
+    expect(mockGetCurrentTime).toHaveBeenCalledTimes(2)
+    expect(store.currentTime).toBe(120)
+  })
+
+  it('keeps optimistic seek time when a stale status event arrives before reconciliation finishes', async () => {
+    const seekDeferred = createDeferred<ReturnType<typeof ok<void>>>()
+    const currentTimeDeferred = createDeferred<ReturnType<typeof ok<number>>>()
+    mockSeek.mockReturnValueOnce(seekDeferred.promise)
+    mockGetCurrentTime.mockReturnValueOnce(currentTimeDeferred.promise)
+
+    const store = usePlaybackStore()
+    store.$patch({
+      trackDuration: 300,
+      currentTime: 30,
+      currentTrack: {
+        id: 'track-1',
+        title: 'Track',
+        artist: 'Artist',
+        album: 'Album',
+        url: 'file:///track.flac',
+        source: 'local',
+        duration: 300,
+      },
+      isPlaying: true,
+    })
+
+    const seekRequest = store.seekToPosition(90)
+
+    const statusHandler = websocketOnMock.mock.calls.find(
+      ([event]) => event === 'player.statusChanged',
+    )?.[1]
+
+    seekDeferred.resolve(ok(undefined))
+    await Promise.resolve()
+
+    statusHandler?.({
+      playerId: 'player-1',
+      status: 'playing',
+      currentTime: 31,
+      timestamp: Date.now(),
+      currentTrack: {
+        id: 'track-1',
+        title: 'Track',
+        artist: 'Artist',
+        album: 'Album',
+        duration: 300,
+        sources: [{ url: 'file:///track.flac', source: 'local' }],
+      },
+      queuePreview: [],
+    })
+
+    expect(store.currentTime).toBe(90)
+
+    currentTimeDeferred.resolve(ok(91))
+    await seekRequest
+
+    expect(store.currentTime).toBe(91)
   })
 })
 

@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { formatProgress } from '@signalform/shared'
@@ -22,79 +22,90 @@ type UseProgressBarResult = {
 export const useProgressBar = (): UseProgressBarResult => {
   const playbackStore = usePlaybackStore()
   const { currentTime, trackDuration, isLoading } = storeToRefs(playbackStore)
-  const isThrottling = ref(false)
+  const previewTime = ref<number | null>(null)
+  const activeGestureCleanup = ref<(() => void) | null>(null)
+
+  const displayedTime = computed(() => previewTime.value ?? currentTime.value)
 
   const progressPercent = computed(() =>
-    calculateProgressPercent(currentTime.value, trackDuration.value),
+    calculateProgressPercent(displayedTime.value, trackDuration.value),
   )
-  const formattedTime = computed(() => formatProgress(currentTime.value, trackDuration.value ?? 0))
+  const formattedTime = computed(() =>
+    formatProgress(displayedTime.value, trackDuration.value ?? 0),
+  )
 
-  const handleSeek = async (seconds: number): Promise<void> => {
-    if (isThrottling.value) {
+  const clearActiveGesture = (): void => {
+    activeGestureCleanup.value?.()
+    activeGestureCleanup.value = null
+  }
+
+  const setPreviewFromOffset = (offset: number, width: number): void => {
+    previewTime.value = calculateSeekTimeFromOffset(offset, width, trackDuration.value)
+  }
+
+  const commitPreviewSeek = (): void => {
+    const nextSeekTime = previewTime.value
+    previewTime.value = null
+
+    if (nextSeekTime === null) {
       return
     }
 
-    isThrottling.value = true
-    await playbackStore.seekToPosition(seconds)
-
-    setTimeout(() => {
-      isThrottling.value = false
-    }, 100)
+    void playbackStore.seekToPosition(nextSeekTime)
   }
 
   const handleMouseDown = (event: MouseEvent): void => {
-    if (!(event.currentTarget instanceof HTMLElement)) {
+    if (isLoading.value || !(event.currentTarget instanceof HTMLElement)) {
       return
     }
 
     const target = event.currentTarget
     const rect = target.getBoundingClientRect()
-    void handleSeek(
-      calculateSeekTimeFromOffset(event.clientX - rect.left, rect.width, trackDuration.value),
-    )
+    setPreviewFromOffset(event.clientX - rect.left, rect.width)
 
     const handleMouseMove = (moveEvent: MouseEvent): void => {
-      void handleSeek(
-        calculateSeekTimeFromOffset(moveEvent.clientX - rect.left, rect.width, trackDuration.value),
-      )
+      setPreviewFromOffset(moveEvent.clientX - rect.left, rect.width)
     }
 
     const handleMouseUp = (): void => {
+      clearActiveGesture()
+      commitPreviewSeek()
+    }
+
+    clearActiveGesture()
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    activeGestureCleanup.value = (): void => {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
   }
 
   const handleTouchStart = (event: TouchEvent): void => {
-    if (!(event.currentTarget instanceof HTMLElement)) {
+    if (isLoading.value || !(event.currentTarget instanceof HTMLElement)) {
       return
     }
 
     const target = event.currentTarget
     const rect = target.getBoundingClientRect()
-    const calculateTouchSeekTime = (touchEvent: TouchEvent): number =>
-      calculateSeekTimeFromOffset(
-        touchEvent.touches[0]!.clientX - rect.left,
-        rect.width,
-        trackDuration.value,
-      )
-
-    void handleSeek(calculateTouchSeekTime(event))
+    setPreviewFromOffset(event.touches[0]!.clientX - rect.left, rect.width)
 
     const handleTouchMove = (moveEvent: TouchEvent): void => {
-      void handleSeek(calculateTouchSeekTime(moveEvent))
+      setPreviewFromOffset(moveEvent.touches[0]!.clientX - rect.left, rect.width)
     }
 
     const handleTouchEnd = (): void => {
+      clearActiveGesture()
+      commitPreviewSeek()
+    }
+
+    clearActiveGesture()
+    document.addEventListener('touchmove', handleTouchMove)
+    document.addEventListener('touchend', handleTouchEnd)
+    activeGestureCleanup.value = (): void => {
       document.removeEventListener('touchmove', handleTouchMove)
       document.removeEventListener('touchend', handleTouchEnd)
     }
-
-    document.addEventListener('touchmove', handleTouchMove)
-    document.addEventListener('touchend', handleTouchEnd)
   }
 
   const handleKeyDown = (event: KeyboardEvent): void => {
@@ -103,25 +114,31 @@ export const useProgressBar = (): UseProgressBarResult => {
     switch (event.key) {
       case 'ArrowLeft':
         event.preventDefault()
-        void handleSeek(Math.max(0, currentTime.value - seekStep))
+        void playbackStore.seekToPosition(Math.max(0, currentTime.value - seekStep))
         break
       case 'ArrowRight':
         event.preventDefault()
-        void handleSeek(Math.min(trackDuration.value ?? 0, currentTime.value + seekStep))
+        void playbackStore.seekToPosition(
+          Math.min(trackDuration.value ?? 0, currentTime.value + seekStep),
+        )
         break
       case 'Home':
         event.preventDefault()
-        void handleSeek(0)
+        void playbackStore.seekToPosition(0)
         break
       case 'End':
         event.preventDefault()
-        void handleSeek(trackDuration.value ?? 0)
+        void playbackStore.seekToPosition(trackDuration.value ?? 0)
         break
     }
   }
 
+  onBeforeUnmount(() => {
+    clearActiveGesture()
+  })
+
   return {
-    currentTime,
+    currentTime: displayedTime,
     trackDuration,
     isLoading,
     progressPercent,

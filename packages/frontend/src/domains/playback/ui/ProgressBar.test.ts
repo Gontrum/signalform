@@ -47,6 +47,21 @@ describe('ProgressBar Component', () => {
     })
   }
 
+  const dispatchMouseMove = async (clientX: number): Promise<void> => {
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX }))
+    await Promise.resolve()
+  }
+
+  const dispatchMouseUp = async (): Promise<void> => {
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await Promise.resolve()
+  }
+
+  const dispatchTouchEnd = async (): Promise<void> => {
+    document.dispatchEvent(new Event('touchend'))
+    await Promise.resolve()
+  }
+
   const createWrapper = (): {
     readonly wrapper: ReturnType<typeof mount>
     readonly playbackStore: ReturnType<typeof usePlaybackStore>
@@ -140,7 +155,7 @@ describe('ProgressBar Component', () => {
       expect(element.onmousedown).toBeDefined()
     })
 
-    it('calculates seek position correctly at 50%', async () => {
+    it('commits seek position on mouseup after dragging to 50%', async () => {
       const { wrapper, playbackStore } = createWrapper()
       setPlaybackStoreState(playbackStore, { trackDuration: 200 })
 
@@ -153,13 +168,15 @@ describe('ProgressBar Component', () => {
         clientX: 100,
       })
 
-      // Should seek to 50% of 200s = 100s
-      expect(playbackStore.seekToPosition).toHaveBeenCalled()
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
+
+      await dispatchMouseUp()
+
       const callArg = getSeekSpyCalls(playbackStore)[0]?.[0]
       expect(callArg).toBe(100)
     })
 
-    it('calculates seek position correctly at start (0%)', async () => {
+    it('renders a local preview while dragging and only seeks once on release', async () => {
       const { wrapper, playbackStore } = createWrapper()
       setPlaybackStoreState(playbackStore, { trackDuration: 200 })
 
@@ -169,12 +186,20 @@ describe('ProgressBar Component', () => {
       mockBoundingClientRect(element)
 
       await progressWrapper.trigger('mousedown', {
-        clientX: 0,
+        clientX: 50,
       })
 
-      expect(playbackStore.seekToPosition).toHaveBeenCalled()
-      const callArg = getSeekSpyCalls(playbackStore)[0]?.[0]
-      expect(callArg).toBe(0)
+      await dispatchMouseMove(150)
+      await wrapper.vm.$nextTick()
+
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
+      expect(wrapper.find('.progress-fill').attributes('style')).toContain('75%')
+      expect(wrapper.find('[role="slider"]').attributes('aria-valuenow')).toBe('150')
+
+      await dispatchMouseUp()
+
+      expect(playbackStore.seekToPosition).toHaveBeenCalledTimes(1)
+      expect(playbackStore.seekToPosition).toHaveBeenCalledWith(150)
     })
   })
 
@@ -348,7 +373,7 @@ describe('ProgressBar Component', () => {
       expect(fill.attributes('style')).toContain('0%')
     })
 
-    it('throttles rapid seek operations', async () => {
+    it('does not send seeks during drag updates', async () => {
       const { wrapper, playbackStore } = createWrapper()
       setPlaybackStoreState(playbackStore, { trackDuration: 200 })
 
@@ -357,15 +382,19 @@ describe('ProgressBar Component', () => {
 
       mockBoundingClientRect(element)
 
-      // Trigger two rapid seeks
       await progressWrapper.trigger('mousedown', { clientX: 50 })
-      await progressWrapper.trigger('mousedown', { clientX: 100 })
+      await dispatchMouseMove(75)
+      await dispatchMouseMove(100)
 
-      // Due to throttling, only first call should go through immediately
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
+
+      await dispatchMouseUp()
+
       expect(playbackStore.seekToPosition).toHaveBeenCalledTimes(1)
+      expect(playbackStore.seekToPosition).toHaveBeenCalledWith(100)
     })
 
-    it('handles touch events for seeking', async () => {
+    it('handles touch events for seeking on touchend', async () => {
       const { wrapper, playbackStore } = createWrapper()
       setPlaybackStoreState(playbackStore, { trackDuration: 200 })
 
@@ -378,7 +407,11 @@ describe('ProgressBar Component', () => {
         touches: [{ clientX: 100 }],
       })
 
-      expect(playbackStore.seekToPosition).toHaveBeenCalled()
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
+
+      await dispatchTouchEnd()
+
+      expect(playbackStore.seekToPosition).toHaveBeenCalledWith(100)
     })
 
     it('disables progress bar when loading', async () => {
@@ -391,8 +424,25 @@ describe('ProgressBar Component', () => {
       expect(progressWrapper.classes()).toContain('disabled')
     })
 
-    it('handles throttling timeout', async () => {
-      vi.useFakeTimers()
+    it('does not start a seek gesture while loading', async () => {
+      const { wrapper, playbackStore } = createWrapper()
+      setPlaybackStoreState(playbackStore, {
+        isLoading: true,
+        trackDuration: 200,
+      })
+
+      const progressWrapper = wrapper.find('.progress-wrapper')
+      const element = getHtmlElement(progressWrapper.element)
+
+      mockBoundingClientRect(element)
+
+      await progressWrapper.trigger('mousedown', { clientX: 100 })
+      await dispatchMouseUp()
+
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
+    })
+
+    it('allows a second drag after the first drag has committed', async () => {
       const { wrapper, playbackStore } = createWrapper()
       setPlaybackStoreState(playbackStore, { trackDuration: 200 })
 
@@ -401,18 +451,31 @@ describe('ProgressBar Component', () => {
 
       mockBoundingClientRect(element)
 
-      // First seek
       await progressWrapper.trigger('mousedown', { clientX: 50 })
+      await dispatchMouseUp()
       expect(playbackStore.seekToPosition).toHaveBeenCalledTimes(1)
 
-      // Advance time past throttle period
-      vi.advanceTimersByTime(150)
-
-      // Second seek should now work
       await progressWrapper.trigger('mousedown', { clientX: 100 })
+      await dispatchMouseUp()
       expect(playbackStore.seekToPosition).toHaveBeenCalledTimes(2)
+    })
 
-      vi.useRealTimers()
+    it('cleans up the active drag listener on unmount', async () => {
+      const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener')
+      const { wrapper, playbackStore } = createWrapper()
+      setPlaybackStoreState(playbackStore, { trackDuration: 200 })
+
+      const progressWrapper = wrapper.find('.progress-wrapper')
+      const element = getHtmlElement(progressWrapper.element)
+
+      mockBoundingClientRect(element)
+
+      await progressWrapper.trigger('mousedown', { clientX: 100 })
+      wrapper.unmount()
+
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mousemove', expect.any(Function))
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('mouseup', expect.any(Function))
+      expect(playbackStore.seekToPosition).not.toHaveBeenCalled()
     })
   })
 })
