@@ -16,16 +16,10 @@ import type {
   LmsError,
 } from "../../../adapters/lms-client/index.js";
 import type { QueueTrack } from "@signalform/shared";
-import { fromThrowable } from "@signalform/shared";
 import {
-  recordRadioQueueBoundary,
-  getRadioQueueState,
+  recordQueueRemoval,
+  setSuppressedQueueEnd,
 } from "../../radio-mode/shell/radio-state.js";
-import {
-  PLAYER_QUEUE_UPDATED,
-  PLAYER_UPDATES_ROOM,
-  type TypedSocketIOServer,
-} from "../../../infrastructure/websocket/index.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -36,16 +30,11 @@ export type RadioRemovalContext = {
     readonly artist: string;
     readonly title: string;
   };
-  readonly preservedRadioBoundaryIndex?: number;
 };
 
 export type RadioRemovalOutcome =
   | {
       readonly status: "success";
-      readonly postQueueTracks?: readonly QueueTrack[];
-      readonly tracks?: readonly QueueTrack[];
-      readonly preRadioQueueLength?: number;
-      readonly radioBoundaryIndex?: number;
       readonly tracksAdded: number;
     }
   | { readonly status: "skipped"; readonly reason: string }
@@ -63,15 +52,22 @@ export type RadioRemovalPolicy = {
 
 export type QueueRemovalDeps = {
   readonly lmsClient: LmsClient;
-  readonly io: TypedSocketIOServer;
-  readonly playerId: string;
   readonly log: FastifyBaseLogger;
-  readonly emitQueueUpdate: (mutation: string) => Promise<void>;
+  readonly emitQueueUpdate: (
+    mutation: string,
+    projectQueue?: (tracks: readonly QueueTrack[]) => QueueProjection,
+  ) => Promise<QueueProjection | null>;
   readonly radioRemovalPolicy?: RadioRemovalPolicy;
 };
 
+export type QueueProjection = {
+  readonly tracks: readonly QueueTrack[];
+  readonly radioModeActive: boolean;
+  readonly radioBoundaryIndex: number | null;
+};
+
 export type QueueRemovalResult =
-  | { readonly ok: true }
+  | { readonly ok: true; readonly queueProjection?: QueueProjection }
   | { readonly ok: false; readonly error: LmsError };
 
 // ---------------------------------------------------------------------------
@@ -88,8 +84,7 @@ export const handleQueueRemoval = async (
   trackIndex: number,
   deps: QueueRemovalDeps,
 ): Promise<QueueRemovalResult> => {
-  const { lmsClient, io, playerId, log, emitQueueUpdate, radioRemovalPolicy } =
-    deps;
+  const { lmsClient, log, emitQueueUpdate, radioRemovalPolicy } = deps;
 
   // 1. Capture pre-removal queue state for radio context (before mutation)
   const preRemovalQueueResult = radioRemovalPolicy
@@ -129,116 +124,107 @@ export const handleQueueRemoval = async (
     return { ok: false, error: mutationResult.error };
   }
 
-  // 3. Attempt radio replenishment if applicable
+  // 3. Return the post-delete queue immediately for a responsive client update.
+  const queueProjection = await emitQueueUpdate("remove", (tracks) =>
+    recordQueueRemoval(tracks, trackIndex + 1),
+  );
+
+  // 4. Trigger radio replenishment asynchronously if applicable.
   const removedTrack = canAttemptRadioRemoval
     ? preRemovalQueueResult.value?.[trackIndex]
     : undefined;
 
-  const preservedRadioBoundaryIndex =
-    canAttemptRadioRemoval && preRemovalQueueResult?.value !== undefined
-      ? getRadioQueueState().radioBoundaryIndex
-      : null;
+  const currentTrackAfterRemoval =
+    queueProjection?.tracks.find((track) => track.isCurrent) ?? undefined;
+  const shouldSuppressQueueEndForCurrentTrack =
+    currentTrackAfterRemoval !== undefined &&
+    queueProjection?.tracks.length === 1;
+  const shouldSuppressQueueEndForRemovedTrack =
+    removedTrack?.isCurrent === true &&
+    (queueProjection?.tracks.length ?? 0) === 0;
+
+  if (shouldSuppressQueueEndForCurrentTrack) {
+    setSuppressedQueueEnd({
+      trackId: currentTrackAfterRemoval.id,
+      artist: currentTrackAfterRemoval.artist,
+      title: currentTrackAfterRemoval.title,
+    });
+  } else if (shouldSuppressQueueEndForRemovedTrack) {
+    setSuppressedQueueEnd({
+      trackId: removedTrack.id,
+      artist: removedTrack.artist,
+      title: removedTrack.title,
+    });
+  }
 
   if (
     radioRemovalPolicy !== undefined &&
     removedTrack !== undefined &&
     (removedTrack.source === "tidal" || removedTrack.source === "qobuz")
   ) {
-    const replenishResult = await radioRemovalPolicy.handleRemoval({
-      removedTrack: {
-        artist: removedTrack.artist,
-        title: removedTrack.title,
-      },
-      preservedRadioBoundaryIndex:
-        preservedRadioBoundaryIndex !== null
-          ? preservedRadioBoundaryIndex
-          : undefined,
-    });
+    void radioRemovalPolicy
+      .handleRemoval({
+        removedTrack: {
+          artist: removedTrack.artist,
+          title: removedTrack.title,
+        },
+      })
+      .then((replenishResult) => {
+        if (replenishResult.status === "success") {
+          log.info(
+            {
+              event: "queue_remove_radio_replenished",
+              trackIndex,
+              seedArtist: removedTrack.artist,
+              seedTitle: removedTrack.title,
+              tracksAdded: replenishResult.tracksAdded,
+            },
+            "Queue remove triggered radio replenish",
+          );
+          return;
+        }
 
-    if (replenishResult.status === "success") {
-      const radioBoundaryIndex =
-        preservedRadioBoundaryIndex ??
-        replenishResult.radioBoundaryIndex ??
-        replenishResult.preRadioQueueLength;
-      const replenishedTracks =
-        replenishResult.tracks ?? replenishResult.postQueueTracks;
-
-      if (radioBoundaryIndex !== undefined && replenishedTracks !== undefined) {
-        const queueProjection = recordRadioQueueBoundary(
-          replenishedTracks,
-          radioBoundaryIndex,
-        );
-        const emitResult = fromThrowable(
-          () =>
-            io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-              playerId,
-              tracks: queueProjection.tracks,
-              radioModeActive: queueProjection.radioModeActive,
-              radioBoundaryIndex:
-                queueProjection.radioBoundaryIndex ?? undefined,
-              timestamp: Date.now(),
-            }),
-          (error: unknown) => error,
-        );
-
-        if (!emitResult.ok) {
+        if (replenishResult.status === "failed") {
           log.warn(
             {
-              event: "queue_emit_failed",
-              mutation: "remove-radio-replenished",
-              error: emitResult.error,
+              event: "queue_remove_radio_replenish_failed",
+              trackIndex,
+              seedArtist: removedTrack.artist,
+              seedTitle: removedTrack.title,
+              reason: replenishResult.reason,
+              error: replenishResult.error,
             },
-            "Could not emit queue update after radio-backed remove — status poller will sync within 1s",
+            "Queue remove succeeded but radio replenish failed",
           );
+          return;
         }
-      } else {
-        await emitQueueUpdate("remove-radio-replenished-missing-boundary");
-      }
 
-      log.info(
-        {
-          event: "queue_remove_radio_replenished",
-          trackIndex,
-          seedArtist: removedTrack.artist,
-          seedTitle: removedTrack.title,
-          tracksAdded: replenishResult.tracksAdded,
-          radioBoundaryIndex,
-        },
-        "Queue remove triggered radio replenish",
-      );
-      return { ok: true };
-    }
-
-    if (replenishResult.status === "failed") {
-      log.warn(
-        {
-          event: "queue_remove_radio_replenish_failed",
-          trackIndex,
-          seedArtist: removedTrack.artist,
-          seedTitle: removedTrack.title,
-          reason: replenishResult.reason,
-          error: replenishResult.error,
-        },
-        "Queue remove succeeded but radio replenish failed",
-      );
-      await emitQueueUpdate("remove-radio-replenish-failed");
-      return { ok: true };
-    }
-
-    // status === "skipped"
-    log.info(
-      {
-        event: "queue_remove_radio_replenish_skipped",
-        trackIndex,
-        seedArtist: removedTrack.artist,
-        seedTitle: removedTrack.title,
-        reason: replenishResult.reason,
-      },
-      "Queue remove skipped radio replenish",
-    );
+        log.info(
+          {
+            event: "queue_remove_radio_replenish_skipped",
+            trackIndex,
+            seedArtist: removedTrack.artist,
+            seedTitle: removedTrack.title,
+            reason: replenishResult.reason,
+          },
+          "Queue remove skipped radio replenish",
+        );
+      })
+      .catch((error: unknown) => {
+        log.error(
+          {
+            event: "queue_remove_radio_replenish_unexpected_error",
+            trackIndex,
+            seedArtist: removedTrack.artist,
+            seedTitle: removedTrack.title,
+            error,
+          },
+          "Queue remove radio replenish crashed unexpectedly",
+        );
+      });
   }
 
-  // 4. Standard queue update (no radio involved)
-  await emitQueueUpdate("remove");
-  return { ok: true };
+  return queueProjection === null
+    ? { ok: true }
+    : { ok: true, queueProjection };
 };

@@ -17,7 +17,10 @@ import type {
   LmsClient,
   LmsError,
 } from "../../../adapters/lms-client/index.js";
-import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js";
+import {
+  annotateRadioQueueTracks,
+  recordQueueReorder,
+} from "../../radio-mode/shell/radio-state.js";
 import type { QueueTrack } from "@signalform/shared";
 import {
   PLAYER_QUEUE_UPDATED,
@@ -31,6 +34,7 @@ import {
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import {
   handleQueueRemoval,
+  type QueueProjection,
   type RadioRemovalPolicy,
 } from "./queue-removal-service.js";
 
@@ -81,7 +85,18 @@ export const createQueueRoute = (
   // Shared helpers
   // ---------------------------------------------------------------------------
 
-  const emitQueueUpdate = async (mutation: string): Promise<void> => {
+  const serializeQueueProjection = (
+    queueProjection: QueueProjection,
+  ): QueueProjection => ({
+    tracks: queueProjection.tracks,
+    radioModeActive: queueProjection.radioModeActive,
+    radioBoundaryIndex: queueProjection.radioBoundaryIndex,
+  });
+
+  const emitQueueUpdate = async (
+    mutation: string,
+    projectQueue?: (tracks: readonly QueueTrack[]) => QueueProjection,
+  ): Promise<QueueProjection | null> => {
     const queueResult = await lmsClient.getQueue();
     if (!queueResult.ok) {
       fastify.log.warn(
@@ -92,10 +107,12 @@ export const createQueueRoute = (
         },
         `Could not fetch queue after ${mutation} — status poller will sync within 1s`,
       );
-      return;
+      return null;
     }
 
-    const queueProjection = annotateRadioQueueTracks(queueResult.value);
+    const queueProjection =
+      projectQueue?.(queueResult.value) ??
+      annotateRadioQueueTracks(queueResult.value);
 
     const emitResult = fromThrowable(
       () =>
@@ -119,6 +136,8 @@ export const createQueueRoute = (
         `Could not emit queue update after ${mutation} — status poller will sync within 1s`,
       );
     }
+
+    return queueProjection;
   };
 
   // ---------------------------------------------------------------------------
@@ -402,8 +421,10 @@ export const createQueueRoute = (
       );
     }
 
-    await emitQueueUpdate("jump");
-    return reply.code(204).send();
+    const queueProjection = await emitQueueUpdate("jump");
+    return queueProjection === null
+      ? reply.code(204).send()
+      : reply.code(200).send(serializeQueueProjection(queueProjection));
   });
 
   fastify.post("/api/queue/remove", async (request, reply) => {
@@ -438,8 +459,6 @@ export const createQueueRoute = (
 
     const removalResult = await handleQueueRemoval(trackIndex, {
       lmsClient,
-      io,
-      playerId,
       log: fastify.log,
       emitQueueUpdate,
       radioRemovalPolicy:
@@ -458,7 +477,11 @@ export const createQueueRoute = (
       );
     }
 
-    return reply.code(204).send();
+    return removalResult.queueProjection === undefined
+      ? reply.code(204).send()
+      : reply
+          .code(200)
+          .send(serializeQueueProjection(removalResult.queueProjection));
   });
 
   fastify.post("/api/queue/reorder", async (request, reply) => {
@@ -507,7 +530,11 @@ export const createQueueRoute = (
       );
     }
 
-    await emitQueueUpdate("reorder");
-    return reply.code(204).send();
+    const queueProjection = await emitQueueUpdate("reorder", (tracks) =>
+      recordQueueReorder(tracks, fromIndex + 1, toIndex + 1),
+    );
+    return queueProjection === null
+      ? reply.code(204).send()
+      : reply.code(200).send(serializeQueueProjection(queueProjection));
   });
 };

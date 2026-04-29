@@ -253,6 +253,29 @@ describe('queueApi', () => {
   })
 
   describe('removeFromQueue', () => {
+    it('returns queue snapshot on 200 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      })
+
+      const result = await removeFromQueue(4)
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toEqual({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        })
+      }
+    })
+
     it('calls /api/queue/remove with trackIndex in body', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
@@ -297,6 +320,29 @@ describe('queueApi', () => {
   })
 
   describe('reorderQueue', () => {
+    it('returns queue snapshot on 200 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tracks: [],
+          radioModeActive: true,
+          radioBoundaryIndex: 1,
+        }),
+      })
+
+      const result = await reorderQueue(5, 1)
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toEqual({
+          tracks: [],
+          radioModeActive: true,
+          radioBoundaryIndex: 1,
+        })
+      }
+    })
+
     it('calls /api/queue/reorder with fromIndex and toIndex in body', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
@@ -336,6 +382,32 @@ describe('queueApi', () => {
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.type).toBe('ABORT_ERROR')
+      }
+    })
+  })
+
+  describe('jumpToTrack', () => {
+    it('returns queue snapshot on 200 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      })
+
+      const { jumpToTrack } = await import('./queueApi')
+      const result = await jumpToTrack(2)
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toEqual({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        })
       }
     })
   })

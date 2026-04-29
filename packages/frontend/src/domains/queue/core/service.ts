@@ -22,6 +22,45 @@ export const getUpcomingQueueTracks = (tracks: readonly QueueTrack[]): readonly 
   return currentIndex === -1 ? [] : tracks.slice(currentIndex + 1)
 }
 
+export const deriveRadioBoundaryIndex = (tracks: readonly QueueTrack[]): number | null => {
+  const firstRadioTrackIndex = tracks.findIndex((track) => track.addedBy === 'radio')
+  return firstRadioTrackIndex >= 0 ? firstRadioTrackIndex : null
+}
+
+export const reorderQueueTracks = (
+  tracks: readonly QueueTrack[],
+  fromIndex: number,
+  toIndex: number,
+): readonly QueueTrack[] => {
+  if (
+    fromIndex < 0 ||
+    toIndex < 0 ||
+    fromIndex >= tracks.length ||
+    toIndex >= tracks.length ||
+    fromIndex === toIndex
+  ) {
+    return tracks
+  }
+
+  const movedTrack = tracks[fromIndex]
+
+  if (movedTrack === undefined) {
+    return tracks
+  }
+
+  const remainingTracks = tracks.filter((_, index) => index !== fromIndex)
+  const reordered = [
+    ...remainingTracks.slice(0, toIndex),
+    movedTrack,
+    ...remainingTracks.slice(toIndex),
+  ]
+
+  return reordered.map((track, index) => ({
+    ...track,
+    position: index + 1,
+  }))
+}
+
 export const isRadioTrack = (
   track: QueueTrack,
   trackIndex: number,

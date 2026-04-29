@@ -26,6 +26,7 @@ const QueueResponseSchema = z.object({
   radioBoundaryIndex: z.number().nullable(),
 })
 
+export type QueueSnapshot = z.infer<typeof QueueResponseSchema>
 export type QueueApiError = QueueMutationError
 
 const mapMutationError = async (
@@ -55,6 +56,51 @@ const mapThrownError = (error: unknown, fallbackMessage: string): QueueApiError 
     abort: `${fallbackMessage} was aborted`,
     timeout: `${fallbackMessage} timed out`,
   })
+
+const runOptionalQueueSnapshotRequest = async (
+  url: string,
+  init: RequestInit,
+  fallbackMessage: string,
+  requestLabel: string,
+): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  try {
+    const response = await fetch(url, init)
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: await mapMutationError(response, fallbackMessage),
+      }
+    }
+
+    if (response.status === 204) {
+      return { ok: true, value: undefined }
+    }
+
+    const rawJson = await response.json().catch(() => undefined)
+    if (rawJson === undefined) {
+      return {
+        ok: false,
+        error: { type: 'PARSE_ERROR', message: 'Invalid JSON response body' },
+      }
+    }
+
+    const parsed = QueueResponseSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: { type: 'PARSE_ERROR', message: parsed.error.message },
+      }
+    }
+
+    return { ok: true, value: parsed.data }
+  } catch (error) {
+    return {
+      ok: false,
+      error: mapThrownError(error, requestLabel),
+    }
+  }
+}
 
 export const addToQueue = async (trackUrl: string): Promise<Result<void, QueueApiError>> => {
   return await fetchVoidResult(
@@ -129,8 +175,10 @@ export const addTrackListToQueue = async (
   )
 }
 
-export const jumpToTrack = async (trackIndex: number): Promise<Result<void, QueueApiError>> => {
-  return await fetchVoidResult(
+export const jumpToTrack = async (
+  trackIndex: number,
+): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  return await runOptionalQueueSnapshotRequest(
     getApiUrl('/api/queue/jump'),
     {
       method: 'POST',
@@ -138,15 +186,15 @@ export const jumpToTrack = async (trackIndex: number): Promise<Result<void, Queu
       body: JSON.stringify({ trackIndex }),
       signal: AbortSignal.timeout(2000),
     },
-    {
-      mapHttpError: async (response) => await mapMutationError(response, 'Failed to jump to track'),
-      mapThrownError: (error) => mapThrownError(error, 'Jump to track request'),
-    },
+    'Failed to jump to track',
+    'Jump to track request',
   )
 }
 
-export const removeFromQueue = async (trackIndex: number): Promise<Result<void, QueueApiError>> => {
-  return await fetchVoidResult(
+export const removeFromQueue = async (
+  trackIndex: number,
+): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  return await runOptionalQueueSnapshotRequest(
     getApiUrl('/api/queue/remove'),
     {
       method: 'POST',
@@ -154,19 +202,16 @@ export const removeFromQueue = async (trackIndex: number): Promise<Result<void, 
       body: JSON.stringify({ trackIndex }),
       signal: AbortSignal.timeout(15000),
     },
-    {
-      mapHttpError: async (response) =>
-        await mapMutationError(response, 'Failed to remove track from queue'),
-      mapThrownError: (error) => mapThrownError(error, 'Remove track request'),
-    },
+    'Failed to remove track from queue',
+    'Remove track request',
   )
 }
 
 export const reorderQueue = async (
   fromIndex: number,
   toIndex: number,
-): Promise<Result<void, QueueApiError>> => {
-  return await fetchVoidResult(
+): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  return await runOptionalQueueSnapshotRequest(
     getApiUrl('/api/queue/reorder'),
     {
       method: 'POST',
@@ -174,10 +219,8 @@ export const reorderQueue = async (
       body: JSON.stringify({ fromIndex, toIndex }),
       signal: AbortSignal.timeout(15000),
     },
-    {
-      mapHttpError: async (response) => await mapMutationError(response, 'Failed to reorder queue'),
-      mapThrownError: (error) => mapThrownError(error, 'Reorder queue request'),
-    },
+    'Failed to reorder queue',
+    'Reorder queue request',
   )
 }
 

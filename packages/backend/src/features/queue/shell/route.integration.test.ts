@@ -9,9 +9,15 @@ import {
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import { createQueueRoute } from "./route.js";
 import {
+  getRadioQueueState,
   resetRadioRuntimeState,
   setRadioBoundaryIndex,
+  setRadioQueueEntries,
 } from "../../radio-mode/shell/radio-state.js";
+import {
+  getQueueTrackRepeatKey,
+  getQueueTrackSignature,
+} from "../../radio-mode/core/identity.js";
 import type { FastifyInstance } from "fastify";
 
 const TEST_LMS_CONFIG = {
@@ -158,7 +164,7 @@ describe("GET /api/queue", () => {
     });
   });
 
-  it("returns persisted radio boundary on queue reload after radio mode started", async () => {
+  it("returns persisted radio boundary on queue reload after radio state was updated", async () => {
     const boundaryTracks = [
       {
         id: "1",
@@ -181,33 +187,15 @@ describe("GET /api/queue", () => {
       },
     ];
     mockLmsClient.getQueue.mockResolvedValue(ok(boundaryTracks));
+    setRadioQueueEntries([
+      {
+        position: boundaryTracks[1]!.position,
+        repeatKey: getQueueTrackRepeatKey(boundaryTracks[1]!),
+        signature: getQueueTrackSignature(boundaryTracks[1]!),
+      },
+    ]);
 
-    mockRadioController.handleRemoval.mockResolvedValue({
-      status: "success",
-      tracks: boundaryTracks,
-      radioBoundaryIndex: 1,
-      tracksAdded: 1,
-    });
-    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-
-    const radioServer = Fastify();
-    createQueueRoute(
-      radioServer,
-      mockLmsClient,
-      mockIo.io,
-      "test-player-id",
-      mockRadioController,
-    );
-    await radioServer.ready();
-
-    await radioServer.inject({
-      method: "POST",
-      url: "/api/queue/remove",
-      headers: { "Content-Type": "application/json" },
-      payload: { trackIndex: 1 },
-    });
-
-    const response = await radioServer.inject({
+    const response = await server.inject({
       method: "GET",
       url: "/api/queue",
     });
@@ -221,8 +209,6 @@ describe("GET /api/queue", () => {
       radioModeActive: true,
       radioBoundaryIndex: 1,
     });
-
-    await radioServer.close();
   });
 
   it("returns 503 when LMS is unreachable", async () => {
@@ -329,7 +315,7 @@ describe("POST /api/queue/jump", () => {
     void server.close();
   });
 
-  it("returns 204 when jump succeeds", async () => {
+  it("returns queue snapshot when jump succeeds", async () => {
     mockLmsClient.jumpToTrack.mockResolvedValue(ok(undefined));
     // Explicitly mock getQueue to avoid relying on stale mock state from other describe blocks
     mockLmsClient.getQueue.mockResolvedValue(ok([]));
@@ -339,7 +325,12 @@ describe("POST /api/queue/jump", () => {
       headers: { "Content-Type": "application/json" },
       payload: { trackIndex: 5 },
     });
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
   });
 
   it("returns 400 when trackIndex is missing", async () => {
@@ -391,7 +382,7 @@ describe("POST /api/queue/jump", () => {
     expect(mockIo.to).not.toHaveBeenCalled();
   });
 
-  it("emits player.queue.updated after successful jump", async () => {
+  it("returns queue snapshot and emits player.queue.updated after successful jump", async () => {
     const tracks = [
       {
         id: "1",
@@ -406,13 +397,19 @@ describe("POST /api/queue/jump", () => {
     mockLmsClient.jumpToTrack.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(ok(tracks));
 
-    await server.inject({
+    const response = await server.inject({
       method: "POST",
       url: "/api/queue/jump",
       headers: { "Content-Type": "application/json" },
       payload: { trackIndex: 2 },
     });
 
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockIo.to).toHaveBeenCalledWith("player-updates");
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
@@ -424,7 +421,7 @@ describe("POST /api/queue/jump", () => {
     );
   });
 
-  it("does not fail 204 response if queue fetch fails after jump", async () => {
+  it("falls back to 204 response if queue fetch fails after jump", async () => {
     mockLmsClient.jumpToTrack.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(
       err({ type: "NetworkError", message: "LMS unreachable" }),
@@ -887,7 +884,7 @@ describe("POST /api/queue/remove", () => {
     void server.close();
   });
 
-  it("returns 204 when queue track removal succeeds", async () => {
+  it("returns queue snapshot when queue track removal succeeds", async () => {
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(ok([]));
 
@@ -898,7 +895,12 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 4 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockLmsClient.removeFromQueue).toHaveBeenCalledWith(4);
   });
 
@@ -947,7 +949,7 @@ describe("POST /api/queue/remove", () => {
     expect(mockIo.to).not.toHaveBeenCalled();
   });
 
-  it("emits player.queue.updated after successful remove", async () => {
+  it("returns queue snapshot and emits player.queue.updated after successful remove", async () => {
     const tracks = [
       {
         id: "2",
@@ -962,13 +964,19 @@ describe("POST /api/queue/remove", () => {
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(ok(tracks));
 
-    await server.inject({
+    const response = await server.inject({
       method: "POST",
       url: "/api/queue/remove",
       headers: { "Content-Type": "application/json" },
       payload: { trackIndex: 1 },
     });
 
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockIo.to).toHaveBeenCalledWith("player-updates");
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
@@ -980,7 +988,70 @@ describe("POST /api/queue/remove", () => {
     );
   });
 
-  it("triggers radio replenish for radio-source removal and emits replenished queue with boundary", async () => {
+  it("suppresses the next queue-end trigger when remove leaves only the current track", async () => {
+    const tracks = [
+      {
+        id: "2",
+        position: 1,
+        title: "Remaining Track",
+        artist: "A",
+        album: "B",
+        duration: 200,
+        isCurrent: true,
+      },
+    ];
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok(tracks));
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndex: 1 },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(getRadioQueueState().suppressedQueueEnd).toEqual({
+      trackId: "2",
+      artist: "A",
+      title: "Remaining Track",
+    });
+  });
+
+  it("suppresses the next queue-end trigger when remove clears the currently playing final track", async () => {
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue
+      .mockResolvedValueOnce(
+        ok([
+          {
+            id: "1",
+            position: 1,
+            title: "Final Track",
+            artist: "Artist",
+            album: "Album",
+            duration: 240,
+            isCurrent: true,
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(ok([]));
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndex: 0 },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(getRadioQueueState().suppressedQueueEnd).toEqual({
+      trackId: "1",
+      artist: "Artist",
+      title: "Final Track",
+    });
+  });
+
+  it("returns the immediate post-delete snapshot and triggers radio replenish asynchronously", async () => {
     const preRemovalQueue = [
       {
         id: "user-1",
@@ -1002,7 +1073,7 @@ describe("POST /api/queue/remove", () => {
         source: "tidal" as const,
       },
     ];
-    const replenishedTracks = [
+    const postRemovalQueue = [
       {
         id: "user-1",
         position: 1,
@@ -1012,24 +1083,13 @@ describe("POST /api/queue/remove", () => {
         duration: 200,
         isCurrent: true,
       },
-      {
-        id: "radio-2",
-        position: 2,
-        title: "Fresh Radio Track",
-        artist: "Fresh Artist",
-        album: "Fresh Album",
-        duration: 215,
-        isCurrent: false,
-        source: "tidal" as const,
-      },
     ];
-
-    mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
+    mockLmsClient.getQueue
+      .mockResolvedValueOnce(ok(preRemovalQueue))
+      .mockResolvedValueOnce(ok(postRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
     mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
-      tracks: replenishedTracks,
-      radioBoundaryIndex: 1,
       tracksAdded: 1,
     });
 
@@ -1040,23 +1100,28 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 1 },
     });
 
-    expect(response.statusCode).toBe(204);
-    // handleRemoval was called with the correct removed track info
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockRadioController.handleRemoval).toHaveBeenCalledWith({
       removedTrack: {
         artist: "Radio Artist",
         title: "Radio Seed",
       },
     });
-    // The route must emit queue.updated with the radioBoundaryIndex from the replenish result —
-    // this verifies the route actually uses the handleRemoval return value, not just calls it
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
-      expect.objectContaining({ radioBoundaryIndex: 1 }),
+      expect.objectContaining({
+        tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
+        radioBoundaryIndex: undefined,
+      }),
     );
   });
 
-  it("preserves radioBoundaryIndex when radio replenish succeeds with radio-service outcome shape", async () => {
+  it("does not wait for radio replenish before responding", async () => {
     const preRemovalQueue = [
       {
         id: "user-1",
@@ -1089,7 +1154,7 @@ describe("POST /api/queue/remove", () => {
         source: "tidal" as const,
       },
     ];
-    const replenishedTracks = [
+    const postRemovalQueue = [
       {
         id: "user-1",
         position: 1,
@@ -1110,26 +1175,22 @@ describe("POST /api/queue/remove", () => {
         isCurrent: false,
         source: "tidal" as const,
       },
-      {
-        id: "radio-3",
-        position: 3,
-        title: "Replacement Radio Track",
-        artist: "Replacement Artist",
-        album: "Replacement Album",
-        duration: 220,
-        isCurrent: false,
-        source: "tidal" as const,
-      },
     ];
+    let resolveRemoval: (value: {
+      readonly status: "success";
+      readonly tracksAdded: number;
+    }) => void = () => undefined;
 
-    mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
+    mockLmsClient.getQueue
+      .mockResolvedValueOnce(ok(preRemovalQueue))
+      .mockResolvedValueOnce(ok(postRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
-    mockRadioController.handleRemoval.mockResolvedValue({
-      status: "success",
-      postQueueTracks: replenishedTracks,
-      preRadioQueueLength: 1,
-      tracksAdded: 1,
-    });
+    mockRadioController.handleRemoval.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRemoval = resolve;
+        }),
+    );
 
     const response = await server.inject({
       method: "POST",
@@ -1138,22 +1199,24 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 1 },
     });
 
-    expect(response.statusCode).toBe(204);
-    expect(mockEmit).toHaveBeenCalledWith(
-      "player.queue.updated",
-      expect.objectContaining({
-        playerId: "test-player-id",
-        tracks: [
-          { ...replenishedTracks[0], addedBy: "user" },
-          { ...replenishedTracks[1], addedBy: "radio" },
-          { ...replenishedTracks[2], addedBy: "radio" },
-        ],
-        radioBoundaryIndex: 1,
-      }),
-    );
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [
+        { ...postRemovalQueue[0], addedBy: "user" },
+        { ...postRemovalQueue[1], addedBy: "user" },
+      ],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
+    expect(mockRadioController.handleRemoval).toHaveBeenCalledOnce();
+
+    resolveRemoval({
+      status: "success",
+      tracksAdded: 1,
+    });
   });
 
-  it("preserves the original radio boundary when removing a middle radio track", async () => {
+  it("preserves the original radio boundary when starting async replenish for a middle radio track", async () => {
     setRadioBoundaryIndex(2);
     const preRemovalQueue = [
       {
@@ -1207,29 +1270,28 @@ describe("POST /api/queue/remove", () => {
         source: "tidal" as const,
       },
     ];
-    const replenishedTracks = [
-      preRemovalQueue[0],
-      preRemovalQueue[1],
-      preRemovalQueue[2],
-      preRemovalQueue[4],
-      {
-        id: "radio-4",
-        position: 5,
-        title: "Radio Four",
-        artist: "Radio Artist Four",
-        album: "Radio Album",
-        duration: 225,
-        isCurrent: false,
-        source: "tidal" as const,
-      },
+    const postRemovalQueue = [
+      preRemovalQueue[0]!,
+      preRemovalQueue[1]!,
+      preRemovalQueue[2]!,
+      preRemovalQueue[4]!,
     ];
+    setRadioQueueEntries(
+      [preRemovalQueue[2]!, preRemovalQueue[3]!, preRemovalQueue[4]!].map(
+        (track) => ({
+          position: track.position,
+          repeatKey: getQueueTrackRepeatKey(track),
+          signature: getQueueTrackSignature(track),
+        }),
+      ),
+    );
 
-    mockLmsClient.getQueue.mockResolvedValueOnce(ok(preRemovalQueue));
+    mockLmsClient.getQueue
+      .mockResolvedValueOnce(ok(preRemovalQueue))
+      .mockResolvedValueOnce(ok(postRemovalQueue));
     mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
     mockRadioController.handleRemoval.mockResolvedValue({
       status: "success",
-      tracks: replenishedTracks,
-      radioBoundaryIndex: 4,
       tracksAdded: 1,
     });
 
@@ -1240,31 +1302,26 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 3 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [
+        { ...postRemovalQueue[0], addedBy: "user" },
+        { ...postRemovalQueue[1], addedBy: "user" },
+        { ...postRemovalQueue[2], addedBy: "radio" },
+        { ...postRemovalQueue[3], addedBy: "radio" },
+      ],
+      radioModeActive: true,
+      radioBoundaryIndex: 2,
+    });
     expect(mockRadioController.handleRemoval).toHaveBeenCalledWith({
       removedTrack: {
         artist: "Radio Artist Two",
         title: "Radio Two",
       },
-      preservedRadioBoundaryIndex: 2,
     });
-    expect(mockEmit).toHaveBeenCalledWith(
-      "player.queue.updated",
-      expect.objectContaining({
-        playerId: "test-player-id",
-        tracks: [
-          { ...replenishedTracks[0], addedBy: "user" },
-          { ...replenishedTracks[1], addedBy: "user" },
-          { ...replenishedTracks[2], addedBy: "radio" },
-          { ...replenishedTracks[3], addedBy: "radio" },
-          { ...replenishedTracks[4], addedBy: "radio" },
-        ],
-        radioBoundaryIndex: 2,
-      }),
-    );
   });
 
-  it("falls back to plain queue refresh when radio replenish success omits boundary metadata", async () => {
+  it("returns the immediate delete snapshot even when radio replenish success omits boundary metadata", async () => {
     const preRemovalQueue = [
       {
         id: "radio-1",
@@ -1306,15 +1363,13 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 0 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockLmsClient.getQueue).toHaveBeenCalledTimes(2);
-    expect(mockEmit).toHaveBeenCalledWith(
-      "player.queue.updated",
-      expect.objectContaining({
-        playerId: "test-player-id",
-        tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
-      }),
-    );
   });
 
   it("does not trigger radio replenish for local-source removal", async () => {
@@ -1354,7 +1409,12 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 0 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [{ ...postRemovalQueue[0], addedBy: "user" }],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockRadioController.handleRemoval).not.toHaveBeenCalled();
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",
@@ -1365,7 +1425,7 @@ describe("POST /api/queue/remove", () => {
     );
   });
 
-  it("returns 204 and falls back to plain queue update when radio replenish fails", async () => {
+  it("returns queue snapshot immediately even when radio replenish fails", async () => {
     const preRemovalQueue = [
       {
         id: "radio-1",
@@ -1397,15 +1457,13 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 0 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: postRemovalQueue,
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockRadioController.handleRemoval).toHaveBeenCalledOnce();
-    expect(mockEmit).toHaveBeenCalledWith(
-      "player.queue.updated",
-      expect.objectContaining({
-        tracks: postRemovalQueue,
-        playerId: "test-player-id",
-      }),
-    );
   });
 
   it("skips radio replenish when pre-remove radio context fetch fails", async () => {
@@ -1423,7 +1481,12 @@ describe("POST /api/queue/remove", () => {
       payload: { trackIndex: 0 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockLmsClient.removeFromQueue).toHaveBeenCalledWith(0);
     expect(mockRadioController.handleRemoval).not.toHaveBeenCalled();
     expect(mockEmit).toHaveBeenCalledWith(
@@ -1467,7 +1530,7 @@ describe("POST /api/queue/reorder", () => {
     void server.close();
   });
 
-  it("returns 204 when queue reorder succeeds", async () => {
+  it("returns queue snapshot when queue reorder succeeds", async () => {
     mockLmsClient.moveQueueTrack.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(ok([]));
 
@@ -1478,7 +1541,12 @@ describe("POST /api/queue/reorder", () => {
       payload: { fromIndex: 4, toIndex: 1 },
     });
 
-    expect(response.statusCode).toBe(204);
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: [],
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockLmsClient.moveQueueTrack).toHaveBeenCalledWith(4, 1);
   });
 
@@ -1527,7 +1595,7 @@ describe("POST /api/queue/reorder", () => {
     expect(mockIo.to).not.toHaveBeenCalled();
   });
 
-  it("emits player.queue.updated after successful reorder", async () => {
+  it("returns queue snapshot and emits player.queue.updated after successful reorder", async () => {
     const tracks = [
       {
         id: "2",
@@ -1551,13 +1619,19 @@ describe("POST /api/queue/reorder", () => {
     mockLmsClient.moveQueueTrack.mockResolvedValue(ok(undefined));
     mockLmsClient.getQueue.mockResolvedValue(ok(tracks));
 
-    await server.inject({
+    const response = await server.inject({
       method: "POST",
       url: "/api/queue/reorder",
       headers: { "Content-Type": "application/json" },
       payload: { fromIndex: 1, toIndex: 0 },
     });
 
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toEqual({
+      tracks: tracks.map((track) => ({ ...track, addedBy: "user" })),
+      radioModeActive: true,
+      radioBoundaryIndex: null,
+    });
     expect(mockIo.to).toHaveBeenCalledWith("player-updates");
     expect(mockEmit).toHaveBeenCalledWith(
       "player.queue.updated",

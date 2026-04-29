@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  deriveRadioBoundaryIndex,
   getQueueEntryKey,
   getQueueAutoScrollDelta,
   getQueueDropPosition,
   getQueueDropIndicatorLabel,
+  reorderQueueTracks,
 } from './service'
 
 describe('queue core reorder helpers', () => {
@@ -75,5 +77,73 @@ describe('queue core reorder helpers', () => {
         isCurrent: false,
       }),
     ).toBe('4:shared-id')
+  })
+
+  it('reorders queue tracks and rewrites positions for optimistic UI updates', () => {
+    const tracks = [
+      {
+        id: '1',
+        position: 1,
+        title: 'Track A',
+        artist: 'Artist',
+        album: 'Album',
+        duration: 180,
+        isCurrent: false,
+        addedBy: 'user' as const,
+      },
+      {
+        id: '2',
+        position: 2,
+        title: 'Track B',
+        artist: 'Artist',
+        album: 'Album',
+        duration: 200,
+        isCurrent: true,
+        addedBy: 'user' as const,
+      },
+      {
+        id: '3',
+        position: 3,
+        title: 'Track C',
+        artist: 'Artist',
+        album: 'Album',
+        duration: 240,
+        isCurrent: false,
+        addedBy: 'radio' as const,
+      },
+    ] as const
+
+    expect(reorderQueueTracks(tracks, 0, 2)).toEqual([
+      { ...tracks[1], position: 1 },
+      { ...tracks[2], position: 2 },
+      { ...tracks[0], position: 3 },
+    ])
+  })
+
+  it('derives the radio boundary from the first radio-tagged track', () => {
+    expect(
+      deriveRadioBoundaryIndex([
+        {
+          id: '1',
+          position: 1,
+          title: 'Track A',
+          artist: 'Artist',
+          album: 'Album',
+          duration: 180,
+          isCurrent: false,
+          addedBy: 'user',
+        },
+        {
+          id: '2',
+          position: 2,
+          title: 'Track B',
+          artist: 'Artist',
+          album: 'Album',
+          duration: 200,
+          isCurrent: false,
+          addedBy: 'radio',
+        },
+      ]),
+    ).toBe(1)
   })
 })
