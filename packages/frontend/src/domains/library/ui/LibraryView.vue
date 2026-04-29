@@ -43,7 +43,7 @@ const {
 </script>
 
 <template>
-  <div data-testid="library-view" class="h-screen overflow-y-auto bg-white p-6">
+  <div data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white p-6">
     <MainNavBar />
     <!-- Source selector (AC1 — Story 8.1) -->
     <div

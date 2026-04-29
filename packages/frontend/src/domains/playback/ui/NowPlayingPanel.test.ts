@@ -4,22 +4,13 @@ import { nextTick } from 'vue'
 import NowPlayingPanel from '@/domains/playback/ui/NowPlayingPanel.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
+import { ref } from 'vue'
 
-type MockQueueTrack = {
-  readonly id: string
-  readonly position: number
-  readonly title: string
-  readonly artist: string
-}
+type PlaybackStore = ReturnType<
+  typeof import('@/domains/playback/shell/usePlaybackStore').usePlaybackStore
+>
 
-let mockQueueTracks: readonly MockQueueTrack[] = []
-
-const mockQueueStore = {
-  get tracks(): readonly MockQueueTrack[] {
-    return mockQueueTracks
-  },
-  fetchQueue: vi.fn().mockResolvedValue(undefined),
-}
+const isPhone = ref(false)
 
 // Mock the playback API
 vi.mock('@/platform/api/playbackApi', async () => {
@@ -36,12 +27,17 @@ vi.mock('@/platform/api/playbackApi', async () => {
   }
 })
 
-vi.mock(
-  '@/domains/queue/shell/useQueueStore',
-  (): { readonly useQueueStore: () => typeof mockQueueStore } => ({
-    useQueueStore: () => mockQueueStore,
+vi.mock('@/app/useResponsiveLayout', () => ({
+  useResponsiveLayout: (): {
+    readonly isPhone: typeof isPhone
+    readonly isTablet: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: ReturnType<typeof ref<boolean>>
+  } => ({
+    isPhone,
+    isTablet: ref(false),
+    isDesktop: ref(true),
   }),
-)
+}))
 
 describe('NowPlayingPanel', () => {
   type TestContext = {
@@ -52,8 +48,7 @@ describe('NowPlayingPanel', () => {
   beforeEach(() => {
     setupTestEnv()
     vi.clearAllMocks()
-    mockQueueTracks = []
-    mockQueueStore.fetchQueue.mockResolvedValue(undefined)
+    isPhone.value = false
   })
 
   const createRouter = async (): Promise<Router> => {
@@ -86,12 +81,15 @@ describe('NowPlayingPanel', () => {
   })
 
   it('shows queued tracks when playback is stopped but the queue has items', async () => {
-    mockQueueTracks = [
-      { id: '2', position: 1, title: 'Me Against the Music', artist: 'Britney Spears' },
-      { id: '3', position: 2, title: 'Toxic', artist: 'Britney Spears' },
-    ]
-
     const context = await createMountedContext()
+    await patchPlaybackStore((store) => {
+      store.$patch({
+        queuePreview: [
+          { id: '2', title: 'Me Against the Music', artist: 'Britney Spears' },
+          { id: '3', title: 'Toxic', artist: 'Britney Spears' },
+        ],
+      })
+    })
 
     expect(context.wrapper.find('[data-testid="queued-empty-state"]').exists()).toBe(true)
     const items = context.wrapper.findAll('[data-testid="queued-empty-state-item"]')
@@ -171,6 +169,35 @@ describe('NowPlayingPanel', () => {
     await flushPromises()
     await nextTick()
     return { router, wrapper }
+  }
+
+  const getPlaybackStore = async (): Promise<PlaybackStore> => {
+    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
+    return usePlaybackStore()
+  }
+
+  const patchPlaybackStore = async (
+    update: (store: Awaited<ReturnType<typeof getPlaybackStore>>) => void,
+  ): Promise<void> => {
+    update(await getPlaybackStore())
+    await nextTick()
+  }
+
+  const mockPlayTrackSuccess = async (): Promise<void> => {
+    const { ok } = await import('@signalform/shared')
+    const playbackApi = await import('@/platform/api/playbackApi')
+    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
+  }
+
+  const givenTrackIsPlayingWith = async (
+    track: Parameters<Awaited<ReturnType<typeof getPlaybackStore>>['play']>[0],
+  ): Promise<TestContext> => {
+    await mockPlayTrackSuccess()
+    const context = await createMountedContext()
+    const store = await getPlaybackStore()
+    await store.play(track)
+    await nextTick()
+    return context
   }
 
   // === THEN ===
@@ -305,11 +332,9 @@ describe('NowPlayingPanel', () => {
   describe('Error State', () => {
     it('shows error panel and dismiss button when store has error', async () => {
       const context = await createMountedContext()
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-      const store = usePlaybackStore()
-
-      store.$patch({ error: 'LMS unreachable' })
-      await nextTick()
+      await patchPlaybackStore((store) => {
+        store.$patch({ error: 'LMS unreachable' })
+      })
 
       const errorPanel = context.wrapper.find('[data-testid="playback-error"]')
       expect(errorPanel.exists()).toBe(true)
@@ -318,11 +343,10 @@ describe('NowPlayingPanel', () => {
 
     it('clears error when Dismiss button is clicked', async () => {
       const context = await createMountedContext()
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-      const store = usePlaybackStore()
-
-      store.$patch({ error: 'LMS unreachable' })
-      await nextTick()
+      const store = await getPlaybackStore()
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({ error: 'LMS unreachable' })
+      })
 
       const errorPanel = context.wrapper.find('[data-testid="playback-error"]')
       await errorPanel.find('button').trigger('click')
@@ -365,16 +389,7 @@ describe('NowPlayingPanel', () => {
   const givenTrackIsPlayingWithSource = async (
     source: 'local' | 'qobuz' | 'tidal' | 'unknown',
   ): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -382,22 +397,10 @@ describe('NowPlayingPanel', () => {
       url: 'file:///music/breathe.flac',
       source,
     })
-
-    await nextTick()
-    return context
   }
 
   const givenTidalTrackIsPlayingWithQuality = async (): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Kind of Blue',
       artist: 'Miles Davis',
@@ -406,22 +409,10 @@ describe('NowPlayingPanel', () => {
       source: 'tidal',
       audioQuality: { format: 'FLAC', lossless: true, bitrate: 1411000, sampleRate: 44100 },
     })
-
-    await nextTick()
-    return context
   }
 
   const givenTrackIsPlayingWithoutSource = async (): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -429,22 +420,10 @@ describe('NowPlayingPanel', () => {
       url: 'file:///music/breathe.flac',
       // source intentionally omitted → badge should not render
     })
-
-    await nextTick()
-    return context
   }
 
   const givenTrackIsPlayingWithAvailableSources = async (): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -457,22 +436,10 @@ describe('NowPlayingPanel', () => {
         { source: 'tidal', url: 'tidal://breathe' },
       ],
     })
-
-    await nextTick()
-    return context
   }
 
   const givenTrackIsPlayingWithCoverArtUrl = async (coverArtUrl: string): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -480,23 +447,10 @@ describe('NowPlayingPanel', () => {
       url: 'file:///music/breathe.flac',
       coverArtUrl,
     })
-
-    await nextTick()
-    return context
   }
 
   const givenTrackIsPlaying = async (): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    // Simulate track being played
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -504,9 +458,6 @@ describe('NowPlayingPanel', () => {
       url: 'file:///music/breathe.flac',
       duration: 169,
     })
-
-    await nextTick()
-    return context
   }
 
   // === Navigation Links (Story 4.5) ===
@@ -515,16 +466,7 @@ describe('NowPlayingPanel', () => {
     artistId: string,
     albumId: string,
   ): Promise<TestContext> => {
-    const { ok } = await import('@signalform/shared')
-    const playbackApi = await import('@/platform/api/playbackApi')
-    vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-
-    const context = await createMountedContext()
-
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-
-    await store.play({
+    return givenTrackIsPlayingWith({
       id: '1',
       title: 'Breathe',
       artist: 'Pink Floyd',
@@ -533,9 +475,6 @@ describe('NowPlayingPanel', () => {
       artistId,
       albumId,
     })
-
-    await nextTick()
-    return context
   }
 
   describe('Navigation Links', () => {
@@ -574,14 +513,7 @@ describe('NowPlayingPanel', () => {
     })
 
     it('artist name renders as plain text (not button) when artist name is empty', async () => {
-      // Simulate a track with no artist name — button only renders when artist string is non-empty
-      const { ok } = await import('@signalform/shared')
-      const playbackApi = await import('@/platform/api/playbackApi')
-      vi.mocked(playbackApi.playTrack).mockResolvedValue(ok(undefined))
-      const context = await createMountedContext()
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-      const store = usePlaybackStore()
-      await store.play({
+      const context = await givenTrackIsPlayingWith({
         id: '1',
         title: 'Unknown Track',
         artist: '',
@@ -589,7 +521,6 @@ describe('NowPlayingPanel', () => {
         url: 'file:///music/track.flac',
         duration: 100,
       })
-      await nextTick()
 
       const artistEl = context.wrapper.find('[data-testid="track-artist"]')
       expect(artistEl.element.tagName).toBe('P')
@@ -623,26 +554,23 @@ describe('NowPlayingPanel', () => {
 
   describe('Queue Preview', () => {
     it('shows queue preview items when queuePreview has tracks', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Breathe',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/breathe.flac',
-        },
-        queuePreview: [
-          { id: '2', title: 'Time', artist: 'Pink Floyd' },
-          { id: '3', title: 'Money', artist: 'Pink Floyd' },
-          { id: '4', title: 'Us and Them', artist: 'Pink Floyd' },
-        ],
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Breathe',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/breathe.flac',
+          },
+          queuePreview: [
+            { id: '2', title: 'Time', artist: 'Pink Floyd' },
+            { id: '3', title: 'Money', artist: 'Pink Floyd' },
+            { id: '4', title: 'Us and Them', artist: 'Pink Floyd' },
+          ],
+        })
       })
-      await nextTick()
 
       const items = context.wrapper.findAll('[data-testid="queue-preview-item"]')
       expect(items).toHaveLength(3)
@@ -653,22 +581,19 @@ describe('NowPlayingPanel', () => {
     })
 
     it('shows Queue is empty when queuePreview is empty', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Breathe',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/breathe.flac',
-        },
-        queuePreview: [],
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Breathe',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/breathe.flac',
+          },
+          queuePreview: [],
+        })
       })
-      await nextTick()
 
       const emptyState = context.wrapper.find('[data-testid="queue-empty"]')
       expect(emptyState.exists()).toBe(true)
@@ -676,43 +601,55 @@ describe('NowPlayingPanel', () => {
     })
 
     it('View Full Queue button is enabled', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Breathe',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/breathe.flac',
-        },
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Breathe',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/breathe.flac',
+          },
+        })
       })
-      await nextTick()
 
       const button = context.wrapper.find('[data-testid="view-full-queue"]')
       expect(button.exists()).toBe(true)
       expect(button.attributes('disabled')).toBeUndefined()
     })
 
-    it('clicking View Full Queue button navigates to /queue', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
+    it('hides the inline View Full Queue button on phone layouts', async () => {
+      isPhone.value = true
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Breathe',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/breathe.flac',
-        },
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Breathe',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/breathe.flac',
+          },
+        })
       })
-      await nextTick()
+
+      expect(context.wrapper.find('[data-testid="view-full-queue"]').exists()).toBe(false)
+    })
+
+    it('clicking View Full Queue button navigates to /queue', async () => {
+      const context = await createMountedContext()
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Breathe',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/breathe.flac',
+          },
+        })
+      })
 
       await context.wrapper.find('[data-testid="view-full-queue"]').trigger('click')
       await flushPromises()
@@ -755,13 +692,10 @@ describe('NowPlayingPanel', () => {
 
   describe('LMS error banner', () => {
     it('shows lms-error-banner when isLmsDisconnected is true', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({ lmsError: 'Cannot connect to music server' })
-      await nextTick()
+      await patchPlaybackStore((store) => {
+        store.$patch({ lmsError: 'Cannot connect to music server' })
+      })
 
       const banner = context.wrapper.find('[data-testid="lms-error-banner"]')
       expect(banner.exists()).toBe(true)
@@ -776,13 +710,10 @@ describe('NowPlayingPanel', () => {
     })
 
     it('shows Retry button in lms-error-banner', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({ lmsError: 'Cannot connect to music server' })
-      await nextTick()
+      await patchPlaybackStore((store) => {
+        store.$patch({ lmsError: 'Cannot connect to music server' })
+      })
 
       const retryBtn = context.wrapper.find('[data-testid="lms-retry-button"]')
       expect(retryBtn.exists()).toBe(true)
@@ -790,15 +721,14 @@ describe('NowPlayingPanel', () => {
     })
 
     it('calls retryLmsConnection when Retry button is clicked', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
 
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
+      const store = await getPlaybackStore()
       const retrySpy = vi.spyOn(store, 'retryLmsConnection').mockResolvedValue(undefined)
-      store.$patch({ lmsError: 'Cannot connect to music server' })
-      await nextTick()
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({ lmsError: 'Cannot connect to music server' })
+      })
 
       await context.wrapper.find('[data-testid="lms-retry-button"]').trigger('click')
       await flushPromises()
@@ -807,17 +737,15 @@ describe('NowPlayingPanel', () => {
     })
 
     it('clears banner when lmsError is set to null', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({ lmsError: 'Cannot connect to music server' })
-      await nextTick()
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({ lmsError: 'Cannot connect to music server' })
+      })
       expect(context.wrapper.find('[data-testid="lms-error-banner"]').exists()).toBe(true)
 
-      store.$patch({ lmsError: null })
-      await nextTick()
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({ lmsError: null })
+      })
       expect(context.wrapper.find('[data-testid="lms-error-banner"]').exists()).toBe(false)
     })
   })
@@ -834,54 +762,49 @@ describe('NowPlayingPanel', () => {
     })
 
     it('announces track title and artist when a track is set', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Time',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/time.flac',
-        },
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Time',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/time.flac',
+          },
+        })
       })
-      await nextTick()
 
       const region = context.wrapper.find('[data-testid="track-announcement"]')
       expect(region.text()).toContain('Now playing: Time by Pink Floyd')
     })
 
     it('updates announcement when track changes', async () => {
-      const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-
       const context = await createMountedContext()
-
-      const store = usePlaybackStore()
-      store.$patch({
-        currentTrack: {
-          id: '1',
-          title: 'Time',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/time.flac',
-        },
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({
+          currentTrack: {
+            id: '1',
+            title: 'Time',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/time.flac',
+          },
+        })
       })
-      await nextTick()
       expect(context.wrapper.find('[data-testid="track-announcement"]').text()).toContain('Time')
 
-      store.$patch({
-        currentTrack: {
-          id: '2',
-          title: 'Money',
-          artist: 'Pink Floyd',
-          album: 'Dark Side of the Moon',
-          url: 'file:///music/money.flac',
-        },
+      await patchPlaybackStore((currentStore) => {
+        currentStore.$patch({
+          currentTrack: {
+            id: '2',
+            title: 'Money',
+            artist: 'Pink Floyd',
+            album: 'Dark Side of the Moon',
+            url: 'file:///music/money.flac',
+          },
+        })
       })
-      await nextTick()
       expect(context.wrapper.find('[data-testid="track-announcement"]').text()).toContain(
         'Now playing: Money by Pink Floyd',
       )

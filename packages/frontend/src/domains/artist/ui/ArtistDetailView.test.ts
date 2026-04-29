@@ -283,7 +283,7 @@ describe('ArtistDetailView', () => {
     }
   })
 
-  // Story 4.7: scroll fix — root div must use h-screen overflow-y-auto
+  // Story 4.7: scroll fix — root div must use internal scrolling within the app layout
   it('root div has overflow-y-auto class for internal scrolling', async () => {
     const { getArtistDetail } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistDetail).mockReturnValue(new Promise(() => {}))
@@ -292,7 +292,8 @@ describe('ArtistDetailView', () => {
 
     const root = wrapper.find('[data-testid="artist-detail-view"]')
     expect(root.classes()).toContain('overflow-y-auto')
-    expect(root.classes()).toContain('h-screen')
+    expect(root.classes()).toContain('h-full')
+    expect(root.classes()).toContain('min-h-0')
     expect(root.classes()).not.toContain('min-h-screen')
   })
 

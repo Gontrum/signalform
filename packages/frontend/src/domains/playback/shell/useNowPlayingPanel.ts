@@ -1,22 +1,22 @@
-import { computed, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
 import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/playback/core/service'
 import { usePlaybackStore } from './usePlaybackStore'
-import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 
 const ERROR_DISMISS_TIMEOUT_MS = 5000
 
 type UseNowPlayingPanelResult = {
   readonly playbackStore: ReturnType<typeof usePlaybackStore>
-  readonly queueStore: ReturnType<typeof useQueueStore>
   readonly queuedTracks: ComputedRef<
     readonly { readonly id: string; readonly title: string; readonly artist: string }[]
   >
   readonly sourceTooltip: ComputedRef<string>
   readonly trackAnnouncement: ComputedRef<string>
   readonly alsoAvailableText: ComputedRef<string>
+  readonly shouldShowInlineQueueAction: ComputedRef<boolean>
   readonly navigateToArtist: () => void
   readonly navigateToAlbum: () => void
   readonly navigateToQueue: () => void
@@ -25,11 +25,7 @@ type UseNowPlayingPanelResult = {
 export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const router = useRouter()
   const playbackStore = usePlaybackStore()
-  const queueStore = useQueueStore()
-
-  onMounted(() => {
-    void queueStore.fetchQueue().catch(() => undefined)
-  })
+  const { isPhone } = useResponsiveLayout()
 
   watch(
     () => playbackStore.error,
@@ -68,8 +64,8 @@ export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   })
 
   const queuedTracks = computed(() =>
-    queueStore.tracks.slice(0, 3).map((track) => ({
-      id: `${track.position}:${track.id}`,
+    playbackStore.queuePreview.slice(0, 3).map((track) => ({
+      id: track.id,
       title: track.title,
       artist: track.artist,
     })),
@@ -81,14 +77,15 @@ export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const alsoAvailableText = computed((): string =>
     createAlsoAvailableText(playbackStore.currentTrack),
   )
+  const shouldShowInlineQueueAction = computed((): boolean => !isPhone.value)
 
   return {
     playbackStore,
-    queueStore,
     queuedTracks,
     sourceTooltip,
     trackAnnouncement,
     alsoAvailableText,
+    shouldShowInlineQueueAction,
     navigateToArtist,
     navigateToAlbum,
     navigateToQueue,

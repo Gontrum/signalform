@@ -412,7 +412,7 @@ describe('AlbumDetailView', () => {
     expect(wrapper.find('[data-testid="album-title"]').text()).toBe('Dark Side of the Moon')
   })
 
-  // Story 4.7: scroll fix — root div must use h-screen overflow-y-auto
+  // Story 4.7: scroll fix — root div must use internal scrolling within the app layout
   it('root div has overflow-y-auto class for internal scrolling', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockReturnValue(new Promise(() => {}))
@@ -421,7 +421,8 @@ describe('AlbumDetailView', () => {
 
     const root = wrapper.find('[data-testid="album-detail-view"]')
     expect(root.classes()).toContain('overflow-y-auto')
-    expect(root.classes()).toContain('h-screen')
+    expect(root.classes()).toContain('h-full')
+    expect(root.classes()).toContain('min-h-0')
     expect(root.classes()).not.toContain('min-h-screen')
   })
 

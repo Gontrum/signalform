@@ -1,11 +1,19 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
-import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
+import { usePhonePlaybackShortcut } from '@/domains/playback/shell/usePhonePlaybackShortcut'
 
 const router = useRouter()
 const { isPhone, isTablet, isDesktop } = useResponsiveLayout()
-const playbackStore = usePlaybackStore()
+const i18nStore = useI18nStore()
+const {
+  playbackStore,
+  hasQueuedTracks,
+  shouldShowPhonePlaybackShortcut,
+  phonePlaybackShortcutLabel,
+} = usePhonePlaybackShortcut()
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
 const navigateToNowPlaying = (): void => {
   void router.push('/now-playing')
@@ -28,7 +36,7 @@ const navigateToNowPlaying = (): void => {
       :class="{
         'w-full md:w-[60%]': isTablet || isDesktop,
         'w-full': isPhone,
-        'pb-[calc(4rem+env(safe-area-inset-bottom))]': isPhone && playbackStore.hasCurrentTrack,
+        'pb-[calc(7rem+env(safe-area-inset-bottom))]': shouldShowPhonePlaybackShortcut,
       }"
     >
       <slot name="left" />
@@ -46,21 +54,24 @@ const navigateToNowPlaying = (): void => {
 
     <!-- Mini Player: visible on phone when a track is loaded -->
     <button
-      v-if="isPhone && playbackStore.hasCurrentTrack"
+      v-if="shouldShowPhonePlaybackShortcut"
       data-testid="mini-player"
       type="button"
-      class="fixed inset-x-0 bottom-[env(safe-area-inset-bottom)] z-50 flex w-full items-center gap-3 border-t border-neutral-200 bg-white px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-lg"
-      aria-label="Open Now Playing"
+      class="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-50 flex min-h-[56px] items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-3 shadow-xl"
+      :aria-label="phonePlaybackShortcutLabel"
       @click="navigateToNowPlaying"
       @keydown.space.prevent="navigateToNowPlaying"
     >
       <!-- Track info -->
       <div class="min-w-0 flex-1">
         <p data-testid="mini-player-title" class="truncate text-sm font-medium text-neutral-900">
-          {{ playbackStore.currentTrack?.title }}
+          {{ playbackStore.currentTrack?.title ?? t('nav.queue') }}
         </p>
         <p data-testid="mini-player-artist" class="truncate text-xs text-neutral-500">
-          {{ playbackStore.currentTrack?.artist }}
+          {{
+            playbackStore.currentTrack?.artist ??
+            (hasQueuedTracks ? t('nowPlaying.viewFullQueue') : t('nowPlaying.queueEmpty'))
+          }}
         </p>
       </div>
 

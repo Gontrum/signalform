@@ -27,7 +27,7 @@ const {
 </script>
 
 <template>
-  <div class="h-screen overflow-y-auto bg-white p-6" data-testid="unified-artist-view">
+  <div class="h-full min-h-0 overflow-y-auto bg-white p-6" data-testid="unified-artist-view">
     <MainNavBar />
     <!-- Back button -->
     <button

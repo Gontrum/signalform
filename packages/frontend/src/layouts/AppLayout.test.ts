@@ -6,6 +6,10 @@ import type { Router } from 'vue-router'
 import { getPlaybackStatus } from '@/platform/api/playbackApi'
 import { ok } from '@signalform/shared'
 
+type PlaybackStore = ReturnType<
+  typeof import('@/domains/playback/shell/usePlaybackStore').usePlaybackStore
+>
+
 vi.mock('@/platform/api/playbackApi', async () => {
   const { ok } = await import('@signalform/shared')
   return {
@@ -65,6 +69,17 @@ describe('AppLayout', () => {
   type TestContext = {
     readonly router: Router
     readonly wrapper: VueWrapper
+  }
+
+  const getPlaybackStore = async (): Promise<PlaybackStore> => {
+    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
+    return usePlaybackStore()
+  }
+
+  const updatePlaybackStore = async (
+    update: (store: Awaited<ReturnType<typeof getPlaybackStore>>) => void,
+  ): Promise<void> => {
+    update(await getPlaybackStore())
   }
 
   const createRouter = async (): Promise<Router> => {
@@ -143,6 +158,7 @@ describe('AppLayout', () => {
     await whenLayoutIsMounted(context.wrapper)
 
     await thenMiniPlayerIsVisible(context.wrapper)
+    await thenMiniPlayerShowsCurrentTrack(context.wrapper)
     await thenMiniPlayerReservesSafeAreaSpace(context.wrapper)
   })
 
@@ -153,6 +169,28 @@ describe('AppLayout', () => {
     await whenLayoutIsMounted(context.wrapper)
 
     await thenMiniPlayerIsHidden(context.wrapper)
+  })
+
+  it('shows queue access on phone when queue has items but no track is playing', async () => {
+    await givenQueuePreviewExists()
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    await thenMiniPlayerIsVisible(context.wrapper)
+    expect(context.wrapper.find('[data-testid="mini-player-title"]').text()).toBe('Queue')
+    expect(context.wrapper.find('[data-testid="mini-player-artist"]').text()).toBe(
+      'View Full Queue',
+    )
+  })
+
+  it('does not depend on queue-store hydration for queued-but-stopped phone state', async () => {
+    await givenQueuePreviewExists()
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    await thenMiniPlayerIsVisible(context.wrapper)
   })
 
   // AC2: Clicking mini-player navigates to /now-playing
@@ -223,16 +261,34 @@ describe('AppLayout', () => {
       }),
     )
 
-    const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
-    const store = usePlaybackStore()
-    store.$patch({
-      currentTrack: {
-        id: '1',
-        title: 'Test Track',
-        artist: 'Test Artist',
-        album: 'Test Album',
-        url: 'track://1',
-      },
+    await updatePlaybackStore((store) => {
+      store.$patch({
+        currentTrack: {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+          url: 'track://1',
+        },
+      })
+    })
+  }
+
+  const givenQueuePreviewExists = async (): Promise<void> => {
+    vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
+      ok({
+        status: 'stopped',
+        currentTime: 0,
+        currentTrack: undefined,
+        queuePreview: [{ id: '2', title: 'Track Two', artist: 'Artist Two' }],
+      }),
+    )
+
+    await updatePlaybackStore((store) => {
+      store.$patch({
+        currentTrack: null,
+        queuePreview: [{ id: '2', title: 'Track Two', artist: 'Artist Two' }],
+      })
     })
   }
 
@@ -314,6 +370,9 @@ describe('AppLayout', () => {
   const thenMiniPlayerIsVisible = async (wrapper: VueWrapper): Promise<void> => {
     const miniPlayer = wrapper.find('[data-testid="mini-player"]')
     expect(miniPlayer.exists()).toBe(true)
+  }
+
+  const thenMiniPlayerShowsCurrentTrack = async (wrapper: VueWrapper): Promise<void> => {
     expect(wrapper.find('[data-testid="mini-player-title"]').text()).toBe('Test Track')
     expect(wrapper.find('[data-testid="mini-player-artist"]').text()).toBe('Test Artist')
   }
@@ -322,9 +381,10 @@ describe('AppLayout', () => {
     const miniPlayer = wrapper.find('[data-testid="mini-player"]')
     const leftPanel = wrapper.find('[data-testid="left-panel"]')
 
-    expect(miniPlayer.classes()).toContain('bottom-[env(safe-area-inset-bottom)]')
-    expect(miniPlayer.classes()).toContain('pb-[calc(0.75rem+env(safe-area-inset-bottom))]')
-    expect(leftPanel.classes()).toContain('pb-[calc(4rem+env(safe-area-inset-bottom))]')
+    expect(miniPlayer.classes()).toContain('bottom-[max(env(safe-area-inset-bottom),0.75rem)]')
+    expect(miniPlayer.classes()).toContain('min-h-[56px]')
+    expect(miniPlayer.classes()).toContain('rounded-2xl')
+    expect(leftPanel.classes()).toContain('pb-[calc(7rem+env(safe-area-inset-bottom))]')
   }
 
   const thenMiniPlayerIsHidden = async (wrapper: VueWrapper): Promise<void> => {
