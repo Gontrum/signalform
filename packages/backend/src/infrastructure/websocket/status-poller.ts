@@ -6,7 +6,12 @@
 
 import type { FastifyInstance } from "fastify";
 import { setTimeout as delay } from "node:timers/promises";
-import { annotateRadioQueueTracks } from "../../features/radio-mode/shell/radio-state.js";
+import {
+  annotateRadioQueueTracks,
+  clearSuppressedQueueEnd,
+  reconcileSuppressedQueueEnd,
+  shouldSuppressQueueEnd,
+} from "../../features/radio-mode/shell/radio-state.js";
 import type {
   PlayerStatus,
   LmsError,
@@ -26,6 +31,7 @@ import type { LmsPlayerStatus } from "./handlers.js";
 import {
   createPlayerStatusPayload,
   createSystemEventPayload,
+  hasQueueContextChanged,
   hasStatusChanged,
   PLAYER_STATUS_CHANGED,
   PLAYER_QUEUE_UPDATED,
@@ -108,7 +114,6 @@ export const startStatusPolling = (
    * Uses recursive setTimeout pattern to maintain immutability
    */
   const isAborted = (): boolean => pollingAbortController.signal.aborted;
-
   const poll = async (
     previousStatus: LmsPlayerStatus | null,
     lmsWasDisconnected: boolean,
@@ -222,6 +227,8 @@ export const startStatusPolling = (
       queuePreview: statusResult.value.queuePreview,
     };
 
+    reconcileSuppressedQueueEnd(previousStatus, currentStatus);
+
     // Only emit if status changed
     const nextStatus = hasStatusChanged(previousStatus, currentStatus)
       ? await (async (): Promise<LmsPlayerStatus | null> => {
@@ -248,14 +255,13 @@ export const startStatusPolling = (
               "Player status broadcast to clients",
             );
 
-            // Only emit player.queue.updated when the playing track changed.
+            // Emit player.queue.updated when the queue context changed.
+            // This covers normal track changes and duplicate-occurrence advances
+            // where LMS may keep the same currentTrack.id while queuePreview shifts.
             // Guard previousStatus !== null to skip the initial poll (first poll has no
             // previous state to compare against; initial queue load happens via fetchQueue()
             // in QueueView.vue onMounted, so the push here would be redundant on startup).
-            if (
-              previousStatus !== null &&
-              previousStatus.currentTrack?.id !== currentStatus.currentTrack?.id
-            ) {
+            if (hasQueueContextChanged(previousStatus, currentStatus)) {
               const queueResult = await lmsClient.getQueue();
               // Poller was stopped while getQueue() was in-flight — discard result
               if (isAborted()) {
@@ -325,6 +331,25 @@ export const startStatusPolling = (
       (currentStatus.queuePreview?.length ?? 0) === 0
     ) {
       const seedTrack = currentStatus.currentTrack;
+      if (
+        shouldSuppressQueueEnd({
+          trackId: seedTrack.id,
+          artist: seedTrack.artist,
+          title: seedTrack.title,
+        })
+      ) {
+        app.log.info(
+          {
+            event: "radio.queue_end_trigger_suppressed_proactive",
+            playerId,
+            seedArtist: seedTrack.artist,
+            seedTitle: seedTrack.title,
+          },
+          "Radio queue-end proactive trigger suppressed after user queue clear",
+        );
+        await scheduleNextPoll(nextStatus, false);
+        return;
+      }
       app.log.info(
         {
           event: "radio.queue_end_triggered_proactive",
@@ -357,6 +382,26 @@ export const startStatusPolling = (
       previousStatus.currentTrack !== undefined
     ) {
       const seedTrack = previousStatus.currentTrack;
+      if (
+        shouldSuppressQueueEnd({
+          trackId: seedTrack.id,
+          artist: seedTrack.artist,
+          title: seedTrack.title,
+        })
+      ) {
+        clearSuppressedQueueEnd();
+        app.log.info(
+          {
+            event: "radio.queue_end_trigger_suppressed_stop",
+            playerId,
+            seedArtist: seedTrack.artist,
+            seedTitle: seedTrack.title,
+          },
+          "Radio queue-end stop trigger suppressed after user queue clear",
+        );
+        await scheduleNextPoll(nextStatus, false);
+        return;
+      }
       app.log.info(
         {
           event: "radio.queue_end_triggered_stop",

@@ -269,3 +269,21 @@ export const hasStatusChanged = (
     prevQueueIds !== currentQueueIds
   );
 };
+
+export const hasQueueContextChanged = (
+  prev: LmsPlayerStatus | null,
+  current: LmsPlayerStatus,
+): boolean => {
+  if (!prev) {
+    return false;
+  }
+
+  const prevQueueIds = prev.queuePreview?.map((t) => t.id).join(",") ?? "";
+  const currentQueueIds =
+    current.queuePreview?.map((t) => t.id).join(",") ?? "";
+
+  return (
+    prev.currentTrack?.id !== current.currentTrack?.id ||
+    prevQueueIds !== currentQueueIds
+  );
+};

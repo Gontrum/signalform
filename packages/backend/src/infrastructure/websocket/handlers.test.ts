@@ -9,6 +9,7 @@ import {
   createPlayerTrackChangedPayload,
   createPlayerVolumeChangedPayload,
   createSystemEventPayload,
+  hasQueueContextChanged,
   hasStatusChanged,
   type LmsPlayerStatus,
 } from "./handlers.js";
@@ -270,6 +271,115 @@ describe("createPlayerVolumeChangedPayload", () => {
       expect(result.error.type).toBe("MISSING_DATA");
       expect(result.error.message).toBe("Player ID is required");
     }
+  });
+});
+
+describe("hasQueueContextChanged", () => {
+  test("returns false on initial poll without previous status", () => {
+    const current: LmsPlayerStatus = {
+      playerId: "player-1",
+      mode: "play",
+      volume: 50,
+      time: 12,
+      currentTrack: {
+        id: "track-1",
+        title: "Song",
+        artist: "Artist",
+        album: "Album",
+        duration: 180,
+        sources: [],
+      },
+      queuePreview: [{ id: "track-2", title: "Next Song", artist: "Artist" }],
+    };
+
+    expect(hasQueueContextChanged(null, current)).toBe(false);
+  });
+
+  test("returns true when current track id changes", () => {
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      mode: "play",
+      volume: 50,
+      time: 12,
+      currentTrack: {
+        id: "track-1",
+        title: "Song",
+        artist: "Artist",
+        album: "Album",
+        duration: 180,
+        sources: [],
+      },
+      queuePreview: [{ id: "track-3", title: "Later Song", artist: "Artist" }],
+    };
+    const current: LmsPlayerStatus = {
+      ...prev,
+      currentTrack: {
+        id: "track-2",
+        title: "Next Song",
+        artist: "Artist",
+        album: "Album",
+        duration: 180,
+        sources: [],
+      },
+    };
+
+    expect(hasQueueContextChanged(prev, current)).toBe(true);
+  });
+
+  test("returns true when queue preview changes while current track id stays the same", () => {
+    const currentTrack: Track = {
+      id: "duplicate-track",
+      title: "Repeat Song",
+      artist: "Artist",
+      album: "Album",
+      duration: 180,
+      sources: [],
+    };
+
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      mode: "play",
+      volume: 50,
+      time: 12,
+      currentTrack,
+      queuePreview: [
+        { id: "duplicate-track", title: "Repeat Song", artist: "Artist" },
+        { id: "track-3", title: "Later Song", artist: "Artist" },
+      ],
+    };
+    const current: LmsPlayerStatus = {
+      ...prev,
+      time: 0,
+      queuePreview: [{ id: "track-3", title: "Later Song", artist: "Artist" }],
+    };
+
+    expect(hasQueueContextChanged(prev, current)).toBe(true);
+  });
+
+  test("returns false when current track id and queue preview are unchanged", () => {
+    const currentTrack: Track = {
+      id: "track-1",
+      title: "Song",
+      artist: "Artist",
+      album: "Album",
+      duration: 180,
+      sources: [],
+    };
+
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      mode: "play",
+      volume: 50,
+      time: 12,
+      currentTrack,
+      queuePreview: [{ id: "track-2", title: "Next Song", artist: "Artist" }],
+    };
+    const current: LmsPlayerStatus = {
+      ...prev,
+      time: 13,
+    };
+
+    expect(hasQueueContextChanged(prev, current)).toBe(false);
   });
 });
 

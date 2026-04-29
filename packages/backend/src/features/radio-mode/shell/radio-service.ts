@@ -34,12 +34,15 @@ import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 import type { RadioUnavailablePayload } from "@signalform/shared";
 import {
   annotateRadioQueueTracks,
+  clearRadioQueueRuntimeState,
   getRadioQueueState,
-  recordRadioQueueBoundary,
+  isRadioModeEnabledForReplenishment,
+  recordExplicitRadioTracks,
   resetRadioRuntimeState,
   setRadioModeEnabledState,
   setRadioProcessing,
   setRadioRecentArtists,
+  setRequestedRadioModeEnabledState,
 } from "./radio-state.js";
 import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
 import {
@@ -56,27 +59,17 @@ type ReplenishTrigger = "queue-end" | "queue-remove";
 type ReplenishOutcome =
   | {
       readonly status: "success";
-      readonly preRadioQueueLength: number;
-      readonly postQueueTracks: readonly {
-        readonly id: string;
-        readonly position: number;
-        readonly title: string;
-        readonly artist: string;
-        readonly album: string;
-        readonly duration: number;
-        readonly isCurrent: boolean;
-        readonly source?: SourceType;
-        readonly audioQuality?: AudioQuality;
-      }[];
       readonly tracksAdded: number;
     }
   | {
       readonly status: "skipped";
       readonly reason:
         | "already-processing"
+        | "disabled"
         | "lastfm-unavailable"
         | "no-candidates"
-        | "batch-empty";
+        | "batch-empty"
+        | "queue-refilled";
       readonly unavailableEmitted?: boolean;
     }
   | {
@@ -265,6 +258,24 @@ export const createRadioEngine = (
 ): RadioEngine => {
   resetRadioRuntimeState();
 
+  const getDisabledReplenishOutcome = (
+    trigger: ReplenishTrigger,
+    seedArtist: string,
+    seedTitle: string,
+  ): ReplenishOutcome | undefined => {
+    if (isRadioModeEnabledForReplenishment()) {
+      return undefined;
+    }
+
+    logger.info("Radio: replenish aborted because radio mode was disabled", {
+      event: "radio.replenish_aborted_disabled",
+      trigger,
+      seedArtist,
+      seedTitle,
+    });
+    return { status: "skipped", reason: "disabled" };
+  };
+
   const replenishRadioQueue = async (
     seedArtist: string,
     seedTitle: string,
@@ -305,6 +316,14 @@ export const createRadioEngine = (
           seedTitle,
           LASTFM_SIMILAR_LIMIT,
         );
+        const disabledAfterSimilarFetch = getDisabledReplenishOutcome(
+          trigger,
+          seedArtist,
+          seedTitle,
+        );
+        if (disabledAfterSimilarFetch !== undefined) {
+          return disabledAfterSimilarFetch;
+        }
         if (!similarResult.ok) {
           if (similarResult.error.type === "CircuitOpenError") {
             logger.warn(
@@ -421,9 +440,39 @@ export const createRadioEngine = (
           };
         }
         const preRadioQueueLength = preRadioQueueResult.value.length;
-        const recentQueueTrackKeys = preRadioQueueResult.value
-          .slice(-10)
-          .map((track) => getQueueTrackRepeatKey(track));
+        const queuedTrackRepeatKeys = preRadioQueueResult.value.map((track) =>
+          getQueueTrackRepeatKey(track),
+        );
+        const disabledAfterQueueSnapshot = getDisabledReplenishOutcome(
+          trigger,
+          seedArtist,
+          seedTitle,
+        );
+        if (disabledAfterQueueSnapshot !== undefined) {
+          return disabledAfterQueueSnapshot;
+        }
+
+        if (trigger === "queue-end") {
+          const queueFreshnessResult = await lmsClient.getQueue();
+          if (
+            queueFreshnessResult.ok &&
+            queueFreshnessResult.value !== undefined &&
+            queueFreshnessResult.value.length > preRadioQueueLength
+          ) {
+            logger.info(
+              "Radio: queue-end replenish skipped because queue was refilled",
+              {
+                event: "radio.queue_refilled_before_replenish",
+                trigger,
+                seedArtist,
+                seedTitle,
+                preRadioQueueLength,
+                refreshedQueueLength: queueFreshnessResult.value.length,
+              },
+            );
+            return { status: "skipped", reason: "queue-refilled" };
+          }
+        }
 
         // Step 5: Search LMS for each candidate and add to queue (sequential — avoids overwhelming LMS)
         // Process ALL diversity-filtered candidates (up to LASTFM_SIMILAR_LIMIT=50) until
@@ -437,175 +486,192 @@ export const createRadioEngine = (
             ? RADIO_REMOVAL_REPLENISH_SIZE
             : RADIO_BATCH_SIZE;
 
-        const { artists: addedArtists } = await seedArtistFiltered.reduce(
-          async (
-            accPromise: Promise<RadioAcc>,
-            candidate,
-          ): Promise<RadioAcc> => {
-            const acc = await accPromise;
-
-            // Batch is full — skip remaining candidates
-            if (acc.artists.length >= targetBatchSize) {
-              return acc;
-            }
-
-            // Skip if artist already added in this batch (NFD-normalized bidirectional match).
-            // filterByDiversity only filters against state.recentArtists (previous batches).
-            // On first run recentArtists = [] → all same-artist candidates pass diversity filter.
-            // Uses artistMatches() for consistency with seed exclusion — handles collaboration
-            // variants like "Adele" vs "Adele feat. James Brown" as the same artist.
-            if (
-              acc.artists.some((added) =>
-                artistMatches(added, candidate.artist),
-              )
-            ) {
-              logger.info(
-                "Radio: skipping duplicate artist in batch — artist already queued in this batch",
-                {
-                  event: "radio.duplicate_artist_skipped",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                },
-              );
-              return acc;
-            }
-
-            const queryResults = await buildRadioSearchQueries(
-              candidate.artist,
-              candidate.name,
-            ).reduce<Promise<readonly SearchResult[]>>(
-              async (resultPromise, query) => {
-                const previousResults = await resultPromise;
-                if (previousResults.length > 0) {
-                  return previousResults;
-                }
-
-                const searchResult = await lmsClient.search(query);
-                if (!searchResult.ok || searchResult.value.length === 0) {
-                  return [];
-                }
-
-                const matchingResults = searchResult.value.filter((r) =>
-                  artistMatches(r.artist, candidate.artist),
-                );
-                return matchingResults;
-              },
-              Promise.resolve([] as readonly SearchResult[]),
-            );
-            if (queryResults.length === 0) {
-              logger.warn("Radio: track not found in LMS — skipped", {
-                event: "radio.track_not_found",
+        const { artists: addedArtists, trackKeys: addedTrackKeys } =
+          await seedArtistFiltered.reduce(
+            async (
+              accPromise: Promise<RadioAcc>,
+              candidate,
+            ): Promise<RadioAcc> => {
+              const acc = await accPromise;
+              const disabledDuringBatch = getDisabledReplenishOutcome(
                 trigger,
-                artist: candidate.artist,
-                title: candidate.name,
-              });
-              return acc;
-            }
-
-            // Select best quality track using source hierarchy scoring + tie-breaking
-            const selectResult = selectBestTrackUrl(queryResults);
-            if (selectResult.selectionError !== undefined) {
-              // AC6: log SelectionError details when source hierarchy falls back to simple comparison
-              logger.warn(
-                "Radio: source hierarchy selection failed — using fallback lossless/bitrate comparison",
-                {
-                  event: "radio.source_hierarchy_fallback",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                  selectionError: selectResult.selectionError.type,
-                  selectionMessage: selectResult.selectionError.message,
-                },
+                seedArtist,
+                seedTitle,
               );
-            }
-            const bestUrl = selectResult.url;
-            if (bestUrl === undefined) {
-              logger.warn(
-                "Radio: could not determine best track URL — skipped",
-                {
-                  event: "radio.no_best_url",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                },
-              );
-              return acc;
-            }
+              if (disabledDuringBatch !== undefined) {
+                return acc;
+              }
 
-            const bestResult =
-              queryResults.find((result) => result.url === bestUrl) ?? null;
-            const repeatKey =
-              bestResult !== null
-                ? getSearchResultRepeatKey(bestResult)
-                : getQueueTrackRepeatKey({
+              // Batch is full — skip remaining candidates
+              if (acc.artists.length >= targetBatchSize) {
+                return acc;
+              }
+
+              // Skip if artist already added in this batch (NFD-normalized bidirectional match).
+              // filterByDiversity only filters against state.recentArtists (previous batches).
+              // On first run recentArtists = [] → all same-artist candidates pass diversity filter.
+              // Uses artistMatches() for consistency with seed exclusion — handles collaboration
+              // variants like "Adele" vs "Adele feat. James Brown" as the same artist.
+              if (
+                acc.artists.some((added) =>
+                  artistMatches(added, candidate.artist),
+                )
+              ) {
+                logger.info(
+                  "Radio: skipping duplicate artist in batch — artist already queued in this batch",
+                  {
+                    event: "radio.duplicate_artist_skipped",
+                    trigger,
                     artist: candidate.artist,
                     title: candidate.name,
-                  });
+                  },
+                );
+                return acc;
+              }
 
-            if (
-              acc.trackKeys.includes(repeatKey) ||
-              recentQueueTrackKeys.includes(repeatKey)
-            ) {
-              logger.info("Radio: skipping recent duplicate track", {
-                event: "radio.recent_duplicate_skipped",
-                trigger,
-                artist: candidate.artist,
-                title: candidate.name,
-              });
-              return acc;
-            }
+              const queryResults = await buildRadioSearchQueries(
+                candidate.artist,
+                candidate.name,
+              ).reduce<Promise<readonly SearchResult[]>>(
+                async (resultPromise, query) => {
+                  const previousResults = await resultPromise;
+                  if (previousResults.length > 0) {
+                    return previousResults;
+                  }
 
-            // Skip if this URL was already added in this batch.
-            // Different last.fm candidates can resolve to the same track URL (local or Tidal)
-            // (e.g. "Lisa Dream" and "Adele When We Were Young" both match "Holiday.flac"),
-            // causing duplicates that the artist-level check above cannot prevent.
-            if (acc.urls.includes(bestUrl)) {
-              logger.warn(
-                "Radio: skipping duplicate URL — track already in queue batch",
-                {
-                  event: "radio.duplicate_url_skipped",
+                  const searchResult = await lmsClient.search(query);
+                  if (!searchResult.ok || searchResult.value.length === 0) {
+                    return [];
+                  }
+
+                  const matchingResults = searchResult.value.filter((r) =>
+                    artistMatches(r.artist, candidate.artist),
+                  );
+                  return matchingResults;
+                },
+                Promise.resolve([] as readonly SearchResult[]),
+              );
+              if (queryResults.length === 0) {
+                logger.warn("Radio: track not found in LMS — skipped", {
+                  event: "radio.track_not_found",
                   trigger,
                   artist: candidate.artist,
                   title: candidate.name,
-                  url: bestUrl,
-                },
-              );
-              return acc;
-            }
+                });
+                return acc;
+              }
 
-            const addResult = await lmsClient.addToQueue(bestUrl);
-            if (!addResult.ok) {
-              logger.warn("Radio: addToQueue failed — skipped", {
-                event: "radio.add_to_queue_failed",
+              // Select best quality track using source hierarchy scoring + tie-breaking
+              const selectResult = selectBestTrackUrl(queryResults);
+              if (selectResult.selectionError !== undefined) {
+                // AC6: log SelectionError details when source hierarchy falls back to simple comparison
+                logger.warn(
+                  "Radio: source hierarchy selection failed — using fallback lossless/bitrate comparison",
+                  {
+                    event: "radio.source_hierarchy_fallback",
+                    trigger,
+                    artist: candidate.artist,
+                    title: candidate.name,
+                    selectionError: selectResult.selectionError.type,
+                    selectionMessage: selectResult.selectionError.message,
+                  },
+                );
+              }
+              const bestUrl = selectResult.url;
+              if (bestUrl === undefined) {
+                logger.warn(
+                  "Radio: could not determine best track URL — skipped",
+                  {
+                    event: "radio.no_best_url",
+                    trigger,
+                    artist: candidate.artist,
+                    title: candidate.name,
+                  },
+                );
+                return acc;
+              }
+
+              const bestResult =
+                queryResults.find((result) => result.url === bestUrl) ?? null;
+              const repeatKey =
+                bestResult !== null
+                  ? getSearchResultRepeatKey(bestResult)
+                  : getQueueTrackRepeatKey({
+                      artist: candidate.artist,
+                      title: candidate.name,
+                    });
+
+              if (
+                acc.trackKeys.includes(repeatKey) ||
+                queuedTrackRepeatKeys.includes(repeatKey)
+              ) {
+                logger.info("Radio: skipping recent duplicate track", {
+                  event: "radio.recent_duplicate_skipped",
+                  trigger,
+                  artist: candidate.artist,
+                  title: candidate.name,
+                });
+                return acc;
+              }
+
+              // Skip if this URL was already added in this batch.
+              // Different last.fm candidates can resolve to the same track URL (local or Tidal)
+              // (e.g. "Lisa Dream" and "Adele When We Were Young" both match "Holiday.flac"),
+              // causing duplicates that the artist-level check above cannot prevent.
+              if (acc.urls.includes(bestUrl)) {
+                logger.warn(
+                  "Radio: skipping duplicate URL — track already in queue batch",
+                  {
+                    event: "radio.duplicate_url_skipped",
+                    trigger,
+                    artist: candidate.artist,
+                    title: candidate.name,
+                    url: bestUrl,
+                  },
+                );
+                return acc;
+              }
+
+              const addResult = await lmsClient.addToQueue(bestUrl);
+              if (!addResult.ok) {
+                logger.warn("Radio: addToQueue failed — skipped", {
+                  event: "radio.add_to_queue_failed",
+                  trigger,
+                  artist: candidate.artist,
+                  title: candidate.name,
+                  error: addResult.error,
+                });
+                return acc;
+              }
+
+              logger.info("Radio: track added to queue", {
+                event: "radio.track_queued",
                 trigger,
                 artist: candidate.artist,
                 title: candidate.name,
-                error: addResult.error,
               });
-              return acc;
-            }
-
-            logger.info("Radio: track added to queue", {
-              event: "radio.track_queued",
-              trigger,
-              artist: candidate.artist,
-              title: candidate.name,
-            });
-            return {
-              artists: [...acc.artists, candidate.artist],
-              urls: [...acc.urls, bestUrl],
-              trackKeys: [...acc.trackKeys, repeatKey],
-            };
-          },
-          Promise.resolve({
-            artists: [] as readonly string[],
-            urls: [] as readonly string[],
-            trackKeys: recentQueueTrackKeys,
-          }),
-        );
+              return {
+                artists: [...acc.artists, candidate.artist],
+                urls: [...acc.urls, bestUrl],
+                trackKeys: [...acc.trackKeys, repeatKey],
+              };
+            },
+            Promise.resolve({
+              artists: [] as readonly string[],
+              urls: [] as readonly string[],
+              trackKeys: [] as readonly string[],
+            }),
+          );
 
         if (addedArtists.length === 0) {
+          const disabledWithoutAdds = getDisabledReplenishOutcome(
+            trigger,
+            seedArtist,
+            seedTitle,
+          );
+          if (disabledWithoutAdds !== undefined) {
+            return disabledWithoutAdds;
+          }
           logger.warn("Radio: no tracks could be added to queue", {
             event: "radio.batch_empty",
             trigger,
@@ -616,6 +682,15 @@ export const createRadioEngine = (
         }
 
         // Step 5b: Advance playback if the player stopped while we were adding tracks.
+        const disabledBeforeAdvance = getDisabledReplenishOutcome(
+          trigger,
+          seedArtist,
+          seedTitle,
+        );
+        if (disabledBeforeAdvance !== undefined) {
+          return disabledBeforeAdvance;
+        }
+
         // On queue-end, LMS can still consider the seed track current after stop; resume()
         // may replay that just-finished track instead of moving into the newly queued radio track.
         // nextTrack() advances onto the first appended radio item. For queue-remove replenishment,
@@ -685,6 +760,14 @@ export const createRadioEngine = (
           getRadioQueueState().recentArtists,
         );
         setRadioRecentArtists(nextRecentArtists);
+        const disabledBeforeRefresh = getDisabledReplenishOutcome(
+          trigger,
+          seedArtist,
+          seedTitle,
+        );
+        if (disabledBeforeRefresh !== undefined) {
+          return disabledBeforeRefresh;
+        }
 
         // Step 7: Fetch updated queue and emit player.queue.updated
         const queueResult = await lmsClient.getQueue();
@@ -709,9 +792,9 @@ export const createRadioEngine = (
           };
         }
 
-        const queueProjection = recordRadioQueueBoundary(
+        const queueProjection = recordExplicitRadioTracks(
           queueResult.value,
-          preRadioQueueLength,
+          addedTrackKeys,
         );
         io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
           playerId,
@@ -732,8 +815,6 @@ export const createRadioEngine = (
 
         return {
           status: "success",
-          preRadioQueueLength,
-          postQueueTracks: queueProjection.tracks,
           tracksAdded: addedArtists.length,
         };
       })
@@ -764,7 +845,7 @@ export const createRadioEngine = (
     seedArtist: string,
     seedTitle: string,
   ): Promise<void> => {
-    if (!getRadioQueueState().isEnabled) {
+    if (!isRadioModeEnabledForReplenishment()) {
       logger.info(
         "Radio: queue-end trigger ignored because radio mode is disabled",
         {
@@ -806,7 +887,7 @@ export const createRadioEngine = (
     seedArtist: string,
     seedTitle: string,
   ): Promise<ReplenishOutcome> => {
-    if (!getRadioQueueState().isEnabled) {
+    if (!isRadioModeEnabledForReplenishment()) {
       logger.info(
         "Radio: removal replenish ignored because radio mode is disabled",
         {
@@ -822,7 +903,7 @@ export const createRadioEngine = (
   };
 
   const setModeEnabled: RadioEngine["setModeEnabled"] = async (enabled) => {
-    if (getRadioQueueState().isProcessing) {
+    if (getRadioQueueState().isProcessing && enabled) {
       return {
         status: "failed",
         reason: "busy",
@@ -831,11 +912,18 @@ export const createRadioEngine = (
     }
 
     const previousEnabledState = getRadioQueueState().isEnabled;
-    const radioTrackSignaturesBeforeToggle =
-      getRadioQueueState().radioTrackSignatures;
+    const radioQueueEntriesBeforeToggle =
+      getRadioQueueState().radioQueueEntries;
+
+    if (!enabled) {
+      setRequestedRadioModeEnabledState(false);
+    }
 
     const queueResult = await lmsClient.getQueue();
     if (!queueResult.ok || queueResult.value === undefined) {
+      if (!enabled) {
+        setRequestedRadioModeEnabledState(undefined);
+      }
       return {
         status: "failed",
         reason: "queue-fetch-failed",
@@ -848,7 +936,7 @@ export const createRadioEngine = (
     const removalIndexes = !enabled
       ? getUpcomingRadioRemovalIndexes(
           queueResult.value,
-          radioTrackSignaturesBeforeToggle,
+          radioQueueEntriesBeforeToggle,
         )
       : [];
 
@@ -882,17 +970,18 @@ export const createRadioEngine = (
     }, Promise.resolve(undefined));
 
     if (removalFailure !== undefined) {
+      if (!enabled) {
+        setRequestedRadioModeEnabledState(undefined);
+      }
       return removalFailure;
-    }
-
-    if (!enabled) {
-      resetRadioRuntimeState();
-      setRadioModeEnabledState(false);
     }
 
     const refreshedQueueResult = await lmsClient.getQueue();
     if (!refreshedQueueResult.ok || refreshedQueueResult.value === undefined) {
-      setRadioModeEnabledState(enabled ? previousEnabledState : false);
+      if (!enabled) {
+        setRequestedRadioModeEnabledState(undefined);
+      }
+      setRadioModeEnabledState(previousEnabledState);
       return {
         status: "failed",
         reason: "queue-fetch-failed",
@@ -904,7 +993,11 @@ export const createRadioEngine = (
     }
 
     if (enabled) {
+      setRequestedRadioModeEnabledState(undefined);
       setRadioModeEnabledState(true);
+    } else {
+      setRadioModeEnabledState(false);
+      clearRadioQueueRuntimeState();
     }
 
     const queueProjection = annotateRadioQueueTracks(
@@ -919,7 +1012,12 @@ export const createRadioEngine = (
     });
 
     logger.info("Radio mode toggled", {
-      event: enabled ? "radio.enabled" : "radio.disabled",
+      event:
+        !enabled && getRadioQueueState().isProcessing
+          ? "radio.disabled_during_replenish"
+          : enabled
+            ? "radio.enabled"
+            : "radio.disabled",
       enabled,
       removedRadioTracks: removalIndexes.length,
     });

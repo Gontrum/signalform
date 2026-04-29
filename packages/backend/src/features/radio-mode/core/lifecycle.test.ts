@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { QueueTrack } from "@signalform/shared";
-import { getQueueTrackSignature } from "./identity.js";
+import type { RadioQueueEntry } from "./provenance.js";
+import { getQueueTrackRepeatKey, getQueueTrackSignature } from "./identity.js";
 import { getUpcomingRadioRemovalIndexes } from "./lifecycle.js";
 
 const makeTrack = (overrides: Partial<QueueTrack> = {}): QueueTrack => ({
@@ -15,6 +16,12 @@ const makeTrack = (overrides: Partial<QueueTrack> = {}): QueueTrack => ({
   ...overrides,
 });
 
+const makeEntry = (track: QueueTrack): RadioQueueEntry => ({
+  position: track.position,
+  repeatKey: getQueueTrackRepeatKey(track),
+  signature: getQueueTrackSignature(track),
+});
+
 describe("getUpcomingRadioRemovalIndexes", () => {
   it("returns descending indexes for upcoming radio tracks only", () => {
     const tracks = [
@@ -27,9 +34,9 @@ describe("getUpcomingRadioRemovalIndexes", () => {
 
     expect(
       getUpcomingRadioRemovalIndexes(tracks, [
-        getQueueTrackSignature(tracks[0]!),
-        getQueueTrackSignature(tracks[2]!),
-        getQueueTrackSignature(tracks[4]!),
+        makeEntry(tracks[0]!),
+        makeEntry(tracks[2]!),
+        makeEntry(tracks[4]!),
       ]),
     ).toEqual([4, 2]);
   });
@@ -43,8 +50,8 @@ describe("getUpcomingRadioRemovalIndexes", () => {
 
     expect(
       getUpcomingRadioRemovalIndexes(tracks, [
-        getQueueTrackSignature(tracks[1]!),
-        getQueueTrackSignature(tracks[2]!),
+        makeEntry(tracks[1]!),
+        makeEntry(tracks[2]!),
       ]),
     ).toEqual([2]);
   });
@@ -58,8 +65,8 @@ describe("getUpcomingRadioRemovalIndexes", () => {
 
     expect(
       getUpcomingRadioRemovalIndexes(tracks, [
-        getQueueTrackSignature(tracks[1]!),
-        getQueueTrackSignature(tracks[2]!),
+        makeEntry(tracks[1]!),
+        makeEntry(tracks[2]!),
       ]),
     ).toEqual([2, 1]);
   });

@@ -6,7 +6,15 @@
  */
 
 import type { QueueTrack } from "@signalform/shared";
-import { getQueueTrackSignature } from "../core/identity.js";
+import {
+  appendRadioQueueEntries,
+  createRadioQueueEntriesFromTracks,
+  moveRadioQueueEntry,
+  projectRadioQueueTracks,
+  reconcileRadioQueueEntries,
+  removeRadioQueueEntryAtPosition,
+  type RadioQueueEntry,
+} from "../core/provenance.js";
 
 type RadioQueueProjection = {
   readonly tracks: readonly QueueTrack[];
@@ -14,31 +22,51 @@ type RadioQueueProjection = {
   readonly radioBoundaryIndex: number | null;
 };
 
-type RadioQueueState = {
-  readonly isEnabled: boolean;
-  readonly radioBoundaryIndex: number | null;
-  readonly radioTrackSignatures: readonly string[];
-  readonly recentArtists: readonly string[];
-  readonly isProcessing: boolean;
+type SuppressionStatus = {
+  readonly mode: "play" | "pause" | "stop";
+  readonly currentTrack?: {
+    readonly id: string;
+  };
+  readonly queuePreview?: readonly unknown[];
 };
 
-type SignatureCounts = Readonly<Record<string, number>>;
+type SuppressedQueueEnd = {
+  readonly trackId: string;
+  readonly artist: string;
+  readonly title: string;
+};
+
+type RadioQueueState = {
+  readonly isEnabled: boolean;
+  readonly requestedEnabledState?: boolean | undefined;
+  readonly radioBoundaryIndex: number | null;
+  readonly radioQueueEntries: readonly RadioQueueEntry[];
+  readonly recentArtists: readonly string[];
+  readonly isProcessing: boolean;
+  readonly suppressedQueueEnd?: SuppressedQueueEnd | undefined;
+};
 
 const INITIAL_STATE: RadioQueueState = {
   isEnabled: true,
+  requestedEnabledState: undefined,
   radioBoundaryIndex: null,
-  radioTrackSignatures: [],
+  radioQueueEntries: [],
   recentArtists: [],
   isProcessing: false,
+  suppressedQueueEnd: undefined,
 };
 
 type RadioState = {
   readonly get: () => RadioQueueState;
   readonly setEnabled: (enabled: boolean) => void;
+  readonly setRequestedEnabledState: (enabled: boolean | undefined) => void;
   readonly setBoundaryIndex: (index: number | null) => void;
-  readonly setTrackSignatures: (trackSignatures: readonly string[]) => void;
+  readonly setQueueEntries: (queueEntries: readonly RadioQueueEntry[]) => void;
   readonly setRecentArtists: (artists: readonly string[]) => void;
   readonly setProcessing: (processing: boolean) => void;
+  readonly setSuppressedQueueEnd: (
+    suppression: SuppressedQueueEnd | undefined,
+  ) => void;
   readonly reset: () => void;
 };
 
@@ -49,17 +77,27 @@ const createRadioState = (): RadioState => {
     setEnabled: (isEnabled: boolean): void => {
       ref.current = { ...ref.current, isEnabled };
     },
+    setRequestedEnabledState: (
+      requestedEnabledState: boolean | undefined,
+    ): void => {
+      ref.current = { ...ref.current, requestedEnabledState };
+    },
     setBoundaryIndex: (radioBoundaryIndex: number | null): void => {
       ref.current = { ...ref.current, radioBoundaryIndex };
     },
-    setTrackSignatures: (radioTrackSignatures: readonly string[]): void => {
-      ref.current = { ...ref.current, radioTrackSignatures };
+    setQueueEntries: (radioQueueEntries: readonly RadioQueueEntry[]): void => {
+      ref.current = { ...ref.current, radioQueueEntries };
     },
     setRecentArtists: (recentArtists: readonly string[]): void => {
       ref.current = { ...ref.current, recentArtists };
     },
     setProcessing: (isProcessing: boolean): void => {
       ref.current = { ...ref.current, isProcessing };
+    },
+    setSuppressedQueueEnd: (
+      suppressedQueueEnd: SuppressedQueueEnd | undefined,
+    ): void => {
+      ref.current = { ...ref.current, suppressedQueueEnd };
     },
     reset: (): void => {
       ref.current = INITIAL_STATE;
@@ -69,189 +107,187 @@ const createRadioState = (): RadioState => {
 
 const radioState = createRadioState();
 
-const getSignatureCount = (
-  counts: SignatureCounts,
-  signature: string,
-): number => counts[signature] ?? 0;
-
-const incrementSignatureCount = (
-  counts: SignatureCounts,
-  signature: string,
-): SignatureCounts => ({
-  ...counts,
-  [signature]: getSignatureCount(counts, signature) + 1,
-});
-
-const decrementSignatureCount = (
-  counts: SignatureCounts,
-  signature: string,
-): SignatureCounts => {
-  const nextCount = getSignatureCount(counts, signature) - 1;
-  return nextCount > 0
-    ? { ...counts, [signature]: nextCount }
-    : Object.fromEntries(
-        Object.entries(counts).filter(([key]) => key !== signature),
-      );
-};
-
-const getPresentRadioTrackSignatures = (
-  tracks: readonly QueueTrack[],
-  radioTrackSignatures: readonly string[],
-): readonly string[] => {
-  const availableCounts = tracks.reduce<SignatureCounts>(
-    (counts, track) =>
-      incrementSignatureCount(counts, getQueueTrackSignature(track)),
-    {},
-  );
-
-  return radioTrackSignatures.reduce<{
-    readonly availableCounts: SignatureCounts;
-    readonly present: readonly string[];
-  }>(
-    (state, signature) => {
-      const remaining = getSignatureCount(state.availableCounts, signature);
-      if (remaining <= 0) {
-        return state;
-      }
-
-      return {
-        availableCounts: decrementSignatureCount(
-          state.availableCounts,
-          signature,
-        ),
-        present: [...state.present, signature],
-      };
-    },
-    {
-      availableCounts,
-      present: [],
-    },
-  ).present;
-};
-
-const consumeRadioTrackSignatures = (
-  tracks: readonly QueueTrack[],
-  radioTrackSignatures: readonly string[],
-): readonly boolean[] => {
-  const availableCounts = radioTrackSignatures.reduce<SignatureCounts>(
-    (counts, signature) => incrementSignatureCount(counts, signature),
-    {},
-  );
-
-  return tracks.reduceRight<{
-    readonly availableCounts: SignatureCounts;
-    readonly isRadioTrack: readonly boolean[];
-  }>(
-    (state, track, index) => {
-      const signature = getQueueTrackSignature(track);
-      const remaining = getSignatureCount(state.availableCounts, signature);
-      if (remaining <= 0) {
-        return state;
-      }
-
-      return {
-        availableCounts: decrementSignatureCount(
-          state.availableCounts,
-          signature,
-        ),
-        isRadioTrack: state.isRadioTrack.map((value, currentIndex) =>
-          currentIndex === index ? true : value,
-        ),
-      };
-    },
-    {
-      availableCounts,
-      isRadioTrack: tracks.map(() => false),
-    },
-  ).isRadioTrack;
-};
-
-const buildRadioQueueProjection = (
-  tracks: readonly QueueTrack[],
-  radioTrackSignatures: readonly string[],
-): RadioQueueProjection => {
-  const isRadioTrack = consumeRadioTrackSignatures(
-    tracks,
-    radioTrackSignatures,
-  );
-  const radioBoundaryIndex = isRadioTrack.findIndex(Boolean);
-
-  return {
-    tracks: tracks.map((track, index) => ({
-      ...track,
-      addedBy: isRadioTrack[index] ? "radio" : "user",
-    })),
-    radioModeActive: getRadioQueueState().isEnabled,
-    radioBoundaryIndex: radioBoundaryIndex >= 0 ? radioBoundaryIndex : null,
-  };
-};
-
 export const getRadioQueueState = (): RadioQueueState => radioState.get();
 export const setRadioModeEnabledState = (isEnabled: boolean): void =>
   radioState.setEnabled(isEnabled);
+export const setRequestedRadioModeEnabledState = (
+  requestedEnabledState: boolean | undefined,
+): void => radioState.setRequestedEnabledState(requestedEnabledState);
+export const isRadioModeEnabledForReplenishment = (): boolean => {
+  const { isEnabled, requestedEnabledState } = getRadioQueueState();
+  return requestedEnabledState ?? isEnabled;
+};
 export const setRadioBoundaryIndex = (
   radioBoundaryIndex: number | null,
 ): void => {
   radioState.setBoundaryIndex(radioBoundaryIndex);
   if (radioBoundaryIndex === null) {
-    radioState.setTrackSignatures([]);
+    radioState.setQueueEntries([]);
   }
 };
-export const setRadioTrackSignatures = (
-  radioTrackSignatures: readonly string[],
-): void => radioState.setTrackSignatures(radioTrackSignatures);
+export const setRadioQueueEntries = (
+  radioQueueEntries: readonly RadioQueueEntry[],
+): void => radioState.setQueueEntries(radioQueueEntries);
 export const resetRadioRuntimeState = (): void => radioState.reset();
 export const setRadioRecentArtists = (recentArtists: readonly string[]): void =>
   radioState.setRecentArtists(recentArtists);
 export const setRadioProcessing = (isProcessing: boolean): void =>
   radioState.setProcessing(isProcessing);
+export const setSuppressedQueueEnd = (
+  suppression: SuppressedQueueEnd | undefined,
+): void => radioState.setSuppressedQueueEnd(suppression);
+export const clearRadioQueueRuntimeState = (): void => {
+  radioState.setBoundaryIndex(null);
+  radioState.setQueueEntries([]);
+  radioState.setRecentArtists([]);
+  radioState.setSuppressedQueueEnd(undefined);
+  radioState.setRequestedEnabledState(undefined);
+};
+
+const matchesSuppressedQueueEnd = (
+  track: {
+    readonly trackId: string;
+    readonly artist: string;
+    readonly title: string;
+  },
+  suppressedQueueEnd: SuppressedQueueEnd | undefined,
+): boolean =>
+  suppressedQueueEnd?.trackId === track.trackId &&
+  suppressedQueueEnd.artist === track.artist &&
+  suppressedQueueEnd.title === track.title;
+
+export const shouldSuppressQueueEnd = (track: {
+  readonly trackId: string;
+  readonly artist: string;
+  readonly title: string;
+}): boolean =>
+  matchesSuppressedQueueEnd(track, getRadioQueueState().suppressedQueueEnd);
+
+export const clearSuppressedQueueEnd = (): void => {
+  radioState.setSuppressedQueueEnd(undefined);
+};
+
+const shouldClearSuppressedQueueEnd = (
+  previousStatus: SuppressionStatus | null,
+  currentStatus: SuppressionStatus,
+  suppressionTrackId: string,
+): boolean => {
+  const currentTrackId = currentStatus.currentTrack?.id;
+  const previousTrackId = previousStatus?.currentTrack?.id;
+  const currentQueuePreviewLength = currentStatus.queuePreview?.length ?? 0;
+  const previousQueuePreviewLength = previousStatus?.queuePreview?.length ?? 0;
+  const suppressionTrackStillActive =
+    currentTrackId === suppressionTrackId ||
+    previousTrackId === suppressionTrackId;
+  const playbackMovedToDifferentCurrentTrack =
+    currentTrackId !== undefined && currentTrackId !== suppressionTrackId;
+  const newPlaybackSessionStarted =
+    previousStatus?.mode === "stop" && currentStatus.mode === "play";
+  const queueRegrewAfterDrain =
+    previousStatus !== null &&
+    previousQueuePreviewLength === 0 &&
+    currentQueuePreviewLength > 0;
+
+  return (
+    queueRegrewAfterDrain ||
+    playbackMovedToDifferentCurrentTrack ||
+    newPlaybackSessionStarted ||
+    (currentStatus.mode === "stop" && previousStatus?.mode === "stop") ||
+    !suppressionTrackStillActive
+  );
+};
+
+export const reconcileSuppressedQueueEnd = (
+  previousStatus: SuppressionStatus | null,
+  currentStatus: SuppressionStatus,
+): void => {
+  const suppression = getRadioQueueState().suppressedQueueEnd;
+  if (
+    suppression !== undefined &&
+    shouldClearSuppressedQueueEnd(
+      previousStatus,
+      currentStatus,
+      suppression.trackId,
+    )
+  ) {
+    clearSuppressedQueueEnd();
+  }
+};
+
+const applyProjectedEntries = (
+  projection: ReturnType<typeof projectRadioQueueTracks>,
+): RadioQueueProjection => {
+  setRadioQueueEntries(projection.entries);
+  setRadioBoundaryIndex(projection.radioBoundaryIndex);
+
+  return {
+    tracks: projection.tracks,
+    radioModeActive: getRadioQueueState().isEnabled,
+    radioBoundaryIndex: projection.radioBoundaryIndex,
+  };
+};
 
 export const annotateRadioQueueTracks = (
   tracks: readonly QueueTrack[],
 ): RadioQueueProjection => {
-  const presentRadioTrackSignatures = getPresentRadioTrackSignatures(
-    tracks,
-    getRadioQueueState().radioTrackSignatures,
+  const storedRadioQueueEntries = getRadioQueueState().radioQueueEntries;
+  return applyProjectedEntries(
+    projectRadioQueueTracks(
+      tracks,
+      storedRadioQueueEntries.length > 0
+        ? storedRadioQueueEntries
+        : createRadioQueueEntriesFromTracks(tracks),
+    ),
   );
-  const projection = buildRadioQueueProjection(
-    tracks,
-    presentRadioTrackSignatures,
-  );
-
-  setRadioTrackSignatures(presentRadioTrackSignatures);
-  setRadioBoundaryIndex(projection.radioBoundaryIndex);
-
-  return projection;
 };
 
-export const recordRadioQueueBoundary = (
+export const recordExplicitRadioTracks = (
   tracks: readonly QueueTrack[],
-  radioBoundaryIndex: number | null,
+  appendedRadioTrackRepeatKeys: readonly string[],
 ): RadioQueueProjection => {
-  if (radioBoundaryIndex === null) {
-    setRadioTrackSignatures([]);
-    setRadioBoundaryIndex(null);
-    return buildRadioQueueProjection(tracks, []);
+  const nextRadioQueueEntries = appendRadioQueueEntries(
+    tracks,
+    getRadioQueueState().radioQueueEntries,
+    appendedRadioTrackRepeatKeys,
+  );
+  const projection = projectRadioQueueTracks(tracks, nextRadioQueueEntries);
+  return applyProjectedEntries(projection);
+};
+
+export const recordQueueRemoval = (
+  tracks: readonly QueueTrack[],
+  removedPosition: number,
+): RadioQueueProjection => {
+  if (getRadioQueueState().radioQueueEntries.length === 0) {
+    return annotateRadioQueueTracks(tracks);
   }
 
-  const presentRadioTrackSignatures = getPresentRadioTrackSignatures(
+  const nextEntries = reconcileRadioQueueEntries(
     tracks,
-    getRadioQueueState().radioTrackSignatures,
+    removeRadioQueueEntryAtPosition(
+      getRadioQueueState().radioQueueEntries,
+      removedPosition,
+    ),
   );
-  const appendedRadioTrackSignatures = tracks
-    .slice(radioBoundaryIndex)
-    .map((track) => getQueueTrackSignature(track));
-  const nextRadioTrackSignatures = [
-    ...presentRadioTrackSignatures,
-    ...appendedRadioTrackSignatures,
-  ];
-  const projection = buildRadioQueueProjection(
+  return applyProjectedEntries(projectRadioQueueTracks(tracks, nextEntries));
+};
+
+export const recordQueueReorder = (
+  tracks: readonly QueueTrack[],
+  fromPosition: number,
+  toPosition: number,
+): RadioQueueProjection => {
+  if (getRadioQueueState().radioQueueEntries.length === 0) {
+    return annotateRadioQueueTracks(tracks);
+  }
+
+  const nextEntries = reconcileRadioQueueEntries(
     tracks,
-    nextRadioTrackSignatures,
+    moveRadioQueueEntry(
+      getRadioQueueState().radioQueueEntries,
+      fromPosition,
+      toPosition,
+    ),
   );
-
-  setRadioTrackSignatures(nextRadioTrackSignatures);
-  setRadioBoundaryIndex(projection.radioBoundaryIndex);
-
-  return projection;
+  return applyProjectedEntries(projectRadioQueueTracks(tracks, nextEntries));
 };

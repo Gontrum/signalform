@@ -7,7 +7,7 @@
  */
 
 import fastify, { type FastifyInstance } from "fastify";
-import { describe, test, expect, vi } from "vitest";
+import { beforeEach, describe, test, expect, vi } from "vitest";
 import { Server } from "socket.io";
 import { ok } from "@signalform/shared";
 import {
@@ -25,6 +25,10 @@ import type {
 // Radio engine will be created in Task 4
 // Import path is correct — module does not exist yet (RED phase)
 import { createRadioEngine } from "./shell/radio-service.js";
+import {
+  clearRadioQueueRuntimeState,
+  setSuppressedQueueEnd,
+} from "./shell/radio-state.js";
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -67,6 +71,10 @@ type EmitFn = (event: string, ...args: readonly unknown[]) => void;
 type LogFn = (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
 
 type MockEmit = ReturnType<typeof vi.fn<EmitFn>>;
+
+beforeEach(() => {
+  clearRadioQueueRuntimeState();
+});
 
 type MockIo = {
   readonly io: TypedSocketIOServer;
@@ -424,6 +432,10 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
         })
         .mockResolvedValueOnce({
           ok: true,
+          value: [],
+        })
+        .mockResolvedValueOnce({
+          ok: true,
           value: [
             {
               id: "1",
@@ -744,6 +756,96 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
     // Verify proactive trigger fired exactly once (not multiple times across polls)
     expect(mockOnQueueEnd).toHaveBeenCalledOnce();
   });
+
+  test("proactive trigger is suppressed after the user deliberately drains the queue to the current track", async () => {
+    const { startStatusPolling } =
+      await import("../../infrastructure/websocket/status-poller.js");
+
+    const mockOnQueueEnd = vi
+      .fn()
+      .mockImplementation(
+        async (_artist: string, _title: string): Promise<void> => {},
+      );
+
+    const mockEmit = vi.fn();
+    const mockIo = makeMockIo(mockEmit, {
+      sockets: { sockets: { size: 0 } },
+    });
+
+    setSuppressedQueueEnd({
+      trackId: "1",
+      artist: "Miles Davis",
+      title: "So What",
+    });
+
+    const responses: readonly StatusResult[] = [
+      ok({
+        mode: "play" as const,
+        time: 60,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "1",
+          title: "So What",
+          artist: "Miles Davis",
+          album: "Kind of Blue",
+          url: "file:///music/miles/so-what.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [
+          {
+            id: "2",
+            position: 1,
+            title: "Freddie Freeloader",
+            artist: "Miles Davis",
+            album: "Kind of Blue",
+            duration: 250,
+            isCurrent: false,
+          },
+        ],
+      }),
+      ok({
+        mode: "play" as const,
+        time: 180,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "1",
+          title: "So What",
+          artist: "Miles Davis",
+          album: "Kind of Blue",
+          url: "file:///music/miles/so-what.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [],
+      }),
+    ];
+    const mockLmsClient = createMockLmsClient({
+      getStatus: createSequentialGetStatus(responses),
+      getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+    });
+
+    const mockApp = makeMockApp();
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-id",
+      5,
+      mockOnQueueEnd,
+    );
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 30);
+    });
+    stopPolling();
+    expect(mockOnQueueEnd).not.toHaveBeenCalled();
+  });
 });
 
 // --- 6.5 AC2: Auto-Resume After Stop ----------------------------------------
@@ -1035,6 +1137,159 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
     // Verify stop trigger fired exactly once (proactive trigger must NOT have fired)
     expect(mockOnQueueEnd).toHaveBeenCalledOnce();
   });
+
+  test("stop trigger is suppressed after the user removes the currently playing final queue item", async (): Promise<void> => {
+    const { startStatusPolling } =
+      await import("../../infrastructure/websocket/status-poller.js");
+
+    const mockOnQueueEnd = vi
+      .fn()
+      .mockImplementation(
+        async (_artist: string, _title: string): Promise<void> => {},
+      );
+
+    const mockEmit = vi.fn();
+    const mockIo = makeMockIo(mockEmit, {
+      sockets: { sockets: { size: 0 } },
+    });
+
+    setSuppressedQueueEnd({
+      trackId: "99",
+      artist: "Bill Evans",
+      title: "Autumn Leaves",
+    });
+
+    const responses: readonly StatusResult[] = [
+      ok({
+        mode: "play" as const,
+        time: 200,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "99",
+          title: "Autumn Leaves",
+          artist: "Bill Evans",
+          album: "Portrait in Jazz",
+          url: "file:///music/bill/autumn-leaves.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [],
+      }),
+      ok({
+        mode: "stop" as const,
+        time: 0,
+        duration: 0,
+        volume: 50,
+        currentTrack: null,
+        queuePreview: [],
+      }),
+    ];
+    const mockLmsClient = createMockLmsClient({
+      getStatus: createSequentialGetStatus(responses),
+      getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+    });
+
+    const mockApp = makeMockApp();
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-id",
+      5,
+      mockOnQueueEnd,
+    );
+
+    await new Promise((resolve) => {
+      setTimeout(resolve, 30);
+    });
+    stopPolling();
+    expect(mockOnQueueEnd).not.toHaveBeenCalled();
+  });
+
+  test("stop suppression clears when a new playback session starts later", async (): Promise<void> => {
+    const { startStatusPolling } =
+      await import("../../infrastructure/websocket/status-poller.js");
+
+    const mockOnQueueEnd = vi
+      .fn()
+      .mockImplementation(
+        async (_artist: string, _title: string): Promise<void> => {},
+      );
+
+    const mockEmit = vi.fn();
+    const mockIo = makeMockIo(mockEmit, {
+      sockets: { sockets: { size: 0 } },
+    });
+
+    setSuppressedQueueEnd({
+      trackId: "99",
+      artist: "Bill Evans",
+      title: "Autumn Leaves",
+    });
+
+    const responses: readonly StatusResult[] = [
+      ok({
+        mode: "stop" as const,
+        time: 0,
+        duration: 0,
+        volume: 50,
+        currentTrack: null,
+        queuePreview: [],
+      }),
+      ok({
+        mode: "play" as const,
+        time: 30,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "99",
+          title: "Autumn Leaves",
+          artist: "Bill Evans",
+          album: "Portrait in Jazz",
+          url: "file:///music/bill/autumn-leaves.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [],
+      }),
+      ok({
+        mode: "stop" as const,
+        time: 0,
+        duration: 0,
+        volume: 50,
+        currentTrack: null,
+        queuePreview: [],
+      }),
+    ];
+    const mockLmsClient = createMockLmsClient({
+      getStatus: createSequentialGetStatus(responses),
+      getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+    });
+
+    const mockApp = makeMockApp();
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-id",
+      5,
+      mockOnQueueEnd,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockOnQueueEnd).toHaveBeenCalledWith(
+        "Bill Evans",
+        "Autumn Leaves",
+      );
+    });
+    stopPolling();
+    expect(mockOnQueueEnd).toHaveBeenCalledOnce();
+  });
 });
 
 // --- 6.5 AC5: Timing Assertion (2-second budget) -----------------------------
@@ -1310,6 +1565,128 @@ describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (sto
   });
 });
 
+describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids advance the queue", () => {
+  test("player.queue.updated is emitted when queuePreview changes even if currentTrack.id stays the same", async () => {
+    const { startStatusPolling } =
+      await import("../../infrastructure/websocket/status-poller.js");
+
+    const mockEmit = vi.fn();
+    const mockIo = makeMockIo(mockEmit, {
+      sockets: { sockets: { size: 0 } },
+    });
+
+    const responses: readonly StatusResult[] = [
+      ok({
+        mode: "play" as const,
+        time: 12,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "repeat-1",
+          title: "Repeat Song",
+          artist: "Radio Artist",
+          album: "Album",
+          url: "file:///music/repeat-song.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [
+          {
+            id: "repeat-1",
+            title: "Repeat Song",
+            artist: "Radio Artist",
+          },
+          {
+            id: "tail-1",
+            title: "Later Song",
+            artist: "Radio Artist",
+          },
+        ],
+      }),
+      ok({
+        mode: "play" as const,
+        time: 0,
+        duration: 240,
+        volume: 50,
+        currentTrack: {
+          id: "repeat-1",
+          title: "Repeat Song",
+          artist: "Radio Artist",
+          album: "Album",
+          url: "file:///music/repeat-song.flac",
+          source: "local" as const,
+          type: "track" as const,
+          audioQuality: undefined,
+        },
+        queuePreview: [
+          {
+            id: "tail-1",
+            title: "Later Song",
+            artist: "Radio Artist",
+          },
+        ],
+      }),
+    ];
+
+    const postAdvanceQueue = [
+      {
+        id: "repeat-1",
+        position: 0,
+        title: "Repeat Song",
+        artist: "Radio Artist",
+        album: "Album",
+        duration: 240,
+        isCurrent: true,
+      },
+      {
+        id: "tail-1",
+        position: 1,
+        title: "Later Song",
+        artist: "Radio Artist",
+        album: "Album",
+        duration: 220,
+        isCurrent: false,
+      },
+    ];
+
+    const mockLmsClient = createMockLmsClient({
+      getStatus: createSequentialGetStatus(responses),
+      getQueue: vi
+        .fn()
+        .mockResolvedValue({ ok: true, value: postAdvanceQueue }),
+    });
+
+    const mockApp = makeMockApp();
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-id",
+      5,
+    );
+
+    await vi.waitFor(() => {
+      const queueUpdatedCall = mockEmit.mock.calls.find(
+        (call) => call[0] === "player.queue.updated",
+      );
+      expect(queueUpdatedCall).toBeDefined();
+    });
+
+    stopPolling();
+
+    const queueUpdatedCall = mockEmit.mock.calls.find(
+      (call) => call[0] === "player.queue.updated",
+    );
+    expect(queueUpdatedCall).toBeDefined();
+    expect(queueUpdatedCall?.[1]).toMatchObject({
+      playerId: "player-id",
+      tracks: postAdvanceQueue,
+    });
+  });
+});
+
 // --- 9.9 AC2: last.fm search with Tidal seed ---
 
 describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's artist+title", () => {
@@ -1562,9 +1939,10 @@ describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({ ok: true, value: [tidalResult] }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
-      // First call: pre-radio queue (before adding tracks); second call: post-radio queue
+      // Calls: pre-radio queue, freshness re-check, post-radio queue
       getQueue: vi
         .fn()
+        .mockResolvedValueOnce({ ok: true, value: preRadioQueue })
         .mockResolvedValueOnce({ ok: true, value: preRadioQueue })
         .mockResolvedValueOnce({ ok: true, value: postRadioQueue }),
       getStatus: vi.fn().mockResolvedValue({

@@ -26,6 +26,7 @@ export {
   createPlayerTrackChangedPayload,
   createPlayerVolumeChangedPayload,
   createSystemEventPayload,
+  hasQueueContextChanged,
   hasStatusChanged,
 } from "./handlers.js";
 

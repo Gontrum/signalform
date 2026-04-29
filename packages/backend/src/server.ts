@@ -272,22 +272,11 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createTidalArtistsRoute(server, lmsProxy, lmsConfigProxy);
   createPlaybackRoute(server, lmsProxy, lmsConfigProxy, io, appConfig.playerId);
   createQueueRoute(server, lmsProxy, io, appConfig.playerId, {
-    handleRemoval: async ({ removedTrack, preservedRadioBoundaryIndex }) => {
-      const result = await radioEngine.replenishAfterRemoval(
+    handleRemoval: async ({ removedTrack }) =>
+      radioEngine.replenishAfterRemoval(
         removedTrack.artist,
         removedTrack.title,
-      );
-      if (result.status === "success") {
-        return {
-          status: "success",
-          tracks: result.postQueueTracks,
-          radioBoundaryIndex:
-            preservedRadioBoundaryIndex ?? result.preRadioQueueLength,
-          tracksAdded: result.tracksAdded,
-        } as const;
-      }
-      return result;
-    },
+      ),
     setModeEnabled: radioEngine.setModeEnabled,
   });
 
