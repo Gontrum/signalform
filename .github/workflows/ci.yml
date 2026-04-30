@@ -33,7 +33,14 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "Installing dependencies for Dependabot PR (allowing lockfile updates)..."
+            pnpm install --no-frozen-lockfile
+          else
+            echo "Installing dependencies with frozen lockfile..."
+            pnpm install --frozen-lockfile
+          fi
 
       - name: Build shared package
         run: pnpm --filter @signalform/shared build
@@ -76,7 +83,14 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: |
+          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+            echo "Installing dependencies for Dependabot PR (allowing lockfile updates)..."
+            pnpm install --no-frozen-lockfile
+          else
+            echo "Installing dependencies with frozen lockfile..."
+            pnpm install --frozen-lockfile
+          fi
 
       - name: Build shared package
         run: pnpm --filter @signalform/shared build
