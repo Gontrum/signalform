@@ -5,9 +5,9 @@ import { RouterLink, useRoute } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
 
 const route = useRoute()
-const isSearch = computed(() => route.path === '/')
-const isLibrary = computed(() => route.path === '/library')
-const isSettings = computed(() => route.path === '/settings')
+const isLibrary = computed(() => route.path.startsWith('/library'))
+const isSettings = computed(() => route.path.startsWith('/settings'))
+const isSearch = computed(() => !isLibrary.value && !isSettings.value)
 
 const i18nStore = useI18nStore()
 const { t } = storeToRefs(i18nStore)

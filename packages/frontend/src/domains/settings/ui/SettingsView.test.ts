@@ -101,6 +101,8 @@ describe('SettingsView', () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
     expect(getConfig).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nav-settings"]').attributes('aria-current')).toBe('page')
     expectInputValue(wrapper, '[data-testid="lms-host-input"]', '192.168.1.100')
     expectInputValue(wrapper, '[data-testid="lms-port-input"]', '9000')
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'aa:bb:cc:dd:ee:ff')
@@ -294,13 +296,13 @@ describe('SettingsView', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // Back button
+  // Top-level navigation
   // ---------------------------------------------------------------------------
 
-  it('navigates to home when back button is clicked', async () => {
+  it('navigates to home when the Search nav item is clicked', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
-    await wrapper.find('[data-testid="settings-back-button"]').trigger('click')
+    await wrapper.find('[data-testid="nav-search"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('home')
   })

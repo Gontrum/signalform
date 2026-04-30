@@ -106,7 +106,7 @@ const {
     <div v-else class="flex-1 min-h-0 overflow-y-auto" data-testid="full-results-list">
       <div
         data-testid="scroll-header"
-        class="sticky top-0 z-10 bg-[--color-background] mb-4 flex items-center gap-4"
+        class="-mx-2 sticky top-0 z-10 mb-4 flex items-center gap-3 border-b border-neutral-200 bg-neutral-50/95 px-2 py-3 backdrop-blur-sm"
       >
         <button
           type="button"
@@ -116,7 +116,7 @@ const {
         >
           ← {{ t('settings.fullResultsBack') }}
         </button>
-        <h2 class="text-xl font-semibold text-gray-900">
+        <h2 class="min-w-0 text-xl font-semibold text-gray-900">
           {{ t('home.resultsFor') }} "{{ searchQuery }}"
         </h2>
       </div>

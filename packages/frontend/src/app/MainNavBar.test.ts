@@ -9,6 +9,7 @@ const createRouter = async (): Promise<Router> => {
     { path: '/', component: { template: '<div />' } },
     { path: '/library', component: { template: '<div />' } },
     { path: '/settings', component: { template: '<div />' } },
+    { path: '/settings/profile', component: { template: '<div />' } },
   ])
 }
 
@@ -95,5 +96,14 @@ describe('MainNavBar', () => {
     expect(linkGroup.exists()).toBe(true)
     expect(linkGroup.classes()).toContain('rounded-2xl')
     expect(linkGroup.classes()).toContain('bg-neutral-100/80')
+  })
+
+  it('keeps Settings active on nested settings routes', async () => {
+    const router = await createRouter()
+    await router.push('/settings/profile')
+    await router.isReady()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+
+    expect(wrapper.find('[data-testid="nav-settings"]').attributes('aria-current')).toBe('page')
   })
 })
