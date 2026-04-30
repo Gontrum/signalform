@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const DEV_SERVICE_WORKER_RECOVERY_SCRIPT = `
+export const DEV_SERVICE_WORKER_RECOVERY_SCRIPT = `
 self.addEventListener('install', () => {
   void self.skipWaiting()
 })
@@ -14,10 +14,16 @@ self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const cacheKeys = await caches.keys()
     await Promise.all(cacheKeys.map(async (cacheKey) => caches.delete(cacheKey)))
-    await self.registration.unregister()
+    await self.clients.claim()
 
-    const clients = await self.clients.matchAll({ type: 'window' })
-    await Promise.all(clients.map(async (client) => client.navigate(client.url)))
+    const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    await Promise.all(clients.map(async (client) => {
+      const url = new URL(client.url)
+      const destination = url.pathname === '/offline.html' ? url.origin + '/' : client.url
+      await client.navigate(destination)
+    }))
+
+    await self.registration.unregister()
   })())
 })
 `.trim()

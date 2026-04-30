@@ -35,7 +35,8 @@
     </style>
     <script>
       const isLocalDevHost = () =>
-        window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+        window.location.port === '3000'
 
       const clearDevOfflineState = async () => {
         const registrations =
@@ -58,9 +59,40 @@
 
       }
 
+      const waitForRecoveryNavigation = async () => {
+        if (!('serviceWorker' in navigator)) {
+          return
+        }
+
+        await new Promise((resolve) => {
+          const timeoutId = window.setTimeout(resolve, 400)
+
+          navigator.serviceWorker.addEventListener(
+            'controllerchange',
+            () => {
+              window.clearTimeout(timeoutId)
+              resolve()
+            },
+            { once: true },
+          )
+        })
+      }
+
       const recoverAndReload = async () => {
         if (isLocalDevHost()) {
-          await clearDevOfflineState()
+          try {
+            if ('serviceWorker' in navigator) {
+              await navigator.serviceWorker.register('/sw.js', {
+                scope: '/',
+                updateViaCache: 'none',
+              })
+              await waitForRecoveryNavigation()
+              window.location.assign('/')
+              return
+            }
+          } catch (_error) {
+            await clearDevOfflineState()
+          }
         }
 
         window.location.assign('/')
@@ -72,7 +104,11 @@
           void recoverAndReload()
         })
 
-        if (!isLocalDevHost() || navigator.onLine !== true) {
+        const shouldAttemptAutomaticRecovery = isLocalDevHost()
+          ? navigator.onLine === true
+          : true
+
+        if (!shouldAttemptAutomaticRecovery) {
           return
         }
 
