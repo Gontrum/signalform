@@ -20,6 +20,7 @@ packages/frontend/playwright-report/
 
 # Runtime config (contains secrets — LMS host, player ID, API keys)
 packages/backend/config.json
+signalform-config/config.json
 
 # Logs
 logs/
