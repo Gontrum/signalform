@@ -1224,7 +1224,8 @@ describe('SearchPanel', () => {
       expect(scrollHeader.classes()).toContain('z-10')
       expect(scrollHeader.classes()).toContain('bg-neutral-50/95')
       expect(scrollHeader.classes()).toContain('backdrop-blur-sm')
-      expect(scrollHeader.classes()).toContain('border-b')
+      expect(scrollHeader.classes()).toContain('border')
+      expect(scrollHeader.classes()).toContain('rounded-xl')
     })
 
     // Story 8.2 AC1–AC3: Scroll containment — results list must be scrollable, outer divs must not

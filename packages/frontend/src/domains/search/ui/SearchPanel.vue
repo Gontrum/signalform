@@ -106,7 +106,7 @@ const {
     <div v-else class="flex-1 min-h-0 overflow-y-auto" data-testid="full-results-list">
       <div
         data-testid="scroll-header"
-        class="-mx-2 sticky top-0 z-10 mb-4 flex items-center gap-3 border-b border-neutral-200 bg-neutral-50/95 px-2 py-3 backdrop-blur-sm"
+        class="sticky top-0 z-10 mb-4 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50/95 px-3 py-3 shadow-sm backdrop-blur-sm"
       >
         <button
           type="button"
