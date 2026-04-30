@@ -36,7 +36,7 @@ jobs:
 
           if [ "${UPDATE_TYPE}" = "version-update:semver-patch" ]; then
             should_merge=true
-          elif [ "${PACKAGE_ECOSYSTEM}" = "npm" ] \
+          elif [ "${PACKAGE_ECOSYSTEM}" = "npm_and_yarn" ] \
             && [ "${UPDATE_TYPE}" = "version-update:semver-minor" ] \
             && [ "${DEPENDENCY_TYPE}" = "direct:development" ]; then
             should_merge=true
