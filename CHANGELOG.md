@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.5] - 2026-04-30
+
+### Fixed
+
+- Mobile playback and header layout now display more consistently across different viewport sizes
+- Mobile navigation and sticky search header are unified for better user experience
+- Search results no longer cause horizontal overflow on mobile devices
+- PWA now recovers reliably from stale localhost service workers
+
+---
+
 ## [0.9.4] - 2026-04-28
 
 ### Fixed
@@ -122,7 +133,8 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/Gontrum/signalform/releases/tag/v0.9.5
 [0.9.4]: https://github.com/Gontrum/signalform/releases/tag/v0.9.4
 [0.9.3]: https://github.com/Gontrum/signalform/releases/tag/v0.9.3
 [0.9.0]: https://github.com/Gontrum/signalform/releases/tag/v0.9.0
