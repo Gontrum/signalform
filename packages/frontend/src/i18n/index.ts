@@ -28,6 +28,7 @@ export type MessageKey =
   | 'settings.playerIdLabel'
   | 'nav.settings'
   | 'nav.brandTagline'
+  | 'nav.brandMotto'
   | 'nav.search'
   | 'nav.library'
   | 'nav.queue'
@@ -151,6 +152,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.playerIdLabel': 'Player ID',
     'nav.settings': 'Settings',
     'nav.brandTagline': 'Signalform · Focus on the music',
+    'nav.brandMotto': 'Focus on the music',
     'nav.search': 'Search',
     'nav.library': 'Library',
     'nav.queue': 'Queue',
@@ -273,6 +275,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.playerIdLabel': 'Player ID',
     'nav.settings': 'Einstellungen',
     'nav.brandTagline': 'Signalform · Fokus auf die Musik',
+    'nav.brandMotto': 'Fokus auf die Musik',
     'nav.search': 'Suche',
     'nav.library': 'Bibliothek',
     'nav.queue': 'Warteschlange',

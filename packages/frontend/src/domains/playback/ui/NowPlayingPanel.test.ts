@@ -111,6 +111,15 @@ describe('NowPlayingPanel', () => {
     await thenPanelIsSticky(context.wrapper)
   })
 
+  it('anchors content to the top on phone layouts so queue actions stay inside the card', async () => {
+    isPhone.value = true
+    const context = await createMountedContext()
+    const panel = context.wrapper.find('[data-testid="now-playing-panel"]')
+
+    expect(panel.classes()).toContain('justify-start')
+    expect(panel.classes()).toContain('min-h-full')
+  })
+
   it('album cover has responsive size classes up to 200px on large screens', async () => {
     const context = await givenTrackIsPlaying()
 

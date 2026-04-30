@@ -23,6 +23,7 @@ describe('MainNavBar', () => {
     const badge = wrapper.find('[data-testid="brand-badge"]')
     expect(badge.exists()).toBe(true)
     expect(badge.text()).toContain('Signalform')
+    expect(wrapper.find('[data-testid="brand-motto"]').text()).toBe('Focus on the music')
 
     const icon = badge.find('img')
     expect(icon.exists()).toBe(true)
@@ -61,9 +62,9 @@ describe('MainNavBar', () => {
     const searchLink = wrapper.find('[data-testid="nav-search"]')
     const libraryLink = wrapper.find('[data-testid="nav-library"]')
     expect(searchLink.attributes('aria-current')).toBe('page')
-    expect(searchLink.classes()).toContain('bg-neutral-900')
+    expect(searchLink.classes()).toContain('bg-neutral-950')
     expect(libraryLink.attributes('aria-current')).toBeUndefined()
-    expect(libraryLink.classes()).toContain('text-neutral-500')
+    expect(libraryLink.classes()).toContain('text-neutral-600')
   })
 
   it('marks Library as active (aria-current=page, active class) when on /library', async () => {
@@ -74,9 +75,9 @@ describe('MainNavBar', () => {
     const libraryLink = wrapper.find('[data-testid="nav-library"]')
     const searchLink = wrapper.find('[data-testid="nav-search"]')
     expect(libraryLink.attributes('aria-current')).toBe('page')
-    expect(libraryLink.classes()).toContain('bg-neutral-900')
+    expect(libraryLink.classes()).toContain('bg-neutral-950')
     expect(searchLink.attributes('aria-current')).toBeUndefined()
-    expect(searchLink.classes()).toContain('text-neutral-500')
+    expect(searchLink.classes()).toContain('text-neutral-600')
   })
 
   it('renders nav links as anchor elements (keyboard accessible)', async () => {
@@ -84,5 +85,15 @@ describe('MainNavBar', () => {
     const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
     expect(wrapper.find('[data-testid="nav-search"]').element.tagName).toBe('A')
     expect(wrapper.find('[data-testid="nav-library"]').element.tagName).toBe('A')
+  })
+
+  it('groups mobile nav links inside a shared pill container', async () => {
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    const linkGroup = wrapper.find('[data-testid="nav-links"]')
+
+    expect(linkGroup.exists()).toBe(true)
+    expect(linkGroup.classes()).toContain('rounded-2xl')
+    expect(linkGroup.classes()).toContain('bg-neutral-100/80')
   })
 })

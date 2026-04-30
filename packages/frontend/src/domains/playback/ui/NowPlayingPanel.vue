@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AlbumCover from '@/ui/AlbumCover.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useNowPlayingPanel } from '@/domains/playback/shell/useNowPlayingPanel'
 import PlaybackControls from './PlaybackControls.vue'
 import VolumeControl from './VolumeControl.vue'
@@ -19,13 +20,17 @@ const {
   navigateToQueue,
 } = useNowPlayingPanel()
 const i18nStore = useI18nStore()
+const { isPhone } = useResponsiveLayout()
 const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 </script>
 
 <template>
   <div
     data-testid="now-playing-panel"
-    class="sticky top-0 flex h-full flex-col items-center justify-center rounded-xl border border-neutral-200 bg-white p-8 shadow-md"
+    class="flex min-h-full flex-col items-center rounded-2xl border border-neutral-200 bg-white px-5 pb-5 pt-6 shadow-md sm:sticky sm:top-0 sm:h-full sm:justify-center sm:p-8"
+    :class="{
+      'justify-start': isPhone,
+    }"
   >
     <!-- Screen reader track announcement — updates when track changes -->
     <div
@@ -41,7 +46,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
     <!-- Playing State -->
     <div
       v-if="playbackStore.hasCurrentTrack"
-      class="flex flex-col items-center text-center w-full"
+      class="flex w-full flex-col items-center text-center"
       role="region"
       aria-label="Now Playing"
     >
@@ -147,7 +152,11 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
       </div>
 
       <!-- Queue Preview (Story 4.6) -->
-      <div class="mt-4 w-full max-w-sm" data-testid="queue-preview" aria-label="Upcoming tracks">
+      <div
+        class="mt-4 w-full max-w-sm pb-1"
+        data-testid="queue-preview"
+        aria-label="Upcoming tracks"
+      >
         <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
           {{ t('nowPlaying.upNext') }}
         </h3>
@@ -213,7 +222,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
       <div
         v-if="queuedTracks.length > 0"
-        class="mt-6 w-full max-w-sm text-left"
+        class="mt-6 w-full max-w-sm pb-1 text-left"
         data-testid="queued-empty-state"
         aria-label="Queued tracks"
       >
