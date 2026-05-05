@@ -23,6 +23,7 @@ export type QueueTrack = {
   readonly duration: number; // seconds (may be 0 if unknown)
   readonly isCurrent: boolean;
   readonly addedBy?: "user" | "radio"; // optional: absent for legacy payloads without provenance
+  readonly url?: string; // optional: LMS queue URI used for stable repeat protection
   readonly source?: SourceType; // optional: absent for legacy/unknown sources
   readonly audioQuality?: AudioQuality; // optional: absent if LMS doesn't provide quality tags
 };

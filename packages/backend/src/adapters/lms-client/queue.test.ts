@@ -388,6 +388,23 @@ describe("getQueue", () => {
     }
   });
 
+  it("keeps the LMS queue URL on each track for repeat protection", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(
+      ok({
+        playlist_cur_index: 0,
+        playlist_loop: [{ id: 1, title: "Creep", url: "tidal://58990486.flc" }],
+      }),
+    );
+    const { getQueue } = createQueueMethods(makeExecuteDeps(executeCommand));
+
+    const result = await getQueue();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]?.url).toBe("tidal://58990486.flc");
+    }
+  });
+
   it("sets isCurrent=false for all tracks when playlist_cur_index is undefined", async () => {
     const executeCommand = vi.fn().mockResolvedValue(
       ok({

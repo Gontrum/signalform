@@ -27,3 +27,10 @@ export const getSearchResultRepeatKey = (result: SearchResult): string =>
     normalizeIdentityPart(result.artist),
     normalizeIdentityPart(result.title),
   ].join("::");
+
+export const getTrackUrlKey = (track: {
+  readonly url?: string;
+}): string | undefined => {
+  const trimmed = track.url?.trim();
+  return trimmed === undefined || trimmed === "" ? undefined : trimmed;
+};

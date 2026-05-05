@@ -1575,6 +1575,89 @@ describe("intra-batch URL deduplication — same file URL not added twice", () =
 });
 
 describe("recent queue repeat protection", () => {
+  test("skips a candidate when the same URL is already in the queue even if queue metadata is incomplete", async () => {
+    const duplicateUrl = "tidal://58990486.flc";
+
+    fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
+      ok: true,
+      value: [
+        makeSimilarTrack("Radiohead", "Creep"),
+        makeSimilarTrack("Beck", "Loser"),
+      ],
+    });
+
+    fixtures.mockLmsClient.search.mockImplementation(
+      async (
+        query,
+      ): Promise<{
+        readonly ok: true;
+        readonly value: readonly SearchResult[];
+      }> => {
+        if (query.toLowerCase().includes("radiohead")) {
+          return {
+            ok: true,
+            value: [
+              {
+                ...makeLmsSearchResult("Radiohead", "Creep"),
+                url: duplicateUrl,
+                source: "tidal",
+              },
+            ],
+          };
+        }
+
+        return {
+          ok: true,
+          value: [makeLmsSearchResult("Beck", "Loser")],
+        };
+      },
+    );
+
+    fixtures.mockLmsClient.getQueue.mockResolvedValue({
+      ok: true,
+      value: [
+        {
+          id: "queue-1",
+          position: 1,
+          title: "Creep",
+          artist: "",
+          album: "Pablo Honey",
+          duration: 239,
+          isCurrent: true,
+          source: "tidal",
+          url: duplicateUrl,
+        },
+      ],
+    });
+    fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+
+    await engine.handleQueueEnd("Nirvana", "Come as You Are");
+
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledTimes(1);
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledWith(
+      "file:///music/Beck/Loser.mp3",
+    );
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalledWith(
+      duplicateUrl,
+    );
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Radio: skipping recent duplicate track",
+      expect.objectContaining({
+        event: "radio.recent_duplicate_skipped",
+        artist: "Radiohead",
+        title: "Creep",
+      }),
+    );
+  });
+
   test("skips a candidate when the same artist and title already appear in the recent queue tail", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,

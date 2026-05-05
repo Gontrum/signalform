@@ -48,6 +48,7 @@ import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
 import {
   getQueueTrackRepeatKey,
   getSearchResultRepeatKey,
+  getTrackUrlKey,
 } from "../core/identity.js";
 
 // Number of radio tracks to add per queue-end trigger
@@ -443,6 +444,12 @@ export const createRadioEngine = (
         const queuedTrackRepeatKeys = preRadioQueueResult.value.map((track) =>
           getQueueTrackRepeatKey(track),
         );
+        const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap(
+          (track) => {
+            const urlKey = getTrackUrlKey(track);
+            return urlKey === undefined ? [] : [urlKey];
+          },
+        );
         const disabledAfterQueueSnapshot = getDisabledReplenishOutcome(
           trigger,
           seedArtist,
@@ -578,7 +585,8 @@ export const createRadioEngine = (
                 );
               }
               const bestUrl = selectResult.url;
-              if (bestUrl === undefined) {
+              const bestUrlKey = getTrackUrlKey({ url: bestUrl });
+              if (bestUrl === undefined || bestUrlKey === undefined) {
                 logger.warn(
                   "Radio: could not determine best track URL — skipped",
                   {
@@ -603,7 +611,8 @@ export const createRadioEngine = (
 
               if (
                 acc.trackKeys.includes(repeatKey) ||
-                queuedTrackRepeatKeys.includes(repeatKey)
+                queuedTrackRepeatKeys.includes(repeatKey) ||
+                queuedTrackUrlKeys.includes(bestUrlKey)
               ) {
                 logger.info("Radio: skipping recent duplicate track", {
                   event: "radio.recent_duplicate_skipped",
@@ -618,7 +627,7 @@ export const createRadioEngine = (
               // Different last.fm candidates can resolve to the same track URL (local or Tidal)
               // (e.g. "Lisa Dream" and "Adele When We Were Young" both match "Holiday.flac"),
               // causing duplicates that the artist-level check above cannot prevent.
-              if (acc.urls.includes(bestUrl)) {
+              if (acc.urls.includes(bestUrlKey)) {
                 logger.warn(
                   "Radio: skipping duplicate URL — track already in queue batch",
                   {
@@ -652,7 +661,7 @@ export const createRadioEngine = (
               });
               return {
                 artists: [...acc.artists, candidate.artist],
-                urls: [...acc.urls, bestUrl],
+                urls: [...acc.urls, bestUrlKey],
                 trackKeys: [...acc.trackKeys, repeatKey],
               };
             },

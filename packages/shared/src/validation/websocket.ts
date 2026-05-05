@@ -65,6 +65,7 @@ const QueueTrackSchema = z.object({
   duration: z.number().nonnegative(),
   isCurrent: z.boolean(),
   addedBy: z.enum(["user", "radio"]).optional(),
+  url: z.string().optional(),
   source: z.enum(["local", "qobuz", "tidal"]).optional(),
   audioQuality: AudioQualitySchema.optional(),
 });

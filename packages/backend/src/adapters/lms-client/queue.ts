@@ -103,6 +103,7 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         duration: Number(item.duration) || 0, // LMS returns string for Tidal tracks (e.g. "186")
         isCurrent:
           curIndex !== undefined && !isNaN(curIndex) && index === curIndex,
+        url: item.url,
         source:
           item.url !== undefined ? detectQueueSource(item.url) : undefined,
         audioQuality: parseAudioQuality(item),
