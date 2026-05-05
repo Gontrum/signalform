@@ -8,6 +8,7 @@ on:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  IS_DEPENDABOT_UPDATE: ${{ github.actor == 'dependabot[bot]' || github.event.pull_request.user.login == 'dependabot[bot]' || startsWith(github.ref_name, 'dependabot/') }}
 
 jobs:
   quality-check:
@@ -34,7 +35,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+          if [ "${IS_DEPENDABOT_UPDATE}" = "true" ]; then
             echo "Installing dependencies for Dependabot PR (allowing lockfile updates)..."
             pnpm install --no-frozen-lockfile
           else
@@ -84,7 +85,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ github.actor }}" = "dependabot[bot]" ]; then
+          if [ "${IS_DEPENDABOT_UPDATE}" = "true" ]; then
             echo "Installing dependencies for Dependabot PR (allowing lockfile updates)..."
             pnpm install --no-frozen-lockfile
           else
