@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.6] - 2026-05-08
+
+### Fixed
+
+- Queue now playing display is more stable and updates reliably
+- Radio mode now prevents duplicate tracks by URL, avoiding repeated suggestions in the queue
+
+---
+
 ## [0.9.5] - 2026-04-30
 
 ### Fixed
@@ -133,7 +142,8 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/Gontrum/signalform/releases/tag/v0.9.6
 [0.9.5]: https://github.com/Gontrum/signalform/releases/tag/v0.9.5
 [0.9.4]: https://github.com/Gontrum/signalform/releases/tag/v0.9.4
 [0.9.3]: https://github.com/Gontrum/signalform/releases/tag/v0.9.3
