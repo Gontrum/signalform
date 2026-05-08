@@ -617,6 +617,52 @@ describe('WebSocket player.statusChanged handler', () => {
   })
 })
 
+describe('WebSocket player.queue.updated handler', () => {
+  it('updates the now-playing queue preview from queue snapshots', () => {
+    const store = usePlaybackStore()
+
+    const handler = websocketOnMock.mock.calls.find(
+      ([event]) => event === 'player.queue.updated',
+    )?.[1]
+
+    expect(handler).toBeDefined()
+
+    handler?.({
+      playerId: 'player-1',
+      tracks: [
+        {
+          id: 'current-track',
+          position: 1,
+          title: 'Current Track',
+          artist: 'Artist',
+          album: 'Album',
+          duration: 200,
+          isCurrent: true,
+        },
+        {
+          id: 'next-track',
+          position: 2,
+          title: 'Next Track',
+          artist: 'Artist',
+          album: 'Album',
+          duration: 180,
+          isCurrent: false,
+        },
+      ],
+      radioModeActive: false,
+      timestamp: Date.now(),
+    })
+
+    expect(store.queuePreview).toEqual([
+      {
+        id: 'next-track',
+        title: 'Next Track',
+        artist: 'Artist',
+      },
+    ])
+  })
+})
+
 describe('progress ticking', () => {
   it('increments current time locally while playback is running', async () => {
     vi.useFakeTimers()

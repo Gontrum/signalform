@@ -1,4 +1,9 @@
-import type { PlayerStatusPayload, PlayerTrackChangedPayload } from '@signalform/shared'
+import type {
+  PlayerStatusPayload,
+  PlayerTrackChangedPayload,
+  QueuePreviewItem,
+  QueueTrack,
+} from '@signalform/shared'
 import { SOURCE_LABELS } from '@/utils/sourceInfo'
 import type { PlaybackStatus, TrackInfo } from './types'
 
@@ -53,6 +58,17 @@ export const mapTrackChangedToTrackInfo = (
   artistId: track.artistId,
   albumId: track.albumId,
 })
+
+export const mapQueueTracksToQueuePreview = (
+  tracks: readonly QueueTrack[],
+): readonly QueuePreviewItem[] =>
+  tracks
+    .filter((track) => !track.isCurrent)
+    .map((track) => ({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+    }))
 
 export const calculateProgressPercent = (
   currentTime: number,

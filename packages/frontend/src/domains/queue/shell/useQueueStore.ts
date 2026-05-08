@@ -41,6 +41,7 @@ export const useQueueStore = defineStore('queue', () => {
   const activeQueueFetch = ref<Promise<void> | null>(null)
   const hasPendingQueueMutationSync = ref(false)
   const latestQueueSyncTimestamp = ref(0)
+  const hasLocalQueueSyncBarrier = ref(false)
 
   const currentTrack = computed(() => getCurrentQueueTrack(tracks.value))
   const upcomingTracks = computed(() => getUpcomingQueueTracks(tracks.value))
@@ -52,17 +53,22 @@ export const useQueueStore = defineStore('queue', () => {
   )
 
   const advanceQueueSyncTimestamp = (): number => {
-    const nextTimestamp = Math.max(Date.now(), latestQueueSyncTimestamp.value + 1)
+    const nextTimestamp = latestQueueSyncTimestamp.value + 1
     latestQueueSyncTimestamp.value = nextTimestamp
+    hasLocalQueueSyncBarrier.value = true
     return nextTimestamp
   }
 
   const applyQueueUpdate = (payload: QueueUpdatedPayload): void => {
-    if (payload.timestamp < latestQueueSyncTimestamp.value) {
+    if (
+      payload.timestamp < latestQueueSyncTimestamp.value ||
+      (hasLocalQueueSyncBarrier.value && payload.timestamp === latestQueueSyncTimestamp.value)
+    ) {
       return
     }
 
     latestQueueSyncTimestamp.value = payload.timestamp
+    hasLocalQueueSyncBarrier.value = false
     tracks.value = payload.tracks
     isRadioMode.value = payload.radioModeActive
     radioBoundaryIndex.value = payload.radioBoundaryIndex ?? null

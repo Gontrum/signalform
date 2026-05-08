@@ -776,6 +776,34 @@ describe('useQueueStore', () => {
     expect(store.tracks[0]?.id).toBe('refetched-track')
   })
 
+  it('applies backend queue.updated events after fetchQueue() even when the client clock is ahead', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2030-01-01T00:00:00.000Z'))
+    mockGetQueue.mockResolvedValue(
+      ok({
+        tracks: [makeTrack({ id: 'initial-track', title: 'Initial Track' })],
+        radioModeActive: false,
+        radioBoundaryIndex: null,
+      }),
+    )
+
+    const store = useQueueStore()
+    await store.fetchQueue()
+
+    const handler = getCapturedHandler('player.queue.updated')
+    expect(handler).toBeDefined()
+
+    handler!({
+      playerId: 'test',
+      tracks: [makeTrack({ id: 'server-track', title: 'Server Track' })],
+      radioModeActive: false,
+      radioBoundaryIndex: null,
+      timestamp: 1_800_000_000_000,
+    })
+
+    expect(store.tracks[0]?.id).toBe('server-track')
+  })
+
   it('6.8: radioUnavailableMessage starts as null', () => {
     const store = useQueueStore()
     expect(store.radioUnavailableMessage).toBeNull()

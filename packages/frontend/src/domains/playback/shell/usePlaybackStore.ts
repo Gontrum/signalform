@@ -19,6 +19,7 @@ import type {
   PlayerStatusPayload,
   PlayerTrackChangedPayload,
   PlayerVolumeChangedPayload,
+  QueueUpdatedPayload,
   SystemEventPayload,
   QueuePreviewItem,
 } from '@signalform/shared'
@@ -27,6 +28,7 @@ import {
   getPlaybackState,
   mapStatusTrackToTrackInfo,
   mapTrackChangedToTrackInfo,
+  mapQueueTracksToQueuePreview,
   normalizeCurrentTime,
   validateSeekPosition,
   validateVolumeLevel,
@@ -278,6 +280,10 @@ export const usePlaybackStore = defineStore('playback', () => {
     currentTrack.value = mapTrackChangedToTrackInfo(payload.track)
     trackDuration.value = payload.track.duration
     currentTime.value = 0
+  })
+
+  on('player.queue.updated', (payload: QueueUpdatedPayload) => {
+    queuePreview.value = mapQueueTracksToQueuePreview(payload.tracks)
   })
 
   // Listen to volume changes
