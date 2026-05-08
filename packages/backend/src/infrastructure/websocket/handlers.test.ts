@@ -508,7 +508,7 @@ describe("hasStatusChanged", () => {
     expect(result).toBe(true);
   });
 
-  test("returns true when time changed (playback advancing)", () => {
+  test("returns false when only time changed (playback advancing) - frontend has local ticker", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
       mode: "play",
@@ -525,10 +525,10 @@ describe("hasStatusChanged", () => {
 
     const result = hasStatusChanged(prev, current);
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
-  test("returns true when time changed after seek", () => {
+  test("returns false when only time changed (e.g., after seek) - frontend reconciles via fetchCurrentStatus", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
       mode: "play",
@@ -545,7 +545,7 @@ describe("hasStatusChanged", () => {
 
     const result = hasStatusChanged(prev, current);
 
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
   test("returns true when queuePreview changes (e.g. track added while paused)", () => {

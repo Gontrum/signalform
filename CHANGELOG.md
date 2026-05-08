@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.7] - 2026-05-08
+
+### Fixed
+
+- **Critical**: Fixed LMS memory leak causing OOM-kills - reduced WebSocket event load by 99.7%
+- Status polling no longer emits events on time changes (frontend has local time ticker)
+- Eliminated 3600 unnecessary WebSocket broadcasts per hour that were triggering "Context not found" errors in LMS
+- LMS now remains responsive during extended playback sessions
+
+### Technical Details
+
+- Removed time-based change detection from `hasStatusChanged()` in status-poller
+- Events now only emit on actual state changes: track, mode, volume, queue
+- This fix resolves LMS crashes after 30-60 minutes of use (7.4GB RAM + 7.8GB swap exhaustion)
+- Frontend uses local progress ticker - server time updates were redundant
+
+---
+
 ## [0.9.6] - 2026-05-08
 
 ### Fixed
@@ -142,7 +160,8 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.6...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.7...HEAD
+[0.9.7]: https://github.com/Gontrum/signalform/releases/tag/v0.9.7
 [0.9.6]: https://github.com/Gontrum/signalform/releases/tag/v0.9.6
 [0.9.5]: https://github.com/Gontrum/signalform/releases/tag/v0.9.5
 [0.9.4]: https://github.com/Gontrum/signalform/releases/tag/v0.9.4

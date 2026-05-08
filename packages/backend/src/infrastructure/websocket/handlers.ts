@@ -265,7 +265,6 @@ export const hasStatusChanged = (
     prev.mode !== current.mode ||
     prev.currentTrack?.id !== current.currentTrack?.id ||
     prev.volume !== current.volume ||
-    prev.time !== current.time ||
     prevQueueIds !== currentQueueIds
   );
 };
