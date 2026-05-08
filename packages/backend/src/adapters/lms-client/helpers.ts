@@ -12,7 +12,7 @@ export { VALID_TRACK_PROTOCOLS } from "@signalform/shared";
 export const MAX_SEARCH_RESULTS = 999; // LMS protocol limit for search results per query
 export const MAX_TRACK_URL_LENGTH = 2048; // Reasonable URL length limit to prevent DoS
 export const PAUSE_ENABLED = "1"; // LMS pause command: "1" = pause, "0" = resume
-export const TIDAL_SEARCH_TIMEOUT_MS = 250; // Tidal plugin probe latency ~323ms → cap for NFR27 ≤300ms combined
+export const TIDAL_SEARCH_TIMEOUT_MS = 450; // Tidal search latency ~300-400ms observed; radio mode needs results to prevent queue starvation
 export const TIDAL_ENRICH_TIMEOUT_MS = 500; // Per-track tidal_info enrichment budget (tidal_info calls Tidal REST API ~200-400ms)
 
 // Tidal REST quality map: URL extension → AudioQuality with default values.
