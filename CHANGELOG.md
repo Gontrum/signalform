@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.8] - 2026-05-08
+
+### Fixed
+
+- **Radio / Search**: Increased Tidal search timeout from 250ms to 450ms - Tidal responses typically
+  arrive in 300-400ms, causing the previous limit to silently drop results
+- Search autocomplete now reliably returns Tidal tracks
+- Radio mode can again find similar tracks to keep the queue replenished; without this fix
+  radio playback would stop when the queue ran low
+
+---
+
 ## [0.9.7] - 2026-05-08
 
 ### Fixed
@@ -160,7 +172,8 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/Gontrum/signalform/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/Gontrum/signalform/releases/tag/v0.9.7
 [0.9.6]: https://github.com/Gontrum/signalform/releases/tag/v0.9.6
 [0.9.5]: https://github.com/Gontrum/signalform/releases/tag/v0.9.5
