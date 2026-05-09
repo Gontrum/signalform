@@ -19,6 +19,11 @@ Prefer LSP over grep for all navigation:
 
 ## Agents
 
-- `@core-dev` – pure functions in core/ subdirectories of any package
-- `@shell-dev` – Fastify handlers (backend) or Vue components/composables (frontend)
-- `@reviewer` – architectural checks and full test suite, read-only
+IMPORTANT: You MUST delegate all implementation to the appropriate agent. NEVER write
+implementation code directly in the main context.
+
+- `@core-dev` – MUST be used for all pure functions in any `core/` subdirectory
+- `@shell-dev` – MUST be used for all Fastify handlers, Vue components, and composables
+- `@reviewer` – MUST be run before every release commit; architectural checks and full test suite
+
+After any agent writes code, ALWAYS run `@reviewer` before committing.

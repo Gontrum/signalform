@@ -1,0 +1,24 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\npath = data.get('tool_input', {}).get('file_path', '')\nif '/core/' in path or '/shell/' in path:\n    print('BLOCKED: Edits to core/ and shell/ must go through @core-dev or @shell-dev agents. Spawn the appropriate agent instead.', flush=True)\n    sys.exit(2)\n\""
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport json, sys\ndata = json.load(sys.stdin)\npath = data.get('tool_input', {}).get('file_path', '')\nif '/core/' in path or '/shell/' in path:\n    print('BLOCKED: Writes to core/ and shell/ must go through @core-dev or @shell-dev agents. Spawn the appropriate agent instead.', flush=True)\n    sys.exit(2)\n\""
+          }
+        ]
+      }
+    ]
+  }
+}
