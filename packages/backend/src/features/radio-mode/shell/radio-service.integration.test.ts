@@ -3029,7 +3029,14 @@ describe("artist.getSimilar fallback when track.getSimilar returns no results", 
     });
     fixtures.mockLmsClient.getStatus.mockResolvedValue({
       ok: true,
-      value: { mode: "play", time: 10, volume: 50 },
+      value: {
+        mode: "play" as const,
+        time: 10,
+        duration: 300,
+        volume: 50,
+        currentTrack: null,
+        queuePreview: [],
+      },
     });
 
     const engine = createRadioEngine(
