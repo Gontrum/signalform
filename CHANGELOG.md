@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.9] - 2026-05-09
+
+### Fixed
+
+- **Now Playing / Mini-Player**: Selecting a track from the queue no longer leaves the Now Playing
+  view and mini-player showing the previous track — the UI now refreshes immediately on navigation
+  and stays in sync with WebSocket events after reconnects
+- **Radio Mode**: Radio mode no longer stops when the current track has no Last.fm scrobble history
+  (e.g. obscure or newly released tracks) — falls back to `artist.getSimilar` to keep the queue
+  replenished
+- **WebSocket**: Socket reconnection now automatically re-subscribes to player updates, preventing
+  stale state after network interruptions
+
+---
+
 ## [0.9.8] - 2026-05-08
 
 ### Fixed

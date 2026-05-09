@@ -81,6 +81,7 @@ export const useWebSocket = (): {
 
   addReservedListener(socket, 'reconnect', () => {
     connectionState.value = 'connected'
+    socket.emit('player.subscribe')
   })
 
   // Error event handler

@@ -372,9 +372,66 @@ export const createRadioEngine = (
           }),
         );
 
+        // Step 2.5: Fallback to artist.getSimilar when track.getSimilar yields nothing.
+        // Happens for new releases or tracks with insufficient scrobble history on last.fm.
+        // buildRadioSearchQueries("Artist", "") → ["Artist"] so LMS finds any track by that artist.
+        if (candidates.length === 0) {
+          logger.info(
+            "Radio: track.getSimilar returned no results — falling back to artist.getSimilar",
+            {
+              event: "radio.fallback_to_similar_artists",
+              trigger,
+              seedArtist,
+              seedTitle,
+            },
+          );
+        }
+        const artistFallbackResult =
+          candidates.length === 0
+            ? await lastFmClient.getSimilarArtists(
+                seedArtist,
+                LASTFM_SIMILAR_LIMIT,
+              )
+            : null;
+
+        if (artistFallbackResult !== null) {
+          const disabledAfterArtistFetch = getDisabledReplenishOutcome(
+            trigger,
+            seedArtist,
+            seedTitle,
+          );
+          if (disabledAfterArtistFetch !== undefined) {
+            return disabledAfterArtistFetch;
+          }
+          if (
+            !artistFallbackResult.ok ||
+            artistFallbackResult.value.length === 0
+          ) {
+            logger.warn("Radio: artist.getSimilar also returned no results", {
+              event: "radio.fallback_to_similar_artists_failed",
+              trigger,
+              seedArtist,
+              seedTitle,
+            });
+          }
+        }
+
+        const effectiveCandidates: readonly CandidateTrack[] =
+          candidates.length > 0
+            ? candidates
+            : artistFallbackResult?.ok && artistFallbackResult.value.length > 0
+              ? artistFallbackResult.value.map((a) => ({
+                  name: "",
+                  artist: a.name,
+                  match: a.match,
+                  mbid: a.mbid,
+                  url: a.url,
+                }))
+              : [];
+
         // Step 3: Apply functional core filters
         // filterByContext gracefully passes all when no seedYear/seedGenres given
-        const contextFiltered = filterByContext(candidates, {});
+        const contextFiltered = filterByContext(effectiveCandidates, {});
         const diversityFiltered = filterByDiversity(
           contextFiltered,
           getRadioQueueState().recentArtists,
@@ -403,7 +460,7 @@ export const createRadioEngine = (
             trigger,
             seedArtist,
             seedTitle,
-            totalCandidates: candidates.length,
+            totalCandidates: effectiveCandidates.length,
             afterContext: contextFiltered.length,
             afterDiversity: diversityFiltered.length,
             afterSeedExclusion: seedArtistFiltered.length,

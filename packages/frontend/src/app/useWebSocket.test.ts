@@ -183,4 +183,15 @@ describe('useWebSocket', () => {
 
     expect(connectionState.value).toBe('connected')
   })
+
+  test('reconnect re-emits player.subscribe to rejoin PLAYER_UPDATES_ROOM', () => {
+    useWebSocket()
+
+    mockSocket.emit.mockClear()
+
+    const reconnectCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
+    reconnectCallback?.()
+
+    expect(mockSocket.emit).toHaveBeenCalledWith('player.subscribe')
+  })
 })

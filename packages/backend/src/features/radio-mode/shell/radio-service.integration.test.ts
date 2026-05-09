@@ -2973,3 +2973,109 @@ describe("radio mode lifecycle", () => {
     expect(getRadioQueueState().isEnabled).toBe(false);
   });
 });
+
+// --- artist.getSimilar fallback when track.getSimilar returns empty -----------
+
+describe("artist.getSimilar fallback when track.getSimilar returns no results", () => {
+  test("adds a track via artist.getSimilar when track.getSimilar returns empty array", async () => {
+    // track.getSimilar returns nothing (new release / insufficient scrobble data)
+    fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
+      ok: true,
+      value: [],
+    });
+    // artist.getSimilar returns similar artists
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue({
+      ok: true,
+      value: [
+        {
+          name: "The Stooges",
+          mbid: undefined,
+          match: 0.85,
+          url: "https://www.last.fm/music/The+Stooges",
+        },
+        {
+          name: "Lou Reed",
+          mbid: undefined,
+          match: 0.8,
+          url: "https://www.last.fm/music/Lou+Reed",
+        },
+      ],
+    });
+    fixtures.mockLmsClient.getQueue
+      .mockResolvedValueOnce({ ok: true, value: [] }) // pre-radio snapshot
+      .mockResolvedValueOnce({ ok: true, value: [] }) // freshness check
+      .mockResolvedValueOnce({
+        ok: true,
+        value: [
+          {
+            id: "r1",
+            position: 1,
+            title: "Search and Destroy",
+            artist: "The Stooges",
+            album: "Raw Power",
+            duration: 210,
+            isCurrent: false,
+          },
+        ],
+      });
+    fixtures.mockLmsClient.search.mockImplementation(async (query: string) => {
+      if (query.toLowerCase().includes("stooges")) {
+        return {
+          ok: true,
+          value: [makeLmsSearchResult("The Stooges", "Search and Destroy")],
+        };
+      }
+      return { ok: true, value: [] };
+    });
+    fixtures.mockLmsClient.getStatus.mockResolvedValue({
+      ok: true,
+      value: { mode: "play", time: 10, volume: 50 },
+    });
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+
+    await engine.handleQueueEnd("Iggy Pop", "The Regency");
+
+    expect(fixtures.mockLastFmClient.getSimilarArtists).toHaveBeenCalledWith(
+      "Iggy Pop",
+      50,
+    );
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledOnce();
+    const addedUrl = fixtures.mockLmsClient.addToQueue.mock.calls[0]?.[0];
+    expect(addedUrl).toContain("Stooges");
+  });
+
+  test("falls through to no-candidates when artist.getSimilar also returns empty", async () => {
+    fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
+      ok: true,
+      value: [],
+    });
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue({
+      ok: true,
+      value: [],
+    });
+    fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
+
+    const engine = createRadioEngine(
+      fixtures.mockLmsClient,
+      fixtures.mockLastFmClient,
+      fixtures.mockIo.io,
+      "player-1",
+      mockLogger,
+    );
+
+    await engine.handleQueueEnd("Unknown Artist", "Obscure Track");
+
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("no candidates"),
+      expect.objectContaining({ event: "radio.no_candidates" }),
+    );
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+});
