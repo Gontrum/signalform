@@ -8,5 +8,8 @@ pnpm exec lint-staged
 pnpm --silent -r run format 2>/dev/null || true
 git add -u packages/ 2>/dev/null || true
 
-# Full type-check, lint, and tests run in CI.
+# Type-check all packages (catches TS errors lint-staged misses).
+pnpm -r run type-check
+
+# Full tests and e2e run in CI.
 # Keep this hook fast (< 10 s) so --no-verify stays unnecessary.
