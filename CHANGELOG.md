@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.9.10] - 2026-05-09
+
+### Fixed
+
+- **Radio Mode**: Playback no longer freezes after a local track when the next queued Tidal track
+  fails to buffer (Tidal format mismatch: LMS requests FLAC, Tidal returns MP4). The status poller
+  now detects when LMS is stuck at the very end of a track (`time ≈ duration`, mode stays "play")
+  for 3+ consecutive seconds and automatically calls `nextTrack()` + `resume()` to skip past the
+  broken track and continue playback.
+
+---
+
 ## [0.9.9] - 2026-05-09
 
 ### Fixed
