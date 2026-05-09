@@ -64,6 +64,14 @@ type LmsClient = {
     }>;
     readonly error?: LmsError;
   }>;
+  readonly nextTrack: () => Promise<{
+    readonly ok: boolean;
+    readonly error?: unknown;
+  }>;
+  readonly resume: () => Promise<{
+    readonly ok: boolean;
+    readonly error?: unknown;
+  }>;
 };
 
 /**
@@ -86,15 +94,22 @@ export const startStatusPolling = (
 ): (() => void) => {
   const pollingAbortController = new AbortController();
 
+  type TrackStallState = {
+    readonly trackId: string;
+    readonly stallCount: number;
+    readonly lastTime: number;
+  };
+
   const scheduleNextPoll = async (
     nextPreviousStatus: LmsPlayerStatus | null,
     lmsWasDisconnected: boolean,
+    nextStallState?: TrackStallState,
   ): Promise<void> =>
     delay(intervalMs, undefined, {
       signal: pollingAbortController.signal,
     })
       .then(async () => {
-        await poll(nextPreviousStatus, lmsWasDisconnected);
+        await poll(nextPreviousStatus, lmsWasDisconnected, nextStallState);
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") {
@@ -117,6 +132,7 @@ export const startStatusPolling = (
   const poll = async (
     previousStatus: LmsPlayerStatus | null,
     lmsWasDisconnected: boolean,
+    stallState?: TrackStallState,
   ): Promise<void> => {
     const statusResult = await lmsClient.getStatus().catch(
       (
@@ -313,6 +329,75 @@ export const startStatusPolling = (
         })()
       : previousStatus;
 
+    // Track-end stall detection: LMS sometimes freezes at the very end of a track
+    // when the next track fails to buffer (e.g., Tidal format mismatch mp4 <> flc).
+    // After 3 consecutive polls with time ≈ duration and no progress, force advance.
+    const duration = statusResult.value.duration;
+    const stalledTrackId = currentStatus.currentTrack?.id;
+    const isAtTrackEnd =
+      currentStatus.mode === "play" &&
+      duration > 0 &&
+      currentStatus.time >= duration - 0.5 &&
+      stalledTrackId !== undefined;
+
+    const nextStallState: TrackStallState | undefined =
+      isAtTrackEnd && stalledTrackId
+        ? stallState?.trackId === stalledTrackId
+          ? {
+              trackId: stalledTrackId,
+              stallCount:
+                Math.abs(currentStatus.time - stallState.lastTime) < 0.1
+                  ? stallState.stallCount + 1
+                  : 1,
+              lastTime: currentStatus.time,
+            }
+          : {
+              trackId: stalledTrackId,
+              stallCount: 1,
+              lastTime: currentStatus.time,
+            }
+        : undefined;
+
+    if (nextStallState !== undefined && nextStallState.stallCount >= 3) {
+      app.log.warn(
+        {
+          event: "stall_detected_at_track_end",
+          playerId,
+          trackId: stalledTrackId,
+          time: currentStatus.time,
+          duration,
+          stallCount: nextStallState.stallCount,
+        },
+        "Track stalled at end — forcing nextTrack + resume",
+      );
+      const nextResult = await lmsClient.nextTrack();
+      if (nextResult.ok) {
+        const statusAfterAdvance = await lmsClient.getStatus();
+        if (
+          statusAfterAdvance.ok &&
+          statusAfterAdvance.value?.mode !== "play"
+        ) {
+          await lmsClient.resume();
+          app.log.info(
+            { event: "stall_resume_forced", playerId },
+            "Stall recovery: resume sent after nextTrack",
+          );
+        }
+      } else {
+        app.log.warn(
+          {
+            event: "stall_next_track_failed",
+            playerId,
+            error: nextResult.error,
+          },
+          "Stall recovery: nextTrack failed",
+        );
+      }
+      // Reset stall counter and reschedule — don't run radio triggers on stale state
+      await scheduleNextPoll(nextStatus ?? previousStatus, false, undefined);
+      return;
+    }
+
     // Proactive trigger: queue just became empty while still playing last track.
     // Fires when queuePreview transitions non-empty → empty during playback.
     // Seed = currently-playing track (not yet ended).
@@ -347,7 +432,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end proactive trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, false);
+        await scheduleNextPoll(nextStatus, false, nextStallState);
         return;
       }
       app.log.info(
@@ -399,7 +484,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end stop trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, false);
+        await scheduleNextPoll(nextStatus, false, nextStallState);
         return;
       }
       app.log.info(
@@ -420,11 +505,11 @@ export const startStatusPolling = (
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }
 
-    await scheduleNextPoll(nextStatus, false);
+    await scheduleNextPoll(nextStatus, false, nextStallState);
   };
 
   // Start polling loop
-  void poll(null, false);
+  void poll(null, false, undefined);
 
   // Return cleanup function
   return () => {
