@@ -76,6 +76,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const isRetryingLms = ref(false)
   const hasInitializedSync = ref(false)
   const progressClock = ref<ReturnType<typeof setInterval> | null>(null)
+  const playbackSnapshotRevision = ref(0)
 
   // ── Getters (Functional Core) ─────────────────────────────
   const hasCurrentTrack = computed(() => currentTrack.value !== null)
@@ -115,6 +116,10 @@ export const usePlaybackStore = defineStore('playback', () => {
     if (nextQueuePreview !== undefined) {
       queuePreview.value = nextQueuePreview
     }
+  }
+
+  const advancePlaybackSnapshotRevision = (): void => {
+    playbackSnapshotRevision.value += 1
   }
 
   const stopProgressClock = (): void => {
@@ -159,15 +164,21 @@ export const usePlaybackStore = defineStore('playback', () => {
       queuePreview: nextQueuePreview,
     } = statusResult.value
 
+    advancePlaybackSnapshotRevision()
     applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
 
     return status === expectedStatus
   }
 
   const fetchCurrentStatus = async (): Promise<void> => {
+    const startRevision = playbackSnapshotRevision.value
     const result = await getPlaybackStatus()
     if (!result.ok) {
       return // Silently fail — WebSocket will sync on next status change
+    }
+
+    if (startRevision !== playbackSnapshotRevision.value) {
+      return
     }
 
     const {
@@ -267,6 +278,7 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   // Listen to player status changes
   on('player.statusChanged', (payload: PlayerStatusPayload) => {
+    advancePlaybackSnapshotRevision()
     applyPlaybackSnapshot(
       payload.status,
       normalizeCurrentTime(payload.status, payload.currentTime),
@@ -277,12 +289,14 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   // Listen to track changes
   on('player.trackChanged', (payload: PlayerTrackChangedPayload) => {
+    advancePlaybackSnapshotRevision()
     currentTrack.value = mapTrackChangedToTrackInfo(payload.track)
     trackDuration.value = payload.track.duration
     currentTime.value = 0
   })
 
   on('player.queue.updated', (payload: QueueUpdatedPayload) => {
+    advancePlaybackSnapshotRevision()
     queuePreview.value = mapQueueTracksToQueuePreview(payload.tracks)
   })
 
@@ -322,6 +336,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     }
 
     // Success - update playback state
+    advancePlaybackSnapshotRevision()
     currentTrack.value = track
     isPlaying.value = true
     isPaused.value = false
@@ -345,6 +360,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     }
 
     // Success - update state
+    advancePlaybackSnapshotRevision()
     isPaused.value = true
     isPlaying.value = false
     isLoading.value = false
@@ -367,6 +383,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     }
 
     // Success - update state
+    advancePlaybackSnapshotRevision()
     isPaused.value = false
     isPlaying.value = true
     isLoading.value = false
@@ -376,6 +393,7 @@ export const usePlaybackStore = defineStore('playback', () => {
    * Stop playback
    */
   const stop = (): void => {
+    advancePlaybackSnapshotRevision()
     currentTrack.value = null
     isPlaying.value = false
     isPaused.value = false

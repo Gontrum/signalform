@@ -431,6 +431,72 @@ describe('initial playback sync', () => {
     ])
     expect(store.isCurrentlyPlaying).toBe(true)
   })
+
+  it('does not let a stale status fetch overwrite a newer websocket track on phone startup', async () => {
+    const initialStatus = createDeferred<Awaited<ReturnType<typeof mockGetPlaybackStatus>>>()
+    mockGetPlaybackStatus.mockReturnValueOnce(initialStatus.promise)
+
+    const store = usePlaybackStore()
+    const statusHandler = websocketOnMock.mock.calls.find(
+      ([event]) => event === 'player.statusChanged',
+    )?.[1]
+
+    statusHandler?.({
+      playerId: 'player-1',
+      status: 'playing',
+      currentTime: 22,
+      timestamp: Date.now(),
+      currentTrack: {
+        id: 'new-track',
+        title: 'New Mobile Title',
+        artist: 'Current Artist',
+        album: 'Current Album',
+        duration: 240,
+        sources: [{ url: 'file:///new.flac', source: 'local' }],
+      },
+      queuePreview: [
+        {
+          id: 'new-next',
+          title: 'New Next',
+          artist: 'Current Artist',
+        },
+      ],
+    })
+
+    initialStatus.resolve(
+      ok({
+        status: 'playing',
+        currentTime: 8,
+        currentTrack: {
+          id: 'old-track',
+          title: 'Old Mobile Title',
+          artist: 'Previous Artist',
+          album: 'Previous Album',
+          url: 'file:///old.flac',
+          source: 'local',
+          duration: 180,
+        },
+        queuePreview: [
+          {
+            id: 'old-next',
+            title: 'Old Next',
+            artist: 'Previous Artist',
+          },
+        ],
+      }),
+    )
+    await flushPromises()
+
+    expect(store.currentTrack?.title).toBe('New Mobile Title')
+    expect(store.currentTime).toBe(22)
+    expect(store.queuePreview).toEqual([
+      {
+        id: 'new-next',
+        title: 'New Next',
+        artist: 'Current Artist',
+      },
+    ])
+  })
 })
 
 // ─── seekToPosition — rollback ────────────────────────────────────────────────

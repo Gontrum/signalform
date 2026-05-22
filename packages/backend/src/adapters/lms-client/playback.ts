@@ -47,7 +47,7 @@ const statusTrackSchema = z.object({
   title: z.string(),
   artist: z.string().optional(),
   album: z.string().optional(),
-  url: z.string(),
+  url: z.string().optional(),
   artist_ids: z.string().optional(),
   trackartist_ids: z.string().optional(),
   album_id: z.string().optional(),
@@ -57,9 +57,9 @@ const statusTrackSchema = z.object({
 const statusPayloadParser = createLmsResultParser(
   z.object({
     mode: z.string(),
-    time: z.union([z.number(), z.string()]),
-    duration: z.union([z.number(), z.string()]),
-    "mixer volume": z.union([z.number(), z.string()]),
+    time: z.union([z.number(), z.string()]).optional(),
+    duration: z.union([z.number(), z.string()]).optional(),
+    "mixer volume": z.union([z.number(), z.string()]).optional(),
     playlist_loop: z.array(statusTrackSchema).optional(),
   }),
 );
@@ -192,16 +192,17 @@ const createPlaybackMethodsImplementation = (
 
       // Extract current track (if playing)
       const currentTrackData = result.value.playlist_loop?.[0];
+      const trackUrl = currentTrackData?.url ?? "";
       const currentTrack: SearchResult | null = currentTrackData
         ? {
             id: String(currentTrackData.id), // LMS returns numeric IDs — convert to string
             title: currentTrackData.title,
             artist: currentTrackData.artist ?? "", // may be absent for some tracks
             album: currentTrackData.album ?? "", // may be absent for some tracks
-            url: currentTrackData.url,
-            source: detectSource(currentTrackData.url),
+            url: trackUrl,
+            source: detectSource(trackUrl),
             type: "track", // Current track is always a track
-            audioQuality: parseTidalAudioQuality(currentTrackData.url), // inferred from URL extension for Tidal tracks
+            audioQuality: parseTidalAudioQuality(trackUrl), // inferred from URL extension for Tidal tracks
             coverArtUrl: currentTrackData.artwork_url
               ? `http://${config.host}:${config.port}${currentTrackData.artwork_url}`
               : `http://${config.host}:${config.port}/music/${String(currentTrackData.id)}/cover.jpg`,
