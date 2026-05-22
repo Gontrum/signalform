@@ -122,6 +122,15 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
             })),
           }
           status.value = 'success'
+          await router.replace({
+            name: 'album-detail',
+            params: { albumId: resolveResult.value.albumId },
+            state: {
+              tidalTitle: tidalSearchTitle,
+              tidalArtist: tidalSearchArtist,
+              tidalCoverArtUrl: tidalSearchCoverArtUrl ?? '',
+            },
+          })
           void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
         } else {
           errorMessage.value = tracksResult.error.message

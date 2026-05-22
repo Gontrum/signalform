@@ -1219,6 +1219,42 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
 
     expect(wrapper.find('[data-testid="error-server"]').exists()).toBe(true)
   })
+
+  // URL stabilisation: after successful resolution, router.replace rewrites /album/tidal-search
+  // to /album/{resolvedId} so the page is bookmarkable and refresh-safe.
+  it('calls router.replace with resolved albumId after successful track load', async () => {
+    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(resolveAlbum).mockResolvedValue({
+      ok: true,
+      value: { albumId: '7_mahler: symphony no. 5.3.0' },
+    })
+    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+      ok: true,
+      value: { tracks: [], totalCount: 0 },
+    })
+
+    const router = await createTestRouter(
+      [
+        { path: '/album/tidal-search', name: 'tidal-search-album', component: AlbumDetailView },
+        { path: '/album/:albumId', name: 'album-detail', component: AlbumDetailView },
+      ],
+      '/album/tidal-search',
+    )
+    window.history.replaceState({ ...window.history.state, ...tidalSearchState }, '')
+    const replaceSpy = vi.spyOn(router, 'replace')
+
+    mount(AlbumDetailView, { global: { plugins: [router] } })
+    await nextTick()
+    await nextTick()
+    await nextTick()
+
+    expect(replaceSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'album-detail',
+        params: { albumId: '7_mahler: symphony no. 5.3.0' },
+      }),
+    )
+  })
 })
 
 // M004/S03: AlbumDetailView enrichment block

@@ -128,7 +128,11 @@ export const createTidalSearchMethods = (
      * Live probe (2026-03-17): search submenu indices are .0=Alles, .1=Playlists, .2=Artists,
      * .3=Alben (Albums), .4=Titel (Tracks). Album name format: title only (may have "[E]" suffix).
      *
-     * Matching: case-insensitive startsWith — handles "[E]" explicit suffix correctly.
+     * Matching strategy:
+     * 1. Primary: case-insensitive startsWith — handles "[E]" explicit suffix correctly.
+     * 2. Secondary (classical "Composer: Work" format): when trimmedTitle contains ":",
+     *    extract the work title after the last colon and match by startsWith or includes.
+     *    Tidal stores "Symphony No. 5" even when the search title is "Mahler: Symphony No. 5".
      *
      * @param albumTitle - Album title from search result (e.g. "Short n' Sweet")
      * @param _artist - Artist name (not used in matching — Tidal search name field is title-only)
@@ -148,8 +152,9 @@ export const createTidalSearchMethods = (
         "tidal",
         "items",
         0,
-        10,
+        25,
         `item_id:7_${trimmedTitle}.3`,
+        `search:${trimmedTitle}`,
         "want_url:1",
       ];
 
@@ -167,11 +172,33 @@ export const createTidalSearchMethods = (
 
       // Name format: title only, possibly with "[E]" suffix for explicit albums.
       // startsWith check: "short n' sweet [e]".startsWith("short n' sweet") → true
-      const match = searchAlbums.find((a) =>
+      const primaryMatch = searchAlbums.find((a) =>
         (a.name ?? "").toLowerCase().startsWith(normalizedTitle),
       );
+      if (primaryMatch !== undefined) {
+        return ok(primaryMatch.id);
+      }
 
-      return ok(match?.id ?? null);
+      // Secondary match for classical "Composer: Work" titles (e.g. "Mahler: Symphony No. 5").
+      // Tidal returns only the work title ("Symphony No. 5"), not the full "Composer: Work" string.
+      const lastColonIdx = trimmedTitle.lastIndexOf(":");
+      if (lastColonIdx !== -1) {
+        const workTitle = trimmedTitle.substring(lastColonIdx + 1).trim();
+        if (workTitle.length >= 3) {
+          const normalizedWork = workTitle.toLowerCase();
+          const secondaryMatch = searchAlbums.find((a) => {
+            const name = (a.name ?? "").toLowerCase();
+            return (
+              name.startsWith(normalizedWork) || name.includes(normalizedWork)
+            );
+          });
+          if (secondaryMatch !== undefined) {
+            return ok(secondaryMatch.id);
+          }
+        }
+      }
+
+      return ok(null);
     },
   };
 };
