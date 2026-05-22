@@ -123,7 +123,6 @@ const createRouter = async (): Promise<Router> => {
   return createTestRouter([
     { path: '/', component: { template: '<div />' } },
     { path: '/album/:albumId', name: 'album-detail', component: { template: '<div />' } },
-    { path: '/artist/:artistId', name: 'artist-detail', component: { template: '<div />' } },
   ])
 }
 

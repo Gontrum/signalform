@@ -55,7 +55,6 @@ describe('NowPlayingPanel', () => {
     return createTestRouter([
       { path: '/', component: { template: '<div />' } },
       { path: '/artist/unified', name: 'unified-artist', component: { template: '<div />' } },
-      { path: '/artist/:artistId', name: 'artist-detail', component: { template: '<div />' } },
       { path: '/album/:albumId', name: 'album-detail', component: { template: '<div />' } },
       { path: '/queue', name: 'queue', component: { template: '<div />' } },
     ])

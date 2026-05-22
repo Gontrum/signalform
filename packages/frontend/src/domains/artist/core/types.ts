@@ -5,6 +5,38 @@ export type ArtistAlbum = {
   readonly coverArtUrl: string
 }
 
+export type ArtistAlbumSortOption = 'year' | 'popularity' | 'title'
+
+export type ArtistAlbumPopularity = {
+  readonly title: string
+  readonly artist: string
+  readonly playcount: number
+  readonly rank: number
+}
+
+export type ArtistTopTrack = {
+  readonly id: string
+  readonly title: string
+  readonly artist: string
+  readonly album: string
+  readonly url: string
+  readonly source: 'local' | 'qobuz' | 'tidal' | 'unknown'
+  readonly playcount: number
+  readonly listeners: number
+  readonly rank: number
+  readonly coverArtUrl?: string
+}
+
+export type ArtistTopTracksResponse = {
+  readonly artist: string
+  readonly tracks: ReadonlyArray<ArtistTopTrack>
+}
+
+export type ArtistTopAlbumsResponse = {
+  readonly artist: string
+  readonly albums: ReadonlyArray<ArtistAlbumPopularity>
+}
+
 export type ArtistDetailResponse = {
   readonly id: string
   readonly name: string
@@ -29,8 +61,6 @@ export type ArtistByNameResponse = {
   readonly localAlbums: ReadonlyArray<ArtistByNameAlbum>
   readonly tidalAlbums: ReadonlyArray<ArtistByNameAlbum>
 }
-
-export type ArtistDetailStatus = 'loading' | 'success' | 'error-not-found' | 'error-server'
 
 export type UnifiedArtistStatus = 'loading' | 'success' | 'error'
 

@@ -34,13 +34,6 @@ const router = createRouter({
         import('../domains/artist/ui/UnifiedArtistView.vue'),
     },
     {
-      // Tidal artist browse only — name-based artist navigation uses 'unified-artist'
-      path: '/artist/:artistId',
-      name: 'artist-detail',
-      component: (): Promise<typeof import('../domains/artist/ui/ArtistDetailView.vue')> =>
-        import('../domains/artist/ui/ArtistDetailView.vue'),
-    },
-    {
       path: '/queue',
       name: 'queue',
       component: (): Promise<typeof import('../domains/queue/ui/QueueView.vue')> =>

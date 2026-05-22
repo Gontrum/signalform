@@ -4,24 +4,10 @@ import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
 import type {
-  TidalArtistAlbum,
-  TidalArtistAlbumsResponse,
   TidalArtistSearchResponse,
   TidalArtistsApiError,
   TidalSearchArtist,
 } from '@/domains/enrichment/core/types'
-
-const TidalArtistAlbumSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  coverArtUrl: z.string(),
-})
-
-const TidalArtistAlbumsResponseSchema = z.object({
-  artistId: z.string(),
-  albums: z.array(TidalArtistAlbumSchema),
-  totalCount: z.number(),
-})
 
 const TidalSearchArtistSchema = z.object({
   artistId: z.string(),
@@ -34,13 +20,7 @@ const TidalArtistSearchResponseSchema = z.object({
   totalCount: z.number(),
 })
 
-export type {
-  TidalArtistAlbum,
-  TidalArtistAlbumsResponse,
-  TidalArtistSearchResponse,
-  TidalArtistsApiError,
-  TidalSearchArtist,
-}
+export type { TidalArtistSearchResponse, TidalArtistsApiError, TidalSearchArtist }
 
 const mapTidalArtistsParseError = (message: string): TidalArtistsApiError => ({
   type: 'PARSE_ERROR',
@@ -70,24 +50,6 @@ export const searchTidalArtists = async (
     {
       schema: TidalArtistSearchResponseSchema,
       mapHttpError: mapTidalArtistsHttpError('Tidal artist search failed'),
-      mapThrownError: mapTidalArtistsThrownError,
-      mapParseError: mapTidalArtistsParseError,
-    },
-  )
-}
-
-export const getTidalArtistAlbums = async (
-  artistId: string,
-): Promise<Result<TidalArtistAlbumsResponse, TidalArtistsApiError>> => {
-  return await fetchJsonResult(
-    getApiUrl(`/api/tidal/artists/${encodeURIComponent(artistId)}/albums`),
-    {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-    },
-    {
-      schema: TidalArtistAlbumsResponseSchema,
-      mapHttpError: mapTidalArtistsHttpError('Tidal artist albums fetch failed'),
       mapThrownError: mapTidalArtistsThrownError,
       mapParseError: mapTidalArtistsParseError,
     },

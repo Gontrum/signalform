@@ -39,23 +39,4 @@ describe('Router', () => {
       expect(loaded).toBeDefined()
     }
   })
-
-  it('has artist-detail route configured', () => {
-    const routes = router.getRoutes()
-    const artistRoute = routes.find((route) => route.path === '/artist/:artistId')
-    expect(artistRoute).toBeDefined()
-    expect(artistRoute?.name).toBe('artist-detail')
-  })
-
-  it('artist-detail route is lazy loaded', async () => {
-    const routes = router.getRoutes()
-    const artistRoute = routes.find((route) => route.path === '/artist/:artistId')
-    expect(artistRoute?.components?.default).toBeDefined()
-
-    const component = artistRoute?.components?.default
-    if (isLazyRouteComponent(component)) {
-      const loaded = await component()
-      expect(loaded).toBeDefined()
-    }
-  })
 })

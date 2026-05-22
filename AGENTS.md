@@ -58,6 +58,19 @@ result`) — that is correct and intentional, not a style violation.
 
 See package-level AGENTS.md for package-specific rules.
 
+## Backend: Tidal feature anatomy
+
+For any new Tidal endpoint, three files are involved — use the existing
+`/api/tidal/albums/:albumId/tracks` endpoint as a complete template:
+
+| Layer        | File                                                         | Role                                                    |
+| ------------ | ------------------------------------------------------------ | ------------------------------------------------------- |
+| LMS Client   | `packages/backend/src/adapters/lms-client/tidal-albums.ts`   | Add new LMS method + type to `TidalAlbumsMethods`       |
+| Raw types    | `packages/backend/src/adapters/lms-client/types.ts`          | `TidalAlbumRaw`, `TidalArtistAlbumRaw`, `TidalTrackRaw` |
+| Core mapping | `packages/backend/src/features/tidal-albums/core/service.ts` | Pure Raw→Domain mapping function                        |
+| Shell route  | `packages/backend/src/features/tidal-albums/shell/route.ts`  | Fastify handler: Zod params, `Promise.all`, call core   |
+| Server proxy | `packages/backend/src/server.ts`                             | Wire new LMS method via `forwardLmsCall`                |
+
 ## TODO Tracking
 
 If a `TODO.md` exists in the project root:
