@@ -3,6 +3,7 @@ import type {
   AlbumResult,
   ArtistResult,
   SearchApiError,
+  SearchResponse,
   SearchResultsResponse,
   TrackResult,
 } from './types'
@@ -28,6 +29,10 @@ export const mapSearchErrorMessage = (error: SearchApiError): string => {
       return 'An error occurred'
   }
 }
+
+export const shouldShowTidalWarning = (
+  response: SearchResponse | SearchResultsResponse | null,
+): boolean => response !== null && response.tidalAvailable === false
 
 export const getDisplayedTrackResults = (
   query: string,

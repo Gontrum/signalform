@@ -12,6 +12,7 @@ import {
   createLmsClient,
   type LmsClient,
   type SearchResult,
+  type SearchResponse,
 } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
@@ -152,6 +153,8 @@ const createMockLastFmClient = (): MockLastFmClient => ({
   getSimilarArtists: vi.fn<LastFmClient["getSimilarArtists"]>(),
   getArtistInfo: vi.fn<LastFmClient["getArtistInfo"]>(),
   getAlbumInfo: vi.fn<LastFmClient["getAlbumInfo"]>(),
+  getArtistTopTracks: vi.fn<LastFmClient["getArtistTopTracks"]>(),
+  getArtistTopAlbums: vi.fn<LastFmClient["getArtistTopAlbums"]>(),
   getCircuitState: vi
     .fn<LastFmClient["getCircuitState"]>()
     .mockReturnValue("CLOSED"),
@@ -264,7 +267,7 @@ describe("5.1: handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)"
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [],
+      value: { tracks: [], tidalAvailable: true },
     });
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
       ok: true,
@@ -349,7 +352,7 @@ describe("5.3: no candidates found in LMS → logs warning, no event emitted", (
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [],
+      value: { tracks: [], tidalAvailable: true },
     });
 
     const engine = createRadioEngine(
@@ -375,10 +378,16 @@ describe("5.3: no candidates found in LMS → logs warning, no event emitted", (
       value: [makeSimilarTrack("The Hives", "Walk Idiot Walk")],
     });
     fixtures.mockLmsClient.search
-      .mockResolvedValueOnce({ ok: true, value: [] })
       .mockResolvedValueOnce({
         ok: true,
-        value: [makeLmsSearchResult("The Hives", "Walk Idiot Walk", true)],
+        value: { tracks: [], tidalAvailable: true },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: {
+          tracks: [makeLmsSearchResult("The Hives", "Walk Idiot Walk", true)],
+          tidalAvailable: true,
+        },
       });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -419,7 +428,10 @@ describe("5.4: tracks added → player.radio.started emitted with correct payloa
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -462,7 +474,10 @@ describe("5.5: tracks added → player.queue.updated emitted", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     // getQueue called three times: pre-radio, freshness re-check, post-radio refresh
@@ -528,7 +543,7 @@ describe("5.6: best-quality track selected (lossless preferred over MP3)", () =>
     );
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [mp3Track, flacTrack], // MP3 first, FLAC second
+      value: { tracks: [mp3Track, flacTrack], tidalAvailable: true }, // MP3 first, FLAC second
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -597,7 +612,7 @@ describe("5.6: best-quality track selected (lossless preferred over MP3)", () =>
     };
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [lowSampleRate, highSampleRate],
+      value: { tracks: [lowSampleRate, highSampleRate], tidalAvailable: true },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -643,12 +658,15 @@ describe("NFR3: handleQueueEnd completes within 2000ms", () => {
     fixtures.mockLmsClient.search.mockImplementation(async (query: string) => ({
       ok: true,
       // Extract first two words as artist (candidates are "Artist N Track N")
-      value: [
-        makeLmsSearchResult(
-          `${query.split(" ")[0]!} ${query.split(" ")[1]!}`,
-          query.split(" ").slice(2).join(" ") || "Track",
-        ),
-      ],
+      value: {
+        tracks: [
+          makeLmsSearchResult(
+            `${query.split(" ")[0]!} ${query.split(" ")[1]!}`,
+            query.split(" ").slice(2).join(" ") || "Track",
+          ),
+        ],
+        tidalAvailable: true,
+      },
     }));
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -683,7 +701,10 @@ describe("artistMatches edge cases (via handleQueueEnd)", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("bjork", "Human Behaviour", true)],
+      value: {
+        tracks: [makeLmsSearchResult("bjork", "Human Behaviour", true)],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
 
@@ -708,9 +729,12 @@ describe("artistMatches edge cases (via handleQueueEnd)", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [
-        makeLmsSearchResult("Olivia Rodrigo feat. Rosalía", "Good 4 U", true),
-      ],
+      value: {
+        tracks: [
+          makeLmsSearchResult("Olivia Rodrigo feat. Rosalía", "Good 4 U", true),
+        ],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
 
@@ -774,7 +798,10 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -811,7 +838,10 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -845,7 +875,10 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -881,7 +914,10 @@ describe("6.5 AC3: duplicate artist prevention — same artist skipped within on
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -922,7 +958,10 @@ describe("6.5 AC3: duplicate artist prevention — same artist skipped within on
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -953,7 +992,10 @@ describe("5.7: diversity filter prevents same artist from appearing twice", () =
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Artist A", "Track A")],
+      value: {
+        tracks: [makeLmsSearchResult("Artist A", "Track A")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -986,7 +1028,10 @@ describe("5.7: diversity filter prevents same artist from appearing twice", () =
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Artist A", "Another Track")],
+      value: {
+        tracks: [makeLmsSearchResult("Artist A", "Another Track")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({
@@ -1050,7 +1095,7 @@ describe("6.6 AC1: selectBestSource() score formula — 24/96 FLAC wins over 16/
     // 16/44.1 first so old reduce() would pick it (higher bitrate = wins reduce)
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [flac1644, flac2496],
+      value: { tracks: [flac1644, flac2496], tidalAvailable: true },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -1119,7 +1164,7 @@ describe("6.6 AC3: tie-breaking — local source wins over Qobuz when quality sc
     // Qobuz first — old reduce() would return qobuz (equal bitrate → keeps first/best)
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [qobuzTrack, localTrack],
+      value: { tracks: [qobuzTrack, localTrack], tidalAvailable: true },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -1155,7 +1200,10 @@ describe("6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 after
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     // getQueue called three times: pre-radio, freshness re-check, post-radio refresh
@@ -1209,7 +1257,10 @@ describe("6.7 AC5b: radioBoundaryIndex equals pre-radio queue length when queue 
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     // pre-radio: 2 existing tracks (already played, still in LMS queue)
@@ -1335,7 +1386,7 @@ describe("6.6 AC6: fallback — addToQueue called even when all search results h
 
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [trackNoQuality],
+      value: { tracks: [trackNoQuality], tidalAvailable: true },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue.mockResolvedValue({ ok: true, value: [] });
@@ -1438,7 +1489,13 @@ describe("9.17 AC4: intra-batch artist dedup — only 1 track per artist in a si
     fixtures.mockLmsClient.search.mockImplementation(async (query: string) => {
       const artist = query.split(" ")[0]!;
       const title = query.split(" ").slice(1).join(" ") || "Track";
-      return { ok: true, value: [makeLmsSearchResult(artist, title)] };
+      return {
+        ok: true,
+        value: {
+          tracks: [makeLmsSearchResult(artist, title)],
+          tidalAvailable: true,
+        },
+      };
     });
 
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
@@ -1482,12 +1539,21 @@ describe("9.17 AC4: intra-batch artist dedup — only 1 track per artist in a si
       if (query.toLowerCase().includes("adele feat")) {
         return {
           ok: true,
-          value: [makeLmsSearchResult("Adele feat. James Brown", "Mash-Up")],
+          value: {
+            tracks: [makeLmsSearchResult("Adele feat. James Brown", "Mash-Up")],
+            tidalAvailable: true,
+          },
         };
       }
       const artist = query.split(" ")[0]!;
       const title = query.split(" ").slice(1).join(" ") || "Track";
-      return { ok: true, value: [makeLmsSearchResult(artist, title)] };
+      return {
+        ok: true,
+        value: {
+          tracks: [makeLmsSearchResult(artist, title)],
+          tidalAvailable: true,
+        },
+      };
     });
 
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
@@ -1530,21 +1596,24 @@ describe("intra-batch URL deduplication — same file URL not added twice", () =
         query: string,
       ): Promise<{
         readonly ok: true;
-        readonly value: readonly SearchResult[];
+        readonly value: SearchResponse;
       }> => {
         const isThomYorke = query.toLowerCase().includes("thom");
         return {
           ok: true,
-          value: [
-            {
-              ...makeLmsSearchResult(
-                isThomYorke ? "Thom Yorke" : "Radiohead",
-                "Creep",
-                true,
-              ),
-              url: sharedUrl,
-            },
-          ],
+          value: {
+            tracks: [
+              {
+                ...makeLmsSearchResult(
+                  isThomYorke ? "Thom Yorke" : "Radiohead",
+                  "Creep",
+                  true,
+                ),
+                url: sharedUrl,
+              },
+            ],
+            tidalAvailable: true,
+          },
         };
       },
     );
@@ -1591,24 +1660,30 @@ describe("recent queue repeat protection", () => {
         query,
       ): Promise<{
         readonly ok: true;
-        readonly value: readonly SearchResult[];
+        readonly value: SearchResponse;
       }> => {
         if (query.toLowerCase().includes("radiohead")) {
           return {
             ok: true,
-            value: [
-              {
-                ...makeLmsSearchResult("Radiohead", "Creep"),
-                url: duplicateUrl,
-                source: "tidal",
-              },
-            ],
+            value: {
+              tracks: [
+                {
+                  ...makeLmsSearchResult("Radiohead", "Creep"),
+                  url: duplicateUrl,
+                  source: "tidal",
+                },
+              ],
+              tidalAvailable: true,
+            },
           };
         }
 
         return {
           ok: true,
-          value: [makeLmsSearchResult("Beck", "Loser")],
+          value: {
+            tracks: [makeLmsSearchResult("Beck", "Loser")],
+            tidalAvailable: true,
+          },
         };
       },
     );
@@ -1672,18 +1747,24 @@ describe("recent queue repeat protection", () => {
         query,
       ): Promise<{
         readonly ok: true;
-        readonly value: readonly SearchResult[];
+        readonly value: SearchResponse;
       }> => {
         if (query.toLowerCase().includes("stacey q")) {
           return {
             ok: true,
-            value: [makeLmsSearchResult("Stacey Q", "Two of Hearts")],
+            value: {
+              tracks: [makeLmsSearchResult("Stacey Q", "Two of Hearts")],
+              tidalAvailable: true,
+            },
           };
         }
 
         return {
           ok: true,
-          value: [makeLmsSearchResult("Whitney Houston", "How Will I Know")],
+          value: {
+            tracks: [makeLmsSearchResult("Whitney Houston", "How Will I Know")],
+            tidalAvailable: true,
+          },
         };
       },
     );
@@ -1743,18 +1824,24 @@ describe("recent queue repeat protection", () => {
         query,
       ): Promise<{
         readonly ok: true;
-        readonly value: readonly SearchResult[];
+        readonly value: SearchResponse;
       }> => {
         if (query.toLowerCase().includes("stacey q")) {
           return {
             ok: true,
-            value: [makeLmsSearchResult("Stacey Q", "Two of Hearts")],
+            value: {
+              tracks: [makeLmsSearchResult("Stacey Q", "Two of Hearts")],
+              tidalAvailable: true,
+            },
           };
         }
 
         return {
           ok: true,
-          value: [makeLmsSearchResult("Whitney Houston", "How Will I Know")],
+          value: {
+            tracks: [makeLmsSearchResult("Whitney Houston", "How Will I Know")],
+            tidalAvailable: true,
+          },
         };
       },
     );
@@ -1947,7 +2034,10 @@ describe("queue-remove replenish flow", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("The Police", "Message in a Bottle")],
+      value: {
+        tracks: [makeLmsSearchResult("The Police", "Message in a Bottle")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue
@@ -2084,12 +2174,21 @@ describe("queue-remove replenish flow", () => {
 
     fixtures.mockLmsClient.search.mockImplementation(async (query: string) => {
       if (query.includes("Watermelon Man")) {
-        return ok([makeLmsSearchResult("Herbie Hancock", "Watermelon Man")]);
+        return ok({
+          tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+          tidalAvailable: true,
+        });
       }
       if (query.includes("Enough Is Enough")) {
-        return ok([makeLmsSearchResult("The Hives", "Enough Is Enough")]);
+        return ok({
+          tracks: [makeLmsSearchResult("The Hives", "Enough Is Enough")],
+          tidalAvailable: true,
+        });
       }
-      return ok([makeLmsSearchResult("The Sounds", "Painted By Numbers")]);
+      return ok({
+        tracks: [makeLmsSearchResult("The Sounds", "Painted By Numbers")],
+        tidalAvailable: true,
+      });
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue
@@ -2180,7 +2279,10 @@ describe("queue-remove replenish flow", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Fresh Artist", "Fresh Track")],
+      value: {
+        tracks: [makeLmsSearchResult("Fresh Artist", "Fresh Track")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue
@@ -2266,7 +2368,10 @@ describe("queue-remove replenish flow", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Madonna", "Vogue")],
+      value: {
+        tracks: [makeLmsSearchResult("Madonna", "Vogue")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue
@@ -2382,7 +2487,10 @@ describe("queue-remove replenish flow", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Fresh Artist", "Fresh Track")],
+      value: {
+        tracks: [makeLmsSearchResult("Fresh Artist", "Fresh Track")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
     fixtures.mockLmsClient.getQueue
@@ -2458,7 +2566,10 @@ describe("busy state cleared after failure", () => {
     });
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Herbie Hancock", "Cantaloupe Island")],
+      value: {
+        tracks: [makeLmsSearchResult("Herbie Hancock", "Cantaloupe Island")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
 
@@ -2487,7 +2598,10 @@ describe("replenishAfterRemoval vs handleQueueEnd concurrency", () => {
     );
     fixtures.mockLmsClient.search.mockResolvedValue({
       ok: true,
-      value: [makeLmsSearchResult("Wayne Shorter", "Footprints")],
+      value: {
+        tracks: [makeLmsSearchResult("Wayne Shorter", "Footprints")],
+        tidalAvailable: true,
+      },
     });
     fixtures.mockLmsClient.addToQueue.mockResolvedValue(ok(undefined));
 
@@ -3022,10 +3136,13 @@ describe("artist.getSimilar fallback when track.getSimilar returns no results", 
       if (query.toLowerCase().includes("stooges")) {
         return {
           ok: true,
-          value: [makeLmsSearchResult("The Stooges", "Search and Destroy")],
+          value: {
+            tracks: [makeLmsSearchResult("The Stooges", "Search and Destroy")],
+            tidalAvailable: true,
+          },
         };
       }
-      return { ok: true, value: [] };
+      return { ok: true, value: { tracks: [], tidalAvailable: true } };
     });
     fixtures.mockLmsClient.getStatus.mockResolvedValue({
       ok: true,

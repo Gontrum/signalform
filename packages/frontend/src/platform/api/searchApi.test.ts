@@ -83,6 +83,25 @@ describe('searchApi', () => {
     await thenResultIsError(result, 'NETWORK_ERROR')
   })
 
+  it('returns tidalAvailable from search response', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: [],
+        query: 'test',
+        totalCount: 0,
+        tidalAvailable: false,
+      }),
+    })
+
+    const result = await whenSearchTracksIsCalled('test')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.tidalAvailable).toBe(false)
+    }
+  })
+
   it('returns PARSE_ERROR when response shape does not match schema', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -115,6 +134,7 @@ describe('searchApi', () => {
         ],
         query: 'Pink Floyd',
         totalCount: 1,
+        tidalAvailable: true,
       }),
     })
   }
@@ -539,6 +559,27 @@ describe('fetchFullResults', () => {
     const result = await whenFetchFullResultsIsCalled('test')
 
     await thenFullResultIsServerError(result, 503)
+  })
+
+  it('returns tidalAvailable from full results response', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        tracks: [],
+        albums: [],
+        artists: [],
+        query: 'test',
+        totalResults: 0,
+        tidalAvailable: false,
+      }),
+    })
+
+    const result = await whenFetchFullResultsIsCalled('test')
+
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.tidalAvailable).toBe(false)
+    }
   })
 
   it('returns PARSE_ERROR when full results response shape does not match schema', async () => {

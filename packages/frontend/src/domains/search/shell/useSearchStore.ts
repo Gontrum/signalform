@@ -8,7 +8,7 @@ import {
   type AutocompleteSuggestion,
   type SearchResultsResponse,
 } from '@/platform/api/searchApi'
-import { mapSearchErrorMessage } from '../core/service'
+import { mapSearchErrorMessage, shouldShowTidalWarning } from '../core/service'
 
 export const useSearchStore = defineStore('search', () => {
   // ── State ──────────────────────────────────────────────────
@@ -26,12 +26,14 @@ export const useSearchStore = defineStore('search', () => {
   const fullResults = ref<SearchResultsResponse | null>(null)
   const isFullResultsLoading = ref(false)
   const fullResultsError = ref<string | null>(null)
+  const tidalAvailable = ref<boolean | undefined>(undefined)
 
   // ── Getters (Functional Core) ─────────────────────────────
   const hasResults = computed(() => searchResults.value.length > 0)
   const resultCount = computed(() => searchResults.value.length)
   const hasSuggestions = computed(() => autocompleteSuggestions.value.length > 0)
   const suggestionCount = computed(() => autocompleteSuggestions.value.length)
+  const showTidalWarning = computed(() => shouldShowTidalWarning(fullResults.value))
 
   // ── Actions (Imperative Shell) ────────────────────────────
   const search = async (query: string): Promise<void> => {
@@ -98,8 +100,10 @@ export const useSearchStore = defineStore('search', () => {
     if (!result.ok) {
       fullResultsError.value = mapSearchErrorMessage(result.error)
       fullResults.value = null
+      tidalAvailable.value = undefined
     } else {
       fullResults.value = result.value
+      tidalAvailable.value = result.value.tidalAvailable
     }
 
     isFullResultsLoading.value = false
@@ -108,6 +112,7 @@ export const useSearchStore = defineStore('search', () => {
   const clearFullResults = (): void => {
     fullResults.value = null
     fullResultsError.value = null
+    tidalAvailable.value = undefined
   }
 
   return {
@@ -124,11 +129,13 @@ export const useSearchStore = defineStore('search', () => {
     fullResults,
     isFullResultsLoading,
     fullResultsError,
+    tidalAvailable,
     // Getters
     hasResults,
     resultCount,
     hasSuggestions,
     suggestionCount,
+    showTidalWarning,
     // Actions
     search,
     clearResults,

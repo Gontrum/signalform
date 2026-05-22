@@ -32,6 +32,7 @@ const SearchResponseSchema = z.object({
   results: z.array(SearchResultSchema),
   query: z.string(),
   totalCount: z.number(),
+  tidalAvailable: z.boolean().optional(),
 })
 
 const AutocompleteSuggestionSchema = z.object({
@@ -93,6 +94,7 @@ const SearchResultsResponseSchema = z.object({
   artists: z.array(ArtistResultSchema),
   query: z.string(),
   totalResults: z.number(),
+  tidalAvailable: z.boolean().optional(),
 })
 
 const SearchErrorSchema = z.object({

@@ -113,6 +113,12 @@ export type MessageKey =
   | 'artist.tidalAlbumCount'
   | 'artist.tidalEmpty'
   | 'artist.localEmpty'
+  | 'artist.topTracksHeading'
+  | 'artist.playTopTrack'
+  | 'artist.sortLabel'
+  | 'artist.sort.year'
+  | 'artist.sort.popularity'
+  | 'artist.sort.title'
   | 'artist.similarHeading'
   | 'artist.similarInLibrarySr'
   | 'artist.similarMatch'
@@ -121,6 +127,7 @@ export type MessageKey =
   | 'queue.radioModeOff'
   | 'queue.radioModeSeparator'
   | 'queue.updating'
+  | 'home.tidalUnavailable'
   | 'common.tryAgain'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
@@ -237,6 +244,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.tidalAlbumCount': '{count} {count, plural, one {album} other {albums}}',
     'artist.tidalEmpty': 'No albums found for {name}',
     'artist.localEmpty': 'No albums found for {name}',
+    'artist.topTracksHeading': 'Top tracks',
+    'artist.playTopTrack': 'Play',
+    'artist.sortLabel': 'Sort',
+    'artist.sort.year': 'Year',
+    'artist.sort.popularity': 'Popular',
+    'artist.sort.title': 'A-Z',
     'artist.similarHeading': 'You might also like',
     'artist.similarInLibrarySr': 'In library',
     'artist.similarMatch': '{percent}% match',
@@ -245,6 +258,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.radioModeOff': 'Radio mode is off',
     'queue.radioModeSeparator': '— Radio Mode —',
     'queue.updating': 'Updating queue…',
+    'home.tidalUnavailable': 'Tidal is currently unavailable. Only local results are shown.',
     'common.tryAgain': 'Try Again',
   },
   de: {
@@ -362,6 +376,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.tidalAlbumCount': '{count} {count, plural, one {Album} other {Alben}}',
     'artist.tidalEmpty': 'Keine Alben für {name} gefunden',
     'artist.localEmpty': 'Keine Alben für {name} gefunden',
+    'artist.topTracksHeading': 'Top-Titel',
+    'artist.playTopTrack': 'Abspielen',
+    'artist.sortLabel': 'Sortieren',
+    'artist.sort.year': 'Jahr',
+    'artist.sort.popularity': 'Beliebtheit',
+    'artist.sort.title': 'A-Z',
     'artist.similarHeading': 'Das könnte dir auch gefallen',
     'artist.similarInLibrarySr': 'In Bibliothek',
     'artist.similarMatch': '{percent}% Übereinstimmung',
@@ -370,6 +390,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.radioModeOff': 'Radiomodus ist aus',
     'queue.radioModeSeparator': '— Radiomodus —',
     'queue.updating': 'Warteschlange wird aktualisiert…',
+    'home.tidalUnavailable':
+      'Tidal ist momentan nicht erreichbar. Es werden nur lokale Ergebnisse angezeigt.',
     'common.tryAgain': 'Erneut versuchen',
   },
 }

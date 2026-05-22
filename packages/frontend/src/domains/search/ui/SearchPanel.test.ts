@@ -111,7 +111,6 @@ const createRouter = async (): Promise<Router> => {
   return createTestRouter([
     { path: '/', component: { template: '<div />' } },
     { path: '/artist/unified', name: 'unified-artist', component: { template: '<div />' } },
-    { path: '/artist/:artistId', name: 'artist-detail', component: { template: '<div />' } },
     { path: '/album/:albumId', name: 'album-detail', component: { template: '<div />' } },
   ])
 }
@@ -1393,6 +1392,95 @@ describe('SearchPanel', () => {
     const context = await whenSearchPanelIsMounted()
 
     expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+  })
+
+  describe('Tidal availability warning', () => {
+    it('shows tidal unavailable warning when tidalAvailable is false', async (): Promise<void> => {
+      vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
+        ok({
+          tracks: [
+            {
+              id: 't1',
+              title: 'Track',
+              artist: 'Artist',
+              album: 'Album',
+              url: 'file:///1.flac',
+              source: 'local',
+            },
+          ],
+          albums: [],
+          artists: [],
+          query: 'test',
+          totalResults: 1,
+          tidalAvailable: false,
+        }),
+      )
+
+      const context = await whenSearchPanelIsMounted()
+      await whenUserTypesInSearchInput(context.wrapper, 'test')
+
+      const input = context.wrapper.find('input')
+      await input.trigger('keydown.enter')
+      await flushPromises()
+
+      const warning = context.wrapper.find('[data-testid="tidal-unavailable-warning"]')
+      expect(warning.exists()).toBe(true)
+      expect(warning.text()).toContain('Tidal is currently unavailable')
+    })
+
+    it('does not show tidal warning when tidalAvailable is true', async (): Promise<void> => {
+      vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
+        ok({
+          tracks: [
+            {
+              id: 't1',
+              title: 'Track',
+              artist: 'Artist',
+              album: 'Album',
+              url: 'file:///1.flac',
+              source: 'local',
+            },
+          ],
+          albums: [],
+          artists: [],
+          query: 'test',
+          totalResults: 1,
+          tidalAvailable: true,
+        }),
+      )
+
+      const context = await whenSearchPanelIsMounted()
+      await whenUserTypesInSearchInput(context.wrapper, 'test')
+
+      const input = context.wrapper.find('input')
+      await input.trigger('keydown.enter')
+      await flushPromises()
+
+      const warning = context.wrapper.find('[data-testid="tidal-unavailable-warning"]')
+      expect(warning.exists()).toBe(false)
+    })
+
+    it('does not show tidal warning when tidalAvailable is not present', async (): Promise<void> => {
+      vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
+        ok({
+          tracks: [],
+          albums: [],
+          artists: [],
+          query: 'test',
+          totalResults: 0,
+        }),
+      )
+
+      const context = await whenSearchPanelIsMounted()
+      await whenUserTypesInSearchInput(context.wrapper, 'test')
+
+      const input = context.wrapper.find('input')
+      await input.trigger('keydown.enter')
+      await flushPromises()
+
+      const warning = context.wrapper.find('[data-testid="tidal-unavailable-warning"]')
+      expect(warning.exists()).toBe(false)
+    })
   })
 
   // Story 9.13 AC1: navigate-artist ALWAYS uses unified route regardless of artistId

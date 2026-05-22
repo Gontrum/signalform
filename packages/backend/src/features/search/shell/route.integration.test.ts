@@ -78,6 +78,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   addAlbumToQueue: vi.fn(),
   addTidalAlbumToQueue: vi.fn(),
   findTidalSearchAlbumId: vi.fn(),
+  getTidalAlbumParentItems: vi.fn(),
   rescanLibrary: vi.fn(),
   getRescanProgress: vi.fn(),
 });
@@ -351,7 +352,9 @@ const givenLmsReturnsResults = async (
     readonly type: "track" | "artist" | "album";
   }>,
 ): Promise<void> => {
-  mockLmsClient.search.mockResolvedValue(ok(results));
+  mockLmsClient.search.mockResolvedValue(
+    ok({ tracks: results, tidalAvailable: true }),
+  );
 };
 
 const givenLmsIsUnreachable = async (
@@ -532,28 +535,31 @@ const givenLmsReturnsMultipleTracksFromSameAlbum = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
   mockLmsClient.search.mockResolvedValue(
-    ok([
-      {
-        id: "track-1",
-        title: "Breathe",
-        artist: "Pink Floyd",
-        album: "Dark Side of the Moon",
-        albumId: "42",
-        url: "file:///music/breathe.flac",
-        source: "local",
-        type: "track",
-      },
-      {
-        id: "track-2",
-        title: "Time",
-        artist: "Pink Floyd",
-        album: "Dark Side of the Moon",
-        albumId: "42",
-        url: "file:///music/time.flac",
-        source: "local",
-        type: "track",
-      },
-    ]),
+    ok({
+      tracks: [
+        {
+          id: "track-1",
+          title: "Breathe",
+          artist: "Pink Floyd",
+          album: "Dark Side of the Moon",
+          albumId: "42",
+          url: "file:///music/breathe.flac",
+          source: "local",
+          type: "track",
+        },
+        {
+          id: "track-2",
+          title: "Time",
+          artist: "Pink Floyd",
+          album: "Dark Side of the Moon",
+          albumId: "42",
+          url: "file:///music/time.flac",
+          source: "local",
+          type: "track",
+        },
+      ],
+      tidalAvailable: true,
+    }),
   );
 };
 
@@ -561,28 +567,31 @@ const givenLmsReturnsTwoAlbums = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
   mockLmsClient.search.mockResolvedValue(
-    ok([
-      {
-        id: "track-1",
-        title: "Breathe",
-        artist: "Pink Floyd",
-        album: "Dark Side of the Moon",
-        albumId: "42",
-        url: "file:///music/breathe.flac",
-        source: "local",
-        type: "track",
-      },
-      {
-        id: "track-2",
-        title: "Comfortably Numb",
-        artist: "Pink Floyd",
-        album: "The Wall",
-        albumId: "43",
-        url: "file:///music/numb.flac",
-        source: "local",
-        type: "track",
-      },
-    ]),
+    ok({
+      tracks: [
+        {
+          id: "track-1",
+          title: "Breathe",
+          artist: "Pink Floyd",
+          album: "Dark Side of the Moon",
+          albumId: "42",
+          url: "file:///music/breathe.flac",
+          source: "local",
+          type: "track",
+        },
+        {
+          id: "track-2",
+          title: "Comfortably Numb",
+          artist: "Pink Floyd",
+          album: "The Wall",
+          albumId: "43",
+          url: "file:///music/numb.flac",
+          source: "local",
+          type: "track",
+        },
+      ],
+      tidalAvailable: true,
+    }),
   );
 };
 
@@ -590,26 +599,29 @@ const givenLmsReturnsMixedResults = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
   mockLmsClient.search.mockResolvedValue(
-    ok([
-      {
-        id: "track-1",
-        title: "Breathe",
-        artist: "Pink Floyd",
-        album: "Dark Side of the Moon",
-        url: "file:///music/breathe.flac",
-        source: "local",
-        type: "track",
-      },
-      {
-        id: "artist-1",
-        title: "Pink Floyd",
-        artist: "Pink Floyd",
-        album: "",
-        url: "artist://pink-floyd",
-        source: "local",
-        type: "artist",
-      },
-    ]),
+    ok({
+      tracks: [
+        {
+          id: "track-1",
+          title: "Breathe",
+          artist: "Pink Floyd",
+          album: "Dark Side of the Moon",
+          url: "file:///music/breathe.flac",
+          source: "local",
+          type: "track",
+        },
+        {
+          id: "artist-1",
+          title: "Pink Floyd",
+          artist: "Pink Floyd",
+          album: "",
+          url: "artist://pink-floyd",
+          source: "local",
+          type: "artist",
+        },
+      ],
+      tidalAvailable: true,
+    }),
   );
 };
 

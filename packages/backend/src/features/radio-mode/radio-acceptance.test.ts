@@ -109,6 +109,8 @@ const createMockLastFmClient = (
   getSimilarArtists: vi.fn<LastFmClient["getSimilarArtists"]>(),
   getArtistInfo: vi.fn<LastFmClient["getArtistInfo"]>(),
   getAlbumInfo: vi.fn<LastFmClient["getAlbumInfo"]>(),
+  getArtistTopTracks: vi.fn<LastFmClient["getArtistTopTracks"]>(),
+  getArtistTopAlbums: vi.fn<LastFmClient["getArtistTopAlbums"]>(),
   getCircuitState: vi
     .fn<LastFmClient["getCircuitState"]>()
     .mockReturnValue("CLOSED"),
@@ -318,7 +320,10 @@ describe("AC2: Seamless radio start — last.fm getSimilarTracks called with see
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     });
@@ -370,7 +375,10 @@ describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
         const match = lmsSearchResults.find((r) =>
           query.toLowerCase().includes(r.artist.toLowerCase()),
         );
-        return { ok: true, value: match ? [match] : [] };
+        return {
+          ok: true,
+          value: { tracks: match ? [match] : [], tidalAvailable: true },
+        };
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -421,7 +429,10 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Artist A", "Track A")],
+        value: {
+          tracks: [makeLmsSearchResult("Artist A", "Track A")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi
@@ -522,12 +533,15 @@ describe("AC5: Artist diversity maintained across radio triggers", () => {
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockImplementation(async (query: string) => ({
         ok: true,
-        value: [
-          makeLmsSearchResult(
-            query.split(" ")[0]!,
-            query.split(" ").slice(1).join(" ") || "Track",
-          ),
-        ],
+        value: {
+          tracks: [
+            makeLmsSearchResult(
+              query.split(" ")[0]!,
+              query.split(" ").slice(1).join(" ") || "Track",
+            ),
+          ],
+          tidalAvailable: true,
+        },
       })),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -629,7 +643,10 @@ describe("AC6: Graceful degradation on failure", () => {
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi.fn().mockResolvedValue({ ok: true, value: [] }), // no results
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [], tidalAvailable: true },
+      }), // no results
       addToQueue: vi.fn(),
       getQueue: vi.fn(),
     });
@@ -865,7 +882,10 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        value: {
+          tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -914,7 +934,10 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        value: {
+          tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -970,7 +993,10 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        value: {
+          tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -1022,7 +1048,10 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+        value: {
+          tracks: [makeLmsSearchResult("Herbie Hancock", "Watermelon Man")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -1309,7 +1338,10 @@ describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger
     const mockLmsClient = createMockLmsClient({
       search: vi.fn().mockImplementation(async () => ({
         ok: true,
-        value: [makeLmsSearchResult("Matched Artist", "Matched Track")],
+        value: {
+          tracks: [makeLmsSearchResult("Matched Artist", "Matched Track")],
+          tidalAvailable: true,
+        },
       })),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -1700,7 +1732,10 @@ describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's arti
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
     });
@@ -1741,7 +1776,10 @@ describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Ti
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi.fn().mockResolvedValue({ ok: true, value: [tidalResult] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [tidalResult], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
       getStatus: vi.fn().mockResolvedValue({
@@ -1799,9 +1837,10 @@ describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal 
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi
-        .fn()
-        .mockResolvedValue({ ok: true, value: [tidalResultNoQuality] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [tidalResultNoQuality], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
       getStatus: vi.fn().mockResolvedValue({
@@ -1853,9 +1892,10 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
 
     const mockLmsClient = createMockLmsClient({
       // Both local and Tidal results returned for same track
-      search: vi
-        .fn()
-        .mockResolvedValue({ ok: true, value: [tidalResult, localResult] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [tidalResult, localResult], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
       getStatus: vi.fn().mockResolvedValue({
@@ -1937,7 +1977,10 @@ describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-
     });
 
     const mockLmsClient = createMockLmsClient({
-      search: vi.fn().mockResolvedValue({ ok: true, value: [tidalResult] }),
+      search: vi.fn().mockResolvedValue({
+        ok: true,
+        value: { tracks: [tidalResult], tidalAvailable: true },
+      }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       // Calls: pre-radio queue, freshness re-check, post-radio queue
       getQueue: vi
@@ -2003,7 +2046,10 @@ describe("9.9 Bug Fix: Artist-match validation — spurious LMS results rejected
       // Returns completely wrong track (artist mismatch — like the real LMS fuzzy search bug)
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeLmsSearchResult("Various Artists", "Holiday")],
+        value: {
+          tracks: [makeLmsSearchResult("Various Artists", "Holiday")],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -2045,25 +2091,28 @@ describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => 
       // Both candidates resolve to the same URL (artist match passes for both)
       search: vi.fn().mockImplementation(async (query: string) => ({
         ok: true,
-        value: [
-          {
-            id: "dup-1",
-            title: "Holiday",
-            artist: query.toLowerCase().includes("alpha")
-              ? "Artist Alpha"
-              : "Artist Beta",
-            album: "Various",
-            url: holidayUrl, // same URL for both!
-            source: "local" as const,
-            type: "track" as const,
-            audioQuality: {
-              format: "FLAC" as const,
-              bitrate: 1411000,
-              sampleRate: 44100,
-              lossless: true,
+        value: {
+          tracks: [
+            {
+              id: "dup-1",
+              title: "Holiday",
+              artist: query.toLowerCase().includes("alpha")
+                ? "Artist Alpha"
+                : "Artist Beta",
+              album: "Various",
+              url: holidayUrl, // same URL for both!
+              source: "local" as const,
+              type: "track" as const,
+              audioQuality: {
+                format: "FLAC" as const,
+                bitrate: 1411000,
+                sampleRate: 44100,
+                lossless: true,
+              },
             },
-          },
-        ],
+          ],
+          tidalAvailable: true,
+        },
       })),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -2126,22 +2175,33 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
         if (lowerQuery.includes("taylor swift")) {
           return {
             ok: true,
-            value: [makeLmsSearchResult("Taylor Swift", "Anti-Hero")],
+            value: {
+              tracks: [makeLmsSearchResult("Taylor Swift", "Anti-Hero")],
+              tidalAvailable: true,
+            },
           };
         }
         if (lowerQuery.includes("olivia rodrigo")) {
           return {
             ok: true,
-            value: [makeLmsSearchResult("Olivia Rodrigo", "drivers license")],
+            value: {
+              tracks: [
+                makeLmsSearchResult("Olivia Rodrigo", "drivers license"),
+              ],
+              tidalAvailable: true,
+            },
           };
         }
         if (lowerQuery.includes("sabrina carpenter")) {
           return {
             ok: true,
-            value: [makeLmsSearchResult("Sabrina Carpenter", "Espresso")],
+            value: {
+              tracks: [makeLmsSearchResult("Sabrina Carpenter", "Espresso")],
+              tidalAvailable: true,
+            },
           };
         }
-        return { ok: true, value: [] };
+        return { ok: true, value: { tracks: [], tidalAvailable: true } };
       }),
       addToQueue: vi.fn().mockResolvedValue(ok(undefined)),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
@@ -2211,7 +2271,12 @@ describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tid
       // search() returns only a Tidal result (no local track found)
       search: vi.fn().mockResolvedValue({
         ok: true,
-        value: [makeTidalLmsSearchResult("Adele", "Hello", true, "58990486")],
+        value: {
+          tracks: [
+            makeTidalLmsSearchResult("Adele", "Hello", true, "58990486"),
+          ],
+          tidalAvailable: true,
+        },
       }),
       addToQueue: vi.fn().mockResolvedValue({ ok: true }),
       getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),

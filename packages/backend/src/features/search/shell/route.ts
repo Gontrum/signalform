@@ -173,7 +173,7 @@ export const createSearchRoute = (
       if (full) {
         const fullResultsResult = transformToFullResults(
           query,
-          lmsResult.value,
+          lmsResult.value.tracks,
         );
 
         // 6a. Handle business logic errors (full results mode)
@@ -197,7 +197,10 @@ export const createSearchRoute = (
         }
 
         // 7a. Cache and return full results
-        const responseData = fullResultsResult.value;
+        const responseData = {
+          ...fullResultsResult.value,
+          tidalAvailable: lmsResult.value.tidalAvailable,
+        };
         setCachedResults(cacheKey, responseData);
 
         request.log.info(
@@ -214,7 +217,7 @@ export const createSearchRoute = (
       }
 
       // Basic search mode (existing behavior)
-      const searchResult = searchTracks(query, lmsResult.value);
+      const searchResult = searchTracks(query, lmsResult.value.tracks);
 
       // 6b. Handle business logic errors (basic mode)
       /* istanbul ignore next - Defensive check: Zod validation already prevents
@@ -242,6 +245,7 @@ export const createSearchRoute = (
         results: searchResult.value,
         query,
         totalCount: searchResult.value.length,
+        tidalAvailable: lmsResult.value.tidalAvailable,
       };
       setCachedResults(cacheKey, responseData);
 
@@ -312,7 +316,7 @@ export const createSearchRoute = (
       // 4. Process with autocomplete logic (Functional Core)
       const autocompleteResult = getAutocompleteSuggestions(
         query,
-        lmsResult.value,
+        lmsResult.value.tracks,
       );
 
       // 5. Handle business logic errors
@@ -349,6 +353,7 @@ export const createSearchRoute = (
       return reply.code(200).send({
         suggestions: autocompleteResult.value,
         query,
+        tidalAvailable: lmsResult.value.tidalAvailable,
       });
     },
   );

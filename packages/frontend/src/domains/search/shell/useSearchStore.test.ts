@@ -140,6 +140,34 @@ describe('searchStore', () => {
     await thenAutocompleteErrorIsNull(store)
   })
 
+  it('exposes showTidalWarning as false when tidalAvailable is true', async () => {
+    await givenFullResultsApiReturnsTidalAvailable(true)
+    const store = whenSearchStoreIsCreated()
+
+    await whenSearchFullResultsIsCalled(store, 'Pink Floyd')
+
+    await thenShowTidalWarningIs(store, false)
+  })
+
+  it('exposes showTidalWarning as true when tidalAvailable is false', async () => {
+    await givenFullResultsApiReturnsTidalAvailable(false)
+    const store = whenSearchStoreIsCreated()
+
+    await whenSearchFullResultsIsCalled(store, 'Pink Floyd')
+
+    await thenShowTidalWarningIs(store, true)
+  })
+
+  it('resets tidalAvailable when full results are cleared', async () => {
+    await givenFullResultsApiReturnsTidalAvailable(false)
+    const store = whenSearchStoreIsCreated()
+    await whenSearchFullResultsIsCalled(store, 'test')
+
+    store.clearFullResults()
+
+    await thenShowTidalWarningIs(store, false)
+  })
+
   // === GIVEN ===
 
   const givenSearchApiReturnsResults = async (): Promise<void> => {
@@ -211,6 +239,21 @@ describe('searchStore', () => {
     )
   }
 
+  const givenFullResultsApiReturnsTidalAvailable = async (
+    tidalAvailable: boolean,
+  ): Promise<void> => {
+    vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
+      ok({
+        tracks: [],
+        albums: [],
+        artists: [],
+        query: 'test',
+        totalResults: 0,
+        tidalAvailable,
+      }),
+    )
+  }
+
   const givenAutocompleteApiThrowsAbortError = async (): Promise<void> => {
     vi.mocked(searchApi.fetchAutocomplete).mockResolvedValue(
       err({
@@ -256,6 +299,13 @@ describe('searchStore', () => {
     store: ReturnType<typeof useSearchStore>,
   ): Promise<void> => {
     store.clearAutocompleteSuggestions()
+  }
+
+  const whenSearchFullResultsIsCalled = async (
+    store: ReturnType<typeof useSearchStore>,
+    query: string,
+  ): Promise<void> => {
+    await store.searchFullResults(query)
   }
 
   // === THEN ===
@@ -342,5 +392,12 @@ describe('searchStore', () => {
     store: ReturnType<typeof useSearchStore>,
   ): Promise<void> => {
     expect(store.autocompleteSuggestions).toEqual([])
+  }
+
+  const thenShowTidalWarningIs = async (
+    store: ReturnType<typeof useSearchStore>,
+    expected: boolean,
+  ): Promise<void> => {
+    expect(store.showTidalWarning).toBe(expected)
   }
 })

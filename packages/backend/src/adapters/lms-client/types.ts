@@ -87,6 +87,16 @@ export type SearchResult = {
 export type { AudioQuality };
 
 /**
+ * Combined search response: tracks + availability flags for degraded-service UX.
+ * When the Tidal plugin is unreachable (broken auth, plugin crash), `tidalAvailable`
+ * is false so the frontend can show a warning instead of silently returning 0 results.
+ */
+export type SearchResponse = {
+  readonly tracks: readonly SearchResult[];
+  readonly tidalAvailable: boolean;
+};
+
+/**
  * Raw track item from LMS titles command filtered by album_id.
  * Used internally by getAlbumTracks — not exported beyond client.
  */

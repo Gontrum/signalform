@@ -604,12 +604,15 @@ export const createRadioEngine = (
                   }
 
                   const searchResult = await lmsClient.search(query);
-                  if (!searchResult.ok || searchResult.value.length === 0) {
+                  if (
+                    !searchResult.ok ||
+                    searchResult.value.tracks.length === 0
+                  ) {
                     return [];
                   }
 
-                  const matchingResults = searchResult.value.filter((r) =>
-                    artistMatches(r.artist, candidate.artist),
+                  const matchingResults = searchResult.value.tracks.filter(
+                    (r) => artistMatches(r.artist, candidate.artist),
                   );
                   return matchingResults;
                 },

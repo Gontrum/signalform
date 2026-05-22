@@ -75,35 +75,38 @@ const givenLmsReturnsValidAutocompleteResults = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
   mockLmsClient.search.mockResolvedValue(
-    ok([
-      {
-        id: "track-money",
-        title: "Money",
-        artist: "Pink Floyd",
-        album: "The Dark Side of the Moon",
-        url: "local://tracks/money",
-        source: "local" as const,
-        type: "track" as const,
-      },
-      {
-        id: "track-wish-you",
-        title: "Wish You Were Here",
-        artist: "Pink Floyd",
-        album: "Wish You Were Here",
-        url: "local://tracks/wish-you-were-here",
-        source: "local" as const,
-        type: "track" as const,
-      },
-      {
-        id: "track-time",
-        title: "Time",
-        artist: "Pink Floyd",
-        album: "The Dark Side of the Moon",
-        url: "local://tracks/time",
-        source: "local" as const,
-        type: "track" as const,
-      },
-    ]),
+    ok({
+      tracks: [
+        {
+          id: "track-money",
+          title: "Money",
+          artist: "Pink Floyd",
+          album: "The Dark Side of the Moon",
+          url: "local://tracks/money",
+          source: "local" as const,
+          type: "track" as const,
+        },
+        {
+          id: "track-wish-you",
+          title: "Wish You Were Here",
+          artist: "Pink Floyd",
+          album: "Wish You Were Here",
+          url: "local://tracks/wish-you-were-here",
+          source: "local" as const,
+          type: "track" as const,
+        },
+        {
+          id: "track-time",
+          title: "Time",
+          artist: "Pink Floyd",
+          album: "The Dark Side of the Moon",
+          url: "local://tracks/time",
+          source: "local" as const,
+          type: "track" as const,
+        },
+      ],
+      tidalAvailable: true,
+    }),
   );
 };
 
@@ -121,42 +124,47 @@ const givenLmsIsUnreachable = async (
 const givenLmsReturnsEmptyResults = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
-  mockLmsClient.search.mockResolvedValue(ok([]));
+  mockLmsClient.search.mockResolvedValue(
+    ok({ tracks: [], tidalAvailable: true }),
+  );
 };
 
 const givenLmsReturnsMixedResults = async (
   mockLmsClient: MockLmsClient,
 ): Promise<void> => {
   mockLmsClient.search.mockResolvedValue(
-    ok([
-      {
-        id: "artist-pink-floyd",
-        title: "Pink Floyd",
-        artist: "Pink Floyd",
-        album: "",
-        url: "",
-        source: "local" as const,
-        type: "artist" as const,
-      },
-      {
-        id: "track-comfortably-numb",
-        title: "Comfortably Numb",
-        artist: "Pink Floyd",
-        album: "The Wall",
-        url: "",
-        source: "local" as const,
-        type: "track" as const,
-      },
-      {
-        id: "album-dark-side",
-        title: "The Dark Side of the Moon",
-        artist: "Pink Floyd",
-        album: "The Dark Side of the Moon",
-        url: "",
-        source: "local" as const,
-        type: "album" as const,
-      },
-    ]),
+    ok({
+      tracks: [
+        {
+          id: "artist-pink-floyd",
+          title: "Pink Floyd",
+          artist: "Pink Floyd",
+          album: "",
+          url: "",
+          source: "local" as const,
+          type: "artist" as const,
+        },
+        {
+          id: "track-comfortably-numb",
+          title: "Comfortably Numb",
+          artist: "Pink Floyd",
+          album: "The Wall",
+          url: "",
+          source: "local" as const,
+          type: "track" as const,
+        },
+        {
+          id: "album-dark-side",
+          title: "The Dark Side of the Moon",
+          artist: "Pink Floyd",
+          album: "The Dark Side of the Moon",
+          url: "",
+          source: "local" as const,
+          type: "album" as const,
+        },
+      ],
+      tidalAvailable: true,
+    }),
   );
 };
 
@@ -173,7 +181,9 @@ const givenLmsReturns10Results = async (
     type: "track" as const,
   }));
 
-  mockLmsClient.search.mockResolvedValue(ok(results));
+  mockLmsClient.search.mockResolvedValue(
+    ok({ tracks: results, tidalAvailable: true }),
+  );
 };
 
 const whenAutocompleteRequestIsSent = async (

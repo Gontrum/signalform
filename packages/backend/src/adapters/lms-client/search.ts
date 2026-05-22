@@ -10,7 +10,12 @@
 import { ok, err, type Result } from "@signalform/shared";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
-import type { LmsCommand, LmsError, SearchResult } from "./types.js";
+import type {
+  LmsCommand,
+  LmsError,
+  SearchResult,
+  SearchResponse,
+} from "./types.js";
 import {
   MAX_SEARCH_RESULTS,
   TIDAL_SEARCH_TIMEOUT_MS,
@@ -84,9 +89,7 @@ const tidalSearchPayloadParser = createLmsResultParser(
 export const createSearchMethods = (
   deps: ExecuteDeps,
 ): {
-  readonly search: (
-    query: string,
-  ) => Promise<Result<readonly SearchResult[], LmsError>>;
+  readonly search: (query: string) => Promise<Result<SearchResponse, LmsError>>;
 } => {
   const { executeCommand, config } = deps;
 
@@ -174,7 +177,7 @@ export const createSearchMethods = (
      */
     search: async (
       query: string,
-    ): Promise<Result<readonly SearchResult[], LmsError>> => {
+    ): Promise<Result<SearchResponse, LmsError>> => {
       // Validate query (fail fast)
       const trimmedQuery = query.trim();
       if (trimmedQuery === "") {
@@ -255,7 +258,12 @@ export const createSearchMethods = (
       // coverArtUrl is constructed here and preserved through enrichTidalTracks() via spread.
       // Note: spaces in multi-word queries are sent as-is (e.g. "item_id:7_pink floyd.4").
       // Graceful degradation: any error → empty tracks.
-      const searchTidal = async (): Promise<readonly SearchResult[]> => {
+      type TidalSearchOutcome = {
+        readonly tracks: readonly SearchResult[];
+        readonly available: boolean;
+      };
+
+      const searchTidal = async (): Promise<TidalSearchOutcome> => {
         const command: LmsCommand = [
           "tidal",
           "items",
@@ -269,36 +277,40 @@ export const createSearchMethods = (
         const result = await executeCommand(command, tidalSearchPayloadParser);
 
         if (!result.ok) {
-          return [];
+          return { tracks: [], available: false };
         }
 
         const rawLoop = result.value.loop_loop;
         if (rawLoop !== undefined && !Array.isArray(rawLoop)) {
-          return [];
+          return { tracks: [], available: true };
         }
         const loop = rawLoop ?? [];
-        return loop
-          .filter((item) => item.url !== undefined && item.isaudio === 1)
-          .map((item) => ({
-            id: item.url!,
-            title: item.name ?? "",
-            artist: "",
-            album: "",
-            url: item.url!,
-            source: detectSource(item.url!),
-            type: "track" as const,
-            audioQuality: undefined,
-            coverArtUrl:
-              item.image !== undefined
-                ? `http://${config.host}:${config.port}${item.image}`
-                : undefined,
-          }));
+        return {
+          tracks: loop
+            .filter((item) => item.url !== undefined && item.isaudio === 1)
+            .map((item) => ({
+              id: item.url!,
+              title: item.name ?? "",
+              artist: "",
+              album: "",
+              url: item.url!,
+              source: detectSource(item.url!),
+              type: "track" as const,
+              audioQuality: undefined,
+              coverArtUrl:
+                item.image !== undefined
+                  ? `http://${config.host}:${config.port}${item.image}`
+                  : undefined,
+            })),
+          available: true,
+        };
       };
 
-      // Tidal with 250ms timeout (probe latency ~323ms → cap for NFR27 ≤300ms combined).
-      const tidalWithTimeout = (): Promise<readonly SearchResult[]> => {
+      // Tidal with 450ms timeout (probe latency ~323ms → cap for NFR27 ≤300ms combined).
+      // Timeout returns unavailable so the frontend can warn the user.
+      const tidalWithTimeout = (): Promise<TidalSearchOutcome> => {
         const timeoutPromise = delay(TIDAL_SEARCH_TIMEOUT_MS).then(
-          (): readonly SearchResult[] => [],
+          (): TidalSearchOutcome => ({ tracks: [], available: false }),
         );
         return Promise.race([searchTidal(), timeoutPromise]);
       };
@@ -310,16 +322,21 @@ export const createSearchMethods = (
 
       const localTracks =
         localSettled.status === "fulfilled" ? localSettled.value : [];
-      const rawTidalTracks =
-        tidalSettled.status === "fulfilled" ? tidalSettled.value : [];
+      const tidalOutcome: TidalSearchOutcome =
+        tidalSettled.status === "fulfilled"
+          ? tidalSettled.value
+          : { tracks: [], available: false };
 
       // Enrich Tidal tracks with artist/album/audioQuality via tidal_info (parallel, AC5).
       // Runs after tidalWithTimeout to avoid interference with the Tidal search cap.
       // On per-track failure: original track returned with artist: "", album: "" (AC4).
       // coverArtUrl set in searchTidal() is preserved via spread in enrichSingleTrack().
-      const enrichedTracks = await enrichTidalTracks(rawTidalTracks);
+      const enrichedTracks = await enrichTidalTracks(tidalOutcome.tracks);
 
-      return ok([...localTracks, ...enrichedTracks]);
+      return ok({
+        tracks: [...localTracks, ...enrichedTracks],
+        tidalAvailable: tidalOutcome.available,
+      });
     },
   };
 };

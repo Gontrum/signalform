@@ -130,7 +130,7 @@ const createStatus = (label: string): PlayerStatus => ({
 });
 
 const createMockLmsClient = (label: string): LmsClient => ({
-  search: vi.fn(async () => ok([])),
+  search: vi.fn(async () => ok({ tracks: [], tidalAvailable: true })),
   play: vi.fn(async () => ok(undefined)),
   pause: vi.fn(async () => ok(undefined)),
   resume: vi.fn(async () => ok(undefined)),

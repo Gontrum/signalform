@@ -121,6 +121,17 @@ const {
         </h2>
       </div>
 
+      <!-- Tidal Unavailable Warning -->
+      <div
+        v-if="searchStore.showTidalWarning"
+        class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        role="status"
+        aria-live="polite"
+        data-testid="tidal-unavailable-warning"
+      >
+        {{ t('home.tidalUnavailable') }}
+      </div>
+
       <!-- Loading State -->
       <div
         v-if="searchStore.isFullResultsLoading"

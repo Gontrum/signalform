@@ -23,6 +23,7 @@ export type SearchResponse = {
   readonly results: readonly SearchResult[]
   readonly query: string
   readonly totalCount: number
+  readonly tidalAvailable?: boolean
 }
 
 export type AvailableSource = {
@@ -84,6 +85,7 @@ export type SearchResultsResponse = {
   readonly artists: readonly ArtistResult[]
   readonly query: string
   readonly totalResults: number
+  readonly tidalAvailable?: boolean
 }
 
 export type { AudioQuality }

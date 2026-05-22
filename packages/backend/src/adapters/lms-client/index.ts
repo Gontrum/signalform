@@ -13,6 +13,7 @@ export type {
   LmsResponse,
   LmsError,
   SearchResult,
+  SearchResponse,
   PlayerStatus,
   AlbumTrackRaw,
   ArtistAlbumRaw,

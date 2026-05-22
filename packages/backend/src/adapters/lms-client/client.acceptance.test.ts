@@ -24,7 +24,7 @@ import type { LmsClient } from "./client.js";
 import type {
   LmsConfig,
   LmsError,
-  SearchResult,
+  SearchResponse,
   PlayerStatus,
 } from "./types.js";
 import type { Result } from "@signalform/shared";
@@ -842,12 +842,12 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.title).toBe("Creep");
-        expect(result.value[0]?.source).toBe("tidal");
-        expect(result.value[0]?.url).toBe("tidal://58990486.flc");
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[0]?.album).toBe("Pablo Honey");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.title).toBe("Creep");
+        expect(result.value.tracks[0]?.source).toBe("tidal");
+        expect(result.value.tracks[0]?.url).toBe("tidal://58990486.flc");
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.album).toBe("Pablo Honey");
       }
     });
 
@@ -869,9 +869,9 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value).toHaveLength(2);
-        expect(result.value[0]?.source).toBe("local");
-        expect(result.value[1]?.source).toBe("tidal");
+        expect(result.value.tracks).toHaveLength(2);
+        expect(result.value.tracks[0]?.source).toBe("local");
+        expect(result.value.tracks[1]?.source).toBe("tidal");
       }
     });
 
@@ -889,8 +889,8 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("local");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("local");
       }
     });
 
@@ -908,8 +908,8 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("local");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("local");
       }
     });
 
@@ -927,9 +927,9 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value[0]?.audioQuality).toBeUndefined();
-        expect(result.value[0]?.artist).toBe("");
-        expect(result.value[0]?.album).toBe("");
+        expect(result.value.tracks[0]?.audioQuality).toBeUndefined();
+        expect(result.value.tracks[0]?.artist).toBe("");
+        expect(result.value.tracks[0]?.album).toBe("");
       }
     });
 
@@ -951,8 +951,8 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("local");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("local");
       }
     });
 
@@ -1020,8 +1020,8 @@ describe("LMS Client - Acceptance Tests", () => {
       await thenResultIsSuccess(result);
       if (result.ok) {
         // Both tracks returned — dedup cannot merge them without artist/album on Tidal
-        expect(result.value).toHaveLength(2);
-        const sources = result.value.map((t) => t.source);
+        expect(result.value.tracks).toHaveLength(2);
+        const sources = result.value.tracks.map((t) => t.source);
         expect(sources).toContain("local");
         expect(sources).toContain("tidal");
       }
@@ -1111,10 +1111,10 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[0]?.album).toBe("Pablo Honey");
-        expect(result.value[0]?.source).toBe("tidal");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.album).toBe("Pablo Honey");
+        expect(result.value.tracks[0]?.source).toBe("tidal");
       }
     });
 
@@ -1127,9 +1127,9 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.audioQuality).toBeDefined();
-        expect(result.value[0]?.audioQuality?.format).toBe("FLAC");
-        expect(result.value[0]?.audioQuality?.lossless).toBe(true);
+        expect(result.value.tracks[0]?.audioQuality).toBeDefined();
+        expect(result.value.tracks[0]?.audioQuality?.format).toBe("FLAC");
+        expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(true);
       }
     });
 
@@ -1147,7 +1147,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(2);
+        expect(result.value.tracks).toHaveLength(2);
         // 1 local + 1 tidal(.4) + 2 tidal_info = 4 total fetch calls (N+2 pattern)
         expect(globalThis.fetch).toHaveBeenCalledTimes(4);
         // Each tidal_info call uses the correct per-track ID (proves separate calls, not batched)
@@ -1157,8 +1157,8 @@ describe("LMS Client - Acceptance Tests", () => {
         expect(tidalInfoBody1.params[1][0]).toBe("tidal_info");
         expect(tidalInfoBody1.params[1][4]).toBe("id:58990486");
         expect(tidalInfoBody2.params[1][4]).toBe("id:58990516");
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[1]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[1]?.artist).toBe("Radiohead");
       }
     });
 
@@ -1188,11 +1188,11 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("tidal");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("tidal");
         // Enrichment timed out — original empty strings preserved (graceful degradation)
-        expect(result.value[0]?.artist).toBe("");
-        expect(result.value[0]?.album).toBe("");
+        expect(result.value.tracks[0]?.artist).toBe("");
+        expect(result.value.tracks[0]?.album).toBe("");
       }
     });
 
@@ -1205,10 +1205,10 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("tidal");
-        expect(result.value[0]?.artist).toBe("");
-        expect(result.value[0]?.album).toBe("");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("tidal");
+        expect(result.value.tracks[0]?.artist).toBe("");
+        expect(result.value.tracks[0]?.album).toBe("");
       }
     });
   });
@@ -1332,10 +1332,10 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[0]?.album).toBe("Pablo Honey");
-        expect(result.value[0]?.source).toBe("tidal");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.album).toBe("Pablo Honey");
+        expect(result.value.tracks[0]?.source).toBe("tidal");
       }
     });
 
@@ -1350,11 +1350,11 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.audioQuality).toBeDefined();
-        expect(result.value[0]?.audioQuality?.format).toBe("FLAC");
-        expect(result.value[0]?.audioQuality?.lossless).toBe(true);
-        expect(result.value[0]?.audioQuality?.bitrate).toBe(1411000);
-        expect(result.value[0]?.audioQuality?.sampleRate).toBe(44100);
+        expect(result.value.tracks[0]?.audioQuality).toBeDefined();
+        expect(result.value.tracks[0]?.audioQuality?.format).toBe("FLAC");
+        expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(true);
+        expect(result.value.tracks[0]?.audioQuality?.bitrate).toBe(1411000);
+        expect(result.value.tracks[0]?.audioQuality?.sampleRate).toBe(44100);
       }
     });
 
@@ -1369,11 +1369,11 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.audioQuality).toBeDefined();
-        expect(result.value[0]?.audioQuality?.format).toBe("AAC");
-        expect(result.value[0]?.audioQuality?.lossless).toBe(false);
-        expect(result.value[0]?.audioQuality?.bitrate).toBe(320000);
-        expect(result.value[0]?.audioQuality?.sampleRate).toBe(44100);
+        expect(result.value.tracks[0]?.audioQuality).toBeDefined();
+        expect(result.value.tracks[0]?.audioQuality?.format).toBe("AAC");
+        expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(false);
+        expect(result.value.tracks[0]?.audioQuality?.bitrate).toBe(320000);
+        expect(result.value.tracks[0]?.audioQuality?.sampleRate).toBe(44100);
       }
     });
 
@@ -1388,10 +1388,10 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("tidal");
-        expect(result.value[0]?.artist).toBe("");
-        expect(result.value[0]?.album).toBe("");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("tidal");
+        expect(result.value.tracks[0]?.artist).toBe("");
+        expect(result.value.tracks[0]?.album).toBe("");
       }
     });
 
@@ -1409,7 +1409,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(2);
+        expect(result.value.tracks).toHaveLength(2);
         // 1 local + 1 tidal(.4) + 2 tidal_info = 4 total fetch calls (N+2 pattern)
         expect(globalThis.fetch).toHaveBeenCalledTimes(4);
         // calls[0]=local, calls[1]=tidal.4, calls[2]=tidal_info-1, calls[3]=tidal_info-2
@@ -1418,8 +1418,8 @@ describe("LMS Client - Acceptance Tests", () => {
         expect(tidalInfoBody1.params[1][0]).toBe("tidal_info");
         expect(tidalInfoBody1.params[1][4]).toBe("id:58990486");
         expect(tidalInfoBody2.params[1][4]).toBe("id:58990516");
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[1]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[1]?.artist).toBe("Radiohead");
       }
     });
 
@@ -1449,10 +1449,10 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("tidal");
-        expect(result.value[0]?.artist).toBe("");
-        expect(result.value[0]?.album).toBe("");
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("tidal");
+        expect(result.value.tracks[0]?.artist).toBe("");
+        expect(result.value.tracks[0]?.album).toBe("");
       }
     });
 
@@ -1467,7 +1467,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
         // Verify the enrichment call used tidal_info command (not songinfo)
         // calls[0]=local, calls[1]=tidal.4, calls[2]=tidal_info
         const enrichBody = getJsonRpcRequestBodyAt(2);
@@ -1526,11 +1526,13 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/music/2574/cover.jpg",
         );
         // Regression: album_id must NOT be in the URL path
-        expect(result.value[0]?.coverArtUrl).not.toContain("/music/177/");
+        expect(result.value.tracks[0]?.coverArtUrl).not.toContain(
+          "/music/177/",
+        );
       }
     });
 
@@ -1562,7 +1564,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/music/3001/cover.jpg",
         );
       }
@@ -1595,7 +1597,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/music/999/cover.jpg",
         );
       }
@@ -1630,7 +1632,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       await thenResultIsSuccess(result);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/music/42/cover.jpg",
         );
       }
@@ -1942,7 +1944,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
   const whenSearchingForTracks = async (
     query: string,
-  ): Promise<Result<readonly SearchResult[], LmsError>> => {
+  ): Promise<Result<SearchResponse, LmsError>> => {
     const client = createLmsClient(defaultConfig);
     return await client.search(query);
   };
@@ -1950,7 +1952,7 @@ describe("LMS Client - Acceptance Tests", () => {
   const whenSearchingForTracksWithClient = async (
     query: string,
     playerId: string,
-  ): Promise<Result<readonly SearchResult[], LmsError>> => {
+  ): Promise<Result<SearchResponse, LmsError>> => {
     const client = createLmsClient({ ...defaultConfig, playerId });
     return await client.search(query);
   };
@@ -2034,48 +2036,52 @@ describe("LMS Client - Acceptance Tests", () => {
   };
 
   const thenSearchResultsAreEmpty = async (
-    result: Result<readonly SearchResult[], LmsError>,
+    result: Result<SearchResponse, LmsError>,
   ): Promise<void> => {
     if (result.ok) {
-      expect(result.value).toEqual([]);
+      expect(result.value.tracks).toEqual([]);
     }
   };
 
   const thenSearchResultsContain = async (
-    result: Result<readonly SearchResult[], LmsError>,
+    result: Result<SearchResponse, LmsError>,
     expected: { readonly title: string },
   ): Promise<void> => {
     if (result.ok) {
-      expect(result.value).toHaveLength(1);
-      expect(result.value[0]?.title).toBe(expected.title);
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.title).toBe(expected.title);
     }
   };
 
   const thenTrackSourceIs = async (
-    result: Result<readonly SearchResult[], LmsError>,
+    result: Result<SearchResponse, LmsError>,
     expectedSource: "local" | "qobuz" | "tidal" | "unknown",
   ): Promise<void> => {
     if (result.ok) {
-      expect(result.value[0]?.source).toBe(expectedSource);
+      expect(result.value.tracks[0]?.source).toBe(expectedSource);
     }
   };
 
   const thenTrackHasAudioQuality = async (
-    result: Result<readonly SearchResult[], LmsError>,
+    result: Result<SearchResponse, LmsError>,
     expected: { readonly format: string; readonly lossless: boolean },
   ): Promise<void> => {
     if (result.ok) {
-      expect(result.value[0]?.audioQuality).toBeDefined();
-      expect(result.value[0]?.audioQuality?.format).toBe(expected.format);
-      expect(result.value[0]?.audioQuality?.lossless).toBe(expected.lossless);
+      expect(result.value.tracks[0]?.audioQuality).toBeDefined();
+      expect(result.value.tracks[0]?.audioQuality?.format).toBe(
+        expected.format,
+      );
+      expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(
+        expected.lossless,
+      );
     }
   };
 
   const thenTrackHasNoAudioQuality = async (
-    result: Result<readonly SearchResult[], LmsError>,
+    result: Result<SearchResponse, LmsError>,
   ): Promise<void> => {
     if (result.ok) {
-      expect(result.value[0]?.audioQuality).toBeUndefined();
+      expect(result.value.tracks[0]?.audioQuality).toBeUndefined();
     }
   };
 
@@ -4279,9 +4285,9 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toHaveLength(1);
-        expect(result.value[0]?.source).toBe("tidal");
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks).toHaveLength(1);
+        expect(result.value.tracks[0]?.source).toBe("tidal");
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/imageproxy/tidal/abc123.jpg",
         );
       }
@@ -4305,7 +4311,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/imageproxy/tidal/xyz789.jpg",
         );
       }
@@ -4324,7 +4330,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value[0]?.coverArtUrl).toBeUndefined();
+        expect(result.value.tracks[0]?.coverArtUrl).toBeUndefined();
       }
     });
 
@@ -4343,11 +4349,11 @@ describe("LMS Client - Acceptance Tests", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         // coverArtUrl from .4 is preserved despite enrichment adding artist/album
-        expect(result.value[0]?.coverArtUrl).toBe(
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
           "http://localhost:9000/imageproxy/http%3A%2F%2Fresources.tidal.com%2Fimages%2Fe77e4cc0%2F1280x1280.jpg/image.jpg",
         );
-        expect(result.value[0]?.artist).toBe("Radiohead");
-        expect(result.value[0]?.album).toBe("OK Computer");
+        expect(result.value.tracks[0]?.artist).toBe("Radiohead");
+        expect(result.value.tracks[0]?.album).toBe("OK Computer");
       }
     });
   });
