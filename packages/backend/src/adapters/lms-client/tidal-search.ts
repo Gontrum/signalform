@@ -2,16 +2,32 @@
  * LMS Tidal Search Domain Methods
  *
  * Factory function for Tidal search/discovery LMS client methods:
- * searchTidalArtists, findTidalSearchAlbumId.
+ * searchTidalArtists, findTidalSearchAlbumId, searchTidalAlbumTracks.
  *
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
  */
 
 import { ok, err, type Result } from "@signalform/shared";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import type { LmsCommand, LmsError, TidalSearchArtistRaw } from "./types.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
 import { tidalItemSchema } from "./schemas.js";
+import { extractTidalTrackId, parseTidalInfo } from "./helpers.js";
+
+// Enrichment timeout for album track search: 300ms (Tidal can be slower than regular search)
+const TIDAL_ALBUM_TRACK_ENRICH_TIMEOUT_MS = 300;
+
+/**
+ * Raw Tidal track result from searchTidalAlbumTracks.
+ * id and url are both the tidal:// playback URL.
+ */
+export type TidalTrackSearchResultRaw = {
+  readonly id: string; // tidal:// URL (playback URL)
+  readonly name: string; // track title
+  readonly url: string; // same as id — the tidal:// URL
+  readonly albumName?: string; // populated after tidal_info enrichment
+};
 
 export type TidalSearchMethods = {
   readonly searchTidalArtists: (
@@ -31,6 +47,10 @@ export type TidalSearchMethods = {
     albumTitle: string,
     artist: string,
   ) => Promise<Result<string | null, LmsError>>;
+  readonly searchTidalAlbumTracks: (
+    albumTitle: string,
+    artist: string,
+  ) => Promise<Result<readonly TidalTrackSearchResultRaw[], LmsError>>;
 };
 
 const tidalSearchArtistsPayloadParser = createLmsResultParser(
@@ -40,7 +60,22 @@ const tidalSearchArtistsPayloadParser = createLmsResultParser(
   }),
 );
 
-const tidalAlbumLookupPayloadParser = createLmsResultParser(
+const tidalTrackSearchPayloadParser = createLmsResultParser(
+  z.object({
+    loop_loop: z
+      .array(
+        z.object({
+          id: z.string(),
+          name: z.string().optional(),
+          url: z.string().optional(),
+          isaudio: z.number().optional(),
+        }),
+      )
+      .optional(),
+  }),
+);
+
+const tidalInfoPayloadParser = createLmsResultParser(
   z.object({
     loop_loop: z
       .array(
@@ -60,6 +95,51 @@ export const createTidalSearchMethods = (
   deps: ExecuteDeps,
 ): TidalSearchMethods => {
   const { executeCommand } = deps;
+
+  // Enriches a single raw track with albumName via tidal_info.
+  // 300ms timeout per track — Tidal can be slow on album-track lookups.
+  // On failure or timeout: track is returned with albumName undefined.
+  const enrichTrackWithAlbumName = (
+    track: TidalTrackSearchResultRaw,
+  ): Promise<TidalTrackSearchResultRaw> => {
+    const trackId = extractTidalTrackId(track.url);
+    if (!trackId) {
+      return Promise.resolve(track);
+    }
+
+    const command: LmsCommand = [
+      "tidal_info",
+      "items",
+      0,
+      10,
+      `id:${trackId}`,
+      "type:track",
+    ];
+
+    const enrichController = new AbortController();
+
+    const timeoutPromise = delay(TIDAL_ALBUM_TRACK_ENRICH_TIMEOUT_MS).then(
+      () => {
+        enrichController.abort();
+        return track;
+      },
+    );
+
+    const enrichPromise = executeCommand(
+      command,
+      tidalInfoPayloadParser,
+      enrichController.signal,
+    ).then((result): TidalTrackSearchResultRaw => {
+      if (!result.ok) {
+        return track;
+      }
+      const loopLoop = result.value.loop_loop ?? [];
+      const { album } = parseTidalInfo(loopLoop);
+      return { ...track, albumName: album || undefined };
+    });
+
+    return Promise.race([enrichPromise, timeoutPromise]);
+  };
 
   return {
     /**
@@ -147,58 +227,80 @@ export const createTidalSearchMethods = (
         return ok(null);
       }
 
-      // item_id:7_{query}.3 → "Suchen → Alben" (Albums) in Tidal plugin
+      // item_id:7_{query}.3 (Albums section) OOM-kills LMS for any query returning many
+      // recordings — confirmed for classical works AND simplified titles.
+      // The Tidal plugin fetches ALL results before paging, so even limit:10 is unsafe.
+      // Resolution via album browse is disabled; callers fall back to track-search display.
+      return ok(null);
+    },
+
+    /**
+     * Search for Tidal tracks for a specific album using the Tracks section (item_id:7_{query}.4).
+     *
+     * This is SAFE — unlike the Albums section (.3), the Tracks section does not OOM LMS.
+     * Query is built from artist + work title (strips "Composer: " prefix for classical works).
+     * Each track is enriched with albumName via tidal_info (300ms timeout, concurrent).
+     *
+     * @param albumTitle - Album title (e.g. "Mahler: Symphony No. 5" or "OK Computer")
+     * @param artist - Artist/performer name (e.g. "Berliner Philharmoniker" or "Radiohead")
+     * @returns Result with raw track list (with albumName from tidal_info) or error
+     */
+    searchTidalAlbumTracks: async (
+      albumTitle: string,
+      artist: string,
+    ): Promise<Result<readonly TidalTrackSearchResultRaw[], LmsError>> => {
+      const trimmedTitle = albumTitle.trim();
+      if (trimmedTitle === "") {
+        return ok([]);
+      }
+
+      // Strip "Composer: " prefix for classical works (e.g. "Mahler: Symphony No. 5" → "Symphony No. 5")
+      const colonIdx = trimmedTitle.indexOf(":");
+      const workTitle =
+        colonIdx >= 0 ? trimmedTitle.slice(colonIdx + 1).trim() : trimmedTitle;
+
+      const trimmedArtist = artist.trim();
+      const query =
+        trimmedArtist !== "" ? `${trimmedArtist} ${workTitle}` : workTitle;
+
+      // item_id:7_{query}.4 = Tidal "Suchen → Titel" (Tracks section) — SAFE, no OOM risk.
       const command: LmsCommand = [
         "tidal",
         "items",
         0,
-        25,
-        `item_id:7_${trimmedTitle}.3`,
-        `search:${trimmedTitle}`,
+        50,
+        `item_id:7_${query}.4`,
         "want_url:1",
       ];
 
       const result = await executeCommand(
         command,
-        tidalAlbumLookupPayloadParser,
+        tidalTrackSearchPayloadParser,
       );
 
       if (!result.ok) {
         return result;
       }
 
-      const searchAlbums = result.value.loop_loop ?? [];
-      const normalizedTitle = trimmedTitle.toLowerCase();
+      const rawLoop = result.value.loop_loop ?? [];
+      const tracks: readonly TidalTrackSearchResultRaw[] = rawLoop
+        .filter((item) => item.isaudio === 1 && item.url !== undefined)
+        .map((item) => ({
+          id: item.url!,
+          name: item.name ?? "",
+          url: item.url!,
+        }));
 
-      // Name format: title only, possibly with "[E]" suffix for explicit albums.
-      // startsWith check: "short n' sweet [e]".startsWith("short n' sweet") → true
-      const primaryMatch = searchAlbums.find((a) =>
-        (a.name ?? "").toLowerCase().startsWith(normalizedTitle),
+      // Enrich tracks concurrently with albumName via tidal_info (300ms timeout per track).
+      // On per-track failure: track kept with albumName undefined.
+      const enrichResults = await Promise.allSettled(
+        tracks.map(enrichTrackWithAlbumName),
       );
-      if (primaryMatch !== undefined) {
-        return ok(primaryMatch.id);
-      }
+      const enrichedTracks = enrichResults.map((settled, idx) =>
+        settled.status === "fulfilled" ? settled.value : tracks[idx]!,
+      );
 
-      // Secondary match for classical "Composer: Work" titles (e.g. "Mahler: Symphony No. 5").
-      // Tidal returns only the work title ("Symphony No. 5"), not the full "Composer: Work" string.
-      const lastColonIdx = trimmedTitle.lastIndexOf(":");
-      if (lastColonIdx !== -1) {
-        const workTitle = trimmedTitle.substring(lastColonIdx + 1).trim();
-        if (workTitle.length >= 3) {
-          const normalizedWork = workTitle.toLowerCase();
-          const secondaryMatch = searchAlbums.find((a) => {
-            const name = (a.name ?? "").toLowerCase();
-            return (
-              name.startsWith(normalizedWork) || name.includes(normalizedWork)
-            );
-          });
-          if (secondaryMatch !== undefined) {
-            return ok(secondaryMatch.id);
-          }
-        }
-      }
-
-      return ok(null);
+      return ok(enrichedTracks);
     },
   };
 };

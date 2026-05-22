@@ -4100,42 +4100,12 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 19: findTidalSearchAlbumId — Tidal search album browse ID lookup (Story 9.6)
-  describe("Rule 19: findTidalSearchAlbumId — Tidal Search Album Lookup (Story 9.6)", () => {
-    const mockAlbumsResponse = (
-      albums: ReadonlyArray<{
-        readonly id: string;
-        readonly name: string;
-      }>,
-    ): {
-      readonly ok: true;
-      readonly json: () => Promise<unknown>;
-    } => ({
-      ok: true,
-      json: async (): Promise<unknown> => ({
-        result: {
-          loop_loop: albums.map((a) => ({
-            ...a,
-            type: "playlist",
-            isaudio: 1,
-            hasitems: 1,
-          })),
-          count: albums.length,
-          title: "Alben",
-        },
-        id: 1,
-        error: null,
-      }),
-    });
-
-    it("returns browse ID when album title matches first result (case-insensitive startsWith)", async () => {
-      fetchMock.mockResolvedValueOnce(
-        mockAlbumsResponse([
-          { id: "7_sabrina carpenter.3.0", name: "Short n' Sweet [E]" },
-          { id: "7_sabrina carpenter.3.1", name: "emails i can't send [E]" },
-        ]),
-      );
-
+  // Rule 19: findTidalSearchAlbumId — permanently disabled (Albums section OOM-kills LMS)
+  // item_id:7_{title}.3 fetches ALL albums before paging — any classical query OOM-crashes LMS.
+  // findTidalSearchAlbumId now always returns ok(null) without making any LMS calls.
+  describe("Rule 19: findTidalSearchAlbumId — Albums section permanently disabled (OOM safety)", () => {
+    it("always returns ok(null) without calling LMS (Albums section disabled)", async () => {
+      // No fetch mock needed — LMS must not be called
       const client = createLmsClient(defaultConfig);
       const result = await client.findTidalSearchAlbumId(
         "Short n' Sweet",
@@ -4144,60 +4114,35 @@ describe("LMS Client - Acceptance Tests", () => {
 
       expect(result.ok).toBe(true);
       if (result.ok) {
-        expect(result.value).toBe("7_sabrina carpenter.3.0");
+        expect(result.value).toBeNull();
       }
-      // Verify LMS was queried with item_id:7_{title}.3
-      const body = getJsonRpcRequestBodyAt(0);
-      expect(body.params[1]).toContain("item_id:7_Short n' Sweet.3");
+      // LMS must not have been called (Albums section disabled)
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("returns null when no album title matches", async () => {
-      fetchMock.mockResolvedValueOnce(
-        mockAlbumsResponse([
-          { id: "7_some query.3.0", name: "Totally Different Album" },
-        ]),
-      );
-
+    it("returns ok(null) for classical works without calling LMS", async () => {
       const client = createLmsClient(defaultConfig);
       const result = await client.findTidalSearchAlbumId(
-        "Non-Existent Album",
-        "Some Artist",
+        "Mahler: Symphony No. 5",
+        "Berliner Philharmoniker",
       );
 
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value).toBeNull();
       }
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
-    it("returns null when LMS returns empty album list", async () => {
-      fetchMock.mockResolvedValueOnce(mockAlbumsResponse([]));
-
+    it("returns ok(null) for empty title without calling LMS", async () => {
       const client = createLmsClient(defaultConfig);
-      const result = await client.findTidalSearchAlbumId(
-        "Some Album",
-        "Some Artist",
-      );
+      const result = await client.findTidalSearchAlbumId("", "Some Artist");
 
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value).toBeNull();
       }
-    });
-
-    it("propagates LMS network error as err result", async () => {
-      fetchMock.mockRejectedValueOnce(new TypeError("ECONNREFUSED"));
-
-      const client = createLmsClient(defaultConfig);
-      const result = await client.findTidalSearchAlbumId(
-        "Short n' Sweet",
-        "Sabrina Carpenter",
-      );
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.type).toBe("NetworkError");
-      }
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 

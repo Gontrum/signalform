@@ -5,11 +5,7 @@ import { isTidalAlbumId } from '@signalform/shared'
 import type { AlbumEnrichment, EnrichmentErrorState } from '@/platform/api/enrichmentApi'
 import { getAlbumEnrichment, mapEnrichmentError } from '@/platform/api/enrichmentApi'
 import { playAlbum, playTidalSearchAlbum, playTrack } from '@/platform/api/playbackApi'
-import {
-  getTidalAlbumDetail,
-  getTidalAlbumTracks,
-  resolveAlbum,
-} from '@/platform/api/tidalAlbumsApi'
+import { getTidalAlbumDetail, getTidalAlbumTracksBySearch } from '@/platform/api/tidalAlbumsApi'
 import { useTransientSet } from '@/app/useTransientSet'
 import { addAlbumToQueue, addTidalSearchAlbumToQueue, addToQueue } from '@/platform/api/queueApi'
 import { getAlbumDetail } from '@/platform/api/albumApi'
@@ -57,7 +53,6 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
 
   const albumId = getAlbumIdParam(route.params['albumId'])
   const isTidalSearchPath = route.name === 'tidal-search-album'
-  const resolvedAlbumId = ref<string | null>(null)
 
   const tidalSearchTitle = getHistoryString(getHistoryStateValue('title'))
   const tidalSearchArtist = getHistoryString(getHistoryStateValue('artist'))
@@ -100,43 +95,32 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
 
   onMounted(async () => {
     if (isTidalSearchPath) {
-      const resolveResult = await resolveAlbum(tidalSearchTitle, tidalSearchArtist)
-      if (resolveResult.ok && resolveResult.value.albumId !== null) {
-        resolvedAlbumId.value = resolveResult.value.albumId
-        const tracksResult = await getTidalAlbumTracks(resolveResult.value.albumId)
-        if (tracksResult.ok) {
-          album.value = {
-            id: resolveResult.value.albumId,
-            title: tidalSearchTitle,
-            artist: tidalSearchArtist,
-            releaseYear: null,
-            coverArtUrl: tidalSearchCoverArtUrl,
-            tracks: tracksResult.value.tracks.map((track) => ({
-              id: track.id,
-              trackNumber: track.trackNumber,
-              title: track.title,
-              artist: '',
-              duration: track.duration,
-              url: track.url,
-              audioQuality: parseTidalAudioQuality(track.url),
-            })),
-          }
-          status.value = 'success'
-          await router.replace({
-            name: 'album-detail',
-            params: { albumId: resolveResult.value.albumId },
-            state: {
-              tidalTitle: tidalSearchTitle,
-              tidalArtist: tidalSearchArtist,
-              tidalCoverArtUrl: tidalSearchCoverArtUrl ?? '',
-            },
-          })
-          void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
-        } else {
-          errorMessage.value = tracksResult.error.message
-          status.value = 'error-server'
+      // Use the Tracks search endpoint to discover all tracks for this album.
+      // findTidalSearchAlbumId always returns null (Albums section OOM-crashes LMS),
+      // so we skip resolve entirely and go straight to searchTidalAlbumTracks.
+      const searchResult = await getTidalAlbumTracksBySearch(tidalSearchTitle, tidalSearchArtist)
+
+      if (searchResult.ok && searchResult.value.tracks.length > 0) {
+        album.value = {
+          id: 'tidal-search',
+          title: tidalSearchTitle,
+          artist: tidalSearchArtist,
+          releaseYear: null,
+          coverArtUrl: tidalSearchCoverArtUrl,
+          tracks: searchResult.value.tracks.map((track) => ({
+            id: track.id,
+            trackNumber: track.trackNumber,
+            title: track.title,
+            artist: '',
+            duration: track.duration,
+            url: track.url,
+            audioQuality: parseTidalAudioQuality(track.url),
+          })),
         }
+        status.value = 'success'
+        void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
       } else {
+        // Fallback: use history.state track URLs (1-2 tracks from search results)
         album.value = toTidalSearchFallbackAlbum({
           title: tidalSearchTitle,
           artist: tidalSearchArtist,
@@ -219,10 +203,12 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
 
   const handlePlayAlbum = async (): Promise<void> => {
     if (isTidalSearchPath) {
-      const playResult =
-        resolvedAlbumId.value !== null
-          ? await playAlbum(resolvedAlbumId.value)
-          : await playTidalSearchAlbum(tidalSearchTitle, tidalSearchArtist, tidalSearchTrackUrls)
+      // Use loaded track URLs from album.value if available; otherwise fall back to history.state URLs
+      const trackUrls =
+        album.value !== null && album.value.tracks.length > 0
+          ? album.value.tracks.map((t) => t.url).filter((u) => u !== '')
+          : tidalSearchTrackUrls
+      const playResult = await playTidalSearchAlbum(tidalSearchTitle, tidalSearchArtist, trackUrls)
       if (!playResult.ok) {
         return
       }
@@ -258,15 +244,26 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
   }
 
   const handleAddAlbumToQueue = async (): Promise<void> => {
-    const queueResult =
-      isTidalSearchPath && resolvedAlbumId.value === null
-        ? await addTidalSearchAlbumToQueue(
-            tidalSearchTitle,
-            tidalSearchArtist,
-            tidalSearchTrackUrls,
-          )
-        : await addAlbumToQueue(isTidalSearchPath ? (resolvedAlbumId.value ?? albumId) : albumId)
+    if (isTidalSearchPath) {
+      // Use loaded track URLs from album.value if available; otherwise fall back to history.state URLs
+      const trackUrls =
+        album.value !== null && album.value.tracks.length > 0
+          ? album.value.tracks.map((t) => t.url).filter((u) => u !== '')
+          : tidalSearchTrackUrls
+      const queueResult = await addTidalSearchAlbumToQueue(
+        tidalSearchTitle,
+        tidalSearchArtist,
+        trackUrls,
+      )
+      if (queueResult.ok) {
+        albumQueueSuccessFlag.add(albumQueueKey)
+      } else {
+        albumQueueErrorFlag.add(albumQueueKey)
+      }
+      return
+    }
 
+    const queueResult = await addAlbumToQueue(albumId)
     if (queueResult.ok) {
       albumQueueSuccessFlag.add(albumQueueKey)
     } else {

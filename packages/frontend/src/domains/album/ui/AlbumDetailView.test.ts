@@ -14,7 +14,7 @@ vi.mock('@/platform/api/albumApi', () => ({
 vi.mock('@/platform/api/tidalAlbumsApi', () => ({
   getTidalAlbumTracks: vi.fn(),
   getTidalAlbumDetail: vi.fn(),
-  resolveAlbum: vi.fn(),
+  getTidalAlbumTracksBySearch: vi.fn(),
 }))
 
 vi.mock('@/platform/api/playbackApi', () => ({
@@ -988,8 +988,12 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({ ok: true, value: { albumId: null } })
+    // Default: track-search returns 0 tracks → triggers fallback
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumTracksBySearch).mockResolvedValue({
+      ok: true,
+      value: { tracks: [], totalCount: 0 },
+    })
   })
 
   const mountView = async (): Promise<{
@@ -999,10 +1003,8 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     const router = await createTestRouter(
       [
         { path: '/album/tidal-search', name: 'tidal-search-album', component: AlbumDetailView },
-
         { path: '/album/:albumId', name: 'album-detail', component: AlbumDetailView },
       ],
-
       '/album/tidal-search',
     )
     window.history.replaceState({ ...window.history.state, ...tidalSearchState }, '')
@@ -1017,14 +1019,8 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     expect(router.currentRoute.value.path).toBe('/album/tidal-search')
   })
 
-  // AC2+AC4: renders album title, artist, track count from history.state (fallback)
-  it('AC2+AC4: renders album metadata from history.state when resolve returns null', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: null },
-    })
-
+  // AC2+AC4: renders album title, artist, track count from history.state (fallback when search returns 0)
+  it('AC2+AC4: renders album metadata from history.state when track search returns empty', async () => {
     const { wrapper } = await mountView()
     await nextTick()
     await nextTick()
@@ -1037,12 +1033,6 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
 
   // AC4: fallback renders track titles from history.state
   it('AC4: renders track titles from history.state in fallback mode', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: null },
-    })
-
     const { wrapper } = await mountView()
     await nextTick()
     await nextTick()
@@ -1052,48 +1042,85 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     expect(wrapper.text()).toContain('Paranoid Android')
   })
 
-  // AC3: calls resolveAlbum with title and artist on mount
-  it('AC3: calls resolveAlbum with title and artist from history.state', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: null },
-    })
+  // New: calls getTidalAlbumTracksBySearch with title and artist on mount
+  it('calls getTidalAlbumTracksBySearch with title and artist from history.state', async () => {
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
 
     await mountView()
     await nextTick()
     await nextTick()
 
-    expect(resolveAlbum).toHaveBeenCalledWith('OK Computer', 'Radiohead')
+    expect(getTidalAlbumTracksBySearch).toHaveBeenCalledWith('OK Computer', 'Radiohead')
   })
 
-  // AC3: when resolve returns albumId, calls getTidalAlbumTracks
-  it('AC3: calls getTidalAlbumTracks with resolved albumId when browse resolution succeeds', async () => {
-    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
+  // New: when search returns tracks, renders them instead of fallback
+  it('renders tracks from getTidalAlbumTracksBySearch when search succeeds', async () => {
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumTracksBySearch).mockResolvedValue({
       ok: true,
-      value: { albumId: '4.123456' },
-    })
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
-      ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        tracks: [
+          {
+            id: 'tidal://111.flc',
+            title: 'Airbag',
+            trackNumber: 1,
+            url: 'tidal://111.flc',
+            duration: 0,
+          },
+          {
+            id: 'tidal://222.flc',
+            title: 'Paranoid Android',
+            trackNumber: 2,
+            url: 'tidal://222.flc',
+            duration: 0,
+          },
+          {
+            id: 'tidal://333.flc',
+            title: 'Subterranean Homesick Alien',
+            trackNumber: 3,
+            url: 'tidal://333.flc',
+            duration: 0,
+          },
+        ],
+        totalCount: 3,
+      },
     })
 
-    await mountView()
+    const { wrapper } = await mountView()
     await nextTick()
     await nextTick()
     await nextTick()
 
-    expect(getTidalAlbumTracks).toHaveBeenCalledWith('4.123456')
+    expect(wrapper.find('[data-testid="album-title"]').text()).toBe('OK Computer')
+    expect(wrapper.find('[data-testid="album-track-count"]').text()).toBe('3 tracks')
+    expect(wrapper.text()).toContain('Subterranean Homesick Alien')
   })
 
-  // AC4: Play Album uses playTidalSearchAlbum when no resolved albumId
-  it('AC4: Play Album button calls playTidalSearchAlbum in fallback mode', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
+  // AC4: Play Album uses playTidalSearchAlbum with loaded track URLs when search succeeds
+  it('Play Album uses loaded track URLs when search succeeds', async () => {
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
     const { playTidalSearchAlbum } = await import('@/platform/api/playbackApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
+    vi.mocked(getTidalAlbumTracksBySearch).mockResolvedValue({
       ok: true,
-      value: { albumId: null },
+      value: {
+        tracks: [
+          {
+            id: 'tidal://111.flc',
+            title: 'Airbag',
+            trackNumber: 1,
+            url: 'tidal://111.flc',
+            duration: 0,
+          },
+          {
+            id: 'tidal://222.flc',
+            title: 'Paranoid Android',
+            trackNumber: 2,
+            url: 'tidal://222.flc',
+            duration: 0,
+          },
+        ],
+        totalCount: 2,
+      },
     })
 
     const { wrapper } = await mountView()
@@ -1110,14 +1137,70 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     ])
   })
 
-  // AC4: Add Album to Queue uses addTidalSearchAlbumToQueue in fallback mode
-  it('AC4: Add Album to Queue calls addTidalSearchAlbumToQueue in fallback mode', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
+  // AC4: Play Album falls back to history.state trackUrls when search returns empty
+  it('AC4: Play Album button calls playTidalSearchAlbum with history.state URLs in fallback mode', async () => {
+    const { playTidalSearchAlbum } = await import('@/platform/api/playbackApi')
+    // getTidalAlbumTracksBySearch already mocked to return empty in beforeEach
+
+    const { wrapper } = await mountView()
+    await nextTick()
+    await nextTick()
+    await nextTick()
+
+    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
+    await nextTick()
+
+    expect(playTidalSearchAlbum).toHaveBeenCalledWith('OK Computer', 'Radiohead', [
+      'tidal://111.flc',
+      'tidal://222.flc',
+    ])
+  })
+
+  // AC4: Add Album to Queue uses addTidalSearchAlbumToQueue with loaded URLs when search succeeds
+  it('Add Album to Queue uses loaded track URLs when search succeeds', async () => {
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
     const { addTidalSearchAlbumToQueue } = await import('@/platform/api/queueApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
+    vi.mocked(getTidalAlbumTracksBySearch).mockResolvedValue({
       ok: true,
-      value: { albumId: null },
+      value: {
+        tracks: [
+          {
+            id: 'tidal://111.flc',
+            title: 'Airbag',
+            trackNumber: 1,
+            url: 'tidal://111.flc',
+            duration: 0,
+          },
+          {
+            id: 'tidal://333.flc',
+            title: 'Subterranean',
+            trackNumber: 3,
+            url: 'tidal://333.flc',
+            duration: 0,
+          },
+        ],
+        totalCount: 2,
+      },
     })
+
+    const { wrapper } = await mountView()
+    await nextTick()
+    await nextTick()
+    await nextTick()
+
+    await wrapper.find('[data-testid="add-album-to-queue-button"]').trigger('click')
+    await nextTick()
+
+    expect(addTidalSearchAlbumToQueue).toHaveBeenCalledWith('OK Computer', 'Radiohead', [
+      'tidal://111.flc',
+      'tidal://333.flc',
+    ])
+  })
+
+  // AC4: Add Album to Queue falls back to history.state URLs when search returns empty
+  it('AC4: Add Album to Queue calls addTidalSearchAlbumToQueue with history.state URLs in fallback mode', async () => {
+    const { addTidalSearchAlbumToQueue } = await import('@/platform/api/queueApi')
+    // getTidalAlbumTracksBySearch already mocked to return empty in beforeEach
 
     const { wrapper } = await mountView()
     await nextTick()
@@ -1133,81 +1216,10 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     ])
   })
 
-  // M1: resolveAlbum returns ok:false (network error) → fallback (AC4 "if browse resolution fails")
-  it('AC4: renders fallback from history.state when resolveAlbum returns network error', async () => {
-    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: false,
-      error: { type: 'NETWORK_ERROR', message: 'LMS unreachable' },
-    })
-
-    const { wrapper } = await mountView()
-    await nextTick()
-    await nextTick()
-    await nextTick()
-
-    expect(wrapper.find('[data-testid="album-title"]').text()).toBe('OK Computer')
-    expect(wrapper.find('[data-testid="album-track-count"]').text()).toBe('2 tracks')
-  })
-
-  // M2: Play Album with resolved albumId → playAlbum (AC3 happy path)
-  it('AC3: Play Album button calls playAlbum(resolvedAlbumId) when browse resolution succeeds', async () => {
-    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    const { playAlbum, playTidalSearchAlbum } = await import('@/platform/api/playbackApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: '4.123456' },
-    })
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
-      ok: true,
-      value: { tracks: [], totalCount: 0 },
-    })
-
-    const { wrapper } = await mountView()
-    await nextTick()
-    await nextTick()
-    await nextTick()
-
-    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
-    await nextTick()
-
-    expect(playAlbum).toHaveBeenCalledWith('4.123456')
-    expect(playTidalSearchAlbum).not.toHaveBeenCalled()
-  })
-
-  // M3: Add Album to Queue with resolved albumId → addAlbumToQueue (AC3 happy path)
-  it('AC3: Add Album to Queue calls addAlbumToQueue(resolvedAlbumId) when browse resolution succeeds', async () => {
-    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    const { addAlbumToQueue, addTidalSearchAlbumToQueue } = await import('@/platform/api/queueApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: '4.123456' },
-    })
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
-      ok: true,
-      value: { tracks: [], totalCount: 0 },
-    })
-
-    const { wrapper } = await mountView()
-    await nextTick()
-    await nextTick()
-    await nextTick()
-
-    await wrapper.find('[data-testid="add-album-to-queue-button"]').trigger('click')
-    await nextTick()
-
-    expect(addAlbumToQueue).toHaveBeenCalledWith('4.123456')
-    expect(addTidalSearchAlbumToQueue).not.toHaveBeenCalled()
-  })
-
-  // L3: resolve succeeds but getTidalAlbumTracks fails → error-server state
-  it('shows error-server when resolve succeeds but getTidalAlbumTracks fails', async () => {
-    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: '4.123456' },
-    })
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+  // M1: getTidalAlbumTracksBySearch returns ok:false (network error) → fallback
+  it('renders fallback from history.state when getTidalAlbumTracksBySearch returns network error', async () => {
+    const { getTidalAlbumTracksBySearch } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumTracksBySearch).mockResolvedValue({
       ok: false,
       error: { type: 'SERVER_ERROR', status: 503, message: 'LMS unreachable' },
     })
@@ -1217,43 +1229,8 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     await nextTick()
     await nextTick()
 
-    expect(wrapper.find('[data-testid="error-server"]').exists()).toBe(true)
-  })
-
-  // URL stabilisation: after successful resolution, router.replace rewrites /album/tidal-search
-  // to /album/{resolvedId} so the page is bookmarkable and refresh-safe.
-  it('calls router.replace with resolved albumId after successful track load', async () => {
-    const { resolveAlbum, getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(resolveAlbum).mockResolvedValue({
-      ok: true,
-      value: { albumId: '7_mahler: symphony no. 5.3.0' },
-    })
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
-      ok: true,
-      value: { tracks: [], totalCount: 0 },
-    })
-
-    const router = await createTestRouter(
-      [
-        { path: '/album/tidal-search', name: 'tidal-search-album', component: AlbumDetailView },
-        { path: '/album/:albumId', name: 'album-detail', component: AlbumDetailView },
-      ],
-      '/album/tidal-search',
-    )
-    window.history.replaceState({ ...window.history.state, ...tidalSearchState }, '')
-    const replaceSpy = vi.spyOn(router, 'replace')
-
-    mount(AlbumDetailView, { global: { plugins: [router] } })
-    await nextTick()
-    await nextTick()
-    await nextTick()
-
-    expect(replaceSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'album-detail',
-        params: { albumId: '7_mahler: symphony no. 5.3.0' },
-      }),
-    )
+    expect(wrapper.find('[data-testid="album-title"]').text()).toBe('OK Computer')
+    expect(wrapper.find('[data-testid="album-track-count"]').text()).toBe('2 tracks')
   })
 })
 

@@ -9,6 +9,8 @@ import {
   mapTidalAlbumTracks,
   mapTidalAlbumDetail,
   findAlbumMetaFromParentItems,
+  filterTracksByAlbumTitle,
+  mapTidalAlbumTracksBySearch,
 } from "../core/service.js";
 
 const TidalAlbumTracksParamsSchema = z.object({
@@ -23,6 +25,11 @@ const TidalAlbumsQuerySchema = z.object({
 const TidalAlbumResolveQuerySchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
   artist: z.string().trim().min(1, "Artist is required"),
+});
+
+const TidalAlbumTracksBySearchQuerySchema = z.object({
+  title: z.string().trim().min(1, "Title is required"),
+  artist: z.string().trim().default(""),
 });
 
 export const createTidalAlbumsRoute = (
@@ -120,6 +127,48 @@ export const createTidalAlbumsRoute = (
       }
 
       return reply.code(200).send({ albumId: result.value });
+    },
+  );
+
+  /**
+   * GET /api/tidal/album-tracks-by-search
+   *
+   * Searches for Tidal tracks for a specific album using the Tracks section (item_id:7_{query}.4).
+   * Safe: does not use the Albums section (.3) which OOM-kills LMS.
+   * Returns tracks filtered to those whose albumName matches the title parameter.
+   *
+   * Query params:
+   *   title  (required, min 1) — album title (e.g. "Mahler: Symphony No. 5")
+   *   artist (optional, default "") — artist/performer name (e.g. "Berliner Philharmoniker")
+   */
+  fastify.get<{ readonly Querystring: unknown }>(
+    "/api/tidal/album-tracks-by-search",
+    async (
+      request: FastifyRequest<{ readonly Querystring: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const validation = TidalAlbumTracksBySearchQuerySchema.safeParse(
+        request.query,
+      );
+      if (!validation.success) {
+        return reply.code(400).send({
+          message: "title query param is required",
+          code: "INVALID_INPUT",
+        });
+      }
+
+      const { title, artist } = validation.data;
+      const result = await lmsClient.searchTidalAlbumTracks(title, artist);
+
+      if (!result.ok) {
+        return reply
+          .code(503)
+          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
+      }
+
+      const filtered = filterTracksByAlbumTitle(result.value, title);
+
+      return reply.code(200).send(mapTidalAlbumTracksBySearch(filtered));
     },
   );
 

@@ -168,3 +168,24 @@ export const getTidalAlbums = async (
     },
   )
 }
+
+export const getTidalAlbumTracksBySearch = async (
+  title: string,
+  artist: string,
+): Promise<Result<TidalAlbumTracksResponse, TidalAlbumsApiError>> => {
+  return await fetchJsonResult(
+    getApiUrl(
+      `/api/tidal/album-tracks-by-search?title=${encodeURIComponent(title)}&artist=${encodeURIComponent(artist)}`,
+    ),
+    {
+      method: 'GET',
+      signal: AbortSignal.timeout(30000),
+    },
+    {
+      schema: TidalAlbumTracksResponseSchema,
+      mapHttpError: mapTidalAlbumsHttpError('Tidal album tracks by search failed'),
+      mapThrownError: mapTidalAlbumsThrownError,
+      mapParseError: mapTidalAlbumsParseError,
+    },
+  )
+}
