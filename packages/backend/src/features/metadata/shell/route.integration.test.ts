@@ -6,9 +6,9 @@ import { clearAlbumCache } from "./cache.js";
 import type {
   LmsClient,
   LmsConfig,
-  ArtistAlbumRaw,
   SearchResult,
 } from "../../../adapters/lms-client/index.js";
+import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import { createLmsClient } from "../../../adapters/lms-client/index.js";
 import type { AlbumTrackRaw } from "../../../adapters/lms-client/index.js";
 
@@ -50,9 +50,20 @@ type MockLmsClient = LmsClient & {
   readonly getArtistName: ReturnType<typeof vi.fn<LmsClient["getArtistName"]>>;
 };
 
+type MockLastFmClient = LastFmClient & {
+  readonly getArtistTopTracks: ReturnType<
+    typeof vi.fn<LastFmClient["getArtistTopTracks"]>
+  >;
+  readonly getArtistTopAlbums: ReturnType<
+    typeof vi.fn<LastFmClient["getArtistTopAlbums"]>
+  >;
+};
+
 const createMockLmsClient = (): MockLmsClient => ({
   ...createLmsClient(defaultConfig),
-  search: vi.fn<LmsClient["search"]>().mockResolvedValue(ok([])),
+  search: vi
+    .fn<LmsClient["search"]>()
+    .mockResolvedValue(ok({ tracks: [], tidalAvailable: true })),
   searchTidalArtists: vi
     .fn<LmsClient["searchTidalArtists"]>()
     .mockResolvedValue(ok({ artists: [], count: 0 })),
@@ -84,6 +95,22 @@ const createMockLmsClient = (): MockLmsClient => ({
   getArtistName: vi
     .fn<LmsClient["getArtistName"]>()
     .mockResolvedValue(ok(null)),
+});
+
+const createMockLastFmClient = (): MockLastFmClient => ({
+  getSimilarTracks: vi.fn<LastFmClient["getSimilarTracks"]>(),
+  getSimilarArtists: vi.fn<LastFmClient["getSimilarArtists"]>(),
+  getArtistInfo: vi.fn<LastFmClient["getArtistInfo"]>(),
+  getAlbumInfo: vi.fn<LastFmClient["getAlbumInfo"]>(),
+  getArtistTopTracks: vi
+    .fn<LastFmClient["getArtistTopTracks"]>()
+    .mockResolvedValue(ok([])),
+  getArtistTopAlbums: vi
+    .fn<LastFmClient["getArtistTopAlbums"]>()
+    .mockResolvedValue(ok([])),
+  getCircuitState: vi
+    .fn<LastFmClient["getCircuitState"]>()
+    .mockReturnValue("CLOSED"),
 });
 
 const parseJson = (body: string): unknown => JSON.parse(body);
@@ -185,31 +212,6 @@ const parseArtistByNameBody = (
     tidalAlbums: tidalAlbums ?? [],
   };
 };
-
-const parseArtistDetailBody = (
-  body: string,
-): {
-  readonly id: string;
-  readonly name: string;
-  readonly albums: readonly unknown[];
-} => {
-  const parsed = parseJson(body);
-  const id =
-    isRecord(parsed) && typeof parsed["id"] === "string" ? parsed["id"] : null;
-  const name =
-    isRecord(parsed) && typeof parsed["name"] === "string"
-      ? parsed["name"]
-      : null;
-  const albums =
-    isRecord(parsed) && Array.isArray(parsed["albums"])
-      ? parsed["albums"]
-      : null;
-  expect(id).not.toBeNull();
-  expect(name).not.toBeNull();
-  expect(albums).not.toBeNull();
-  return { id: id ?? "", name: name ?? "", albums: albums ?? [] };
-};
-
 const makeRawTrack = (
   overrides: Partial<AlbumTrackRaw> = {},
 ): AlbumTrackRaw => ({
@@ -232,7 +234,12 @@ describe("GET /api/album/:albumId", () => {
     clearAlbumCache();
     mockLmsClient = createMockLmsClient();
     server = Fastify({ logger: false });
-    createMetadataRoute(server, mockLmsClient, defaultConfig);
+    createMetadataRoute(
+      server,
+      mockLmsClient,
+      defaultConfig,
+      createMockLastFmClient(),
+    );
     await server.ready();
   });
 
@@ -403,7 +410,12 @@ describe("GET /api/artist/by-name", () => {
     clearAlbumCache();
     mockLmsClient = createMockLmsClient();
     server = Fastify({ logger: false });
-    createMetadataRoute(server, mockLmsClient, defaultConfig);
+    createMetadataRoute(
+      server,
+      mockLmsClient,
+      defaultConfig,
+      createMockLastFmClient(),
+    );
     await server.ready();
   });
 
@@ -414,7 +426,10 @@ describe("GET /api/artist/by-name", () => {
   // AC1: returns 200 with localAlbums and tidalAlbums
   it("returns 200 with localAlbums and tidalAlbums when LMS responds", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([makeLocalTrack(), makeTidalTrack()]),
+      ok({
+        tracks: [makeLocalTrack(), makeTidalTrack()],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -431,16 +446,19 @@ describe("GET /api/artist/by-name", () => {
   // AC2: splits albums by source
   it("splits albums by source — local tracks go to localAlbums, tidal to tidalAlbums", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({ albumId: "42", album: "Pablo Honey" }),
-        makeLocalTrack({
-          id: "t3",
-          title: "Anyone Can Play Guitar",
-          albumId: "42",
-          album: "Pablo Honey",
-        }),
-        makeTidalTrack({ album: "The Bends", url: "tidal://22222.flc" }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({ albumId: "42", album: "Pablo Honey" }),
+          makeLocalTrack({
+            id: "t3",
+            title: "Anyone Can Play Guitar",
+            albumId: "42",
+            album: "Pablo Honey",
+          }),
+          makeTidalTrack({ album: "The Bends", url: "tidal://22222.flc" }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -461,16 +479,19 @@ describe("GET /api/artist/by-name", () => {
   // AC3: deduplicates local albums by albumId
   it("deduplicates local albums by albumId (two tracks on same album → one entry)", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({ albumId: "42", title: "Track 1" }),
-        makeLocalTrack({ id: "t2", albumId: "42", title: "Track 2" }),
-        makeLocalTrack({
-          id: "t3",
-          albumId: "99",
-          title: "Other Track",
-          album: "Other Album",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({ albumId: "42", title: "Track 1" }),
+          makeLocalTrack({ id: "t2", albumId: "42", title: "Track 2" }),
+          makeLocalTrack({
+            id: "t3",
+            albumId: "99",
+            title: "Other Track",
+            album: "Other Album",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -525,7 +546,9 @@ describe("GET /api/artist/by-name", () => {
 
   // AC6: graceful degradation — only local results
   it("returns empty tidalAlbums when no Tidal tracks found", async () => {
-    mockLmsClient.search.mockResolvedValue(ok([makeLocalTrack()]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [makeLocalTrack()], tidalAvailable: true }),
+    );
 
     const response = await server.inject({
       method: "GET",
@@ -540,7 +563,9 @@ describe("GET /api/artist/by-name", () => {
 
   // AC6: graceful degradation — only Tidal results
   it("returns empty localAlbums when no local tracks found", async () => {
-    mockLmsClient.search.mockResolvedValue(ok([makeTidalTrack()]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [makeTidalTrack()], tidalAvailable: true }),
+    );
 
     const response = await server.inject({
       method: "GET",
@@ -554,7 +579,9 @@ describe("GET /api/artist/by-name", () => {
   });
 
   it("falls back to dedicated Tidal artist browse when search returns no Tidal albums", async () => {
-    mockLmsClient.search.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [], tidalAvailable: true }),
+    );
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({
         artists: [
@@ -593,7 +620,9 @@ describe("GET /api/artist/by-name", () => {
   });
 
   it("does not fall back to the first Tidal artist when there is no exact artist-name match", async () => {
-    mockLmsClient.search.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [], tidalAvailable: true }),
+    );
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({
         artists: [
@@ -621,7 +650,9 @@ describe("GET /api/artist/by-name", () => {
 
   // AC7: passes artist name to lmsClient.search
   it("passes name query param to lmsClient.search", async () => {
-    mockLmsClient.search.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [], tidalAvailable: true }),
+    );
 
     await server.inject({
       method: "GET",
@@ -635,22 +666,25 @@ describe("GET /api/artist/by-name", () => {
   // Tracks from albums NAMED after the artist but BY a different artist must be excluded.
   it("excludes tracks from albums named after the artist but by a different artist", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        // Real Radiohead track — should be included
-        makeLocalTrack({
-          albumId: "42",
-          album: "Pablo Honey",
-          artist: "Radiohead",
-        }),
-        // Track FROM an album called "Radiohead" but by "Other Artist" — must be excluded
-        makeLocalTrack({
-          id: "t99",
-          albumId: "99",
-          album: "Radiohead",
-          artist: "Other Artist",
-          albumartist: "Other Artist",
-        }),
-      ]),
+      ok({
+        tracks: [
+          // Real Radiohead track — should be included
+          makeLocalTrack({
+            albumId: "42",
+            album: "Pablo Honey",
+            artist: "Radiohead",
+          }),
+          // Track FROM an album called "Radiohead" but by "Other Artist" — must be excluded
+          makeLocalTrack({
+            id: "t99",
+            albumId: "99",
+            album: "Radiohead",
+            artist: "Other Artist",
+            albumartist: "Other Artist",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -668,23 +702,26 @@ describe("GET /api/artist/by-name", () => {
   // Bug: "rabauken von kiez".includes("rabauken") was true → wrongly included
   it("excludes tracks whose artist only contains the name as a substring", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        // Exact match — should be included
-        makeLocalTrack({
-          albumId: "10",
-          album: "Randale",
-          artist: "Rabauken",
-          albumartist: "Rabauken",
-        }),
-        // Substring match only — must be excluded
-        makeLocalTrack({
-          id: "t99",
-          albumId: "99",
-          album: "Kiez Hits",
-          artist: "Rabauken von Kiez",
-          albumartist: "Rabauken von Kiez",
-        }),
-      ]),
+      ok({
+        tracks: [
+          // Exact match — should be included
+          makeLocalTrack({
+            albumId: "10",
+            album: "Randale",
+            artist: "Rabauken",
+            albumartist: "Rabauken",
+          }),
+          // Substring match only — must be excluded
+          makeLocalTrack({
+            id: "t99",
+            albumId: "99",
+            album: "Kiez Hits",
+            artist: "Rabauken von Kiez",
+            albumartist: "Rabauken von Kiez",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -701,14 +738,17 @@ describe("GET /api/artist/by-name", () => {
   // AC2 (Story 9.16): case-insensitive exact match
   it("matches artist case-insensitively (die+rabauken matches Die Rabauken)", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({
-          albumId: "10",
-          album: "Randale",
-          artist: "Die Rabauken",
-          albumartist: "Die Rabauken",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({
+            albumId: "10",
+            album: "Randale",
+            artist: "Die Rabauken",
+            albumartist: "Die Rabauken",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -725,14 +765,17 @@ describe("GET /api/artist/by-name", () => {
   // AC3 (Story 9.16): diacritic normalization — "Bjork" matches "Björk"
   it("matches artist with diacritics via NFD normalization (Bjork matches Björk)", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({
-          albumId: "55",
-          album: "Debut",
-          artist: "Björk",
-          albumartist: "Björk",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({
+            albumId: "55",
+            album: "Debut",
+            artist: "Björk",
+            albumartist: "Björk",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -750,14 +793,17 @@ describe("GET /api/artist/by-name", () => {
   // The old bug: "pink floyd".includes("floyd") === true → wrongly included
   it("excludes Pink Floyd when searching for Floyd (reverse substring rejection)", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({
-          albumId: "10",
-          album: "The Wall",
-          artist: "Pink Floyd",
-          albumartist: "Pink Floyd",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({
+            albumId: "10",
+            album: "The Wall",
+            artist: "Pink Floyd",
+            albumartist: "Pink Floyd",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -773,14 +819,17 @@ describe("GET /api/artist/by-name", () => {
   // AC4 (Story 9.16 code review): multi-word exact match returns albums correctly
   it("returns albums for multi-word artist name (Pink Floyd exact match)", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({
-          albumId: "10",
-          album: "The Wall",
-          artist: "Pink Floyd",
-          albumartist: "Pink Floyd",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({
+            albumId: "10",
+            album: "The Wall",
+            artist: "Pink Floyd",
+            albumartist: "Pink Floyd",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -799,14 +848,17 @@ describe("GET /api/artist/by-name", () => {
   // Searching by collaboration name finds the album via the track-artist field.
   it("returns album when searching by collaboration artist name matching track artist field", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeLocalTrack({
-          albumId: "10",
-          album: "Red",
-          artist: "Taylor Swift, Hayley Williams",
-          albumartist: "Taylor Swift",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeLocalTrack({
+            albumId: "10",
+            album: "Red",
+            artist: "Taylor Swift, Hayley Williams",
+            albumartist: "Taylor Swift",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -823,19 +875,22 @@ describe("GET /api/artist/by-name", () => {
   // L4 (Story 9.16 code review): exact-match filter also applies to Tidal tracks
   it("excludes Tidal tracks whose artist only contains the name as a substring", async () => {
     mockLmsClient.search.mockResolvedValue(
-      ok([
-        makeTidalTrack({
-          album: "Randale",
-          artist: "Rabauken",
-          url: "tidal://111.flc",
-        }),
-        makeTidalTrack({
-          id: "t99",
-          album: "Kiez Hits",
-          artist: "Rabauken von Kiez",
-          url: "tidal://999.flc",
-        }),
-      ]),
+      ok({
+        tracks: [
+          makeTidalTrack({
+            album: "Randale",
+            artist: "Rabauken",
+            url: "tidal://111.flc",
+          }),
+          makeTidalTrack({
+            id: "t99",
+            album: "Kiez Hits",
+            artist: "Rabauken von Kiez",
+            url: "tidal://999.flc",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
@@ -850,26 +905,17 @@ describe("GET /api/artist/by-name", () => {
   });
 });
 
-const makeRawAlbum = (
-  overrides: Partial<ArtistAlbumRaw> = {},
-): ArtistAlbumRaw => ({
-  id: 1,
-  album: "Test Album",
-  artist: "Test Artist",
-  year: 2021,
-  artwork_track_id: "101",
-  ...overrides,
-});
-
-describe("GET /api/artist/:artistId", () => {
+describe("GET /api/artist popularity endpoints", () => {
   let server: FastifyInstance;
   let mockLmsClient: MockLmsClient;
+  let mockLastFmClient: MockLastFmClient;
 
   beforeEach(async () => {
     clearAlbumCache();
     mockLmsClient = createMockLmsClient();
+    mockLastFmClient = createMockLastFmClient();
     server = Fastify({ logger: false });
-    createMetadataRoute(server, mockLmsClient, defaultConfig);
+    createMetadataRoute(server, mockLmsClient, defaultConfig, mockLastFmClient);
     await server.ready();
   });
 
@@ -877,73 +923,82 @@ describe("GET /api/artist/:artistId", () => {
     void server.close();
   });
 
-  it("returns 200 with ArtistDetail for valid artistId", async () => {
-    const albums = [
-      makeRawAlbum({ id: 1, album: "The Wall", year: 1979 }),
-      makeRawAlbum({ id: 2, album: "Animals", year: 1977 }),
-    ];
-    mockLmsClient.getArtistAlbums.mockResolvedValue(ok(albums));
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/artist/42",
-    });
-
-    expect(response.statusCode).toBe(200);
-    const body = parseArtistDetailBody(response.body);
-    expect(body.id).toBe("42");
-    expect(body.albums).toHaveLength(2);
-    expect(body.name).toBe("Test Artist");
-  });
-
-  it("returns 404 when artist has no albums (not found)", async () => {
-    mockLmsClient.getArtistAlbums.mockResolvedValue(ok([]));
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/artist/99999",
-    });
-
-    expect(response.statusCode).toBe(404);
-    const body = parseCodeBody(response.body);
-    expect(body.code).toBe("NOT_FOUND");
-  });
-
-  it("returns 503 when LMS is unreachable", async () => {
-    mockLmsClient.getArtistAlbums.mockResolvedValue(
-      err({ type: "NetworkError", message: "Connection refused" }),
+  it("returns playable top tracks ranked by last.fm", async () => {
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([
+        {
+          name: "Creep",
+          artist: "Radiohead",
+          playcount: 1000,
+          listeners: 500,
+          url: "https://www.last.fm/music/Radiohead/_/Creep",
+        },
+      ]),
+    );
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [
+          makeLocalTrack({
+            id: "track-1",
+            title: "Creep",
+            artist: "Radiohead",
+            album: "Pablo Honey",
+            url: "file:///music/creep.flac",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
     );
 
     const response = await server.inject({
       method: "GET",
-      url: "/api/artist/42",
+      url: "/api/artist/top-tracks?name=Radiohead",
     });
 
-    expect(response.statusCode).toBe(503);
-    const body = parseCodeBody(response.body);
-    expect(body.code).toBe("LMS_UNREACHABLE");
+    expect(response.statusCode).toBe(200);
+    const parsed = parseJson(response.body);
+    const tracks =
+      isRecord(parsed) && Array.isArray(parsed["tracks"])
+        ? parsed["tracks"]
+        : [];
+    const first = tracks[0];
+    expect(isRecord(first) ? first["title"] : undefined).toBe("Creep");
+    expect(isRecord(first) ? first["rank"] : undefined).toBe(1);
+    expect(isRecord(first) ? first["url"] : undefined).toBe(
+      "file:///music/creep.flac",
+    );
+    expect(mockLmsClient.search).toHaveBeenCalledWith("Radiohead Creep");
   });
 
-  it("returns 400 for whitespace-only artistId", async () => {
+  it("returns top album popularity from last.fm", async () => {
+    mockLastFmClient.getArtistTopAlbums.mockResolvedValue(
+      ok([
+        {
+          name: "OK Computer",
+          artist: "Radiohead",
+          playcount: 2000,
+          url: "https://www.last.fm/music/Radiohead/OK+Computer",
+        },
+      ]),
+    );
+
     const response = await server.inject({
       method: "GET",
-      url: "/api/artist/%20",
+      url: "/api/artist/top-albums?name=Radiohead&limit=5",
     });
 
-    expect(response.statusCode).toBe(400);
-    const body = parseCodeBody(response.body);
-    expect(body.code).toBe("INVALID_INPUT");
-  });
-
-  it("calls lmsClient.getArtistAlbums with the artistId from the URL", async () => {
-    const albums = [makeRawAlbum({ id: 1 })];
-    mockLmsClient.getArtistAlbums.mockResolvedValue(ok(albums));
-
-    await server.inject({
-      method: "GET",
-      url: "/api/artist/42",
-    });
-
-    expect(mockLmsClient.getArtistAlbums).toHaveBeenCalledWith("42");
+    expect(response.statusCode).toBe(200);
+    const parsed = parseJson(response.body);
+    const albums =
+      isRecord(parsed) && Array.isArray(parsed["albums"])
+        ? parsed["albums"]
+        : [];
+    const first = albums[0];
+    expect(isRecord(first) ? first["title"] : undefined).toBe("OK Computer");
+    expect(isRecord(first) ? first["playcount"] : undefined).toBe(2000);
+    expect(mockLastFmClient.getArtistTopAlbums).toHaveBeenCalledWith(
+      "Radiohead",
+      5,
+    );
   });
 });

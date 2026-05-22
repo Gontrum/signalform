@@ -5,7 +5,11 @@ import { isTidalAlbumId } from '@signalform/shared'
 import type { AlbumEnrichment, EnrichmentErrorState } from '@/platform/api/enrichmentApi'
 import { getAlbumEnrichment, mapEnrichmentError } from '@/platform/api/enrichmentApi'
 import { playAlbum, playTidalSearchAlbum, playTrack } from '@/platform/api/playbackApi'
-import { getTidalAlbumTracks, resolveAlbum } from '@/platform/api/tidalAlbumsApi'
+import {
+  getTidalAlbumDetail,
+  getTidalAlbumTracks,
+  resolveAlbum,
+} from '@/platform/api/tidalAlbumsApi'
 import { useTransientSet } from '@/app/useTransientSet'
 import { addAlbumToQueue, addTidalSearchAlbumToQueue, addToQueue } from '@/platform/api/queueApi'
 import { getAlbumDetail } from '@/platform/api/albumApi'
@@ -52,7 +56,6 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
   const router = useRouter()
 
   const albumId = getAlbumIdParam(route.params['albumId'])
-  const tidalArtistId = getHistoryString(getHistoryStateValue('tidalArtistId'))
   const isTidalSearchPath = route.name === 'tidal-search-album'
   const resolvedAlbumId = ref<string | null>(null)
 
@@ -139,18 +142,38 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
     }
 
     if (isTidalAlbumId(albumId)) {
-      const tracksResult = await getTidalAlbumTracks(albumId)
-      if (tracksResult.ok) {
-        const tidalTitle = getHistoryString(getHistoryStateValue('tidalTitle'))
-        const tidalArtist = getHistoryString(getHistoryStateValue('tidalArtist'))
-        const tidalCoverArtUrlValue = getHistoryStateValue('tidalCoverArtUrl')
+      // Use history.state as immediate hint to avoid flicker on initial navigation
+      const hintTitle = getHistoryString(getHistoryStateValue('tidalTitle'))
+      const hintArtist = getHistoryString(getHistoryStateValue('tidalArtist'))
+      const hintCoverArtUrl = getHistoryStateValue('tidalCoverArtUrl')
+      if (hintTitle !== '') {
         album.value = {
           id: albumId,
-          title: tidalTitle,
-          artist: tidalArtist,
+          title: hintTitle,
+          artist: hintArtist,
           releaseYear: null,
-          coverArtUrl: typeof tidalCoverArtUrlValue === 'string' ? tidalCoverArtUrlValue : null,
-          tracks: tracksResult.value.tracks.map((track) => ({
+          coverArtUrl: typeof hintCoverArtUrl === 'string' ? hintCoverArtUrl : null,
+          tracks: [],
+        }
+      }
+
+      const detailResult = await getTidalAlbumDetail(albumId)
+      if (detailResult.ok) {
+        const artistForEnrichment =
+          detailResult.value.artist !== '' ? detailResult.value.artist : hintArtist
+        const coverArtUrl =
+          detailResult.value.coverArtUrl !== ''
+            ? detailResult.value.coverArtUrl
+            : typeof hintCoverArtUrl === 'string'
+              ? hintCoverArtUrl
+              : null
+        album.value = {
+          id: albumId,
+          title: detailResult.value.title !== '' ? detailResult.value.title : hintTitle,
+          artist: artistForEnrichment,
+          releaseYear: null,
+          coverArtUrl,
+          tracks: detailResult.value.tracks.map((track) => ({
             id: track.id,
             trackNumber: track.trackNumber,
             title: track.title,
@@ -161,9 +184,9 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
           })),
         }
         status.value = 'success'
-        void loadEnrichment(tidalArtist, tidalTitle)
+        void loadEnrichment(artistForEnrichment, album.value.title)
       } else {
-        errorMessage.value = tracksResult.error.message
+        errorMessage.value = detailResult.error.message
         status.value = 'error-server'
       }
       return
@@ -247,19 +270,6 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
   }
 
   const handleArtistClick = (): void => {
-    if (tidalArtistId !== '') {
-      const tidalArtistNameRaw = getHistoryStateValue('tidalArtistName')
-      const tidalArtistNameForNav =
-        typeof tidalArtistNameRaw === 'string' ? tidalArtistNameRaw : (album.value?.artist ?? '')
-      void router.push({
-        name: 'artist-detail',
-        params: { artistId: tidalArtistId },
-        query: { source: 'tidal' },
-        state: { tidalArtistName: tidalArtistNameForNav },
-      })
-      return
-    }
-
     void router.push({
       name: 'unified-artist',
       query: { name: album.value?.artist ?? '' },

@@ -6,7 +6,12 @@ import type {
   SearchResult,
   TidalSearchArtistRaw,
 } from "../../../adapters/lms-client/index.js";
-import { getAlbumDetail, getArtistDetail } from "./service.js";
+import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import {
+  getAlbumDetail,
+  getArtistTopAlbumsByName,
+  getArtistTopTracksByName,
+} from "./service.js";
 import { getCachedAlbum, setCachedAlbum } from "./cache.js";
 import type { AlbumDetail } from "../core/types.js";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
@@ -16,12 +21,13 @@ const AlbumParamsSchema = z.object({
   albumId: z.string().trim().min(1, "Album ID is required"),
 });
 
-const ArtistParamsSchema = z.object({
-  artistId: z.string().trim().min(1, "Artist ID is required"),
-});
-
 const ArtistByNameQuerySchema = z.object({
   name: z.string().trim().min(1, "Artist name is required"),
+});
+
+const ArtistPopularityQuerySchema = z.object({
+  name: z.string().trim().min(1, "Artist name is required"),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
 });
 
 /**
@@ -179,6 +185,7 @@ export const createMetadataRoute = (
   fastify: FastifyInstance,
   lmsClient: LmsClient,
   config: LmsConfig,
+  lastFmClient: LastFmClient,
 ): void => {
   fastify.get<{ readonly Params: unknown }>(
     "/api/album/:albumId",
@@ -221,31 +228,65 @@ export const createMetadataRoute = (
     },
   );
 
-  fastify.get<{ readonly Params: unknown }>(
-    "/api/artist/:artistId",
+  fastify.get<{ readonly Querystring: unknown }>(
+    "/api/artist/top-tracks",
     async (
-      request: FastifyRequest<{ readonly Params: unknown }>,
+      request: FastifyRequest<{ readonly Querystring: unknown }>,
       reply: FastifyReply,
     ) => {
-      const validation = ArtistParamsSchema.safeParse(request.params);
+      const validation = ArtistPopularityQuerySchema.safeParse(request.query);
       if (!validation.success) {
         return reply
           .code(400)
-          .send({ message: "Invalid artist ID", code: "INVALID_INPUT" });
+          .send({ message: "Artist name is required", code: "INVALID_INPUT" });
       }
 
-      const { artistId } = validation.data;
-      const result = await getArtistDetail(artistId, lmsClient, config);
+      const { name, limit } = validation.data;
+      const result = await getArtistTopTracksByName(
+        name,
+        lmsClient,
+        lastFmClient,
+        limit,
+      );
 
       if (!result.ok) {
-        if (result.error.type === "NotFound") {
-          return reply
-            .code(404)
-            .send({ message: result.error.message, code: "NOT_FOUND" });
-        }
+        return result.error.type === "NotFound"
+          ? reply
+              .code(404)
+              .send({ message: result.error.message, code: "NOT_FOUND" })
+          : reply
+              .code(503)
+              .send({ message: "last.fm not reachable", code: "UNAVAILABLE" });
+      }
+
+      return reply.code(200).send(result.value);
+    },
+  );
+
+  fastify.get<{ readonly Querystring: unknown }>(
+    "/api/artist/top-albums",
+    async (
+      request: FastifyRequest<{ readonly Querystring: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const validation = ArtistPopularityQuerySchema.safeParse(request.query);
+      if (!validation.success) {
         return reply
-          .code(503)
-          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
+          .code(400)
+          .send({ message: "Artist name is required", code: "INVALID_INPUT" });
+      }
+
+      const { name, limit } = validation.data;
+      const result = await getArtistTopAlbumsByName(name, lastFmClient, limit);
+
+      if (!result.ok) {
+        return result.error.type === "NotFound"
+          ? reply
+              .code(404)
+              .send({ message: result.error.message, code: "NOT_FOUND" })
+          : reply
+              .code(503)
+              .send({ message: "last.fm not reachable", code: "UNAVAILABLE" });
       }
 
       return reply.code(200).send(result.value);
@@ -286,7 +327,7 @@ export const createMetadataRoute = (
       //    tracks where the artist appears as a featured/co-artist but the album belongs to
       //    another artist (e.g. "Taylor Swift, Hayley Williams" track on a Taylor Swift album)
       const norm = normalizeArtist(name);
-      const tracks = searchResult.value.filter((r) => {
+      const tracks = searchResult.value.tracks.filter((r) => {
         if (r.type !== "track") {
           return false;
         }

@@ -70,6 +70,23 @@ export type AlbumInfo = {
   readonly wiki: string;
 };
 
+export type ArtistTopTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly mbid?: string;
+  readonly playcount: number;
+  readonly listeners: number;
+  readonly url: string;
+};
+
+export type ArtistTopAlbum = {
+  readonly name: string;
+  readonly artist: string;
+  readonly mbid?: string;
+  readonly playcount: number;
+  readonly url: string;
+};
+
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 // Client contract type
@@ -92,5 +109,13 @@ export type LastFmClient = {
     album: string,
     language?: Language,
   ) => Promise<Result<AlbumInfo, LastFmError>>;
+  readonly getArtistTopTracks: (
+    artist: string,
+    limit?: number,
+  ) => Promise<Result<readonly ArtistTopTrack[], LastFmError>>;
+  readonly getArtistTopAlbums: (
+    artist: string,
+    limit?: number,
+  ) => Promise<Result<readonly ArtistTopAlbum[], LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

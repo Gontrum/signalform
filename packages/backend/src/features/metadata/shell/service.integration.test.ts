@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { ok, err } from "@signalform/shared";
-import { getAlbumDetail, getArtistDetail } from "./service.js";
+import { getAlbumDetail } from "./service.js";
 import type {
   LmsClient,
   LmsConfig,
-  ArtistAlbumRaw,
 } from "../../../adapters/lms-client/index.js";
 import type { AlbumTrackRaw } from "../../../adapters/lms-client/index.js";
 import { createLmsClient } from "../../../adapters/lms-client/index.js";
@@ -32,13 +31,6 @@ type AlbumMockClient = LmsClient & {
   readonly getAlbumTracks: ReturnType<
     typeof vi.fn<LmsClient["getAlbumTracks"]>
   >;
-};
-
-type ArtistMockClient = LmsClient & {
-  readonly getArtistAlbums: ReturnType<
-    typeof vi.fn<LmsClient["getArtistAlbums"]>
-  >;
-  readonly getArtistName: ReturnType<typeof vi.fn<LmsClient["getArtistName"]>>;
 };
 
 const makeMockClient = (tracks: ReadonlyArray<AlbumTrackRaw>): LmsClient =>
@@ -278,185 +270,6 @@ describe("getAlbumDetail", () => {
       expect(result.value.tracks[0]?.audioQuality).toBeDefined();
       expect(result.value.tracks[0]?.audioQuality?.format).toBe("FLAC");
       expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(true);
-    }
-  });
-});
-
-const makeArtistAlbum = (
-  overrides: Partial<ArtistAlbumRaw> = {},
-): ArtistAlbumRaw => ({
-  id: 1,
-  album: "Test Album",
-  artist: "Test Artist",
-  year: 2020,
-  artwork_track_id: "101",
-  ...overrides,
-});
-
-const makeMockClientForArtist = (
-  albums: ReadonlyArray<ArtistAlbumRaw>,
-  artistName: string | null = null,
-): ArtistMockClient => ({
-  ...createLmsClient(defaultConfig),
-  getArtistAlbums: vi
-    .fn<LmsClient["getArtistAlbums"]>()
-    .mockResolvedValue(ok(albums)),
-  getArtistName: vi
-    .fn<LmsClient["getArtistName"]>()
-    .mockResolvedValue(ok(artistName)),
-});
-
-describe("getArtistDetail", () => {
-  it("returns ArtistDetail with sorted albums from LMS response", async () => {
-    const albums = [
-      makeArtistAlbum({ id: 1, album: "The Wall", year: 1979 }),
-      makeArtistAlbum({ id: 2, album: "Wish You Were Here", year: 1975 }),
-      makeArtistAlbum({ id: 3, album: "Dark Side of the Moon", year: 1973 }),
-    ];
-    const client = makeMockClientForArtist(albums);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums).toHaveLength(3);
-      // sorted newest-first
-      expect(result.value.albums[0]?.title).toBe("The Wall");
-      expect(result.value.albums[1]?.title).toBe("Wish You Were Here");
-      expect(result.value.albums[2]?.title).toBe("Dark Side of the Moon");
-    }
-  });
-
-  it("returns NotFound error when LMS returns empty album list", async () => {
-    const client = makeMockClientForArtist([]);
-
-    const result = await getArtistDetail("99", client, defaultConfig);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("NotFound");
-      expect(result.error.message).toContain("99");
-    }
-  });
-
-  it("propagates LMS error when getArtistAlbums fails", async () => {
-    const client: ArtistMockClient = {
-      ...createLmsClient(defaultConfig),
-      getArtistAlbums: vi
-        .fn<LmsClient["getArtistAlbums"]>()
-        .mockResolvedValue(
-          err({ type: "NetworkError", message: "Connection refused" }),
-        ),
-      getArtistName: vi
-        .fn<LmsClient["getArtistName"]>()
-        .mockResolvedValue(ok(null)),
-    };
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("LmsError");
-      expect(result.error.message).toBe("Connection refused");
-    }
-  });
-
-  it("extracts artist name from getArtistName (direct lookup)", async () => {
-    const albums = [makeArtistAlbum({ artist: "Pink Floyd" })];
-    const client = makeMockClientForArtist(albums, "Pink Floyd");
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.name).toBe("Pink Floyd");
-    }
-  });
-
-  // Bugfix: artist page showed "Diverse Interpreten" when all albums were compilations.
-  // getArtistName (artists LMS command) returns the actual artist name regardless of
-  // how the album's artist tag is populated.
-  it("prefers getArtistName over album artist field (fixes Diverse Interpreten bug)", async () => {
-    const albums = [
-      makeArtistAlbum({ artist: "Diverse Interpreten", album: "Best of 2024" }),
-      makeArtistAlbum({
-        artist: "Diverse Interpreten",
-        album: "Compilation Vol.2",
-      }),
-    ];
-    const client = makeMockClientForArtist(albums, "Verlorene Jungs");
-
-    const result = await getArtistDetail("225", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.name).toBe("Verlorene Jungs");
-    }
-  });
-
-  it("falls back to album artist field when getArtistName returns null", async () => {
-    const albums = [makeArtistAlbum({ artist: "Pink Floyd" })];
-    const client = makeMockClientForArtist(albums, null);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.name).toBe("Pink Floyd");
-    }
-  });
-
-  it("builds coverArtUrl using artwork_track_id when present", async () => {
-    const albums = [makeArtistAlbum({ id: 5, artwork_track_id: "9001" })];
-    const client = makeMockClientForArtist(albums);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.coverArtUrl).toBe(
-        "http://localhost:9000/music/9001/cover.jpg",
-      );
-    }
-  });
-
-  it("builds coverArtUrl from album id when artwork_track_id absent", async () => {
-    const albums = [makeArtistAlbum({ id: 7, artwork_track_id: undefined })];
-    const client = makeMockClientForArtist(albums);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.coverArtUrl).toBe(
-        "http://localhost:9000/music/0/cover.jpg?album_id=7",
-      );
-    }
-  });
-
-  it("sets releaseYear to null when year not available", async () => {
-    const albums = [makeArtistAlbum({ year: undefined })];
-    const client = makeMockClientForArtist(albums);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.releaseYear).toBeNull();
-    }
-  });
-
-  // Story 9.1 code review: defensive fix — ArtistAlbumRaw.year now typed number | string
-  it("parses releaseYear as number when LMS albums command returns year as string", async () => {
-    const albums = [makeArtistAlbum({ year: "1975" })];
-    const client = makeMockClientForArtist(albums);
-
-    const result = await getArtistDetail("42", client, defaultConfig);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.releaseYear).toBe(1975);
-      expect(typeof result.value.albums[0]?.releaseYear).toBe("number");
     }
   });
 });

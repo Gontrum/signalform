@@ -5,6 +5,7 @@ import { fetchJsonResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
 import type {
   TidalAlbum,
+  TidalAlbumDetailResponse,
   TidalAlbumResolveResponse,
   TidalAlbumTracksResponse,
   TidalAlbumsApiError,
@@ -39,8 +40,18 @@ const TidalAlbumTracksResponseSchema = z.object({
 
 const ResolveResponseSchema = z.object({ albumId: z.string().nullable() })
 
+const TidalAlbumDetailResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artist: z.string(),
+  coverArtUrl: z.string(),
+  tracks: z.array(TidalTrackSchema),
+  totalCount: z.number(),
+})
+
 export type {
   TidalAlbum,
+  TidalAlbumDetailResponse,
   TidalAlbumResolveResponse,
   TidalAlbumTracksResponse,
   TidalAlbumsApiError,
@@ -78,6 +89,24 @@ export const resolveAlbum = async (
     {
       schema: ResolveResponseSchema,
       mapHttpError: mapTidalAlbumsHttpError('Tidal album resolve failed'),
+      mapThrownError: mapTidalAlbumsThrownError,
+      mapParseError: mapTidalAlbumsParseError,
+    },
+  )
+}
+
+export const getTidalAlbumDetail = async (
+  albumId: string,
+): Promise<Result<TidalAlbumDetailResponse, TidalAlbumsApiError>> => {
+  return await fetchJsonResult(
+    getApiUrl(`/api/tidal/albums/${encodeURIComponent(albumId)}`),
+    {
+      method: 'GET',
+      signal: AbortSignal.timeout(10000),
+    },
+    {
+      schema: TidalAlbumDetailResponseSchema,
+      mapHttpError: mapTidalAlbumsHttpError('Tidal album detail fetch failed'),
       mapThrownError: mapTidalAlbumsThrownError,
       mapParseError: mapTidalAlbumsParseError,
     },

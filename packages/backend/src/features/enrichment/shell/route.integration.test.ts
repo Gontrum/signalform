@@ -33,6 +33,8 @@ const makeMockClient = (): MockLastFmClient => ({
   getSimilarArtists: vi.fn<LastFmClient["getSimilarArtists"]>(),
   getArtistInfo: vi.fn<LastFmClient["getArtistInfo"]>(),
   getAlbumInfo: vi.fn<LastFmClient["getAlbumInfo"]>(),
+  getArtistTopTracks: vi.fn<LastFmClient["getArtistTopTracks"]>(),
+  getArtistTopAlbums: vi.fn<LastFmClient["getArtistTopAlbums"]>(),
   getCircuitState: vi
     .fn<LastFmClient["getCircuitState"]>()
     .mockReturnValue("CLOSED"),

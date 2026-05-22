@@ -2,14 +2,43 @@ import { ok, err, type Result } from "@signalform/shared";
 import type {
   LmsClient,
   LmsConfig,
+  SearchResult,
 } from "../../../adapters/lms-client/index.js";
-import { buildAlbumDetail, buildArtistDetail } from "../core/service.js";
+import type {
+  ArtistTopAlbum as LastFmArtistTopAlbum,
+  ArtistTopTrack as LastFmArtistTopTrack,
+  LastFmError,
+} from "../../../adapters/lastfm-client/index.js";
+import {
+  buildAlbumDetail,
+  mapArtistAlbumPopularity,
+  resolveArtistTopTracks,
+} from "../core/service.js";
 import type {
   AlbumDetail,
   AlbumServiceError,
-  ArtistDetail,
-  ArtistServiceError,
+  ArtistPopularityServiceError,
+  ArtistTopAlbumsResponse,
+  ArtistTopTracksResponse,
 } from "../core/types.js";
+
+export type ArtistPopularityClient = {
+  readonly getArtistTopTracks: (
+    artist: string,
+    limit?: number,
+  ) => Promise<Result<readonly LastFmArtistTopTrack[], LastFmError>>;
+  readonly getArtistTopAlbums: (
+    artist: string,
+    limit?: number,
+  ) => Promise<Result<readonly LastFmArtistTopAlbum[], LastFmError>>;
+};
+
+const mapLastFmPopularityError = (
+  error: LastFmError,
+): ArtistPopularityServiceError =>
+  error.type === "NotFoundError"
+    ? { type: "NotFound", message: error.message }
+    : { type: "Unavailable", message: error.message };
 
 export const getAlbumDetail = async (
   albumId: string,
@@ -36,41 +65,60 @@ export const getAlbumDetail = async (
   return ok(buildAlbumDetail(albumId, tracks, baseUrl));
 };
 
-export const getArtistDetail = async (
-  artistId: string,
+const searchPlayableCandidates = async (
+  artist: string,
+  topTrack: LastFmArtistTopTrack,
   lmsClient: LmsClient,
-  config: LmsConfig,
-): Promise<Result<ArtistDetail, ArtistServiceError>> => {
-  // Fetch artist name and albums concurrently.
-  // getArtistName uses the LMS artists command (authoritative name source).
-  // getArtistAlbums uses the albums command — its artist tag may show "Diverse Interpreten"
-  // for compilation albums, which is why we prefer the direct name lookup.
-  const [nameResult, albumsResult] = await Promise.all([
-    lmsClient.getArtistName(artistId),
-    lmsClient.getArtistAlbums(artistId),
-  ]);
+): Promise<readonly SearchResult[]> => {
+  const result = await lmsClient.search(`${artist} ${topTrack.name}`);
+  return result.ok ? result.value.tracks : [];
+};
 
-  if (!albumsResult.ok) {
-    return err({ type: "LmsError", message: albumsResult.error.message });
+export const getArtistTopTracksByName = async (
+  artist: string,
+  lmsClient: LmsClient,
+  popularityClient: ArtistPopularityClient,
+  limit: number,
+): Promise<Result<ArtistTopTracksResponse, ArtistPopularityServiceError>> => {
+  const topTracksResult = await popularityClient.getArtistTopTracks(
+    artist,
+    limit,
+  );
+  if (!topTracksResult.ok) {
+    return err(mapLastFmPopularityError(topTracksResult.error));
   }
 
-  const albums = albumsResult.value;
-
-  if (albums.length === 0) {
-    return err({
-      type: "NotFound",
-      message: `Artist ${artistId} not found or has no albums`,
-    });
-  }
-
-  const baseUrl = `http://${config.host}:${config.port}`;
-
-  return ok(
-    buildArtistDetail(
-      artistId,
-      nameResult.ok ? nameResult.value : null,
-      albums,
-      baseUrl,
+  const candidateSets = await Promise.all(
+    topTracksResult.value.map((topTrack) =>
+      searchPlayableCandidates(artist, topTrack, lmsClient),
     ),
   );
+
+  return ok({
+    artist,
+    tracks: resolveArtistTopTracks(
+      artist,
+      topTracksResult.value,
+      candidateSets,
+    ),
+  });
+};
+
+export const getArtistTopAlbumsByName = async (
+  artist: string,
+  popularityClient: ArtistPopularityClient,
+  limit: number,
+): Promise<Result<ArtistTopAlbumsResponse, ArtistPopularityServiceError>> => {
+  const topAlbumsResult = await popularityClient.getArtistTopAlbums(
+    artist,
+    limit,
+  );
+  if (!topAlbumsResult.ok) {
+    return err(mapLastFmPopularityError(topAlbumsResult.error));
+  }
+
+  return ok({
+    artist,
+    albums: mapArtistAlbumPopularity(topAlbumsResult.value),
+  });
 };

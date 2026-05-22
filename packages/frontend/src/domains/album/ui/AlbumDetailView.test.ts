@@ -13,6 +13,7 @@ vi.mock('@/platform/api/albumApi', () => ({
 
 vi.mock('@/platform/api/tidalAlbumsApi', () => ({
   getTidalAlbumTracks: vi.fn(),
+  getTidalAlbumDetail: vi.fn(),
   resolveAlbum: vi.fn(),
 }))
 
@@ -504,9 +505,9 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
     return { wrapper, router }
   }
 
-  it('AC6: albumId "92" calls getAlbumDetail, NOT getTidalAlbumTracks', async () => {
+  it('AC6: albumId "92" calls getAlbumDetail, NOT getTidalAlbumDetail', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
       ok: true,
       value: makeAlbumDetail({ id: '92' }),
@@ -518,7 +519,7 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
     await nextTick()
 
     expect(getAlbumDetail).toHaveBeenCalledWith('92')
-    expect(getTidalAlbumTracks).not.toHaveBeenCalled()
+    expect(getTidalAlbumDetail).not.toHaveBeenCalled()
   })
 
   // Note: the year-string regression guard (string "2008" → Zod PARSE_ERROR) is in albumApi.test.ts.
@@ -576,25 +577,39 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     return { wrapper, router }
   }
 
-  it('AC1: calls getTidalAlbumTracks with LibraryView albumId "4.0" on mount', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+  it('AC1: calls getTidalAlbumDetail with LibraryView albumId "4.0" on mount', async () => {
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '4.0',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     await mountView()
     await nextTick()
     await nextTick()
 
-    expect(getTidalAlbumTracks).toHaveBeenCalledWith('4.0')
+    expect(getTidalAlbumDetail).toHaveBeenCalledWith('4.0')
   })
 
   it('AC1: "Play Album" button exists for Tidal LibraryView album', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '4.0',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper } = await mountView()
@@ -605,11 +620,18 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
   })
 
   it('AC1: clicking "Play Album" calls playAlbum("4.0")', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '4.0',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper } = await mountView()
@@ -635,10 +657,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     readonly router: Router
   }> => {
     const router = await createTestRouter(
-      [
-        { path: '/album/:albumId', component: AlbumDetailView },
-        { path: '/artist/:artistId', name: 'artist-detail', component: { template: '<div />' } },
-      ],
+      [{ path: '/album/:albumId', component: AlbumDetailView }],
       '/album/6.0.1.0',
     )
     window.history.replaceState(
@@ -658,25 +677,39 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     return { wrapper, router }
   }
 
-  it('AC2: calls getTidalAlbumTracks with artist-browse albumId "6.0.1.0" on mount', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+  it('AC2: calls getTidalAlbumDetail with artist-browse albumId "6.0.1.0" on mount', async () => {
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '6.0.1.0',
+        title: 'When I Fall In Love',
+        artist: 'Bill Evans',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     await mountView()
     await nextTick()
     await nextTick()
 
-    expect(getTidalAlbumTracks).toHaveBeenCalledWith('6.0.1.0')
+    expect(getTidalAlbumDetail).toHaveBeenCalledWith('6.0.1.0')
   })
 
   it('AC2: "Play Album" button exists for Tidal artist-browse album', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '6.0.1.0',
+        title: 'When I Fall In Love',
+        artist: 'Bill Evans',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper } = await mountView()
@@ -687,11 +720,18 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
   })
 
   it('AC2: clicking "Play Album" calls playAlbum("6.0.1.0")', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '6.0.1.0',
+        title: 'When I Fall In Love',
+        artist: 'Bill Evans',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper } = await mountView()
@@ -736,19 +776,26 @@ describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', 
     return { wrapper, router }
   }
 
-  it('AC2: calls getTidalAlbumTracks for "7_" prefix ID (not getAlbumDetail)', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+  it('AC2: calls getTidalAlbumDetail for "7_" prefix ID (not getAlbumDetail)', async () => {
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '7_sabrina carpenter.2.0.1.4',
+        title: 'Emails I Cant Send',
+        artist: 'Sabrina Carpenter',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     await mountView()
     await nextTick()
     await nextTick()
 
-    expect(getTidalAlbumTracks).toHaveBeenCalledWith('7_sabrina carpenter.2.0.1.4')
+    expect(getTidalAlbumDetail).toHaveBeenCalledWith('7_sabrina carpenter.2.0.1.4')
     expect(getAlbumDetail).not.toHaveBeenCalled()
   })
 })
@@ -767,7 +814,7 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     const router = await createTestRouter(
       [
         { path: '/album/:albumId', component: AlbumDetailView },
-        { path: '/artist/:artistId', name: 'artist-detail', component: { template: '<div />' } },
+        { path: '/artist/unified', name: 'unified-artist', component: { template: '<div />' } },
       ],
       '/album/6.0.1.0',
     )
@@ -792,10 +839,17 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
 
   // AC4: artist name rendered as <button> when tidalArtistId is in history.state
   it('AC4: renders artist name as button when tidalArtistId is in history.state', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '6.0.1.0',
+        title: 'When I Fall In Love',
+        artist: 'Bill Evans',
+        coverArtUrl: 'http://lms/imageproxy/abc/image.jpg',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper } = await mountTidalAlbumView()
@@ -808,12 +862,19 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     expect(artistButton.text()).toBe('Bill Evans')
   })
 
-  // AC4: clicking artist button navigates to Tidal artist page
-  it('AC4: clicking artist button navigates to /artist/:tidalArtistId?source=tidal', async () => {
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+  // AC4: clicking artist button navigates to unified-artist?name=artist
+  it('AC4: clicking artist button navigates to unified-artist?name=artist', async () => {
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '6.0.1.0',
+        title: 'When I Fall In Love',
+        artist: 'Bill Evans',
+        coverArtUrl: 'http://lms/imageproxy/abc/image.jpg',
+        tracks: [],
+        totalCount: 0,
+      },
     })
 
     const { wrapper, router } = await mountTidalAlbumView()
@@ -827,9 +888,8 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
 
     expect(pushSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        name: 'artist-detail',
-        params: { artistId: '6.0' },
-        query: { source: 'tidal' },
+        name: 'unified-artist',
+        query: { name: 'Bill Evans' },
       }),
     )
   })
@@ -1422,11 +1482,18 @@ describe('AlbumDetailView — enrichment', () => {
       '',
     )
 
-    const { getTidalAlbumTracks } = await import('@/platform/api/tidalAlbumsApi')
+    const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { getAlbumEnrichment } = await import('@/platform/api/enrichmentApi')
-    vi.mocked(getTidalAlbumTracks).mockResolvedValue({
+    vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
-      value: { tracks: [], totalCount: 0 },
+      value: {
+        id: '4.0',
+        title: 'Kind of Blue',
+        artist: 'Miles Davis',
+        coverArtUrl: '',
+        tracks: [],
+        totalCount: 0,
+      },
     })
     vi.mocked(getAlbumEnrichment).mockResolvedValue({
       ok: false,

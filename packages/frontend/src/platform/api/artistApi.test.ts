@@ -1,26 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { getArtistDetail, getArtistByName } from './artistApi'
-import type { ArtistDetailResponse, ArtistByNameResponse, ArtistApiError } from './artistApi'
+import { getArtistByName, getArtistTopAlbums, getArtistTopTracks } from './artistApi'
+import type { ArtistByNameResponse, ArtistApiError } from './artistApi'
 import type { Result } from '@signalform/shared'
-
-const makeArtistDetailResponse = (): ArtistDetailResponse => ({
-  id: '42',
-  name: 'Pink Floyd',
-  albums: [
-    {
-      id: '1',
-      title: 'The Wall',
-      releaseYear: 1979,
-      coverArtUrl: 'http://localhost:9000/music/101/cover.jpg',
-    },
-    {
-      id: '2',
-      title: 'Dark Side of the Moon',
-      releaseYear: 1973,
-      coverArtUrl: 'http://localhost:9000/music/201/cover.jpg',
-    },
-  ],
-})
 
 const fetchMock = vi.fn()
 
@@ -37,117 +18,7 @@ describe('artistApi', () => {
     vi.unstubAllEnvs()
   })
 
-  describe('getArtistDetail', () => {
-    it('returns ArtistDetailResponse on 200', async () => {
-      await givenApiReturns200(makeArtistDetailResponse())
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      await thenResultIsOk(result)
-      if (result.ok) {
-        expect(result.value.id).toBe('42')
-        expect(result.value.name).toBe('Pink Floyd')
-        expect(result.value.albums).toHaveLength(2)
-        expect(result.value.albums[0]?.coverArtUrl).toBe(
-          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F101%2Fcover.jpg',
-        )
-      }
-    })
-
-    it('returns NOT_FOUND error on 404', async () => {
-      await givenApiReturns404('Artist not found')
-
-      const result = await whenGetArtistDetailIsCalled('99')
-
-      await thenResultIsError(result)
-      await thenErrorTypeIs(result, 'NOT_FOUND')
-    })
-
-    it('returns SERVER_ERROR on 503', async () => {
-      await givenApiReturns503('LMS unreachable')
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      await thenResultIsError(result)
-      await thenErrorTypeIs(result, 'SERVER_ERROR')
-    })
-
-    it('returns TIMEOUT_ERROR on TimeoutError', async () => {
-      await givenFetchThrowsTimeoutError()
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      await thenResultIsError(result)
-      await thenErrorTypeIs(result, 'TIMEOUT_ERROR')
-    })
-
-    it('returns ABORT_ERROR on AbortError', async () => {
-      await givenFetchThrowsAbortError()
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      await thenResultIsError(result)
-      await thenErrorTypeIs(result, 'ABORT_ERROR')
-    })
-
-    it('returns NETWORK_ERROR on generic network failure', async () => {
-      await givenFetchThrowsNetworkError('ECONNREFUSED')
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      await thenResultIsError(result)
-      await thenErrorTypeIs(result, 'NETWORK_ERROR')
-    })
-
-    it('encodes artistId in URL', async () => {
-      await givenApiReturns200(makeArtistDetailResponse())
-
-      await whenGetArtistDetailIsCalled('artist with spaces')
-
-      await thenFetchWasCalledWithEncodedArtistId('artist%20with%20spaces')
-    })
-
-    it('returns PARSE_ERROR when response shape does not match schema', async () => {
-      fetchMock.mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: async () => ({ wrongField: 'not-an-artist-detail' }),
-      })
-
-      const result = await whenGetArtistDetailIsCalled('42')
-
-      expect(result.ok).toBe(false)
-      if (!result.ok) {
-        expect(result.error.type).toBe('PARSE_ERROR')
-      }
-    })
-  })
-
   // GIVEN helpers
-  const givenApiReturns200 = async (data: ArtistDetailResponse): Promise<void> => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => data,
-    })
-  }
-
-  const givenApiReturns404 = async (message: string): Promise<void> => {
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 404,
-      json: async () => ({ message }),
-    })
-  }
-
-  const givenApiReturns503 = async (message: string): Promise<void> => {
-    fetchMock.mockResolvedValue({
-      ok: false,
-      status: 503,
-      json: async () => ({ message }),
-    })
-  }
-
   const givenFetchThrowsTimeoutError = async (): Promise<void> => {
     fetchMock.mockRejectedValue(new DOMException('The operation timed out', 'TimeoutError'))
   }
@@ -158,39 +29,6 @@ describe('artistApi', () => {
 
   const givenFetchThrowsNetworkError = async (message: string): Promise<void> => {
     fetchMock.mockRejectedValue(new Error(message))
-  }
-
-  // WHEN helpers
-  const whenGetArtistDetailIsCalled = async (
-    artistId: string,
-  ): Promise<Result<ArtistDetailResponse, ArtistApiError>> => {
-    return await getArtistDetail(artistId)
-  }
-
-  // THEN helpers
-  const thenResultIsOk = async (
-    result: Result<ArtistDetailResponse, ArtistApiError>,
-  ): Promise<void> => {
-    expect(result.ok).toBe(true)
-  }
-
-  const thenResultIsError = async (
-    result: Result<ArtistDetailResponse, ArtistApiError>,
-  ): Promise<void> => {
-    expect(result.ok).toBe(false)
-  }
-
-  const thenErrorTypeIs = async (
-    result: Result<ArtistDetailResponse, ArtistApiError>,
-    expectedType: string,
-  ): Promise<void> => {
-    if (!result.ok) {
-      expect(result.error.type).toBe(expectedType)
-    }
-  }
-
-  const thenFetchWasCalledWithEncodedArtistId = async (encodedId: string): Promise<void> => {
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(encodedId), expect.any(Object))
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -338,6 +176,68 @@ describe('artistApi', () => {
         expect(result.value.localAlbums).toHaveLength(0)
         expect(result.value.tidalAlbums).toHaveLength(0)
       }
+    })
+  })
+
+  describe('artist popularity endpoints', () => {
+    it('returns proxied playable top tracks', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          artist: 'Pink Floyd',
+          tracks: [
+            {
+              id: 'track-1',
+              title: 'Time',
+              artist: 'Pink Floyd',
+              album: 'The Dark Side of the Moon',
+              url: 'file:///music/time.flac',
+              source: 'local',
+              playcount: 1000,
+              listeners: 500,
+              rank: 1,
+              coverArtUrl: 'http://localhost:9000/music/101/cover.jpg',
+            },
+          ],
+        }),
+      })
+
+      const result = await getArtistTopTracks('Pink Floyd')
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.tracks[0]?.coverArtUrl).toBe(
+          '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2F101%2Fcover.jpg',
+        )
+      }
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/artist/top-tracks?name=Pink%20Floyd'),
+        expect.any(Object),
+      )
+    })
+
+    it('returns album popularity entries', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          artist: 'Pink Floyd',
+          albums: [{ title: 'The Wall', artist: 'Pink Floyd', playcount: 1000, rank: 1 }],
+        }),
+      })
+
+      const result = await getArtistTopAlbums('Pink Floyd')
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.albums[0]?.title).toBe('The Wall')
+        expect(result.value.albums[0]?.rank).toBe(1)
+      }
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/api/artist/top-albums?name=Pink%20Floyd'),
+        expect.any(Object),
+      )
     })
   })
 })

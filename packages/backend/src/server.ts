@@ -73,6 +73,9 @@ const createLmsProxy = (): LmsClient => {
     getTidalFeaturedAlbums: forwardLmsCall(
       (client) => client.getTidalFeaturedAlbums,
     ),
+    getTidalAlbumParentItems: forwardLmsCall(
+      (client) => client.getTidalAlbumParentItems,
+    ),
     findTidalSearchAlbumId: forwardLmsCall(
       (client) => client.findTidalSearchAlbumId,
     ),
@@ -259,7 +262,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
 
   createHealthRoute(server, lmsProxy, lastFmClient);
   createSearchRoute(server, lmsProxy);
-  createMetadataRoute(server, lmsProxy, lmsConfigProxy);
+  createMetadataRoute(server, lmsProxy, lmsConfigProxy, lastFmClient);
   createEnrichmentRoute(
     server,
     lastFmClient,

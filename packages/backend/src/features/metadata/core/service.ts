@@ -4,6 +4,9 @@ import type {
   AlbumTrack,
   ArtistAlbum,
   ArtistDetail,
+  ArtistAlbumPopularity,
+  ArtistTopTrack,
+  ArtistTopTrackInput,
 } from "./types.js";
 
 type AlbumTrackInput = {
@@ -27,6 +30,19 @@ type ArtistAlbumInput = {
   readonly artist?: string;
   readonly year?: number | string | null;
   readonly artwork_track_id?: string;
+};
+
+type ArtistTopTrackCandidate = {
+  readonly id: string;
+  readonly title: string;
+  readonly artist: string;
+  readonly albumartist?: string;
+  readonly album: string;
+  readonly url: string;
+  readonly source: "local" | "qobuz" | "tidal" | "unknown";
+  readonly type: "track" | "artist" | "album";
+  readonly coverArtUrl?: string;
+  readonly audioQuality?: ArtistTopTrack["audioQuality"];
 };
 
 const findMostCommonArtist = (artists: readonly string[]): string => {
@@ -54,6 +70,13 @@ const parseYear = (raw: number | string | null | undefined): number | null => {
   const parsed = Number(raw);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
+
+const normalizeMatchText = (value: string): string =>
+  value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
 
 const mapAlbumTrack = (raw: AlbumTrackInput, position: number): AlbumTrack => ({
   id: String(raw.id),
@@ -119,3 +142,89 @@ export const buildArtistDetail = (
     .sort((a, b) => (parseYear(b.year) ?? 0) - (parseYear(a.year) ?? 0))
     .map((raw) => mapArtistAlbum(raw, baseUrl)),
 });
+
+const sourceRank = (
+  source: "local" | "qobuz" | "tidal" | "unknown",
+): number => {
+  if (source === "local") {
+    return 0;
+  }
+  if (source === "qobuz") {
+    return 1;
+  }
+  if (source === "tidal") {
+    return 2;
+  }
+  return 3;
+};
+
+const selectPlayableTopTrack = (
+  artist: string,
+  topTrack: ArtistTopTrackInput,
+  candidates: readonly ArtistTopTrackCandidate[],
+): ArtistTopTrackCandidate | undefined => {
+  const normalizedArtist = normalizeMatchText(artist);
+  const normalizedTitle = normalizeMatchText(topTrack.name);
+
+  return [...candidates]
+    .filter((candidate) => {
+      const candidateArtist = normalizeMatchText(
+        candidate.albumartist ?? candidate.artist,
+      );
+      return (
+        candidate.type === "track" &&
+        normalizeMatchText(candidate.title) === normalizedTitle &&
+        candidateArtist === normalizedArtist &&
+        candidate.url.trim() !== ""
+      );
+    })
+    .sort(
+      (left, right) => sourceRank(left.source) - sourceRank(right.source),
+    )[0];
+};
+
+export const resolveArtistTopTracks = (
+  artist: string,
+  topTracks: readonly ArtistTopTrackInput[],
+  candidateSets: readonly (readonly ArtistTopTrackCandidate[])[],
+): readonly ArtistTopTrack[] =>
+  topTracks.flatMap((topTrack, index): readonly ArtistTopTrack[] => {
+    const playable = selectPlayableTopTrack(
+      artist,
+      topTrack,
+      candidateSets[index] ?? [],
+    );
+    if (playable === undefined) {
+      return [];
+    }
+
+    return [
+      {
+        id: playable.id,
+        title: playable.title,
+        artist: playable.artist,
+        album: playable.album,
+        url: playable.url,
+        source: playable.source,
+        playcount: topTrack.playcount,
+        listeners: topTrack.listeners,
+        rank: index + 1,
+        coverArtUrl: playable.coverArtUrl,
+        audioQuality: playable.audioQuality,
+      },
+    ];
+  });
+
+export const mapArtistAlbumPopularity = (
+  topAlbums: readonly {
+    readonly name: string;
+    readonly artist: string;
+    readonly playcount: number;
+  }[],
+): readonly ArtistAlbumPopularity[] =>
+  topAlbums.map((album, index) => ({
+    title: album.name,
+    artist: album.artist,
+    playcount: album.playcount,
+    rank: index + 1,
+  }));

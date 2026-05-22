@@ -7,23 +7,11 @@ import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type {
   ArtistAlbum,
   ArtistApiError,
+  ArtistTopAlbumsResponse,
+  ArtistTopTracksResponse,
   ArtistByNameAlbum,
   ArtistByNameResponse,
-  ArtistDetailResponse,
 } from '@/domains/artist/core/types'
-
-const ArtistAlbumSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  releaseYear: z.number().nullable(),
-  coverArtUrl: z.string(),
-})
-
-const ArtistDetailResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  albums: z.array(ArtistAlbumSchema),
-})
 
 const ArtistByNameAlbumSchema = z.object({
   id: z.string(),
@@ -38,6 +26,36 @@ const ArtistByNameAlbumSchema = z.object({
 const ArtistByNameResponseSchema = z.object({
   localAlbums: z.array(ArtistByNameAlbumSchema),
   tidalAlbums: z.array(ArtistByNameAlbumSchema),
+})
+
+const ArtistTopTrackSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  url: z.string(),
+  source: z.enum(['local', 'qobuz', 'tidal', 'unknown']),
+  playcount: z.number(),
+  listeners: z.number(),
+  rank: z.number(),
+  coverArtUrl: z.string().optional(),
+})
+
+const ArtistTopTracksResponseSchema = z.object({
+  artist: z.string(),
+  tracks: z.array(ArtistTopTrackSchema),
+})
+
+const ArtistAlbumPopularitySchema = z.object({
+  title: z.string(),
+  artist: z.string(),
+  playcount: z.number(),
+  rank: z.number(),
+})
+
+const ArtistTopAlbumsResponseSchema = z.object({
+  artist: z.string(),
+  albums: z.array(ArtistAlbumPopularitySchema),
 })
 
 const mapArtistParseError = (message: string): ArtistApiError => ({
@@ -80,27 +98,54 @@ export const getArtistByName = async (
   )
 }
 
-export const getArtistDetail = async (
-  artistId: string,
-): Promise<Result<ArtistDetailResponse, ArtistApiError>> => {
+export const getArtistTopTracks = async (
+  name: string,
+): Promise<Result<ArtistTopTracksResponse, ArtistApiError>> => {
   return await fetchJsonResult(
-    getApiUrl(`/api/artist/${encodeURIComponent(artistId)}`),
+    getApiUrl(`/api/artist/top-tracks?name=${encodeURIComponent(name)}`),
+    {
+      method: 'GET',
+      signal: AbortSignal.timeout(10000),
+    },
+    {
+      schema: ArtistTopTracksResponseSchema,
+      mapValue: (value: ArtistTopTracksResponse): ArtistTopTracksResponse => ({
+        ...value,
+        tracks: value.tracks.map((track) => ({
+          ...track,
+          coverArtUrl: proxyCoverArtUrl(track.coverArtUrl),
+        })),
+      }),
+      mapHttpError: async (response) => {
+        const message =
+          (await parseErrorBody(response)) ??
+          `Artist top tracks fetch failed: HTTP ${response.status}`
+
+        return response.status === 404
+          ? { type: 'NOT_FOUND', message }
+          : { type: 'SERVER_ERROR', status: response.status, message }
+      },
+      mapThrownError: mapArtistThrownError,
+      mapParseError: mapArtistParseError,
+    },
+  )
+}
+
+export const getArtistTopAlbums = async (
+  name: string,
+): Promise<Result<ArtistTopAlbumsResponse, ArtistApiError>> => {
+  return await fetchJsonResult(
+    getApiUrl(`/api/artist/top-albums?name=${encodeURIComponent(name)}`),
     {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     },
     {
-      schema: ArtistDetailResponseSchema,
-      mapValue: (value: ArtistDetailResponse): ArtistDetailResponse => ({
-        ...value,
-        albums: value.albums.map((album) => ({
-          ...album,
-          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
-        })),
-      }),
+      schema: ArtistTopAlbumsResponseSchema,
       mapHttpError: async (response) => {
         const message =
-          (await parseErrorBody(response)) ?? `Artist fetch failed: HTTP ${response.status}`
+          (await parseErrorBody(response)) ??
+          `Artist top albums fetch failed: HTTP ${response.status}`
 
         return response.status === 404
           ? { type: 'NOT_FOUND', message }
@@ -115,7 +160,8 @@ export const getArtistDetail = async (
 export type {
   ArtistAlbum,
   ArtistApiError,
+  ArtistTopAlbumsResponse,
+  ArtistTopTracksResponse,
   ArtistByNameAlbum,
   ArtistByNameResponse,
-  ArtistDetailResponse,
 }

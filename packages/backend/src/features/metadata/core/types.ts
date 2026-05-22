@@ -39,3 +39,46 @@ export type ArtistDetail = {
 export type ArtistServiceError =
   | { readonly type: "LmsError"; readonly message: string }
   | { readonly type: "NotFound"; readonly message: string };
+
+export type ArtistTopTrackInput = {
+  readonly name: string;
+  readonly artist: string;
+  readonly playcount: number;
+  readonly listeners: number;
+  readonly url: string;
+};
+
+export type ArtistTopTrack = {
+  readonly id: string;
+  readonly title: string;
+  readonly artist: string;
+  readonly album: string;
+  readonly url: string;
+  readonly source: "local" | "qobuz" | "tidal" | "unknown";
+  readonly playcount: number;
+  readonly listeners: number;
+  readonly rank: number;
+  readonly coverArtUrl?: string;
+  readonly audioQuality?: AudioQuality;
+};
+
+export type ArtistTopTracksResponse = {
+  readonly artist: string;
+  readonly tracks: ReadonlyArray<ArtistTopTrack>;
+};
+
+export type ArtistAlbumPopularity = {
+  readonly title: string;
+  readonly artist: string;
+  readonly playcount: number;
+  readonly rank: number;
+};
+
+export type ArtistTopAlbumsResponse = {
+  readonly artist: string;
+  readonly albums: ReadonlyArray<ArtistAlbumPopularity>;
+};
+
+export type ArtistPopularityServiceError =
+  | { readonly type: "NotFound"; readonly message: string }
+  | { readonly type: "Unavailable"; readonly message: string };

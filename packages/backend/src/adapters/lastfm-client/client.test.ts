@@ -441,6 +441,90 @@ describe("createLastFmClient - getSimilarArtists", () => {
   });
 });
 
+describe("createLastFmClient - artist popularity", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("maps artist.getTopTracks results", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          toptracks: {
+            track: [
+              {
+                name: "Creep",
+                artist: { name: "Radiohead" },
+                mbid: "",
+                playcount: "123456",
+                listeners: "7890",
+                url: "https://www.last.fm/music/Radiohead/_/Creep",
+              },
+            ],
+          },
+        }),
+    });
+
+    const result = await makeClient().getArtistTopTracks("Radiohead", 5);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toEqual({
+        name: "Creep",
+        artist: "Radiohead",
+        mbid: undefined,
+        playcount: 123456,
+        listeners: 7890,
+        url: "https://www.last.fm/music/Radiohead/_/Creep",
+      });
+    }
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "method=artist.getTopTracks",
+    );
+  });
+
+  it("maps artist.getTopAlbums results", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          topalbums: {
+            album: [
+              {
+                name: "OK Computer",
+                artist: { name: "Radiohead" },
+                mbid: "album-mbid",
+                playcount: "456789",
+                url: "https://www.last.fm/music/Radiohead/OK+Computer",
+              },
+            ],
+          },
+        }),
+    });
+
+    const result = await makeClient().getArtistTopAlbums("Radiohead", 5);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]).toEqual({
+        name: "OK Computer",
+        artist: "Radiohead",
+        mbid: "album-mbid",
+        playcount: 456789,
+        url: "https://www.last.fm/music/Radiohead/OK+Computer",
+      });
+    }
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "method=artist.getTopAlbums",
+    );
+  });
+});
+
 describe("createLastFmClient - getArtistInfo", () => {
   const makeClient = (): ReturnType<typeof createLastFmClient> =>
     createLastFmClient({

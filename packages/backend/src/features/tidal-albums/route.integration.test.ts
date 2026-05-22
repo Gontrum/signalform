@@ -25,6 +25,9 @@ type MockLmsClient = LmsClient & {
   readonly getTidalFeaturedAlbums: ReturnType<
     typeof vi.fn<LmsClient["getTidalFeaturedAlbums"]>
   >;
+  readonly getTidalAlbumParentItems: ReturnType<
+    typeof vi.fn<LmsClient["getTidalAlbumParentItems"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -41,6 +44,9 @@ const createMockLmsClient = (): MockLmsClient => ({
   getTidalFeaturedAlbums: vi
     .fn<LmsClient["getTidalFeaturedAlbums"]>()
     .mockResolvedValue(ok({ albums: [], count: 0 })),
+  getTidalAlbumParentItems: vi
+    .fn<LmsClient["getTidalAlbumParentItems"]>()
+    .mockResolvedValue(ok({ items: [], count: 0 })),
 });
 
 const parseJson = (body: string): unknown => JSON.parse(body);
@@ -651,5 +657,188 @@ describe("GET /api/tidal/featured-albums", () => {
     expect(response.statusCode).toBe(503);
     const body = parseCodeBody(response.body);
     expect(body.code).toBe("LMS_UNREACHABLE");
+  });
+});
+
+const makeParentItemsResult = (
+  albumId: string,
+  name: string,
+  image?: string,
+): {
+  readonly items: ReadonlyArray<{
+    readonly id: string;
+    readonly name: string;
+    readonly image?: string;
+  }>;
+  readonly count: number;
+} => ({
+  items: [{ id: albumId, name, image }],
+  count: 1,
+});
+
+describe("GET /api/tidal/albums/:albumId", () => {
+  let server: FastifyInstance;
+  let mockLmsClient: MockLmsClient;
+
+  beforeEach(async () => {
+    mockLmsClient = createMockLmsClient();
+    server = Fastify({ logger: false });
+    createTidalAlbumsRoute(server, mockLmsClient, defaultConfig);
+    await server.ready();
+  });
+
+  afterEach(() => {
+    void server.close();
+  });
+
+  it("returns 200 with id, title, artist, coverArtUrl, tracks, totalCount on success", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok(
+        makeParentItemsResult(
+          "6.0.1.0",
+          "OK Computer - Radiohead",
+          "/imageproxy/img.jpg",
+        ),
+      ),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok(makeTidalTracksResult(3)),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/6.0.1.0",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseJson(response.body);
+    expect(isRecord(body) ? body["id"] : undefined).toBe("6.0.1.0");
+    expect(isRecord(body) ? body["title"] : undefined).toBe("OK Computer");
+    expect(isRecord(body) ? body["artist"] : undefined).toBe("Radiohead");
+    expect(isRecord(body) ? body["coverArtUrl"] : undefined).toContain(
+      "/imageproxy/img.jpg",
+    );
+    expect(
+      isRecord(body) && Array.isArray(body["tracks"])
+        ? body["tracks"].length
+        : -1,
+    ).toBe(3);
+    expect(isRecord(body) ? body["totalCount"] : undefined).toBe(3);
+  });
+
+  it("extracts title and artist from '{title} - {artist}' name format (library albums)", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok(makeParentItemsResult("4.0", "OK Computer - Radiohead")),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok({ tracks: [], count: 0 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/4.0",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseJson(response.body);
+    expect(isRecord(body) ? body["title"] : undefined).toBe("OK Computer");
+    expect(isRecord(body) ? body["artist"] : undefined).toBe("Radiohead");
+  });
+
+  it("returns empty artist string when name has no ' - ' separator (artist-browse albums)", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok(makeParentItemsResult("6.0.1.0", "Pablo Honey")),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok({ tracks: [], count: 0 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/6.0.1.0",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseJson(response.body);
+    expect(isRecord(body) ? body["title"] : undefined).toBe("Pablo Honey");
+    expect(isRecord(body) ? body["artist"] : undefined).toBe("");
+  });
+
+  it("returns 503 when getTidalAlbumParentItems fails", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      err({ type: "NetworkError", message: "Connection refused" }),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok({ tracks: [], count: 0 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/4.0",
+    });
+
+    expect(response.statusCode).toBe(503);
+    const body = parseCodeBody(response.body);
+    expect(body.code).toBe("LMS_UNREACHABLE");
+  });
+
+  it("returns 503 when getTidalAlbumTracks fails", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok(makeParentItemsResult("4.0", "OK Computer - Radiohead")),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      err({ type: "NetworkError", message: "Connection refused" }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/4.0",
+    });
+
+    expect(response.statusCode).toBe(503);
+    const body = parseCodeBody(response.body);
+    expect(body.code).toBe("LMS_UNREACHABLE");
+  });
+
+  it("returns empty title and artist when no matching item found in parent items", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok({ items: [], count: 0 }),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok({ tracks: [], count: 0 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/4.0",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseJson(response.body);
+    expect(isRecord(body) ? body["title"] : undefined).toBe("");
+    expect(isRecord(body) ? body["artist"] : undefined).toBe("");
+  });
+
+  it("passes albumId to both getTidalAlbumParentItems and getTidalAlbumTracks", async () => {
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok({ items: [], count: 0 }),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok({ tracks: [], count: 0 }),
+    );
+
+    await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/6.0.1.3",
+    });
+
+    expect(mockLmsClient.getTidalAlbumParentItems).toHaveBeenCalledWith(
+      "6.0.1.3",
+    );
+    expect(mockLmsClient.getTidalAlbumTracks).toHaveBeenCalledWith(
+      "6.0.1.3",
+      0,
+      999,
+    );
   });
 });

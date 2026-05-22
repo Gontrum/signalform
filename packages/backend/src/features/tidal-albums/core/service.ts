@@ -7,6 +7,7 @@
 
 import type {
   TidalAlbumRaw,
+  TidalArtistAlbumRaw,
   TidalTrackRaw,
 } from "../../../adapters/lms-client/index.js";
 import type {
@@ -14,6 +15,7 @@ import type {
   TidalAlbumsResponse,
   TidalTrack,
   TidalAlbumTracksResponse,
+  TidalAlbumDetail,
 } from "./types.js";
 
 const mapTidalAlbum = (raw: TidalAlbumRaw, baseUrl: string): TidalAlbum => {
@@ -54,3 +56,51 @@ export const mapTidalAlbums = (
   albums: rawAlbums.map((raw) => mapTidalAlbum(raw, baseUrl)),
   totalCount: count,
 });
+
+export const extractAlbumMeta = (
+  name: string,
+  image: string | undefined,
+  baseUrl: string,
+): {
+  readonly title: string;
+  readonly artist: string;
+  readonly coverArtUrl: string;
+} => {
+  const lastDashIdx = name.lastIndexOf(" - ");
+  const title = lastDashIdx !== -1 ? name.substring(0, lastDashIdx) : name;
+  const artist = lastDashIdx !== -1 ? name.substring(lastDashIdx + 3) : "";
+  const coverArtUrl = image ? `${baseUrl}${image}` : "";
+  return { title, artist, coverArtUrl };
+};
+
+export const mapTidalAlbumDetail = (
+  albumId: string,
+  metaName: string,
+  metaImage: string | undefined,
+  rawTracks: ReadonlyArray<TidalTrackRaw>,
+  trackCount: number,
+  baseUrl: string,
+): TidalAlbumDetail => {
+  const { title, artist, coverArtUrl } = extractAlbumMeta(
+    metaName,
+    metaImage,
+    baseUrl,
+  );
+  const { tracks } = mapTidalAlbumTracks(rawTracks, trackCount);
+  return {
+    id: albumId,
+    title,
+    artist,
+    coverArtUrl,
+    tracks,
+    totalCount: trackCount,
+  };
+};
+
+export const findAlbumMetaFromParentItems = (
+  albumId: string,
+  items: ReadonlyArray<TidalArtistAlbumRaw>,
+): { readonly name: string; readonly image: string | undefined } => {
+  const match = items.find((item) => item.id === albumId);
+  return { name: match?.name ?? "", image: match?.image };
+};

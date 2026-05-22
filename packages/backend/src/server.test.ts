@@ -160,6 +160,7 @@ const createMockLmsClient = (label: string): LmsClient => ({
   getTidalArtistAlbums: vi.fn(async () => ok({ albums: [], count: 0 })),
   searchTidalArtists: vi.fn(async () => ok({ artists: [], count: 0 })),
   getTidalFeaturedAlbums: vi.fn(async () => ok({ albums: [], count: 0 })),
+  getTidalAlbumParentItems: vi.fn(async () => ok({ items: [], count: 0 })),
   findTidalSearchAlbumId: vi.fn(async () => ok(null)),
   rescanLibrary: vi.fn(async () => ok(undefined)),
   getRescanProgress: vi.fn(async () =>
@@ -303,6 +304,8 @@ describe("createServer", () => {
       getSimilarArtists: vi.fn(),
       getArtistInfo: vi.fn(),
       getAlbumInfo: vi.fn(),
+      getArtistTopTracks: vi.fn(),
+      getArtistTopAlbums: vi.fn(),
       getCircuitState: vi.fn(() => "CLOSED"),
     };
     createLastFmClientMock.mockReturnValue(baseLastFmClient);

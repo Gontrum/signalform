@@ -16,6 +16,24 @@ beforeEach(() => {
 vi.mock('@/platform/api/artistApi', () => ({
   getArtistDetail: vi.fn(),
   getArtistByName: vi.fn(),
+  getArtistTopTracks: vi.fn(),
+  getArtistTopAlbums: vi.fn(),
+}))
+
+vi.mock('@/platform/api/playbackApi', () => ({
+  playTrack: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  nextTrack: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  previousTrack: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  pausePlayback: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  resumePlayback: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  setVolume: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  getVolume: vi.fn().mockResolvedValue({ ok: true, value: 50 }),
+  seek: vi.fn().mockResolvedValue({ ok: true, value: undefined }),
+  getCurrentTime: vi.fn().mockResolvedValue({ ok: true, value: 0 }),
+  getPlaybackStatus: vi.fn().mockResolvedValue({
+    ok: true,
+    value: { status: 'stopped', currentTime: 0, queuePreview: [] },
+  }),
 }))
 
 vi.mock('@/platform/api/enrichmentApi', async (importOriginal) => {
@@ -29,6 +47,10 @@ vi.mock('@/platform/api/enrichmentApi', async (importOriginal) => {
 
 vi.mock('@/platform/api/heroImageApi', () => ({
   getArtistHeroImage: vi.fn(),
+}))
+
+vi.mock('@/platform/api/tidalAlbumsApi', () => ({
+  resolveAlbum: vi.fn(),
 }))
 
 const makeResponse = (overrides: Partial<ArtistByNameResponse> = {}): ArtistByNameResponse => ({
@@ -91,6 +113,19 @@ describe('UnifiedArtistView', () => {
       error: { type: 'NOT_FOUND', message: 'No similar artists' },
     })
     vi.mocked(getArtistHeroImage).mockResolvedValue({ ok: true, value: null })
+
+    const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(resolveAlbum).mockResolvedValue({ ok: true, value: { albumId: null } })
+
+    const { getArtistTopTracks, getArtistTopAlbums } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: false,
+      error: { type: 'NOT_FOUND', message: 'No top tracks' },
+    })
+    vi.mocked(getArtistTopAlbums).mockResolvedValue({
+      ok: false,
+      error: { type: 'NOT_FOUND', message: 'No top albums' },
+    })
   })
 
   const mountView = async (): Promise<TestContext> => {
@@ -271,7 +306,7 @@ describe('UnifiedArtistView', () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: 'album-detail', params: { albumId: '42' } })
   })
 
-  it('navigates to tidal-search-album when Tidal album is clicked', async () => {
+  it('navigates to tidal-search-album when Tidal album with search ID is clicked', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistByName).mockResolvedValue({
       ok: true,
@@ -290,6 +325,40 @@ describe('UnifiedArtistView', () => {
     expect(pushSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         name: 'tidal-search-album',
+      }),
+    )
+  })
+
+  it('navigates to album-detail when Tidal album with browse ID is clicked', async () => {
+    const { getArtistByName } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({
+      ok: true,
+      value: makeResponse({
+        tidalAlbums: [
+          {
+            id: '7_Berliner Philharmoniker.2.0.1.170',
+            title: 'Mahler: Symphony No. 5',
+            artist: 'Berliner Philharmoniker',
+            source: 'tidal',
+            coverArtUrl: 'http://localhost:9000/imageproxy/cover.jpg',
+          },
+        ],
+      }),
+    })
+
+    const context = await mountView()
+    const pushSpy = vi.spyOn(context.router, 'push')
+    await nextTick()
+    await nextTick()
+
+    const tidalAlbums = context.wrapper.findAll('[data-testid="tidal-album-item"]')
+    await tidalAlbums[0]?.trigger('click')
+    await nextTick()
+
+    expect(pushSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'album-detail',
+        params: { albumId: '7_Berliner Philharmoniker.2.0.1.170' },
       }),
     )
   })
@@ -688,5 +757,122 @@ describe('UnifiedArtistView', () => {
     // Hero skeleton was removed when migrating to useArtistImage composable.
     // Image appears reactively once Fanart.tv resolves — no blocking skeleton.
     expect(true).toBe(true)
+  })
+
+  // ── Top tracks tests (AV-009) ─────────────────────────────────────────────
+
+  it('renders top-tracks-section when getArtistTopTracks returns tracks', async () => {
+    const { getArtistByName } = await import('@/platform/api/artistApi')
+    const { getArtistTopTracks } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        tracks: [
+          {
+            id: 't1',
+            title: 'Creep',
+            artist: 'Radiohead',
+            album: 'Pablo Honey',
+            url: 'file:///creep.flac',
+            source: 'local',
+            playcount: 1000,
+            listeners: 500,
+            rank: 1,
+          },
+        ],
+      },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    expect(context.wrapper.find('[data-testid="top-tracks-section"]').exists()).toBe(true)
+    expect(context.wrapper.find('[data-testid="top-track-title"]').text()).toBe('Creep')
+  })
+
+  it('top-tracks-section absent when getArtistTopTracks returns no tracks', async () => {
+    const { getArtistByName } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    // getArtistTopTracks mock returns error by default — set explicit empty success
+    const { getArtistTopTracks } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: { artist: 'Radiohead', tracks: [] },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    expect(context.wrapper.find('[data-testid="top-tracks-section"]').exists()).toBe(false)
+  })
+
+  it('clicking top-track-play-button calls playTrack with track url', async () => {
+    const { getArtistByName, getArtistTopTracks } = await import('@/platform/api/artistApi')
+    const { playTrack } = await import('@/platform/api/playbackApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        tracks: [
+          {
+            id: 't1',
+            title: 'Creep',
+            artist: 'Radiohead',
+            album: 'Pablo Honey',
+            url: 'file:///creep.flac',
+            source: 'local',
+            playcount: 1000,
+            listeners: 500,
+            rank: 1,
+          },
+        ],
+      },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    await context.wrapper.find('[data-testid="top-track-play-button"]').trigger('click')
+    await nextTick()
+
+    expect(playTrack).toHaveBeenCalledWith('file:///creep.flac')
+  })
+
+  // ── Album sorting test (AV-010) ───────────────────────────────────────────
+
+  it('sorts tidal albums by last.fm popularity when sort-popularity is clicked', async () => {
+    const { getArtistByName, getArtistTopAlbums } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({
+      ok: true,
+      value: makeResponse({
+        tidalAlbums: [
+          { id: 'ta1', title: 'The Wall', artist: 'Radiohead', source: 'tidal' },
+          { id: 'ta2', title: 'Pablo Honey', artist: 'Radiohead', source: 'tidal' },
+        ],
+      }),
+    })
+    vi.mocked(getArtistTopAlbums).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        albums: [
+          { title: 'Pablo Honey', artist: 'Radiohead', playcount: 900, rank: 1 },
+          { title: 'The Wall', artist: 'Radiohead', playcount: 800, rank: 2 },
+        ],
+      },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+    await context.wrapper.find('[data-testid="artist-sort-popularity"]').trigger('click')
+    await nextTick()
+
+    const albumTitles = context.wrapper
+      .findAll('[data-testid="tidal-album-item"] [data-testid="album-title"]')
+      .map((n) => n.text())
+    expect(albumTitles).toEqual(['Pablo Honey', 'The Wall'])
   })
 })

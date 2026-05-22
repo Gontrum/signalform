@@ -4,7 +4,12 @@ import type {
   LmsClient,
   LmsConfig,
 } from "../../../adapters/lms-client/index.js";
-import { mapTidalAlbums, mapTidalAlbumTracks } from "../core/service.js";
+import {
+  mapTidalAlbums,
+  mapTidalAlbumTracks,
+  mapTidalAlbumDetail,
+  findAlbumMetaFromParentItems,
+} from "../core/service.js";
 
 const TidalAlbumTracksParamsSchema = z.object({
   albumId: z.string().trim().min(1, "Album ID is required"),
@@ -115,6 +120,51 @@ export const createTidalAlbumsRoute = (
       }
 
       return reply.code(200).send({ albumId: result.value });
+    },
+  );
+
+  fastify.get<{ readonly Params: unknown }>(
+    "/api/tidal/albums/:albumId",
+    async (
+      request: FastifyRequest<{ readonly Params: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const validation = TidalAlbumTracksParamsSchema.safeParse(request.params);
+      if (!validation.success) {
+        return reply
+          .code(400)
+          .send({ message: "Invalid album ID", code: "INVALID_INPUT" });
+      }
+
+      const { albumId } = validation.data;
+      const baseUrl = `http://${config.host}:${config.port}`;
+
+      const [parentItemsResult, tracksResult] = await Promise.all([
+        lmsClient.getTidalAlbumParentItems(albumId),
+        lmsClient.getTidalAlbumTracks(albumId, 0, 999),
+      ]);
+
+      if (!parentItemsResult.ok || !tracksResult.ok) {
+        return reply
+          .code(503)
+          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
+      }
+
+      const { name: metaName, image: metaImage } = findAlbumMetaFromParentItems(
+        albumId,
+        parentItemsResult.value.items,
+      );
+
+      const detail = mapTidalAlbumDetail(
+        albumId,
+        metaName,
+        metaImage,
+        tracksResult.value.tracks,
+        tracksResult.value.count,
+        baseUrl,
+      );
+
+      return reply.code(200).send(detail);
     },
   );
 

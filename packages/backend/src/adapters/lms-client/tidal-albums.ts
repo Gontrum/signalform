@@ -64,6 +64,15 @@ export type TidalAlbumsMethods = {
       LmsError
     >
   >;
+  readonly getTidalAlbumParentItems: (albumId: string) => Promise<
+    Result<
+      {
+        readonly items: readonly TidalArtistAlbumRaw[];
+        readonly count: number;
+      },
+      LmsError
+    >
+  >;
 };
 
 /**
@@ -251,6 +260,47 @@ export const createTidalAlbumsMethods = (
       const count = result.value.count ?? 0;
 
       return ok({ albums, count });
+    },
+
+    getTidalAlbumParentItems: async (
+      albumId: string,
+    ): Promise<
+      Result<
+        {
+          readonly items: readonly TidalArtistAlbumRaw[];
+          readonly count: number;
+        },
+        LmsError
+      >
+    > => {
+      const dotIndex = albumId.lastIndexOf(".");
+      if (dotIndex === -1) {
+        return ok({ items: [], count: 0 });
+      }
+
+      const parentId = albumId.substring(0, dotIndex);
+      const command: LmsCommand = [
+        "tidal",
+        "items",
+        0,
+        999,
+        `item_id:${parentId}`,
+        "want_url:1",
+      ];
+
+      const result = await executeCommand(
+        command,
+        tidalArtistAlbumsPayloadParser,
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      const items = result.value.loop_loop ?? [];
+      const count = result.value.count ?? 0;
+
+      return ok({ items, count });
     },
   };
 };

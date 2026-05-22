@@ -8,5 +8,7 @@ export type {
   SimilarArtist,
   ArtistInfo,
   AlbumInfo,
+  ArtistTopTrack,
+  ArtistTopAlbum,
   CircuitBreakerConfig,
 } from "./types.js";

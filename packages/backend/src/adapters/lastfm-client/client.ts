@@ -6,6 +6,8 @@ import type {
   SimilarArtist,
   ArtistInfo,
   AlbumInfo,
+  ArtistTopTrack,
+  ArtistTopAlbum,
   LastFmClient,
 } from "./types.js";
 
@@ -307,6 +309,89 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         tags: extractTagNames(tagsRecord?.["tag"]),
         wiki: String(wikiRecord?.["summary"] ?? ""),
       });
+    },
+
+    getArtistTopTracks: async (
+      artist,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly ArtistTopTrack[], LastFmError>> => {
+      const url = buildUrl({ method: "artist.getTopTracks", artist, limit });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const topTracksRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "toptracks")
+        : undefined;
+      const tracks = topTracksRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      const mapped: readonly ArtistTopTrack[] = tracks.flatMap(
+        (trackValue): readonly ArtistTopTrack[] => {
+          if (!isRecord(trackValue)) {
+            return [];
+          }
+
+          const artistRecord = getNestedRecord(trackValue, "artist");
+          const mbidStr = String(trackValue["mbid"] ?? "");
+          return [
+            {
+              name: String(trackValue["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? artist),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              playcount: parseInt(String(trackValue["playcount"] ?? "0"), 10),
+              listeners: parseInt(String(trackValue["listeners"] ?? "0"), 10),
+              url: String(trackValue["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getArtistTopAlbums: async (
+      artist,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly ArtistTopAlbum[], LastFmError>> => {
+      const url = buildUrl({ method: "artist.getTopAlbums", artist, limit });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const topAlbumsRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "topalbums")
+        : undefined;
+      const albums = topAlbumsRecord?.["album"];
+      if (!Array.isArray(albums)) {
+        return ok([]);
+      }
+
+      const mapped: readonly ArtistTopAlbum[] = albums.flatMap(
+        (albumValue): readonly ArtistTopAlbum[] => {
+          if (!isRecord(albumValue)) {
+            return [];
+          }
+
+          const artistRecord = getNestedRecord(albumValue, "artist");
+          const mbidStr = String(albumValue["mbid"] ?? "");
+          return [
+            {
+              name: String(albumValue["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? artist),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              playcount: parseInt(String(albumValue["playcount"] ?? "0"), 10),
+              url: String(albumValue["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
     },
 
     getCircuitState: () => "CLOSED" as const,

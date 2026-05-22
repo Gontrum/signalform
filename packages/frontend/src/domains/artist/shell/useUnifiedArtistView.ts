@@ -7,10 +7,25 @@ import {
   getSimilarArtists,
   mapEnrichmentError,
 } from '@/platform/api/enrichmentApi'
+import { isTidalAlbumId } from '@signalform/shared'
 import { useArtistImages } from '@/domains/enrichment/shell/useArtistImage'
-import { getArtistByName } from '@/platform/api/artistApi'
-import { getAlbumDetailId, getArtistNameQuery, setCoverError } from '../core/service'
-import type { ArtistByNameAlbum, SimilarArtistMatch, UnifiedArtistStatus } from '../core/types'
+import { getArtistByName, getArtistTopAlbums, getArtistTopTracks } from '@/platform/api/artistApi'
+import { resolveAlbum } from '@/platform/api/tidalAlbumsApi'
+import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
+import {
+  getAlbumDetailId,
+  getArtistNameQuery,
+  setCoverError,
+  sortArtistAlbums,
+} from '../core/service'
+import type {
+  ArtistAlbumPopularity,
+  ArtistAlbumSortOption,
+  ArtistByNameAlbum,
+  ArtistTopTrack,
+  SimilarArtistMatch,
+  UnifiedArtistStatus,
+} from '../core/types'
 import type { ArtistByNameResponse } from '../core/types'
 
 type UseUnifiedArtistViewResult = {
@@ -24,16 +39,24 @@ type UseUnifiedArtistViewResult = {
   readonly similarArtists: Ref<ReadonlyArray<SimilarArtistMatch>>
   readonly artistName: ComputedRef<string>
   readonly coverErrors: Ref<Record<string, boolean>>
+  readonly topTracks: Ref<ReadonlyArray<ArtistTopTrack>>
+  readonly topTracksLoading: Ref<boolean>
+  readonly albumSort: Ref<ArtistAlbumSortOption>
+  readonly sortedLocalAlbums: ComputedRef<ReadonlyArray<ArtistByNameAlbum>>
+  readonly sortedTidalAlbums: ComputedRef<ReadonlyArray<ArtistByNameAlbum>>
   readonly goBack: () => void
   readonly handleLocalAlbumClick: (album: ArtistByNameAlbum) => void
-  readonly handleTidalAlbumClick: (album: ArtistByNameAlbum) => void
+  readonly handleTidalAlbumClick: (album: ArtistByNameAlbum) => Promise<void>
   readonly handleSimilarArtistClick: (similarArtist: SimilarArtistMatch) => void
+  readonly handleTopTrackPlay: (track: ArtistTopTrack) => Promise<void>
   readonly onCoverError: (id: string) => void
+  readonly setAlbumSort: (sort: ArtistAlbumSortOption) => void
 }
 
 export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedArtistViewResult => {
   const route = useRoute()
   const router = useRouter()
+  const playbackStore = usePlaybackStore()
 
   const status = ref<UnifiedArtistStatus>('loading')
   const data = ref<ArtistByNameResponse | null>(null)
@@ -44,12 +67,24 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
   const heroImageUrl = ref<string | null>(null)
   const similarArtists = ref<ReadonlyArray<SimilarArtistMatch>>([])
   const coverErrors = ref<Record<string, boolean>>({})
+  const topTracks = ref<ReadonlyArray<ArtistTopTrack>>([])
+  const topTracksLoading = ref(false)
+  const albumPopularity = ref<ReadonlyArray<ArtistAlbumPopularity>>([])
+  const albumSort = ref<ArtistAlbumSortOption>('year')
 
   const loadGeneration = ref(0)
 
   const artistName = computed(() => getArtistNameQuery(route.query['name']))
   const { getImage: getArtistImageUrl } = useArtistImages(
     artistName.value === '' ? [] : [artistName.value],
+  )
+
+  const sortedLocalAlbums = computed(() =>
+    sortArtistAlbums(data.value?.localAlbums ?? [], albumSort.value, albumPopularity.value),
+  )
+
+  const sortedTidalAlbums = computed(() =>
+    sortArtistAlbums(data.value?.tidalAlbums ?? [], albumSort.value, albumPopularity.value),
   )
 
   watch(
@@ -59,6 +94,18 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     },
     { immediate: true },
   )
+
+  const loadArtistPopularity = async (name: string): Promise<void> => {
+    if (name.trim() === '') return
+    topTracksLoading.value = true
+    const [tracksResult, albumsResult] = await Promise.all([
+      getArtistTopTracks(name),
+      getArtistTopAlbums(name),
+    ])
+    if (tracksResult.ok) topTracks.value = tracksResult.value.tracks
+    if (albumsResult.ok) albumPopularity.value = albumsResult.value.albums
+    topTracksLoading.value = false
+  }
 
   const loadArtist = async (name: string): Promise<void> => {
     loadGeneration.value += 1
@@ -91,6 +138,8 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
 
     data.value = artistResult.value
     status.value = 'success'
+
+    void loadArtistPopularity(name)
 
     enrichmentLoading.value = true
     const enrichmentResult = await getArtistEnrichment(name)
@@ -150,24 +199,68 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     void router.push({ name: 'album-detail', params: { albumId: getAlbumDetailId(album) } })
   }
 
-  const handleTidalAlbumClick = (album: ArtistByNameAlbum): void => {
-    void router.push({
-      name: 'tidal-search-album',
-      state: {
-        title: album.title,
-        artist: album.artist,
-        coverArtUrl: album.coverArtUrl ?? '',
-        trackUrls: [...(album.trackUrls ?? [])],
-      },
-    })
+  const handleTidalAlbumClick = async (album: ArtistByNameAlbum): Promise<void> => {
+    if (isTidalAlbumId(album.id)) {
+      void router.push({
+        name: 'album-detail',
+        params: { albumId: album.id },
+        state: {
+          tidalTitle: album.title,
+          tidalArtist: album.artist,
+          tidalCoverArtUrl: album.coverArtUrl ?? '',
+        },
+      })
+      return
+    }
+
+    const resolveResult = await resolveAlbum(album.title, album.artist)
+    const resolvedId = resolveResult.ok ? resolveResult.value.albumId : null
+
+    if (resolvedId !== null) {
+      void router.push({
+        name: 'album-detail',
+        params: { albumId: resolvedId },
+        state: {
+          tidalTitle: album.title,
+          tidalArtist: album.artist,
+          tidalCoverArtUrl: album.coverArtUrl ?? '',
+        },
+      })
+    } else {
+      void router.push({
+        name: 'tidal-search-album',
+        state: {
+          title: album.title,
+          artist: album.artist,
+          coverArtUrl: album.coverArtUrl ?? '',
+          trackUrls: [...(album.trackUrls ?? [])],
+        },
+      })
+    }
   }
 
   const handleSimilarArtistClick = (similarArtist: SimilarArtistMatch): void => {
     void router.push({ name: 'unified-artist', query: { name: similarArtist.name } })
   }
 
+  const handleTopTrackPlay = async (track: ArtistTopTrack): Promise<void> => {
+    await playbackStore.play({
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      url: track.url,
+      source: track.source,
+      coverArtUrl: track.coverArtUrl,
+    })
+  }
+
   const onCoverError = (id: string): void => {
     coverErrors.value = setCoverError(coverErrors.value, id)
+  }
+
+  const setAlbumSort = (sort: ArtistAlbumSortOption): void => {
+    albumSort.value = sort
   }
 
   return {
@@ -181,10 +274,17 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     similarArtists,
     artistName,
     coverErrors,
+    topTracks,
+    topTracksLoading,
+    albumSort,
+    sortedLocalAlbums,
+    sortedTidalAlbums,
     goBack,
     handleLocalAlbumClick,
     handleTidalAlbumClick,
     handleSimilarArtistClick,
+    handleTopTrackPlay,
     onCoverError,
+    setAlbumSort,
   }
 }

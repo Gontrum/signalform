@@ -29,3 +29,12 @@ export type TidalAlbumTracksResponse = {
   readonly tracks: ReadonlyArray<TidalTrack>;
   readonly totalCount: number;
 };
+
+export type TidalAlbumDetail = {
+  readonly id: string;
+  readonly title: string;
+  readonly artist: string;
+  readonly coverArtUrl: string;
+  readonly tracks: ReadonlyArray<TidalTrack>;
+  readonly totalCount: number;
+};

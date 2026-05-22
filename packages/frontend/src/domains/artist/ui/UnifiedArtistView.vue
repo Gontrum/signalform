@@ -18,11 +18,18 @@ const {
   similarArtists,
   artistName,
   coverErrors,
+  topTracks,
+  topTracksLoading,
+  albumSort,
+  sortedLocalAlbums,
+  sortedTidalAlbums,
   goBack,
   handleLocalAlbumClick,
   handleTidalAlbumClick,
   handleSimilarArtistClick,
+  handleTopTrackPlay,
   onCoverError,
+  setAlbumSort,
 } = useUnifiedArtistView(t('artist.errorNotFoundMessage'))
 </script>
 
@@ -155,6 +162,100 @@ const {
         </template>
       </ArtistHero>
 
+      <!-- Top tracks section -->
+      <section
+        v-if="topTracksLoading || topTracks.length > 0"
+        data-testid="top-tracks-section"
+        class="mb-8"
+      >
+        <h2 class="mb-3 text-lg font-semibold text-neutral-900">
+          {{ t('artist.topTracksHeading') }}
+        </h2>
+        <div v-if="topTracksLoading" data-testid="top-tracks-loading" class="space-y-2">
+          <div class="h-12 animate-pulse rounded bg-neutral-100" />
+          <div class="h-12 animate-pulse rounded bg-neutral-100" />
+          <div class="h-12 animate-pulse rounded bg-neutral-100" />
+        </div>
+        <div v-else class="space-y-1">
+          <div
+            v-for="track in topTracks"
+            :key="track.id"
+            data-testid="top-track-item"
+            class="flex min-h-12 items-center gap-3 rounded-lg px-3 py-2 hover:bg-neutral-50"
+          >
+            <span class="w-6 flex-shrink-0 text-right text-xs font-medium text-neutral-400">
+              {{ track.rank }}
+            </span>
+            <div class="min-w-0 flex-1">
+              <p
+                data-testid="top-track-title"
+                class="truncate text-sm font-medium text-neutral-900"
+              >
+                {{ track.title }}
+              </p>
+              <p class="truncate text-xs text-neutral-500">
+                {{ track.album }}
+              </p>
+            </div>
+            <button
+              type="button"
+              data-testid="top-track-play-button"
+              class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-700"
+              :aria-label="`${t('artist.playTopTrack')} ${track.title}`"
+              @click="handleTopTrackPlay(track)"
+            >
+              ▶
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sort buttons -->
+      <div
+        v-if="data.localAlbums.length > 0 || data.tidalAlbums.length > 0"
+        class="mb-4 flex flex-wrap items-center gap-2"
+      >
+        <span class="text-xs font-medium uppercase tracking-wide text-neutral-400">
+          {{ t('artist.sortLabel') }}
+        </span>
+        <button
+          type="button"
+          data-testid="artist-sort-year"
+          :class="
+            albumSort === 'year'
+              ? 'rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white'
+              : 'rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200'
+          "
+          @click="setAlbumSort('year')"
+        >
+          {{ t('artist.sort.year') }}
+        </button>
+        <button
+          type="button"
+          data-testid="artist-sort-popularity"
+          :class="
+            albumSort === 'popularity'
+              ? 'rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white'
+              : 'rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200'
+          "
+          @click="setAlbumSort('popularity')"
+        >
+          {{ t('artist.sort.popularity') }}
+        </button>
+        <button
+          type="button"
+          data-testid="artist-sort-title"
+          :class="
+            albumSort === 'title'
+              ? 'rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white'
+              : 'rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-200'
+          "
+          @click="setAlbumSort('title')"
+        >
+          {{ t('artist.sort.title') }}
+        </button>
+      </div>
+
       <!-- Empty state — both sections empty -->
       <div
         v-if="data.localAlbums.length === 0 && data.tidalAlbums.length === 0"
@@ -177,7 +278,7 @@ const {
         </h2>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           <button
-            v-for="album in data.localAlbums"
+            v-for="album in sortedLocalAlbums"
             :key="album.id"
             type="button"
             class="flex cursor-pointer flex-col items-start gap-2 rounded-lg p-2 text-left hover:bg-neutral-50"
@@ -215,7 +316,7 @@ const {
         <h2 class="mb-4 text-xl font-semibold text-neutral-800">On Tidal</h2>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           <button
-            v-for="album in data.tidalAlbums"
+            v-for="album in sortedTidalAlbums"
             :key="album.id"
             type="button"
             class="flex cursor-pointer flex-col items-start gap-2 rounded-lg p-2 text-left hover:bg-neutral-50"

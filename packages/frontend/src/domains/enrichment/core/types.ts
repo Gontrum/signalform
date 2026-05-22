@@ -84,6 +84,15 @@ export type TidalAlbumTracksResponse = {
   readonly totalCount: number
 }
 
+export type TidalAlbumDetailResponse = {
+  readonly id: string
+  readonly title: string
+  readonly artist: string
+  readonly coverArtUrl: string
+  readonly tracks: ReadonlyArray<TidalTrack>
+  readonly totalCount: number
+}
+
 export type TidalAlbumResolveResponse = {
   readonly albumId: string | null
 }
