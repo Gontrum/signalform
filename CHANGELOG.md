@@ -15,6 +15,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.10.0] - 2026-05-22
+
+### Added
+
+- **Artist page — Top Tracks**: The artist view now shows the top tracks for an artist (via
+  Last.fm), with playback buttons and inline rank/play-count ordering. Runs in parallel with the
+  album load so it doesn't slow down navigation.
+- **Artist page — Album sorting**: Sort buttons (Year / Popularity / A-Z) let you reorder both
+  local and Tidal albums. Popularity data comes from the same Last.fm top-albums call as the
+  playback statistics.
+- **Refresh-safe Tidal album URLs**: Tidal album pages are now bookmarkable and survive browser
+  refresh. A new `GET /api/tidal/albums/:albumId` endpoint fetches title, artist, cover and track
+  list directly from the LMS OPML browser using the album ID in the URL. The old approach of
+  carrying metadata in `history.state` (lost on reload) is kept only as a no-flicker hint.
+- **Search: Tidal availability warning**: When the Tidal plugin is unreachable (auth failure,
+  plugin crash), the search results page shows a banner instead of silently returning zero Tidal
+  results. The backend `SearchResponse` now includes a `tidalAvailable` flag.
+- **New API endpoints**:
+  - `GET /api/tidal/albums/:albumId` — album detail (title, cover, tracks) from browse ID
+  - `GET /api/tidal/albums/resolve` — resolve title+artist to a stable browse ID
+  - `GET /api/artist/top-tracks` — Last.fm top tracks for an artist, matched against local/Tidal library
+  - `GET /api/artist/top-albums` — Last.fm top album popularity scores
+
+### Changed
+
+- **Single artist view**: `ArtistDetailView` and `UnifiedArtistView` have been merged into one
+  page (`/artist/unified`). All navigation paths (album artist links, search results, similar
+  artists) lead to the same view, which now covers local albums, Tidal albums, top tracks, sorting,
+  enrichment, and similar artists.
+
+### Fixed
+
+- **Playback**: LMS occasionally omits `time`, `duration`, `mixer volume`, or `url` from status
+  responses. These fields are now treated as optional to prevent Zod parse failures.
+- **Playback race condition**: A slow-returning `fetchCurrentStatus` HTTP call can no longer
+  overwrite a more recent state update that arrived via WebSocket or a user action in the meantime.
+
+---
+
 ## [0.9.10] - 2026-05-09
 
 ### Fixed
