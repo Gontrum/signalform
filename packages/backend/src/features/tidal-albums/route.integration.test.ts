@@ -841,4 +841,39 @@ describe("GET /api/tidal/albums/:albumId", () => {
       999,
     );
   });
+
+  it("large-catalog regression: passes high-index albumId to getTidalAlbumParentItems without crashing", async () => {
+    const albumId = "7_Berliner Philharmoniker.2.0.1.170";
+    mockLmsClient.getTidalAlbumParentItems.mockResolvedValue(
+      ok(
+        makeParentItemsResult(
+          albumId,
+          "Mahler: Symphony No. 5",
+          "/imageproxy/test.jpg",
+        ),
+      ),
+    );
+    mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
+      ok(makeTidalTracksResult(5)),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/7_Berliner%20Philharmoniker.2.0.1.170",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockLmsClient.getTidalAlbumParentItems).toHaveBeenCalledWith(
+      albumId,
+    );
+    const body = parseJson(response.body);
+    expect(isRecord(body) ? body["title"] : undefined).toBe(
+      "Mahler: Symphony No. 5",
+    );
+    expect(
+      isRecord(body) && Array.isArray(body["tracks"])
+        ? body["tracks"].length
+        : -1,
+    ).toBe(5);
+  });
 });

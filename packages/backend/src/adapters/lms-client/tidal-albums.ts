@@ -279,11 +279,20 @@ export const createTidalAlbumsMethods = (
       }
 
       const parentId = albumId.substring(0, dotIndex);
+      // The last segment IS the album's 0-based index within the parent list.
+      // Fetching offset=albumIndex, limit=1 retrieves exactly the one item we need.
+      // Using limit:999 on the full parent list crashes LMS for prolific artists
+      // like Berliner Philharmoniker who have hundreds of albums in their catalog.
+      const albumIndex = parseInt(albumId.substring(dotIndex + 1), 10);
+      if (isNaN(albumIndex)) {
+        return ok({ items: [], count: 0 });
+      }
+
       const command: LmsCommand = [
         "tidal",
         "items",
-        0,
-        999,
+        albumIndex,
+        1,
         `item_id:${parentId}`,
         "want_url:1",
       ];
