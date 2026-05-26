@@ -23,14 +23,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^25.9.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^10.4.0",
-    "eslint-plugin-functional": "^9.0.4",
-    "tsx": "^4.22.2",
+    "eslint-plugin-functional": "^9.0.5",
+    "tsx": "^4.22.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }
