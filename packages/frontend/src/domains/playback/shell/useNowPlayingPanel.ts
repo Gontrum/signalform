@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
 import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/playback/core/service'
 import { usePlaybackStore } from './usePlaybackStore'
-import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 
 const ERROR_DISMISS_TIMEOUT_MS = 5000
 
@@ -16,7 +15,6 @@ type UseNowPlayingPanelResult = {
   readonly sourceTooltip: ComputedRef<string>
   readonly trackAnnouncement: ComputedRef<string>
   readonly alsoAvailableText: ComputedRef<string>
-  readonly shouldShowInlineQueueAction: ComputedRef<boolean>
   readonly navigateToArtist: () => void
   readonly navigateToAlbum: () => void
   readonly navigateToQueue: () => void
@@ -25,7 +23,6 @@ type UseNowPlayingPanelResult = {
 export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const router = useRouter()
   const playbackStore = usePlaybackStore()
-  const { isPhone } = useResponsiveLayout()
 
   onMounted(() => {
     void playbackStore.fetchCurrentStatus()
@@ -81,15 +78,12 @@ export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const alsoAvailableText = computed((): string =>
     createAlsoAvailableText(playbackStore.currentTrack),
   )
-  const shouldShowInlineQueueAction = computed((): boolean => !isPhone.value)
-
   return {
     playbackStore,
     queuedTracks,
     sourceTooltip,
     trackAnnouncement,
     alsoAvailableText,
-    shouldShowInlineQueueAction,
     navigateToArtist,
     navigateToAlbum,
     navigateToQueue,

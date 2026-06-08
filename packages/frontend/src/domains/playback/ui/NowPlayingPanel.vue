@@ -14,7 +14,6 @@ const {
   sourceTooltip,
   trackAnnouncement,
   alsoAvailableText,
-  shouldShowInlineQueueAction,
   navigateToArtist,
   navigateToAlbum,
   navigateToQueue,
@@ -177,7 +176,6 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
           {{ t('nowPlaying.queueEmpty') }}
         </p>
         <button
-          v-if="shouldShowInlineQueueAction"
           type="button"
           data-testid="view-full-queue"
           class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
@@ -243,7 +241,6 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
           </li>
         </ul>
         <button
-          v-if="shouldShowInlineQueueAction"
           type="button"
           data-testid="view-full-queue-empty-state"
           class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"

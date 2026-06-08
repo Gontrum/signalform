@@ -627,7 +627,7 @@ describe('NowPlayingPanel', () => {
       expect(button.attributes('disabled')).toBeUndefined()
     })
 
-    it('hides the inline View Full Queue button on phone layouts', async () => {
+    it('shows the View Full Queue button on phone layouts', async () => {
       isPhone.value = true
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
@@ -642,7 +642,7 @@ describe('NowPlayingPanel', () => {
         })
       })
 
-      expect(context.wrapper.find('[data-testid="view-full-queue"]').exists()).toBe(false)
+      expect(context.wrapper.find('[data-testid="view-full-queue"]').exists()).toBe(true)
     })
 
     it('clicking View Full Queue button navigates to /queue', async () => {
