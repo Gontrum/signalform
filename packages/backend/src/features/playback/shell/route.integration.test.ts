@@ -45,9 +45,6 @@ type MockLmsClient = LmsClient & {
   >;
   readonly addToQueue: ReturnType<typeof vi.fn<LmsClient["addToQueue"]>>;
   readonly getQueue: ReturnType<typeof vi.fn<LmsClient["getQueue"]>>;
-  readonly findTidalSearchAlbumId: ReturnType<
-    typeof vi.fn<LmsClient["findTidalSearchAlbumId"]>
-  >;
 };
 
 type MockPlaybackIo = {
@@ -88,9 +85,6 @@ const createMockLmsClient = (): MockLmsClient => ({
   getArtistAlbums: vi.fn<LmsClient["getArtistAlbums"]>(),
   addToQueue: vi.fn<LmsClient["addToQueue"]>().mockResolvedValue(ok(undefined)),
   getQueue: vi.fn<LmsClient["getQueue"]>().mockResolvedValue(ok([])),
-  findTidalSearchAlbumId: vi
-    .fn<LmsClient["findTidalSearchAlbumId"]>()
-    .mockResolvedValue(ok(null)),
 });
 
 const resetMockLmsClient = (mockClient: MockLmsClient): void => {
@@ -111,7 +105,6 @@ const resetMockLmsClient = (mockClient: MockLmsClient): void => {
   mockClient.getArtistAlbums.mockReset();
   mockClient.addToQueue.mockReset().mockResolvedValue(ok(undefined));
   mockClient.getQueue.mockReset().mockResolvedValue(ok([]));
-  mockClient.findTidalSearchAlbumId.mockReset().mockResolvedValue(ok(null));
 };
 
 const createMockPlaybackIo = (): MockPlaybackIo => {
@@ -778,36 +771,7 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
     vi.clearAllMocks();
   });
 
-  it("AC1: returns 204 and calls playTidalAlbum when browse ID found", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(
-      ok("7_short n sweet.3.0"),
-    );
-
-    const response = await server.inject({
-      method: "POST",
-      url: "/api/playback/play-tidal-search-album",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        albumTitle: "Short n' Sweet",
-        artist: "Sabrina Carpenter",
-        trackUrls: ["tidal://1234.flc"],
-      }),
-    });
-
-    expect(response.statusCode).toBe(204);
-    expect(mockLmsClient.findTidalSearchAlbumId).toHaveBeenCalledWith(
-      "Short n' Sweet",
-      "Sabrina Carpenter",
-    );
-    expect(mockLmsClient.playTidalAlbum).toHaveBeenCalledWith(
-      "7_short n sweet.3.0",
-    );
-    expect(mockLmsClient.play).not.toHaveBeenCalled();
-  });
-
-  it("AC2: falls back to trackUrls when browse ID not found", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
-
+  it("plays tracks via trackUrls", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/playback/play-tidal-search-album",
@@ -825,7 +789,7 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith("tidal://5678.flc");
   });
 
-  it("returns 400 for missing albumTitle", async () => {
+  it("returns 503 when trackUrls array is missing or empty", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/playback/play-tidal-search-album",
@@ -833,12 +797,10 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
       body: JSON.stringify({ artist: "Some Artist", trackUrls: [] }),
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(503);
   });
 
-  it("returns 503 when browse ID not found and trackUrls is empty", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
-
+  it("returns 503 when trackUrls is empty", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/playback/play-tidal-search-album",
@@ -853,11 +815,7 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
     expect(response.statusCode).toBe(503);
   });
 
-  it("AC4: falls back to trackUrls when findTidalSearchAlbumId returns LMS error", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(
-      err({ type: "NetworkError", message: "LMS unreachable" }),
-    );
-
+  it("plays tracks via trackUrls regardless of LMS errors", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/playback/play-tidal-search-album",
@@ -873,28 +831,6 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
     expect(response.statusCode).toBe(204);
     expect(mockLmsClient.play).toHaveBeenCalledWith("tidal://1234.flc");
     expect(mockLmsClient.playTidalAlbum).not.toHaveBeenCalled();
-  });
-
-  it("returns 503 when playTidalAlbum fails", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(
-      ok("7_short n sweet.3.0"),
-    );
-    mockLmsClient.playTidalAlbum.mockResolvedValue(
-      err({ type: "NetworkError", message: "LMS unreachable" }),
-    );
-
-    const response = await server.inject({
-      method: "POST",
-      url: "/api/playback/play-tidal-search-album",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        albumTitle: "Short n' Sweet",
-        artist: "Sabrina Carpenter",
-        trackUrls: ["tidal://1234.flc"],
-      }),
-    });
-
-    expect(response.statusCode).toBe(503);
   });
 });
 

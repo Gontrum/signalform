@@ -70,7 +70,9 @@ const searchPlayableCandidates = async (
   topTrack: LastFmArtistTopTrack,
   lmsClient: LmsClient,
 ): Promise<readonly SearchResult[]> => {
-  const result = await lmsClient.search(`${artist} ${topTrack.name}`);
+  const result = await lmsClient.search(`${artist} ${topTrack.name}`, {
+    tidalEnabled: false,
+  });
   return result.ok ? result.value.tracks : [];
 };
 

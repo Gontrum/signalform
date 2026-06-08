@@ -4,7 +4,6 @@ import { useDebounceFn } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { playAlbum } from '@/platform/api/playbackApi'
-import { resolveAlbum } from '@/platform/api/tidalAlbumsApi'
 import { useSearchStore } from './useSearchStore'
 import {
   getDisplayedAlbumResults,
@@ -43,7 +42,7 @@ type UseSearchPanelResult = {
     readonly coverArtUrl?: string
     readonly trackUrls: ReadonlyArray<string>
     readonly trackTitles?: ReadonlyArray<string>
-  }) => Promise<void>
+  }) => void
   readonly handlePlayAlbum: (albumId: string) => Promise<void>
   readonly backToSearch: () => Promise<void>
 }
@@ -232,38 +231,25 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     void router.push({ name: 'album-detail', params: { albumId } })
   }
 
-  const handleNavigateTidalAlbum = async (payload: {
+  const handleNavigateTidalAlbum = (payload: {
     readonly title: string
     readonly artist: string
     readonly coverArtUrl?: string
     readonly trackUrls: ReadonlyArray<string>
     readonly trackTitles?: ReadonlyArray<string>
-  }): Promise<void> => {
-    const resolveResult = await resolveAlbum(payload.title, payload.artist)
-    const resolvedId = resolveResult.ok ? resolveResult.value.albumId : null
-
-    if (resolvedId !== null) {
-      void router.push({
-        name: 'album-detail',
-        params: { albumId: resolvedId },
-        state: {
-          tidalTitle: payload.title,
-          tidalArtist: payload.artist,
-          tidalCoverArtUrl: payload.coverArtUrl ?? '',
-        },
-      })
-    } else {
-      void router.push({
-        name: 'tidal-search-album',
-        state: {
-          title: payload.title,
-          artist: payload.artist,
-          coverArtUrl: payload.coverArtUrl ?? '',
-          trackUrls: [...payload.trackUrls],
-          trackTitles: [...(payload.trackTitles ?? [])],
-        },
-      })
-    }
+  }): void => {
+    void router.push({
+      name: 'tidal-search-album',
+      query: {
+        title: payload.title,
+        artist: payload.artist,
+      },
+      state: {
+        coverArtUrl: payload.coverArtUrl ?? '',
+        trackUrls: [...payload.trackUrls],
+        trackTitles: [...(payload.trackTitles ?? [])],
+      },
+    })
   }
 
   const handlePlayAlbum = async (albumId: string): Promise<void> => {

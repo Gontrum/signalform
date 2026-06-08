@@ -25,4 +25,3 @@ export type {
   QueueTrackRaw,
   RescanProgress,
 } from "./types.js";
-export type { TidalTrackSearchResultRaw } from "./tidal-search.js";

@@ -41,6 +41,7 @@ type AlbumEntry = {
   readonly artist: string;
   readonly source?: string;
   readonly trackUrls?: ReadonlyArray<string>;
+  readonly trackTitles?: ReadonlyArray<string>;
   readonly coverArtUrl?: string;
 };
 
@@ -96,28 +97,48 @@ const groupLocalAlbums = (
 };
 
 /**
- * Groups Tidal tracks by artist+album key into AlbumEntry objects with accumulated trackUrls.
- * Uses forEach with a mutable Map for O(n) performance instead of O(n²) spread-Map reduce.
+ * Groups Tidal tracks by coverArtUrl (primary) or artist+album (fallback) into AlbumEntry
+ * objects with accumulated trackUrls and trackTitles.
+ *
+ * Key priority matches the search service: coverArtUrl is unique per recording and groups
+ * all movements of the same album together even when tidal_info enrichment times out.
  */
 const groupTidalAlbums = (
   tracks: ReadonlyArray<SearchResult>,
 ): ReadonlyArray<AlbumEntry> => {
   const tidalTracks = tracks.filter((t) => t.source === "tidal");
   const albumMap = tidalTracks.reduce((acc, track) => {
-    const key = `${track.artist.trim().toLowerCase()}::${track.album.trim().toLowerCase()}`;
+    const key =
+      track.coverArtUrl !== undefined
+        ? `tidal_cover:${track.coverArtUrl}`
+        : track.artist.trim() && track.album.trim()
+          ? `${track.artist.trim().toLowerCase()}::${track.album.trim().toLowerCase()}`
+          : null;
+    if (key === null) {
+      return acc;
+    }
     const existing = acc.get(key);
+    const hasUrl = track.url.length > 0;
     const nextEntry: AlbumEntry =
       existing !== undefined
         ? {
             ...existing,
-            trackUrls: [...(existing.trackUrls ?? []), track.url],
+            title: existing.title || track.album,
+            artist: existing.artist || track.albumartist || track.artist,
+            trackUrls: hasUrl
+              ? [...(existing.trackUrls ?? []), track.url]
+              : existing.trackUrls,
+            trackTitles: hasUrl
+              ? [...(existing.trackTitles ?? []), track.title]
+              : existing.trackTitles,
           }
         : {
             id: key,
             title: track.album,
             artist: track.albumartist || track.artist,
             source: "tidal",
-            trackUrls: [track.url],
+            trackUrls: hasUrl ? [track.url] : [],
+            trackTitles: hasUrl ? [track.title] : [],
             coverArtUrl: track.coverArtUrl,
           };
     return new Map([...acc, [key, nextEntry]]);
@@ -147,7 +168,7 @@ const findMatchingTidalArtistId = (
   return exactMatch?.artistId ?? null;
 };
 
-const getFallbackTidalAlbums = async (
+const getArtistBrowseTidalAlbums = async (
   name: string,
   lmsClient: LmsClient,
   config: LmsConfig,
@@ -307,7 +328,15 @@ export const createMetadataRoute = (
       }
 
       const { name } = validation.data;
-      const searchResult = await lmsClient.search(name);
+
+      // Run local search and Tidal artist browse in parallel.
+      // Artist browse gives real Tidal album IDs so navigation goes directly to the
+      // full album (all tracks). Search-derived albums are used only as fallback when
+      // the artist browse returns nothing (artist not in Tidal or browse fails).
+      const [searchResult, tidalBrowseAlbums] = await Promise.all([
+        lmsClient.search(name),
+        getArtistBrowseTidalAlbums(name, lmsClient, config),
+      ]);
 
       if (!searchResult.ok) {
         return reply
@@ -338,11 +367,10 @@ export const createMetadataRoute = (
         return matchesAlbumArtist || matchesTrackArtist;
       });
       const localAlbums = groupLocalAlbums(tracks);
-      const tidalAlbumsFromSearch = groupTidalAlbums(tracks);
       const tidalAlbums =
-        tidalAlbumsFromSearch.length > 0
-          ? tidalAlbumsFromSearch
-          : await getFallbackTidalAlbums(name, lmsClient, config);
+        tidalBrowseAlbums.length > 0
+          ? tidalBrowseAlbums
+          : groupTidalAlbums(tracks);
 
       return reply.code(200).send({
         localAlbums,

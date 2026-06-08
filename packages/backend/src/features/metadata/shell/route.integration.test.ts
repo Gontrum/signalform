@@ -124,9 +124,11 @@ type AlbumDetailTrackBody = {
 };
 
 type ArtistByNameAlbumBody = {
+  readonly id?: string;
   readonly albumId?: string;
   readonly title: string;
   readonly trackUrls?: readonly string[];
+  readonly trackTitles?: readonly string[];
 };
 
 const isAlbumDetailTrackBody = (
@@ -142,7 +144,9 @@ const isArtistByNameAlbumBody = (
     isRecord(value) &&
     typeof value["title"] === "string" &&
     (value["albumId"] === undefined || typeof value["albumId"] === "string") &&
-    (value["trackUrls"] === undefined || Array.isArray(value["trackUrls"]))
+    (value["id"] === undefined || typeof value["id"] === "string") &&
+    (value["trackUrls"] === undefined || Array.isArray(value["trackUrls"])) &&
+    (value["trackTitles"] === undefined || Array.isArray(value["trackTitles"]))
   );
 };
 
@@ -578,7 +582,7 @@ describe("GET /api/artist/by-name", () => {
     expect(body.tidalAlbums).toHaveLength(1);
   });
 
-  it("falls back to dedicated Tidal artist browse when search returns no Tidal albums", async () => {
+  it("uses artist browse as primary Tidal source (here: search returns no tracks, browse finds album)", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({ tracks: [], tidalAvailable: true }),
     );
@@ -646,6 +650,80 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums).toHaveLength(0);
     expect(body.tidalAlbums).toHaveLength(0);
     expect(mockLmsClient.getTidalArtistAlbums).not.toHaveBeenCalled();
+  });
+
+  it("uses artist browse albums as primary Tidal source, ignoring search-derived Tidal albums", async () => {
+    // search finds a Tidal track — but browse takes priority
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeTidalTrack({ album: "OK Computer (search result)" })],
+        tidalAvailable: true,
+      }),
+    );
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({
+        artists: [{ id: "7_radiohead.2.0", name: "Radiohead" }],
+        count: 1,
+      }),
+    );
+    mockLmsClient.getTidalArtistAlbums.mockResolvedValue(
+      ok({
+        albums: [
+          {
+            id: "7_radiohead.2.0.1.0",
+            name: "OK Computer",
+            image: "/imageproxy/ok.jpg",
+          },
+        ],
+        count: 1,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/by-name?name=Radiohead",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseArtistByNameBody(response.body);
+    expect(body.tidalAlbums).toHaveLength(1);
+    expect(body.tidalAlbums[0]?.title).toBe("OK Computer");
+    // Real browse ID — not a synthetic search-derived key
+    expect(body.tidalAlbums[0]?.id).toBe("7_radiohead.2.0.1.0");
+  });
+
+  it("falls back to search-derived Tidal albums when artist browse returns empty", async () => {
+    // browse: no artist found → empty
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [], count: 0 }),
+    );
+    // search: one Tidal track → used as fallback
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [
+          makeTidalTrack({
+            album: "The Bends",
+            title: "Fake Plastic Trees",
+            url: "tidal://99999.flc",
+            coverArtUrl: "http://localhost:9000/imageproxy/bends.jpg",
+          }),
+        ],
+        tidalAvailable: true,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/by-name?name=Radiohead",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseArtistByNameBody(response.body);
+    expect(body.tidalAlbums).toHaveLength(1);
+    expect(body.tidalAlbums[0]?.title).toBe("The Bends");
+    // trackTitles from search result are included in the fallback
+    expect(body.tidalAlbums[0]?.trackTitles).toEqual(["Fake Plastic Trees"]);
+    expect(body.tidalAlbums[0]?.trackUrls).toEqual(["tidal://99999.flc"]);
   });
 
   // AC7: passes artist name to lmsClient.search
@@ -967,7 +1045,9 @@ describe("GET /api/artist popularity endpoints", () => {
     expect(isRecord(first) ? first["url"] : undefined).toBe(
       "file:///music/creep.flac",
     );
-    expect(mockLmsClient.search).toHaveBeenCalledWith("Radiohead Creep");
+    expect(mockLmsClient.search).toHaveBeenCalledWith("Radiohead Creep", {
+      tidalEnabled: false,
+    });
   });
 
   it("returns top album popularity from last.fm", async () => {

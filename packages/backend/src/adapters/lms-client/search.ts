@@ -89,7 +89,10 @@ const tidalSearchPayloadParser = createLmsResultParser(
 export const createSearchMethods = (
   deps: ExecuteDeps,
 ): {
-  readonly search: (query: string) => Promise<Result<SearchResponse, LmsError>>;
+  readonly search: (
+    query: string,
+    options?: { readonly tidalEnabled?: boolean },
+  ) => Promise<Result<SearchResponse, LmsError>>;
 } => {
   const { executeCommand, config } = deps;
 
@@ -177,6 +180,7 @@ export const createSearchMethods = (
      */
     search: async (
       query: string,
+      options?: { readonly tidalEnabled?: boolean },
     ): Promise<Result<SearchResponse, LmsError>> => {
       // Validate query (fail fast)
       const trimmedQuery = query.trim();
@@ -315,9 +319,18 @@ export const createSearchMethods = (
         return Promise.race([searchTidal(), timeoutPromise]);
       };
 
+      const localPromise = searchLocal();
+      const tidalPromise =
+        options?.tidalEnabled === false
+          ? Promise.resolve<TidalSearchOutcome>({
+              tracks: [],
+              available: false,
+            })
+          : tidalWithTimeout();
+
       const [localSettled, tidalSettled] = await Promise.allSettled([
-        searchLocal(),
-        tidalWithTimeout(),
+        localPromise,
+        tidalPromise,
       ]);
 
       const localTracks =

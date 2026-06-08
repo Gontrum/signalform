@@ -229,11 +229,14 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     } else {
       void router.push({
         name: 'tidal-search-album',
-        state: {
+        query: {
           title: album.title,
           artist: album.artist,
+        },
+        state: {
           coverArtUrl: album.coverArtUrl ?? '',
           trackUrls: [...(album.trackUrls ?? [])],
+          trackTitles: [...(album.trackTitles ?? [])],
         },
       })
     }

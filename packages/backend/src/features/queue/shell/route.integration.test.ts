@@ -44,9 +44,6 @@ type MockLmsClient = LmsClient & {
   readonly addTidalAlbumToQueue: ReturnType<
     typeof vi.fn<LmsClient["addTidalAlbumToQueue"]>
   >;
-  readonly findTidalSearchAlbumId: ReturnType<
-    typeof vi.fn<LmsClient["findTidalSearchAlbumId"]>
-  >;
 };
 
 type MockIo = {
@@ -74,9 +71,6 @@ const createMockLmsClient = (): MockLmsClient => ({
   addTidalAlbumToQueue: vi
     .fn<LmsClient["addTidalAlbumToQueue"]>()
     .mockResolvedValue(ok(undefined)),
-  findTidalSearchAlbumId: vi
-    .fn<LmsClient["findTidalSearchAlbumId"]>()
-    .mockResolvedValue(ok(null)),
 });
 
 const createMockIo = (): MockIo => {
@@ -101,7 +95,6 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
   mockLmsClient.addTidalAlbumToQueue
     .mockReset()
     .mockResolvedValue(ok(undefined));
-  mockLmsClient.findTidalSearchAlbumId.mockReset().mockResolvedValue(ok(null));
 };
 
 const resetMockIo = (mockIo: MockIo): void => {
@@ -1685,32 +1678,7 @@ describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
     void server.close();
   });
 
-  it("AC3: calls addTidalAlbumToQueue when browse ID found", async () => {
-    tidalSearchMockClient.findTidalSearchAlbumId.mockResolvedValue(
-      ok("7_short n sweet.3.0"),
-    );
-
-    const response = await server.inject({
-      method: "POST",
-      url: "/api/queue/add-tidal-search-album",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        albumTitle: "Short n' Sweet",
-        artist: "Sabrina Carpenter",
-        trackUrls: ["tidal://1234.flc"],
-      },
-    });
-
-    expect(response.statusCode).toBe(204);
-    expect(tidalSearchMockClient.addTidalAlbumToQueue).toHaveBeenCalledWith(
-      "7_short n sweet.3.0",
-    );
-    expect(tidalSearchMockClient.addToQueue).not.toHaveBeenCalled();
-  });
-
-  it("AC4: falls back to addToQueue per URL when browse ID not found", async () => {
-    tidalSearchMockClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
-
+  it("adds tracks to queue via trackUrls", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/queue/add-tidal-search-album",
@@ -1727,20 +1695,18 @@ describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
     expect(tidalSearchMockClient.addToQueue).toHaveBeenCalledTimes(2);
   });
 
-  it("returns 400 for missing albumTitle", async () => {
+  it("returns 503 for missing trackUrls", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/queue/add-tidal-search-album",
       headers: { "Content-Type": "application/json" },
-      payload: { artist: "Some Artist", trackUrls: [] },
+      payload: { artist: "Some Artist" },
     });
 
-    expect(response.statusCode).toBe(400);
+    expect(response.statusCode).toBe(503);
   });
 
-  it("returns 503 when browse fails and trackUrls empty", async () => {
-    tidalSearchMockClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
-
+  it("returns 503 when trackUrls is empty", async () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/queue/add-tidal-search-album",
@@ -1753,29 +1719,5 @@ describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
     });
 
     expect(response.statusCode).toBe(503);
-  });
-
-  it("AC4: falls back to addToQueue per URL when findTidalSearchAlbumId returns LMS error", async () => {
-    tidalSearchMockClient.findTidalSearchAlbumId.mockResolvedValue(
-      err({ type: "NetworkError", message: "LMS unreachable" }),
-    );
-    tidalSearchMockClient.addToQueue.mockResolvedValue(ok(undefined));
-    tidalSearchMockClient.getQueue.mockResolvedValue(ok([]));
-
-    const response = await server.inject({
-      method: "POST",
-      url: "/api/queue/add-tidal-search-album",
-      headers: { "Content-Type": "application/json" },
-      payload: {
-        albumTitle: "Short n' Sweet",
-        artist: "Sabrina Carpenter",
-        trackUrls: ["tidal://1234.flc", "tidal://5678.flc"],
-      },
-    });
-
-    // AC4: browse error → fall back to trackUrls → 204 (not 503)
-    expect(response.statusCode).toBe(204);
-    expect(tidalSearchMockClient.addToQueue).toHaveBeenCalledTimes(2);
-    expect(tidalSearchMockClient.addTidalAlbumToQueue).not.toHaveBeenCalled();
   });
 });

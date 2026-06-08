@@ -12,7 +12,7 @@
  *   search.ts     — search (local + Tidal parallel), enrichment
  *   library.ts    — playAlbum, playTidalAlbum, getAlbumTracks, getLibraryAlbums, rescan, …
  *   tidal-albums.ts — getTidalAlbums, getTidalAlbumTracks, getTidalArtistAlbums, getTidalFeaturedAlbums
- *   tidal-search.ts — searchTidalArtists, findTidalSearchAlbumId
+ *   tidal-search.ts — searchTidalArtists
  */
 
 import type { LmsConfig } from "./types.js";

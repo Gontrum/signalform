@@ -314,51 +314,9 @@ export const createQueueRoute = (
   fastify.post("/api/queue/add-tidal-search-album", async (request, reply) => {
     const body = isBodyRecord(request.body) ? request.body : null;
 
-    if (
-      typeof body?.["albumTitle"] !== "string" ||
-      body["albumTitle"].trim() === ""
-    ) {
-      return reply.code(400).send({
-        message: "albumTitle is required",
-        code: "INVALID_INPUT",
-      });
-    }
-
-    const albumTitle = body["albumTitle"].trim();
-    const artist =
-      typeof body["artist"] === "string" ? body["artist"].trim() : "";
-    const trackUrls: readonly string[] = Array.isArray(body["trackUrls"])
+    const trackUrls: readonly string[] = Array.isArray(body?.["trackUrls"])
       ? body["trackUrls"].filter((u): u is string => typeof u === "string")
       : [];
-
-    const browseResult = await lmsClient.findTidalSearchAlbumId(
-      albumTitle,
-      artist,
-    );
-
-    if (!browseResult.ok) {
-      fastify.log.warn(
-        { event: "tidal_album_browse_failed", error: browseResult.error },
-        "Tidal album search failed — falling back to trackUrls",
-      );
-    }
-
-    if (browseResult.ok && browseResult.value !== null) {
-      const addResult = await lmsClient.addTidalAlbumToQueue(
-        browseResult.value,
-      );
-      if (!addResult.ok) {
-        return sendLmsError(
-          reply,
-          request,
-          addResult.error,
-          queueLmsMessage,
-          "LMS add Tidal album to queue failed",
-        );
-      }
-      await emitQueueUpdate("add-tidal-search-album");
-      return reply.code(204).send();
-    }
 
     if (trackUrls.length === 0) {
       return reply.code(503).send({

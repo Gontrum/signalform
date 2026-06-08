@@ -76,12 +76,6 @@ const createLmsProxy = (): LmsClient => {
     getTidalAlbumParentItems: forwardLmsCall(
       (client) => client.getTidalAlbumParentItems,
     ),
-    findTidalSearchAlbumId: forwardLmsCall(
-      (client) => client.findTidalSearchAlbumId,
-    ),
-    searchTidalAlbumTracks: forwardLmsCall(
-      (client) => client.searchTidalAlbumTracks,
-    ),
     rescanLibrary: forwardLmsCall((client) => client.rescanLibrary),
     getRescanProgress: forwardLmsCall((client) => client.getRescanProgress),
   };

@@ -40,77 +40,20 @@ export const registerTidalRoutes = (
   /**
    * POST /api/playback/play-tidal-search-album
    *
-   * Play a Tidal album from search results by browsing the FULL album via the
-   * LMS Tidal plugin.  Prefers a full browse (all tracks); falls back to the
-   * provided trackUrls when the browse ID cannot be resolved.
+   * Play a Tidal album from search results via provided trackUrls.
    *
-   * Body: { albumTitle, artist, trackUrls }
-   * 204 | 400 | 503
+   * Body: { trackUrls }
+   * 204 | 503
    */
   fastify.post(
     "/api/playback/play-tidal-search-album",
     async (request, reply) => {
       const body = isBodyRecord(request.body) ? request.body : null;
 
-      if (
-        typeof body?.["albumTitle"] !== "string" ||
-        body["albumTitle"].trim() === ""
-      ) {
-        return reply.code(400).send({
-          message: "albumTitle is required",
-          code: "INVALID_INPUT",
-        });
-      }
-
-      const albumTitle = body["albumTitle"].trim();
-      const artist =
-        typeof body["artist"] === "string" ? body["artist"].trim() : "";
-      const trackUrls: readonly string[] = Array.isArray(body["trackUrls"])
+      const trackUrls: readonly string[] = Array.isArray(body?.["trackUrls"])
         ? body["trackUrls"].filter((u): u is string => typeof u === "string")
         : [];
 
-      // Step 1: Try to find the browse album ID
-      const browseResult = await lmsClient.findTidalSearchAlbumId(
-        albumTitle,
-        artist,
-      );
-
-      if (!browseResult.ok) {
-        fastify.log.warn(
-          { event: "tidal_album_browse_failed", error: browseResult.error },
-          "Tidal album search failed — falling back to trackUrls",
-        );
-      }
-
-      // Step 2a: Browse ID found → play full album
-      if (browseResult.ok && browseResult.value !== null) {
-        const playResult = await lmsClient.playTidalAlbum(browseResult.value);
-        if (!playResult.ok) {
-          return sendLmsError(
-            reply,
-            request,
-            playResult.error,
-            getUserFriendlyErrorMessage,
-            "LMS play Tidal album failed",
-          );
-        }
-
-        const queueResult = await lmsClient.getQueue();
-        if (queueResult.ok) {
-          const queueProjection = annotateRadioQueueTracks(queueResult.value);
-          io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-            playerId,
-            tracks: queueProjection.tracks,
-            radioModeActive: queueProjection.radioModeActive,
-            radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-            timestamp: Date.now(),
-          });
-        }
-
-        return reply.code(204).send();
-      }
-
-      // Step 2b: No browse ID → fall back to trackUrls
       if (trackUrls.length === 0) {
         return reply.code(503).send({
           message: "No playable content found for Tidal album",

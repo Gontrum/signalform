@@ -5,7 +5,7 @@ import { isTidalAlbumId } from '@signalform/shared'
 import type { AlbumEnrichment, EnrichmentErrorState } from '@/platform/api/enrichmentApi'
 import { getAlbumEnrichment, mapEnrichmentError } from '@/platform/api/enrichmentApi'
 import { playAlbum, playTidalSearchAlbum, playTrack } from '@/platform/api/playbackApi'
-import { getTidalAlbumDetail, getTidalAlbumTracksBySearch } from '@/platform/api/tidalAlbumsApi'
+import { getTidalAlbumDetail } from '@/platform/api/tidalAlbumsApi'
 import { useTransientSet } from '@/app/useTransientSet'
 import { addAlbumToQueue, addTidalSearchAlbumToQueue, addToQueue } from '@/platform/api/queueApi'
 import { getAlbumDetail } from '@/platform/api/albumApi'
@@ -54,8 +54,8 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
   const albumId = getAlbumIdParam(route.params['albumId'])
   const isTidalSearchPath = route.name === 'tidal-search-album'
 
-  const tidalSearchTitle = getHistoryString(getHistoryStateValue('title'))
-  const tidalSearchArtist = getHistoryString(getHistoryStateValue('artist'))
+  const tidalSearchTitle = typeof route.query['title'] === 'string' ? route.query['title'] : ''
+  const tidalSearchArtist = typeof route.query['artist'] === 'string' ? route.query['artist'] : ''
   const tidalSearchCoverArtUrlRaw = getHistoryStateValue('coverArtUrl')
   const tidalSearchCoverArtUrl =
     typeof tidalSearchCoverArtUrlRaw === 'string' ? tidalSearchCoverArtUrlRaw : null
@@ -95,42 +95,15 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
 
   onMounted(async () => {
     if (isTidalSearchPath) {
-      // Use the Tracks search endpoint to discover all tracks for this album.
-      // findTidalSearchAlbumId always returns null (Albums section OOM-crashes LMS),
-      // so we skip resolve entirely and go straight to searchTidalAlbumTracks.
-      const searchResult = await getTidalAlbumTracksBySearch(tidalSearchTitle, tidalSearchArtist)
-
-      if (searchResult.ok && searchResult.value.tracks.length > 0) {
-        album.value = {
-          id: 'tidal-search',
-          title: tidalSearchTitle,
-          artist: tidalSearchArtist,
-          releaseYear: null,
-          coverArtUrl: tidalSearchCoverArtUrl,
-          tracks: searchResult.value.tracks.map((track) => ({
-            id: track.id,
-            trackNumber: track.trackNumber,
-            title: track.title,
-            artist: '',
-            duration: track.duration,
-            url: track.url,
-            audioQuality: parseTidalAudioQuality(track.url),
-          })),
-        }
-        status.value = 'success'
-        void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
-      } else {
-        // Fallback: use history.state track URLs (1-2 tracks from search results)
-        album.value = toTidalSearchFallbackAlbum({
-          title: tidalSearchTitle,
-          artist: tidalSearchArtist,
-          coverArtUrl: tidalSearchCoverArtUrl,
-          trackUrls: tidalSearchTrackUrls,
-          trackTitles: tidalSearchTrackTitles,
-        })
-        status.value = 'success'
-        void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
-      }
+      album.value = toTidalSearchFallbackAlbum({
+        title: tidalSearchTitle,
+        artist: tidalSearchArtist,
+        coverArtUrl: tidalSearchCoverArtUrl,
+        trackUrls: tidalSearchTrackUrls,
+        trackTitles: tidalSearchTrackTitles,
+      })
+      status.value = 'success'
+      void loadEnrichment(tidalSearchArtist, tidalSearchTitle)
       return
     }
 

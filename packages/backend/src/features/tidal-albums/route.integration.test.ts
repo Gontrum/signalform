@@ -19,8 +19,11 @@ type MockLmsClient = LmsClient & {
   readonly getTidalAlbumTracks: ReturnType<
     typeof vi.fn<LmsClient["getTidalAlbumTracks"]>
   >;
-  readonly findTidalSearchAlbumId: ReturnType<
-    typeof vi.fn<LmsClient["findTidalSearchAlbumId"]>
+  readonly searchTidalArtists: ReturnType<
+    typeof vi.fn<LmsClient["searchTidalArtists"]>
+  >;
+  readonly getTidalArtistAlbums: ReturnType<
+    typeof vi.fn<LmsClient["getTidalArtistAlbums"]>
   >;
   readonly getTidalFeaturedAlbums: ReturnType<
     typeof vi.fn<LmsClient["getTidalFeaturedAlbums"]>
@@ -38,9 +41,12 @@ const createMockLmsClient = (): MockLmsClient => ({
   getTidalAlbumTracks: vi
     .fn<LmsClient["getTidalAlbumTracks"]>()
     .mockResolvedValue(ok({ tracks: [], count: 0 })),
-  findTidalSearchAlbumId: vi
-    .fn<LmsClient["findTidalSearchAlbumId"]>()
-    .mockResolvedValue(ok(null)),
+  searchTidalArtists: vi
+    .fn<LmsClient["searchTidalArtists"]>()
+    .mockResolvedValue(ok({ artists: [], count: 0 })),
+  getTidalArtistAlbums: vi
+    .fn<LmsClient["getTidalArtistAlbums"]>()
+    .mockResolvedValue(ok({ albums: [], count: 0 })),
   getTidalFeaturedAlbums: vi
     .fn<LmsClient["getTidalFeaturedAlbums"]>()
     .mockResolvedValue(ok({ albums: [], count: 0 })),
@@ -489,8 +495,16 @@ describe("GET /api/tidal/albums/resolve", () => {
     void server.close();
   });
 
-  it("AC3: returns 200 with albumId when browse resolution succeeds", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(ok("4.123456"));
+  it("AC3: returns 200 with albumId when artist and album are found", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [{ id: "7_radiohead.2.0", name: "Radiohead" }], count: 1 }),
+    );
+    mockLmsClient.getTidalArtistAlbums.mockResolvedValue(
+      ok({
+        albums: [{ id: "7_radiohead.2.0.1.0", name: "OK Computer" }],
+        count: 1,
+      }),
+    );
 
     const response = await server.inject({
       method: "GET",
@@ -499,11 +513,13 @@ describe("GET /api/tidal/albums/resolve", () => {
 
     expect(response.statusCode).toBe(200);
     const body = parseAlbumIdBody(response.body);
-    expect(body.albumId).toBe("4.123456");
+    expect(body.albumId).toBe("7_radiohead.2.0.1.0");
   });
 
-  it("AC4: returns 200 with albumId null when browse resolution finds no match", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
+  it("AC4: returns 200 with albumId null when no artist found", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [], count: 0 }),
+    );
 
     const response = await server.inject({
       method: "GET",
@@ -515,8 +531,47 @@ describe("GET /api/tidal/albums/resolve", () => {
     expect(body.albumId).toBeNull();
   });
 
-  it("returns 503 when LMS is unreachable", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(
+  it("returns 200 with albumId null when no album title matches", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [{ id: "7_radiohead.2.0", name: "Radiohead" }], count: 1 }),
+    );
+    mockLmsClient.getTidalArtistAlbums.mockResolvedValue(
+      ok({
+        albums: [{ id: "7_radiohead.2.0.1.0", name: "Pablo Honey" }],
+        count: 1,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/resolve?title=OK+Computer&artist=Radiohead",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = parseAlbumIdBody(response.body);
+    expect(body.albumId).toBeNull();
+  });
+
+  it("returns 503 when searchTidalArtists fails", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      err({ type: "NetworkError", message: "Connection refused" }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/tidal/albums/resolve?title=OK+Computer&artist=Radiohead",
+    });
+
+    expect(response.statusCode).toBe(503);
+    const body = parseCodeBody(response.body);
+    expect(body.code).toBe("LMS_UNREACHABLE");
+  });
+
+  it("returns 503 when getTidalArtistAlbums fails", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [{ id: "7_radiohead.2.0", name: "Radiohead" }], count: 1 }),
+    );
+    mockLmsClient.getTidalArtistAlbums.mockResolvedValue(
       err({ type: "NetworkError", message: "Connection refused" }),
     );
 
@@ -552,17 +607,20 @@ describe("GET /api/tidal/albums/resolve", () => {
     expect(body.code).toBe("INVALID_INPUT");
   });
 
-  it("passes title and artist from query params to findTidalSearchAlbumId", async () => {
-    mockLmsClient.findTidalSearchAlbumId.mockResolvedValue(ok(null));
+  it("searches using the artist query param", async () => {
+    mockLmsClient.searchTidalArtists.mockResolvedValue(
+      ok({ artists: [], count: 0 }),
+    );
 
     await server.inject({
       method: "GET",
       url: "/api/tidal/albums/resolve?title=OK+Computer&artist=Radiohead",
     });
 
-    expect(mockLmsClient.findTidalSearchAlbumId).toHaveBeenCalledWith(
-      "OK Computer",
+    expect(mockLmsClient.searchTidalArtists).toHaveBeenCalledWith(
       "Radiohead",
+      0,
+      10,
     );
   });
 });

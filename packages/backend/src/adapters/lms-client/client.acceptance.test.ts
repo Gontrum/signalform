@@ -4100,52 +4100,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 19: findTidalSearchAlbumId — permanently disabled (Albums section OOM-kills LMS)
-  // item_id:7_{title}.3 fetches ALL albums before paging — any classical query OOM-crashes LMS.
-  // findTidalSearchAlbumId now always returns ok(null) without making any LMS calls.
-  describe("Rule 19: findTidalSearchAlbumId — Albums section permanently disabled (OOM safety)", () => {
-    it("always returns ok(null) without calling LMS (Albums section disabled)", async () => {
-      // No fetch mock needed — LMS must not be called
-      const client = createLmsClient(defaultConfig);
-      const result = await client.findTidalSearchAlbumId(
-        "Short n' Sweet",
-        "Sabrina Carpenter",
-      );
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value).toBeNull();
-      }
-      // LMS must not have been called (Albums section disabled)
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it("returns ok(null) for classical works without calling LMS", async () => {
-      const client = createLmsClient(defaultConfig);
-      const result = await client.findTidalSearchAlbumId(
-        "Mahler: Symphony No. 5",
-        "Berliner Philharmoniker",
-      );
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value).toBeNull();
-      }
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-
-    it("returns ok(null) for empty title without calling LMS", async () => {
-      const client = createLmsClient(defaultConfig);
-      const result = await client.findTidalSearchAlbumId("", "Some Artist");
-
-      expect(result.ok).toBe(true);
-      if (result.ok) {
-        expect(result.value).toBeNull();
-      }
-      expect(fetchMock).not.toHaveBeenCalled();
-    });
-  });
-
   // Rule 20: Tidal Track Cover Art from .4 browse — Story 9.11
   // Live probe (2026-03-20): item_id:7_{query}.4 (Tracks) already returns `image` field per track.
   // Each image is the album cover for that track (relative LMS proxy URL, e.g. "/imageproxy/...").

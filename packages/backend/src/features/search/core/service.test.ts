@@ -965,6 +965,138 @@ describe("transformToFullResults", () => {
       expect(album?.trackUrls).toBeUndefined();
     }
   });
+
+  // Story tidal-enrichment-timeout: coverArtUrl-based grouping
+  it("groups unenriched Tidal tracks with enriched ones when they share coverArtUrl", () => {
+    // Simulates a 5-movement symphony on Tidal where tidal_info enrichment times out
+    // for 4 movements, leaving artist/album empty.  All 5 share the same coverArtUrl
+    // (unique per album in the LMS proxy), so they must all land in the same album group.
+    const coverUrl = "http://lms-proxy:9000/tidal/album/99/cover.jpg";
+    const lmsResults = givenLmsResultsWithTracks([
+      {
+        // Movement 1 — enrichment succeeded
+        id: "t1",
+        title: "I. Allegro",
+        artist: "Berlin Philharmonic",
+        albumartist: "Beethoven",
+        album: "Symphony No. 5",
+        url: "tidal://t1.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        coverArtUrl: coverUrl,
+      },
+      {
+        // Movement 2 — enrichment timed out
+        id: "t2",
+        title: "II. Andante",
+        artist: "",
+        album: "",
+        url: "tidal://t2.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        coverArtUrl: coverUrl,
+      },
+      {
+        // Movement 3 — enrichment timed out
+        id: "t3",
+        title: "III. Scherzo",
+        artist: "",
+        album: "",
+        url: "tidal://t3.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        coverArtUrl: coverUrl,
+      },
+    ]);
+
+    const result = whenTransformingFullResults("Beethoven", lmsResults);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // All 3 movements must be grouped into a single album entry
+      expect(result.value.albums).toHaveLength(1);
+      const album = result.value.albums[0]!;
+      expect(album.trackCount).toBe(3);
+      // Title is inherited from the one enriched track
+      expect(album.title).toBe("Symphony No. 5");
+      // artist resolved from the enriched movement's albumartist
+      expect(album.artist).toBe("Beethoven");
+      // All 3 URLs present
+      expect(album.trackUrls).toEqual([
+        "tidal://t1.flc",
+        "tidal://t2.flc",
+        "tidal://t3.flc",
+      ]);
+    }
+  });
+
+  it("does not group Tidal tracks with different coverArtUrls into the same album", () => {
+    // Two different Tidal albums — each has a distinct cover — must produce 2 album entries
+    const lmsResults = givenLmsResultsWithTracks([
+      {
+        id: "t1",
+        title: "Track A",
+        artist: "Artist",
+        album: "Album A",
+        url: "tidal://t1.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        coverArtUrl: "http://lms-proxy:9000/tidal/album/1/cover.jpg",
+      },
+      {
+        id: "t2",
+        title: "Track B",
+        artist: "Artist",
+        album: "Album B",
+        url: "tidal://t2.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        coverArtUrl: "http://lms-proxy:9000/tidal/album/2/cover.jpg",
+      },
+    ]);
+
+    const result = whenTransformingFullResults("Artist", lmsResults);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.albums).toHaveLength(2);
+    }
+  });
+
+  it("falls back to artist::album key for Tidal tracks without coverArtUrl", () => {
+    // A Tidal track that has artist+album but no coverArtUrl still groups correctly
+    const lmsResults = givenLmsResultsWithTracks([
+      {
+        id: "t1",
+        title: "Come Together",
+        artist: "The Beatles",
+        album: "Abbey Road",
+        url: "tidal://t1.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        // no coverArtUrl
+      },
+      {
+        id: "t2",
+        title: "Something",
+        artist: "The Beatles",
+        album: "Abbey Road",
+        url: "tidal://t2.flc",
+        source: "tidal" as const,
+        type: "track" as const,
+        // no coverArtUrl
+      },
+    ]);
+
+    const result = whenTransformingFullResults("Beatles", lmsResults);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.albums).toHaveLength(1);
+      expect(result.value.albums[0]?.trackCount).toBe(2);
+      expect(result.value.albums[0]?.title).toBe("Abbey Road");
+    }
+  });
 });
 
 // Additional GIVEN helpers for transformToFullResults tests

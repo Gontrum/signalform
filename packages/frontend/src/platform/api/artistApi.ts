@@ -20,6 +20,7 @@ const ArtistByNameAlbumSchema = z.object({
   artist: z.string(),
   source: z.string().optional(),
   trackUrls: z.array(z.string()).optional(),
+  trackTitles: z.array(z.string()).optional(),
   coverArtUrl: z.string().optional(),
 })
 

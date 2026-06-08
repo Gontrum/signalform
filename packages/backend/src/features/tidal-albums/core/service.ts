@@ -9,7 +9,6 @@ import type {
   TidalAlbumRaw,
   TidalArtistAlbumRaw,
   TidalTrackRaw,
-  TidalTrackSearchResultRaw,
 } from "../../../adapters/lms-client/index.js";
 import type {
   TidalAlbum,
@@ -58,7 +57,7 @@ export const mapTidalAlbums = (
   totalCount: count,
 });
 
-export const extractAlbumMeta = (
+const extractAlbumMeta = (
   name: string,
   image: string | undefined,
   baseUrl: string,
@@ -105,66 +104,3 @@ export const findAlbumMetaFromParentItems = (
   const match = items.find((item) => item.id === albumId);
   return { name: match?.name ?? "", image: match?.image };
 };
-
-/**
- * Filter track search results to those belonging to the requested album.
- *
- * Matching strategy (mirrors old findTidalSearchAlbumId logic):
- * 1. Primary: albumName case-insensitively startsWith the albumTitle
- * 2. Secondary (classical "Composer: Work" format): when albumTitle contains ":",
- *    extract the work title after ":" and match albumName by startsWith or includes.
- * 3. If albumName is absent (enrichment failed): include the track (best-effort).
- *
- * @param tracks - Enriched track results from searchTidalAlbumTracks
- * @param albumTitle - The album title to match against (e.g. "Mahler: Symphony No. 5")
- * @returns Filtered tracks belonging to the album
- */
-export const filterTracksByAlbumTitle = (
-  tracks: ReadonlyArray<TidalTrackSearchResultRaw>,
-  albumTitle: string,
-): ReadonlyArray<TidalTrackSearchResultRaw> => {
-  const lowerTitle = albumTitle.toLowerCase().trim();
-
-  // Extract work title for classical "Composer: Work" format
-  const colonIdx = lowerTitle.indexOf(":");
-  const workTitle =
-    colonIdx >= 0 ? lowerTitle.slice(colonIdx + 1).trim() : undefined;
-
-  return tracks.filter((track) => {
-    // No albumName from enrichment — include best-effort
-    if (track.albumName === undefined || track.albumName === "") {
-      return true;
-    }
-    const lowerAlbumName = track.albumName.toLowerCase();
-
-    // Primary: case-insensitive startsWith
-    if (lowerAlbumName.startsWith(lowerTitle)) {
-      return true;
-    }
-
-    // Secondary: classical work title match
-    if (workTitle !== undefined) {
-      if (
-        lowerAlbumName.startsWith(workTitle) ||
-        lowerAlbumName.includes(workTitle)
-      ) {
-        return true;
-      }
-    }
-
-    return false;
-  });
-};
-
-export const mapTidalAlbumTracksBySearch = (
-  tracks: ReadonlyArray<TidalTrackSearchResultRaw>,
-): TidalAlbumTracksResponse => ({
-  tracks: tracks.map((t, i) => ({
-    id: t.id,
-    trackNumber: i + 1,
-    title: t.name,
-    url: t.url,
-    duration: 0,
-  })),
-  totalCount: tracks.length,
-});

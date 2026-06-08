@@ -54,6 +54,7 @@ export type ArtistByNameAlbum = {
   readonly artist: string
   readonly source?: string
   readonly trackUrls?: ReadonlyArray<string>
+  readonly trackTitles?: ReadonlyArray<string>
   readonly coverArtUrl?: string
 }
 

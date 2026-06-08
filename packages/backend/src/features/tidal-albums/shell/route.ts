@@ -9,9 +9,9 @@ import {
   mapTidalAlbumTracks,
   mapTidalAlbumDetail,
   findAlbumMetaFromParentItems,
-  filterTracksByAlbumTitle,
-  mapTidalAlbumTracksBySearch,
 } from "../core/service.js";
+import { mapTidalArtistSearch } from "../../tidal-artists/core/service.js";
+import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 
 const TidalAlbumTracksParamsSchema = z.object({
   albumId: z.string().trim().min(1, "Album ID is required"),
@@ -25,11 +25,6 @@ const TidalAlbumsQuerySchema = z.object({
 const TidalAlbumResolveQuerySchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
   artist: z.string().trim().min(1, "Artist is required"),
-});
-
-const TidalAlbumTracksBySearchQuerySchema = z.object({
-  title: z.string().trim().min(1, "Title is required"),
-  artist: z.string().trim().default(""),
 });
 
 export const createTidalAlbumsRoute = (
@@ -118,57 +113,57 @@ export const createTidalAlbumsRoute = (
       }
 
       const { title, artist } = validation.data;
-      const result = await lmsClient.findTidalSearchAlbumId(title, artist);
 
-      if (!result.ok) {
-        return reply
-          .code(503)
-          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
-      }
-
-      return reply.code(200).send({ albumId: result.value });
-    },
-  );
-
-  /**
-   * GET /api/tidal/album-tracks-by-search
-   *
-   * Searches for Tidal tracks for a specific album using the Tracks section (item_id:7_{query}.4).
-   * Safe: does not use the Albums section (.3) which OOM-kills LMS.
-   * Returns tracks filtered to those whose albumName matches the title parameter.
-   *
-   * Query params:
-   *   title  (required, min 1) — album title (e.g. "Mahler: Symphony No. 5")
-   *   artist (optional, default "") — artist/performer name (e.g. "Berliner Philharmoniker")
-   */
-  fastify.get<{ readonly Querystring: unknown }>(
-    "/api/tidal/album-tracks-by-search",
-    async (
-      request: FastifyRequest<{ readonly Querystring: unknown }>,
-      reply: FastifyReply,
-    ) => {
-      const validation = TidalAlbumTracksBySearchQuerySchema.safeParse(
-        request.query,
+      const artistSearchResult = await lmsClient.searchTidalArtists(
+        artist,
+        0,
+        10,
       );
-      if (!validation.success) {
-        return reply.code(400).send({
-          message: "title query param is required",
-          code: "INVALID_INPUT",
-        });
+      if (!artistSearchResult.ok) {
+        return reply
+          .code(503)
+          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
+      }
+      if (artistSearchResult.value.artists.length === 0) {
+        return reply.code(200).send({ albumId: null });
       }
 
-      const { title, artist } = validation.data;
-      const result = await lmsClient.searchTidalAlbumTracks(title, artist);
+      const baseUrl = `http://${config.host}:${config.port}`;
+      const { artists: mappedArtists } = mapTidalArtistSearch(
+        artistSearchResult.value.artists,
+        artistSearchResult.value.count,
+        baseUrl,
+      );
+      const normalizedArtistName = normalizeArtist(artist);
+      const matchingArtist =
+        mappedArtists.find(
+          (a) => normalizeArtist(a.name) === normalizedArtistName,
+        ) ?? mappedArtists[0];
 
-      if (!result.ok) {
+      if (!matchingArtist) {
+        return reply.code(200).send({ albumId: null });
+      }
+
+      const albumsResult = await lmsClient.getTidalArtistAlbums(
+        matchingArtist.artistId,
+        0,
+        250,
+      );
+      if (!albumsResult.ok) {
         return reply
           .code(503)
           .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
       }
 
-      const filtered = filterTracksByAlbumTitle(result.value, title);
+      const normalizedTitle = normalizeArtist(title);
+      const matchingAlbum = albumsResult.value.albums.find((album) => {
+        const albumNorm = normalizeArtist(album.name);
+        return (
+          albumNorm === normalizedTitle || albumNorm.includes(normalizedTitle)
+        );
+      });
 
-      return reply.code(200).send(mapTidalAlbumTracksBySearch(filtered));
+      return reply.code(200).send({ albumId: matchingAlbum?.id ?? null });
     },
   );
 

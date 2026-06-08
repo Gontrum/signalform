@@ -481,16 +481,28 @@ export const transformToFullResults = (
     readonly coverArtUrl?: string; // LMS HTTP cover art URL for local albums (Story 9.8)
   };
   const albumMap = tracks.reduce((acc, track) => {
-    // Skip tracks with missing album/artist info (edge case)
-    if (!track.album || !track.artist) {
+    // Determine the album grouping key.
+    //
+    // Priority 1: albumId — always correct, available for local/LMS-indexed tracks.
+    // Priority 2: Tidal tracks — group by coverArtUrl when available.
+    //   All tracks from the same Tidal album share the same cover art URL (each album
+    //   has a unique image served via the LMS proxy). Using this key ensures ALL
+    //   movements/tracks group together even when tidal_info enrichment times out
+    //   and leaves artist/album empty on some tracks.
+    // Priority 3: non-Tidal tracks with artist+album — use compound lowercase key.
+    // Fallback: no usable key — skip the track.
+    const albumKey =
+      track.albumId !== undefined
+        ? track.albumId
+        : track.source === "tidal" && track.coverArtUrl !== undefined
+          ? `tidal_cover:${track.coverArtUrl}`
+          : track.album && track.artist
+            ? `${track.artist.trim().toLowerCase()}::${track.album.trim().toLowerCase()}`
+            : null;
+    if (albumKey === null) {
       return acc;
     }
 
-    // Prefer albumId-based key so tracks with different track artists on the same
-    // physical album are merged into one entry (fixes wrong-artist display).
-    const albumKey =
-      track.albumId ??
-      `${track.artist.trim().toLowerCase()}::${track.album.trim().toLowerCase()}`;
     const existing = acc.get(albumKey);
     // Collect track URL if non-empty (streaming tracks have tidal:// or similar URLs)
     const existingUrls = existing?.trackUrls ?? [];
@@ -505,12 +517,16 @@ export const transformToFullResults = (
         ? [...existingTitles, track.title]
         : existingTitles;
     const newEntry: AlbumAccEntry = {
-      title: track.album,
+      // Inherit title from existing enriched entry — unenriched tracks have empty album
+      title: track.album || existing?.title || "",
       count: (existing?.count ?? 0) + 1,
       albumId: existing?.albumId ?? track.albumId,
       source: existing?.source ?? track.source,
-      albumArtist: existing?.albumArtist ?? track.albumartist,
-      allArtists: [...(existing?.allArtists ?? []), track.artist],
+      // Inherit albumArtist from existing enriched entry
+      albumArtist: track.albumartist?.trim() || existing?.albumArtist,
+      allArtists: track.artist
+        ? [...(existing?.allArtists ?? []), track.artist]
+        : (existing?.allArtists ?? []),
       trackUrls: newTrackUrls,
       trackTitles: newTrackTitles,
       coverArtUrl: existing?.coverArtUrl ?? track.coverArtUrl,
