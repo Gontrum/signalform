@@ -189,14 +189,10 @@ main() {
   # Step 2: Deploy backend with production deps to staging dir
   # -------------------------------------------------------------------------
   log "Step 2/6: Deploying backend with production deps..."
-  # Use node-linker=hoisted so pnpm writes real files instead of symlinks.
-  # This produces a portable node_modules that works without pnpm on the target.
-  # autoInstallPeers=false: hoisted linker cannot use the lockfile, so pnpm
-  # resolves fresh and would try to auto-install optional peer deps (e.g.
-  # vite-plus for oxlint@1.69+). Skip that to avoid catalog-resolution errors.
+  # pnpm deploy uses the lockfile and creates relative symlinks inside the
+  # staging dir. Relative symlinks survive tar/extract on the target machine
+  # and Node.js resolves them without pnpm present — no hoisted linker needed.
   pnpm --filter @signalform/backend deploy --prod \
-    --config.node-linker=hoisted \
-    --config.autoInstallPeers=false \
     "${staging_dir}"
 
 
