@@ -1,7 +1,8 @@
 ---
 name: core-dev
 description: >
-  Implements pure functions in core/ subdirectories for any Signalform package.
+  Implements pure functions in any core/ subdirectory of Signalform.
+  Use proactively whenever files under */core/* need to be created or modified.
   Use for business logic, domain types, data transformations, Result/Option
   utilities. Do NOT use for anything with I/O or framework imports.
 model: anthropic/claude-sonnet-4-5

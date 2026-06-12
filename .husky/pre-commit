@@ -1,3 +1,20 @@
+# FCIS boundary: core/ files must not import framework dependencies.
+# Tool-agnostic backstop — fires regardless of which AI tool made the change.
+# Husky runs this with 'sh -e', so POSIX sh only (no bash process substitution).
+FCIS_VIOLATIONS=$(
+  git diff --cached --name-only | grep -E '.*/core/.*\.ts$' | while IFS= read -r file; do
+    if git show ":$file" 2>/dev/null | grep -qE "from '(vue|fastify|@fastify|express|axios)'"; then
+      echo "  $file"
+    fi
+  done
+) || true
+
+if [ -n "$FCIS_VIOLATIONS" ]; then
+  echo "FCIS violation: core/ files must not import from vue/fastify/express/axios:"
+  echo "$FCIS_VIOLATIONS"
+  exit 1
+fi
+
 # Run lint-staged (Prettier + ESLint on staged files only)
 pnpm exec lint-staged
 

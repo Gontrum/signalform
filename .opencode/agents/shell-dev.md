@@ -2,8 +2,10 @@
 name: shell-dev
 description: >
   Implements Fastify route handlers (backend) and Vue components/composables
-  (frontend). Always specify which package in the prompt.
-  Do NOT use for pure core logic – use @core-dev for that.
+  (frontend) in any shell/ subdirectory of Signalform.
+  Use proactively whenever files under */shell/* need to be created or modified.
+  Always specify which package in the prompt.
+  Do NOT use for pure core logic – use core-dev for that.
 model: anthropic/claude-sonnet-4-5
 ---
 

@@ -71,6 +71,16 @@ For any new Tidal endpoint, three files are involved — use the existing
 | Shell route  | `packages/backend/src/features/tidal-albums/shell/route.ts`  | Fastify handler: Zod params, `Promise.all`, call core   |
 | Server proxy | `packages/backend/src/server.ts`                             | Wire new LMS method via `forwardLmsCall`                |
 
+## Agent Routing
+
+This rule applies to all AI tools, regardless of their specific agent syntax:
+
+- Files under `*/core/**` must only be modified by the `core-dev` agent.
+- Files under `*/shell/**` must only be modified by the `shell-dev` agent.
+- The orchestrating agent must delegate to the appropriate specialized agent and must **never** edit these files directly.
+
+When a task requires changes in both zones, split the work: delegate the core/ changes to `core-dev` first, then the shell/ changes to `shell-dev`.
+
 ## TODO Tracking
 
 If a `TODO.md` exists in the project root:

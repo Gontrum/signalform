@@ -1,0 +1,8 @@
+{
+  "permission": {
+    "edit": {
+      "**/core/**": "deny",
+      "**/shell/**": "deny"
+    }
+  }
+}

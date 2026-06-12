@@ -1,0 +1,8 @@
+# Codex CLI project configuration
+# See: https://developers.openai.com/codex/config-reference
+
+# Block the main agent from directly editing core/ and shell/ zones.
+# Primary enforcement for Codex is via AGENTS.md (agent routing section).
+# Path-based write restrictions (best-effort — schema-supported but sparsely documented):
+[permissions.write]
+deny = ["**/core/**", "**/shell/**"]
