@@ -191,8 +191,12 @@ main() {
   log "Step 2/6: Deploying backend with production deps..."
   # Use node-linker=hoisted so pnpm writes real files instead of symlinks.
   # This produces a portable node_modules that works without pnpm on the target.
+  # autoInstallPeers=false: hoisted linker cannot use the lockfile, so pnpm
+  # resolves fresh and would try to auto-install optional peer deps (e.g.
+  # vite-plus for oxlint@1.69+). Skip that to avoid catalog-resolution errors.
   pnpm --filter @signalform/backend deploy --prod \
     --config.node-linker=hoisted \
+    --config.autoInstallPeers=false \
     "${staging_dir}"
 
 
