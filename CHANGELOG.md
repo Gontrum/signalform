@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.10.1] - 2026-06-12
+
+### Fixed
+
+- **Tidal album navigation — wrong album / single track**: The artist page now uses the Tidal
+  artist-browse API (`searchTidalArtists` → `getTidalArtistAlbums`) as the primary source for Tidal
+  albums. This returns real browse IDs (e.g. `7_Berliner Philharmoniker.2.0.1.120`) that navigate
+  directly to the correct album with all tracks. Previously, synthetic IDs derived from search
+  results would open the wrong recording or show only a single "Track 1".
+- **Tidal fallback — track names missing**: When the artist-browse returns no results, the
+  search-derived fallback now populates `trackTitles` alongside `trackUrls` so individual movement
+  and track names are shown correctly instead of generic "Track N" placeholders.
+- **Queue navigation link hidden on narrow viewports**: The "View Full Queue" link in the Now
+  Playing panel was conditionally hidden on phone-sized screens with no alternative navigation
+  path. It is now always visible.
+
+---
+
 ## [0.10.0] - 2026-05-22
 
 ### Added
@@ -238,7 +256,10 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.9.8...HEAD
+[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/Gontrum/signalform/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/Gontrum/signalform/compare/v0.9.10...v0.10.0
+[0.9.10]: https://github.com/Gontrum/signalform/compare/v0.9.8...v0.9.10
 [0.9.8]: https://github.com/Gontrum/signalform/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/Gontrum/signalform/releases/tag/v0.9.7
 [0.9.6]: https://github.com/Gontrum/signalform/releases/tag/v0.9.6
