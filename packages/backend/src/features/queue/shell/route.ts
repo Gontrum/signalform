@@ -20,6 +20,8 @@ import type {
 import {
   annotateRadioQueueTracks,
   recordQueueReorder,
+  setRadioModeEnabledState,
+  clearRadioQueueRuntimeState,
 } from "../../radio-mode/shell/radio-state.js";
 import type { QueueTrack } from "@signalform/shared";
 import {
@@ -491,6 +493,85 @@ export const createQueueRoute = (
     const queueProjection = await emitQueueUpdate("reorder", (tracks) =>
       recordQueueReorder(tracks, fromIndex + 1, toIndex + 1),
     );
+    return queueProjection === null
+      ? reply.code(204).send()
+      : reply.code(200).send(serializeQueueProjection(queueProjection));
+  });
+
+  fastify.post("/api/queue/clear", async (_request, reply) => {
+    setRadioModeEnabledState(false);
+    clearRadioQueueRuntimeState();
+
+    const mutationResult = await lmsClient.clearQueue();
+    if (!mutationResult.ok) {
+      return sendLmsError(
+        reply,
+        _request as FastifyRequest,
+        mutationResult.error,
+        queueLmsMessage,
+        "LMS clear queue failed",
+      );
+    }
+
+    const queueProjection = await emitQueueUpdate("clear");
+    return queueProjection === null
+      ? reply.code(204).send()
+      : reply.code(200).send(serializeQueueProjection(queueProjection));
+  });
+
+  fastify.post("/api/queue/remove-batch", async (request, reply) => {
+    const body = isBodyRecord(request.body) ? request.body : null;
+    const trackIndices = body?.["trackIndices"];
+
+    if (
+      !Array.isArray(trackIndices) ||
+      trackIndices.length === 0 ||
+      trackIndices.length > 500 ||
+      !trackIndices.every(
+        (idx): idx is number =>
+          typeof idx === "number" &&
+          Number.isInteger(idx) &&
+          idx >= 0 &&
+          idx <= 9999,
+      )
+    ) {
+      return reply.code(400).send({
+        message:
+          "trackIndices must be a non-empty array of valid track indices (max 500)",
+        code: "INVALID_INPUT",
+      });
+    }
+
+    // Deduplicate and sort descending: remove highest indices first to avoid
+    // index shifting invalidating subsequent removals.
+    const uniqueSortedIndices = [...new Set<number>(trackIndices)].sort(
+      (a, b) => b - a,
+    );
+
+    const removalResult = await uniqueSortedIndices.reduce<
+      Promise<Result<void, LmsError>>
+    >(
+      async (prevPromise, trackIndex) => {
+        const prev = await prevPromise;
+        if (!prev.ok) {
+          return prev;
+        }
+        return lmsClient.removeFromQueue(trackIndex);
+      },
+      Promise.resolve(ok(undefined)),
+    );
+
+    if (!removalResult.ok) {
+      return sendLmsError(
+        reply,
+        request,
+        removalResult.error,
+        queueLmsMessage,
+        "LMS batch remove failed",
+      );
+    }
+
+    const queueProjection = await emitQueueUpdate("remove-batch");
     return queueProjection === null
       ? reply.code(204).send()
       : reply.code(200).send(serializeQueueProjection(queueProjection));

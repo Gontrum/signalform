@@ -129,6 +129,11 @@ export type MessageKey =
   | 'queue.updating'
   | 'home.tidalUnavailable'
   | 'common.tryAgain'
+  | 'queue.selectMode'
+  | 'queue.cancelSelect'
+  | 'queue.removeSelected'
+  | 'queue.selectAll'
+  | 'queue.clearConfirm'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -260,6 +265,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.updating': 'Updating queue…',
     'home.tidalUnavailable': 'Tidal is currently unavailable. Only local results are shown.',
     'common.tryAgain': 'Try Again',
+    'queue.selectMode': 'Select',
+    'queue.cancelSelect': 'Cancel',
+    'queue.removeSelected': 'Remove selected',
+    'queue.selectAll': 'Select all',
+    'queue.clearConfirm': 'Clear?',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -393,6 +403,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.tidalUnavailable':
       'Tidal ist momentan nicht erreichbar. Es werden nur lokale Ergebnisse angezeigt.',
     'common.tryAgain': 'Erneut versuchen',
+    'queue.selectMode': 'Auswählen',
+    'queue.cancelSelect': 'Abbrechen',
+    'queue.removeSelected': 'Auswahl entfernen',
+    'queue.selectAll': 'Alle auswählen',
+    'queue.clearConfirm': 'Wirklich leeren?',
   },
 }
 

@@ -27,3 +27,14 @@ implementation code directly in the main context.
 - `@reviewer` – MUST be run before every release commit; architectural checks and full test suite
 
 After any agent writes code, ALWAYS run `@reviewer` before committing.
+
+### Test coverage in agent prompts
+
+Every `@core-dev` and `@shell-dev` delegation for a new feature or bug fix MUST include
+explicit test requirements. Tests are part of the implementation, not a separate task.
+
+Checklist for every agent prompt that adds new behaviour:
+
+- [ ] Specify which test file(s) to update
+- [ ] List the cases to cover (happy path, error paths, edge cases)
+- [ ] Require the agent to run the test suite before returning

@@ -27,6 +27,8 @@ vi.mock('@/platform/api/queueApi', () => ({
   removeFromQueue: vi.fn(),
   reorderQueue: vi.fn(),
   setRadioMode: vi.fn(),
+  clearQueue: vi.fn(),
+  removeMultipleFromQueue: vi.fn(),
 }))
 
 vi.mock('@/app/useWebSocket', () => ({
@@ -47,6 +49,8 @@ import {
   removeFromQueue as apiRemoveFromQueue,
   reorderQueue as apiReorderQueue,
   setRadioMode as apiSetRadioMode,
+  clearQueue as apiClearQueue,
+  removeMultipleFromQueue as apiRemoveMultipleFromQueue,
 } from '@/platform/api/queueApi'
 
 const mockGetQueue = vi.mocked(getQueue)
@@ -54,6 +58,8 @@ const mockJumpToTrack = vi.mocked(apiJumpToTrack)
 const mockRemoveFromQueue = vi.mocked(apiRemoveFromQueue)
 const mockReorderQueue = vi.mocked(apiReorderQueue)
 const mockSetRadioMode = vi.mocked(apiSetRadioMode)
+const mockClearQueue = vi.mocked(apiClearQueue)
+const mockRemoveMultipleFromQueue = vi.mocked(apiRemoveMultipleFromQueue)
 
 const makeTrack = (overrides: Partial<QueueTrack> = {}): QueueTrack => ({
   id: '1',
@@ -879,5 +885,275 @@ describe('useQueueStore', () => {
     await store.fetchQueue()
 
     expect(store.jumpError).toBeNull()
+  })
+
+  describe('new queue features: select mode and batch operations', () => {
+    const emptySnapshot = { tracks: [], radioModeActive: false, radioBoundaryIndex: null }
+
+    describe('initial state', () => {
+      it('isSelectMode is false', () => {
+        const store = useQueueStore()
+        expect(store.isSelectMode).toBe(false)
+      })
+
+      it('selectedTrackIds.size is 0', () => {
+        const store = useQueueStore()
+        expect(store.selectedTrackIds.size).toBe(0)
+      })
+
+      it('isClearingQueue is false', () => {
+        const store = useQueueStore()
+        expect(store.isClearingQueue).toBe(false)
+      })
+
+      it('isBatchRemoving is false', () => {
+        const store = useQueueStore()
+        expect(store.isBatchRemoving).toBe(false)
+      })
+
+      it('selectedCount is 0', () => {
+        const store = useQueueStore()
+        expect(store.selectedCount).toBe(0)
+      })
+
+      it('allTracksSelected is false', () => {
+        const store = useQueueStore()
+        expect(store.allTracksSelected).toBe(false)
+      })
+
+      it('hasSelectedTracks is false', () => {
+        const store = useQueueStore()
+        expect(store.hasSelectedTracks).toBe(false)
+      })
+    })
+
+    describe('toggleSelectMode', () => {
+      it('sets isSelectMode to true when called once', () => {
+        const store = useQueueStore()
+        store.toggleSelectMode()
+        expect(store.isSelectMode).toBe(true)
+      })
+
+      it('sets isSelectMode back to false and clears selectedTrackIds when called again', () => {
+        const store = useQueueStore()
+        store.toggleSelectMode()
+        store.toggleTrackSelection('track-1')
+        store.toggleSelectMode()
+        expect(store.isSelectMode).toBe(false)
+        expect(store.selectedTrackIds.size).toBe(0)
+      })
+
+      it('exitSelectMode sets isSelectMode to false and clears selection', () => {
+        const store = useQueueStore()
+        store.toggleSelectMode()
+        store.toggleTrackSelection('track-1')
+        store.exitSelectMode()
+        expect(store.isSelectMode).toBe(false)
+        expect(store.selectedTrackIds.size).toBe(0)
+      })
+    })
+
+    describe('toggleTrackSelection', () => {
+      it('adds a track ID to selectedTrackIds when not selected', () => {
+        const store = useQueueStore()
+        store.toggleTrackSelection('track-1')
+        expect(store.selectedTrackIds.has('track-1')).toBe(true)
+      })
+
+      it('removes a track ID from selectedTrackIds when already selected', () => {
+        const store = useQueueStore()
+        store.toggleTrackSelection('track-1')
+        store.toggleTrackSelection('track-1')
+        expect(store.selectedTrackIds.has('track-1')).toBe(false)
+      })
+
+      it('selectedCount reflects the current selection size', () => {
+        const store = useQueueStore()
+        store.toggleTrackSelection('track-1')
+        store.toggleTrackSelection('track-2')
+        expect(store.selectedCount).toBe(2)
+      })
+
+      it('hasSelectedTracks is true when any track is selected', () => {
+        const store = useQueueStore()
+        store.toggleTrackSelection('track-1')
+        expect(store.hasSelectedTracks).toBe(true)
+      })
+
+      it('allTracksSelected is true when all tracks in the queue are selected', () => {
+        const store = useQueueStore()
+        store.$patch({
+          tracks: [makeTrack({ id: 'a', position: 1 }), makeTrack({ id: 'b', position: 2 })],
+        })
+        store.toggleTrackSelection('a')
+        store.toggleTrackSelection('b')
+        expect(store.allTracksSelected).toBe(true)
+      })
+    })
+
+    describe('selectAllTracks', () => {
+      it('adds all track IDs from store.tracks to selectedTrackIds', () => {
+        const store = useQueueStore()
+        store.$patch({
+          tracks: [
+            makeTrack({ id: 'a', position: 1 }),
+            makeTrack({ id: 'b', position: 2 }),
+            makeTrack({ id: 'c', position: 3 }),
+          ],
+        })
+        store.selectAllTracks()
+        expect(store.selectedTrackIds.has('a')).toBe(true)
+        expect(store.selectedTrackIds.has('b')).toBe(true)
+        expect(store.selectedTrackIds.has('c')).toBe(true)
+      })
+
+      it('allTracksSelected is true after calling selectAllTracks', () => {
+        const store = useQueueStore()
+        store.$patch({
+          tracks: [makeTrack({ id: 'a', position: 1 }), makeTrack({ id: 'b', position: 2 })],
+        })
+        store.selectAllTracks()
+        expect(store.allTracksSelected).toBe(true)
+      })
+    })
+
+    describe('clearQueue action', () => {
+      it('calls apiClearQueue, applies returned snapshot, and sets isClearingQueue false after', async () => {
+        const snapshot = {
+          tracks: [makeTrack({ id: 'remaining', position: 1 })],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }
+        mockClearQueue.mockResolvedValue(ok(snapshot))
+
+        const store = useQueueStore()
+        await store.clearQueue()
+
+        expect(mockClearQueue).toHaveBeenCalledOnce()
+        expect(store.tracks[0]?.id).toBe('remaining')
+        expect(store.isClearingQueue).toBe(false)
+      })
+
+      it('calls fetchQueue when apiClearQueue returns ok(undefined) (204 fallback)', async () => {
+        mockClearQueue.mockResolvedValue(ok(undefined))
+        mockGetQueue.mockResolvedValue(
+          ok({ ...emptySnapshot, tracks: [makeTrack({ id: 'refreshed', position: 1 })] }),
+        )
+
+        const store = useQueueStore()
+        await store.clearQueue()
+
+        expect(mockGetQueue).toHaveBeenCalledOnce()
+        expect(store.tracks[0]?.id).toBe('refreshed')
+        expect(store.isClearingQueue).toBe(false)
+      })
+
+      it('sets lastMutationError when apiClearQueue returns err', async () => {
+        mockClearQueue.mockResolvedValue(
+          err({ type: 'SERVER_ERROR', status: 503, message: 'clear failed' }),
+        )
+        mockGetQueue.mockResolvedValue(ok(emptySnapshot))
+
+        const store = useQueueStore()
+        await store.clearQueue()
+
+        expect(store.lastMutationError).toBe('clear failed')
+        expect(store.isClearingQueue).toBe(false)
+      })
+
+      it('exits select mode before clearing', async () => {
+        mockClearQueue.mockResolvedValue(ok(emptySnapshot))
+
+        const store = useQueueStore()
+        store.toggleSelectMode()
+        store.toggleTrackSelection('track-1')
+        await store.clearQueue()
+
+        expect(store.isSelectMode).toBe(false)
+        expect(store.selectedTrackIds.size).toBe(0)
+      })
+    })
+
+    describe('removeSelectedTracks action', () => {
+      it('does nothing (no API call) when selectedTrackIds is empty', async () => {
+        const store = useQueueStore()
+        await store.removeSelectedTracks()
+        expect(mockRemoveMultipleFromQueue).not.toHaveBeenCalled()
+      })
+
+      it('calls apiRemoveMultipleFromQueue with correct 0-based indices derived from selected track positions', async () => {
+        const snapshot = { tracks: [], radioModeActive: false, radioBoundaryIndex: null }
+        mockRemoveMultipleFromQueue.mockResolvedValue(ok(snapshot))
+
+        const store = useQueueStore()
+        store.$patch({
+          tracks: [
+            makeTrack({ id: 'track-a', position: 1 }),
+            makeTrack({ id: 'track-b', position: 2 }),
+            makeTrack({ id: 'track-c', position: 3 }),
+          ],
+        })
+        store.toggleTrackSelection('track-a')
+        store.toggleTrackSelection('track-c')
+        await store.removeSelectedTracks()
+
+        expect(mockRemoveMultipleFromQueue).toHaveBeenCalledWith([0, 2])
+      })
+
+      it('applies returned snapshot when successful', async () => {
+        const resultTracks = [makeTrack({ id: 'kept', position: 1 })]
+        mockRemoveMultipleFromQueue.mockResolvedValue(
+          ok({ tracks: resultTracks, radioModeActive: false, radioBoundaryIndex: null }),
+        )
+
+        const store = useQueueStore()
+        store.$patch({
+          tracks: [
+            makeTrack({ id: 'track-a', position: 1 }),
+            makeTrack({ id: 'kept', position: 2 }),
+          ],
+        })
+        store.toggleTrackSelection('track-a')
+        await store.removeSelectedTracks()
+
+        expect(store.tracks[0]?.id).toBe('kept')
+        expect(store.isBatchRemoving).toBe(false)
+      })
+
+      it('sets lastMutationError on API failure', async () => {
+        mockRemoveMultipleFromQueue.mockResolvedValue(
+          err({ type: 'SERVER_ERROR', status: 500, message: 'batch remove failed' }),
+        )
+        mockGetQueue.mockResolvedValue(ok(emptySnapshot))
+
+        const store = useQueueStore()
+        store.$patch({ tracks: [makeTrack({ id: 'track-a', position: 1 })] })
+        store.toggleTrackSelection('track-a')
+        await store.removeSelectedTracks()
+
+        expect(store.lastMutationError).toBe('batch remove failed')
+        expect(store.isBatchRemoving).toBe(false)
+      })
+
+      it('falls back to fetchQueue when API returns ok(undefined) (204 response)', async () => {
+        mockRemoveMultipleFromQueue.mockResolvedValue(ok(undefined))
+        mockGetQueue.mockResolvedValue(
+          ok({
+            tracks: [makeTrack({ id: 'refreshed', position: 1 })],
+            radioModeActive: false,
+            radioBoundaryIndex: null,
+          }),
+        )
+
+        const store = useQueueStore()
+        store.$patch({ tracks: [makeTrack({ id: 'track-a', position: 1 })] })
+        store.toggleTrackSelection('track-a')
+        await store.removeSelectedTracks()
+
+        expect(mockGetQueue).toHaveBeenCalledOnce()
+        expect(store.tracks[0]?.id).toBe('refreshed')
+        expect(store.isBatchRemoving).toBe(false)
+      })
+    })
   })
 })

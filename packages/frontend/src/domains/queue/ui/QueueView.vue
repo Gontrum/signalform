@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { formatSeconds } from '@signalform/shared'
@@ -34,6 +34,13 @@ const {
   radioModeError,
   radioBoundaryIndex,
   radioUnavailableMessage,
+  isSelectMode,
+  selectedTrackIds,
+  isClearingQueue,
+  isBatchRemoving,
+  selectedCount,
+  allTracksSelected,
+  hasSelectedTracks,
 } = storeToRefs(queueStore)
 
 const {
@@ -62,6 +69,9 @@ const {
   },
 })
 
+const clearConfirmPending = ref(false)
+const clearConfirmTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
 onMounted(async () => {
   await queueStore.fetchQueue()
 })
@@ -81,6 +91,44 @@ const handleRemoveTrack = (trackId: string, trackIndex: number): void => {
 
   clearDragState()
   void queueStore.removeTrack(trackId, trackIndex)
+}
+
+const handleClearQueue = (): void => {
+  if (clearConfirmPending.value) {
+    if (clearConfirmTimer.value !== null) {
+      clearTimeout(clearConfirmTimer.value)
+      clearConfirmTimer.value = null
+    }
+    clearConfirmPending.value = false
+    void queueStore.clearQueue()
+    return
+  }
+
+  clearConfirmPending.value = true
+  clearConfirmTimer.value = setTimeout(() => {
+    clearConfirmPending.value = false
+    clearConfirmTimer.value = null
+  }, 3000)
+}
+
+const handleToggleSelectMode = (): void => {
+  queueStore.toggleSelectMode()
+}
+
+const handleToggleTrackSelection = (trackId: string): void => {
+  queueStore.toggleTrackSelection(trackId)
+}
+
+const handleSelectAll = (): void => {
+  if (allTracksSelected.value) {
+    selectedTrackIds.value = new Set()
+  } else {
+    queueStore.selectAllTracks()
+  }
+}
+
+const handleRemoveSelected = (): void => {
+  void queueStore.removeSelectedTracks()
 }
 
 const handleRadioModeToggle = (): void => {
@@ -132,6 +180,41 @@ const draggedTrack = computed(
     <h1 class="mb-4 text-2xl font-semibold text-neutral-900">
       {{ t('queue.title') }}
     </h1>
+    <div
+      v-if="tracks.length > 0 || isSelectMode"
+      class="mb-4 flex items-center justify-between gap-2"
+    >
+      <button
+        type="button"
+        data-testid="queue-select-mode-toggle"
+        :class="[
+          'rounded-lg border px-3 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50',
+          isSelectMode
+            ? 'border-blue-300 bg-blue-50 text-blue-700'
+            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50',
+        ]"
+        :disabled="isLoading || isMutatingQueue"
+        @click="handleToggleSelectMode"
+      >
+        {{ isSelectMode ? t('queue.cancelSelect') : t('queue.selectMode') }}
+      </button>
+
+      <button
+        v-if="!isSelectMode"
+        type="button"
+        data-testid="queue-clear-button"
+        :class="[
+          'rounded-lg border px-3 py-1.5 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50',
+          clearConfirmPending
+            ? 'border-red-300 bg-red-50 text-red-700'
+            : 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50',
+        ]"
+        :disabled="isLoading || isMutatingQueue || isJumping || isClearingQueue"
+        @click="handleClearQueue"
+      >
+        {{ clearConfirmPending ? t('queue.clearConfirm') : t('queue.clear') }}
+      </button>
+    </div>
     <div class="mb-4 flex items-center justify-between gap-4">
       <p class="text-sm text-neutral-500">
         {{ isRadioMode ? t('queue.radioModeOn') : t('queue.radioModeOff') }}
@@ -226,188 +309,226 @@ const draggedTrack = computed(
       {{ t('queue.empty') }}
     </div>
 
-    <ul
-      v-else
-      :ref="setScrollContainer"
-      :class="[
-        'min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-4',
-        isJumping ? 'pointer-events-none opacity-60' : '',
-      ]"
-      aria-label="Queue tracks"
-    >
-      <template v-for="(track, index) in tracks" :key="getTrackKey(track)">
-        <li
-          v-if="radioBoundaryIndex !== null && index === radioBoundaryIndex"
-          :ref="scrollBoundaryIntoView"
-          role="separator"
-          aria-label="Radio mode starts here"
-          data-testid="radio-boundary"
-          class="flex select-none items-center gap-3 border-t-2 border-dashed border-sky-300 bg-sky-50/20 px-4 py-2"
+    <template v-if="!isLoading && !error && tracks.length > 0">
+      <div
+        v-if="isSelectMode"
+        data-testid="queue-select-all"
+        class="mb-1 flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50 px-4 py-2"
+      >
+        <input
+          type="checkbox"
+          :checked="allTracksSelected"
+          class="h-4 w-4 cursor-pointer rounded border-neutral-300 text-blue-500 accent-blue-500 focus:ring-blue-500"
+          :aria-label="t('queue.selectAll')"
+          @change="handleSelectAll"
+        />
+        <span class="text-sm text-neutral-700">{{ t('queue.selectAll') }}</span>
+        <span class="ml-auto text-xs text-neutral-500"
+          >{{ selectedCount }} / {{ tracks.length }}</span
         >
-          <span class="text-xs font-medium tracking-wide text-sky-500">{{
-            t('queue.radioModeSeparator')
-          }}</span>
-        </li>
+      </div>
 
-        <li
-          data-testid="queue-track"
-          :data-track-index="index"
-          :data-track-id="track.id"
-          :data-track-key="getTrackKey(track)"
-          :data-dragging="dragTrackId === getTrackKey(track) ? 'true' : 'false'"
-          :data-drop-target="isDropTarget(index) ? 'true' : 'false'"
-          :data-busy="isRowBusy(getTrackKey(track)) ? 'true' : 'false'"
-          :class="[
-            'relative scroll-mt-24 px-4 py-3 transition-colors',
-            track.isCurrent
-              ? 'border-l-4 border-blue-500 bg-blue-50 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.12)]'
-              : '',
-            isRadioTrack(track, index) && !track.isCurrent ? 'bg-sky-100/60' : '',
-            isDropTarget(index) ? 'bg-sky-50' : '',
-            dragTrackId === getTrackKey(track) ? 'scale-[0.985] opacity-35' : '',
-            isRowBusy(getTrackKey(track)) ? 'opacity-60' : '',
-          ]"
-        >
-          <div
-            v-if="getDropPosition(index) === 'before'"
-            data-testid="queue-drop-line-before"
-            class="absolute inset-x-3 top-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
-          />
-          <div
-            v-if="getDropPosition(index) === 'after'"
-            data-testid="queue-drop-line-after"
-            class="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
-          />
-
-          <div
-            v-if="isDropTarget(index)"
-            data-testid="queue-drop-indicator"
-            class="mb-3 rounded-md border border-sky-300 bg-sky-100 px-3 py-2 text-xs font-medium text-sky-800 shadow-sm"
+      <ul
+        :ref="setScrollContainer"
+        :class="[
+          'min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-4',
+          isJumping ? 'pointer-events-none opacity-60' : '',
+        ]"
+        aria-label="Queue tracks"
+      >
+        <template v-for="(track, index) in tracks" :key="getTrackKey(track)">
+          <li
+            v-if="radioBoundaryIndex !== null && index === radioBoundaryIndex"
+            :ref="scrollBoundaryIntoView"
+            role="separator"
+            aria-label="Radio mode starts here"
+            data-testid="radio-boundary"
+            class="flex select-none items-center gap-3 border-t-2 border-dashed border-sky-300 bg-sky-50/20 px-4 py-2"
           >
-            {{ getDropIndicatorLabel(index) }}
-          </div>
+            <span class="text-xs font-medium tracking-wide text-sky-500">{{
+              t('queue.radioModeSeparator')
+            }}</span>
+          </li>
 
-          <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
-            <span
-              :class="[
-                'pt-0.5 text-right text-sm',
-                track.isCurrent ? 'text-neutral-600' : 'text-neutral-400',
-              ]"
+          <li
+            data-testid="queue-track"
+            :data-track-index="index"
+            :data-track-id="track.id"
+            :data-track-key="getTrackKey(track)"
+            :data-dragging="dragTrackId === getTrackKey(track) ? 'true' : 'false'"
+            :data-drop-target="isDropTarget(index) ? 'true' : 'false'"
+            :data-busy="isRowBusy(getTrackKey(track)) ? 'true' : 'false'"
+            :class="[
+              'relative scroll-mt-24 px-4 py-3 transition-colors',
+              track.isCurrent
+                ? 'border-l-4 border-blue-500 bg-blue-50 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.12)]'
+                : '',
+              isRadioTrack(track, index) && !track.isCurrent ? 'bg-sky-100/60' : '',
+              isDropTarget(index) ? 'bg-sky-50' : '',
+              dragTrackId === getTrackKey(track) ? 'scale-[0.985] opacity-35' : '',
+              isRowBusy(getTrackKey(track)) ? 'opacity-60' : '',
+            ]"
+          >
+            <div
+              v-if="getDropPosition(index) === 'before'"
+              data-testid="queue-drop-line-before"
+              class="absolute inset-x-3 top-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
+            />
+            <div
+              v-if="getDropPosition(index) === 'after'"
+              data-testid="queue-drop-line-after"
+              class="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
+            />
+
+            <div
+              v-if="isDropTarget(index)"
+              data-testid="queue-drop-indicator"
+              class="mb-3 rounded-md border border-sky-300 bg-sky-100 px-3 py-2 text-xs font-medium text-sky-800 shadow-sm"
             >
-              {{ track.position }}
-            </span>
-
-            <button
-              type="button"
-              data-testid="queue-track-jump"
-              :class="[
-                'min-h-10 min-w-0 rounded-lg px-2 py-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500',
-                isRowBusy(getTrackKey(track)) || isMutatingQueue
-                  ? 'cursor-not-allowed opacity-70'
-                  : 'hover:bg-neutral-50',
-              ]"
-              :aria-label="`${track.title} by ${track.artist}${track.isCurrent ? ' — currently playing' : ''}`"
-              :aria-current="track.isCurrent ? 'true' : undefined"
-              :disabled="isRowBusy(getTrackKey(track)) || isMutatingQueue"
-              @click="handleJumpToTrack(track.position - 1)"
-              @keydown="handleQueueItemKeydown"
-            >
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <p
-                    class="truncate text-sm font-medium text-neutral-900"
-                    :class="{ 'text-blue-700': track.isCurrent }"
-                  >
-                    {{ track.title }}
-                  </p>
-                  <span
-                    v-if="track.isCurrent"
-                    data-testid="queue-current-badge"
-                    class="inline-flex flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
-                  >
-                    {{ t('queue.nowPlayingLabel') }}
-                  </span>
-                </div>
-
-                <p
-                  :class="[
-                    'mt-0.5 truncate text-xs',
-                    track.isCurrent ? 'text-neutral-600' : 'text-neutral-500',
-                  ]"
-                >
-                  {{ track.artist }}<span v-if="track.album"> · {{ track.album }}</span>
-                </p>
-
-                <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <QualityBadge
-                    v-if="track.source || track.audioQuality"
-                    :source="track.source ?? 'unknown'"
-                    :quality="track.audioQuality"
-                  />
-                  <span
-                    :class="['text-xs', track.isCurrent ? 'text-neutral-600' : 'text-neutral-500']"
-                  >
-                    {{ formatSeconds(track.duration) }}
-                  </span>
-                </div>
-              </div>
-            </button>
-
-            <div class="flex items-center gap-1.5">
-              <button
-                type="button"
-                data-testid="queue-track-reorder"
-                class="min-h-9 min-w-9 touch-none select-none rounded-lg border border-neutral-200 px-2 py-2 text-xs text-neutral-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="isMutatingQueue || isJumping"
-                :aria-label="`Reorder ${track.title}`"
-                @mousedown="startMouseDrag($event, getTrackKey(track), index)"
-                @touchstart="startTouchDrag($event, getTrackKey(track), index)"
-              >
-                <span aria-hidden="true">↕</span>
-              </button>
-              <button
-                type="button"
-                data-testid="queue-track-remove"
-                class="min-h-9 min-w-9 rounded-lg border border-red-200 px-2 py-2 text-xs text-red-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="isMutatingQueue || isJumping"
-                :aria-label="`Remove ${track.title}`"
-                @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
-              >
-                <span aria-hidden="true">✕</span>
-              </button>
+              {{ getDropIndicatorLabel(index) }}
             </div>
-          </div>
 
-          <div
-            v-if="isRowBusy(getTrackKey(track))"
-            data-testid="queue-track-busy"
-            class="mt-2 text-xs text-neutral-500"
-          >
-            {{ t('queue.updating') }}
-          </div>
-          <div
-            v-else-if="
-              dragTrackId === getTrackKey(track) || (isTouchDragging && isDropTarget(index))
-            "
-            data-testid="queue-track-drag-status"
-            class="mt-2 text-xs text-sky-700"
-          >
-            {{
-              dragTrackId === getTrackKey(track)
-                ? t('queue.dragging')
-                : getDropIndicatorLabel(index)
-            }}
-          </div>
+            <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
+              <span
+                v-if="!isSelectMode"
+                :class="[
+                  'pt-0.5 text-right text-sm',
+                  track.isCurrent ? 'text-neutral-600' : 'text-neutral-400',
+                ]"
+              >
+                {{ track.position }}
+              </span>
+              <div v-else class="flex items-center pt-1">
+                <input
+                  type="checkbox"
+                  :checked="selectedTrackIds.has(track.id)"
+                  :aria-label="`Select ${track.title}`"
+                  class="h-4 w-4 cursor-pointer rounded border-neutral-300 accent-blue-500 focus:ring-blue-500"
+                  @change="handleToggleTrackSelection(track.id)"
+                  @click.stop
+                />
+              </div>
 
-          <span
-            v-if="track.isCurrent"
-            data-testid="current-track"
-            class="sr-only"
-            aria-hidden="true"
-          />
-        </li>
-      </template>
-    </ul>
+              <button
+                type="button"
+                data-testid="queue-track-jump"
+                :class="[
+                  'min-h-10 min-w-0 rounded-lg px-2 py-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500',
+                  isRowBusy(getTrackKey(track)) || isMutatingQueue
+                    ? 'cursor-not-allowed opacity-70'
+                    : 'hover:bg-neutral-50',
+                ]"
+                :aria-label="`${track.title} by ${track.artist}${track.isCurrent ? ' — currently playing' : ''}`"
+                :aria-current="track.isCurrent ? 'true' : undefined"
+                :disabled="isRowBusy(getTrackKey(track)) || isMutatingQueue"
+                @click="
+                  isSelectMode
+                    ? handleToggleTrackSelection(track.id)
+                    : handleJumpToTrack(track.position - 1)
+                "
+                @keydown="handleQueueItemKeydown"
+              >
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2">
+                    <p
+                      class="truncate text-sm font-medium text-neutral-900"
+                      :class="{ 'text-blue-700': track.isCurrent }"
+                    >
+                      {{ track.title }}
+                    </p>
+                    <span
+                      v-if="track.isCurrent"
+                      data-testid="queue-current-badge"
+                      class="inline-flex flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
+                    >
+                      {{ t('queue.nowPlayingLabel') }}
+                    </span>
+                  </div>
+
+                  <p
+                    :class="[
+                      'mt-0.5 truncate text-xs',
+                      track.isCurrent ? 'text-neutral-600' : 'text-neutral-500',
+                    ]"
+                  >
+                    {{ track.artist }}<span v-if="track.album"> · {{ track.album }}</span>
+                  </p>
+
+                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <QualityBadge
+                      v-if="track.source || track.audioQuality"
+                      :source="track.source ?? 'unknown'"
+                      :quality="track.audioQuality"
+                    />
+                    <span
+                      :class="[
+                        'text-xs',
+                        track.isCurrent ? 'text-neutral-600' : 'text-neutral-500',
+                      ]"
+                    >
+                      {{ formatSeconds(track.duration) }}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              <div v-if="!isSelectMode" class="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  data-testid="queue-track-reorder"
+                  class="min-h-9 min-w-9 touch-none select-none rounded-lg border border-neutral-200 px-2 py-2 text-xs text-neutral-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="isMutatingQueue || isJumping"
+                  :aria-label="`Reorder ${track.title}`"
+                  @mousedown="startMouseDrag($event, getTrackKey(track), index)"
+                  @touchstart="startTouchDrag($event, getTrackKey(track), index)"
+                >
+                  <span aria-hidden="true">↕</span>
+                </button>
+                <button
+                  type="button"
+                  data-testid="queue-track-remove"
+                  class="min-h-9 min-w-9 rounded-lg border border-red-200 px-2 py-2 text-xs text-red-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  :disabled="isMutatingQueue || isJumping"
+                  :aria-label="`Remove ${track.title}`"
+                  @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
+                >
+                  <span aria-hidden="true">✕</span>
+                </button>
+              </div>
+              <div v-else class="w-9" />
+            </div>
+
+            <div
+              v-if="isRowBusy(getTrackKey(track))"
+              data-testid="queue-track-busy"
+              class="mt-2 text-xs text-neutral-500"
+            >
+              {{ t('queue.updating') }}
+            </div>
+            <div
+              v-else-if="
+                dragTrackId === getTrackKey(track) || (isTouchDragging && isDropTarget(index))
+              "
+              data-testid="queue-track-drag-status"
+              class="mt-2 text-xs text-sky-700"
+            >
+              {{
+                dragTrackId === getTrackKey(track)
+                  ? t('queue.dragging')
+                  : getDropIndicatorLabel(index)
+              }}
+            </div>
+
+            <span
+              v-if="track.isCurrent"
+              data-testid="current-track"
+              class="sr-only"
+              aria-hidden="true"
+            />
+          </li>
+        </template>
+      </ul>
+    </template>
 
     <div
       v-if="dragOverlayStyle && draggedTrack"
@@ -422,6 +543,37 @@ const draggedTrack = computed(
         {{ draggedTrack.title }}
       </p>
       <p class="truncate text-xs text-neutral-500">{{ draggedTrack.artist }}</p>
+    </div>
+
+    <div
+      v-if="isSelectMode"
+      data-testid="queue-select-action-bar"
+      class="flex-shrink-0 border-t border-neutral-200 bg-white px-4 py-3 sm:pb-3"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          class="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+          @click="handleToggleSelectMode"
+        >
+          {{ t('queue.cancelSelect') }}
+        </button>
+        <button
+          type="button"
+          data-testid="queue-remove-selected-button"
+          :class="[
+            'rounded-lg border px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50',
+            hasSelectedTracks
+              ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+              : 'border-neutral-200 bg-white text-neutral-400',
+          ]"
+          :disabled="!hasSelectedTracks || isBatchRemoving"
+          @click="handleRemoveSelected"
+        >
+          {{ t('queue.removeSelected')
+          }}<span v-if="selectedCount > 0"> ({{ selectedCount }})</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>

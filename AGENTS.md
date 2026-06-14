@@ -43,6 +43,24 @@ The fastest test for which zone code belongs in:
 - Frontend: does it import from `'vue'`? → Shell.
 - Shared: does it have any runtime side effect? → Does not belong in shared.
 
+## Testing
+
+Every new feature and every bug fix must include tests. This is not optional and is
+part of the definition of done — not a follow-up step.
+
+- **Backend**: add integration test cases to the relevant `shell/route.integration.test.ts`.
+  Cover: happy path, LMS error (503), validation errors (400), and the 204 fallback when
+  `getQueue` fails after the mutation.
+- **Frontend store**: add cases to `useQueueStore.test.ts` for every new action and computed.
+- **Frontend API**: add cases to `queueApi.test.ts` for every new API function.
+- **Frontend UI**: add cases to the relevant `*.test.ts` component test for every new
+  interactive element.
+
+Tests must be written in the same agent delegation as the code they cover. When
+delegating to `@core-dev` or `@shell-dev`, always include explicit test requirements
+in the prompt. Never consider a task complete until `pnpm test` passes with new coverage
+for the new behaviour.
+
 ## Code rules (all packages)
 
 - No `any`, ever.

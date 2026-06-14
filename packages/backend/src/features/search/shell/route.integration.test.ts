@@ -77,6 +77,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   getTidalFeaturedAlbums: vi.fn(),
   addAlbumToQueue: vi.fn(),
   addTidalAlbumToQueue: vi.fn(),
+  clearQueue: vi.fn(),
   getTidalAlbumParentItems: vi.fn(),
   rescanLibrary: vi.fn(),
   getRescanProgress: vi.fn(),

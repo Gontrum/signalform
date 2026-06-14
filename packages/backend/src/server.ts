@@ -78,6 +78,7 @@ const createLmsProxy = (): LmsClient => {
     ),
     rescanLibrary: forwardLmsCall((client) => client.rescanLibrary),
     getRescanProgress: forwardLmsCall((client) => client.getRescanProgress),
+    clearQueue: forwardLmsCall((client) => client.clearQueue),
   };
 };
 

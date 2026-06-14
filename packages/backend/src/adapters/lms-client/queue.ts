@@ -2,7 +2,7 @@
  * LMS Queue Domain Methods
  *
  * Factory function for queue-related LMS client methods:
- * getQueue, jumpToTrack, removeFromQueue, moveQueueTrack,
+ * getQueue, jumpToTrack, removeFromQueue, moveQueueTrack, clearQueue,
  * addToQueue, addAlbumToQueue, addTidalAlbumToQueue.
  *
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
@@ -38,6 +38,7 @@ export type QueueMethods = {
   readonly addTidalAlbumToQueue: (
     albumId: string,
   ) => Promise<Result<void, LmsError>>;
+  readonly clearQueue: () => Promise<Result<void, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -283,6 +284,15 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         },
         Promise.resolve(ok(undefined)),
       );
+    },
+
+    clearQueue: async (): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = ["playlist", "clear"];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
     },
   };
 };

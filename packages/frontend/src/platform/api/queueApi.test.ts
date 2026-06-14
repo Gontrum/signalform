@@ -6,6 +6,8 @@ import {
   removeFromQueue,
   reorderQueue,
   setRadioMode,
+  clearQueue,
+  removeMultipleFromQueue,
 } from './queueApi'
 
 const fetchMock = vi.fn()
@@ -408,6 +410,144 @@ describe('queueApi', () => {
           radioModeActive: false,
           radioBoundaryIndex: null,
         })
+      }
+    })
+  })
+
+  describe('clearQueue', () => {
+    it('returns ok with queue snapshot on 200 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tracks: [
+            {
+              id: '1',
+              position: 1,
+              title: 'Comfortably Numb',
+              artist: 'Pink Floyd',
+              album: 'The Wall',
+              duration: 382,
+              isCurrent: false,
+              addedBy: 'user',
+            },
+          ],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      })
+
+      const result = await clearQueue()
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toBeDefined()
+        expect(result.value?.tracks).toHaveLength(1)
+        expect(result.value?.tracks[0]?.title).toBe('Comfortably Numb')
+        expect(result.value?.radioModeActive).toBe(false)
+        expect(result.value?.radioBoundaryIndex).toBeNull()
+      }
+    })
+
+    it('returns ok(undefined) on 204 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 204,
+      })
+
+      const result = await clearQueue()
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toBeUndefined()
+      }
+    })
+
+    it('returns SERVER_ERROR on non-ok HTTP response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({ message: 'queue backend unavailable' }),
+      })
+
+      const result = await clearQueue()
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('SERVER_ERROR')
+        expect(result.error.message).toBe('queue backend unavailable')
+      }
+    })
+
+    it('calls /api/queue/clear with empty body', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 204,
+      })
+
+      await clearQueue()
+
+      const { url, options } = getFetchCall(0)
+      expect(url).toContain('/api/queue/clear')
+      expect(parseJsonBody(options.body)).toEqual({})
+    })
+  })
+
+  describe('removeMultipleFromQueue', () => {
+    it('returns ok with queue snapshot on 200 response with trackIndices sent in body', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      })
+
+      const result = await removeMultipleFromQueue([0, 2, 4])
+
+      const { url, options } = getFetchCall(0)
+      expect(url).toContain('/api/queue/remove-batch')
+      expect(parseJsonBody(options.body)).toEqual({ trackIndices: [0, 2, 4] })
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toEqual({
+          tracks: [],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        })
+      }
+    })
+
+    it('returns ok(undefined) on 204 response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 204,
+      })
+
+      const result = await removeMultipleFromQueue([1, 3])
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value).toBeUndefined()
+      }
+    })
+
+    it('returns SERVER_ERROR on non-ok HTTP response', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({ message: 'batch remove unavailable' }),
+      })
+
+      const result = await removeMultipleFromQueue([0, 1])
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('SERVER_ERROR')
+        expect(result.error.message).toBe('batch remove unavailable')
       }
     })
   })

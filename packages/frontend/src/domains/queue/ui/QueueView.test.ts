@@ -43,6 +43,8 @@ vi.mock('@/platform/api/queueApi', () => ({
   removeFromQueue: vi.fn(),
   reorderQueue: vi.fn(),
   setRadioMode: vi.fn(),
+  clearQueue: vi.fn(),
+  removeMultipleFromQueue: vi.fn(),
 }))
 
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
@@ -52,6 +54,8 @@ import {
   removeFromQueue,
   reorderQueue,
   setRadioMode,
+  clearQueue,
+  removeMultipleFromQueue,
   type QueueApiError,
 } from '@/platform/api/queueApi'
 
@@ -60,6 +64,8 @@ const mockJumpToTrack = vi.mocked(jumpToTrack)
 const mockRemoveFromQueue = vi.mocked(removeFromQueue)
 const mockReorderQueue = vi.mocked(reorderQueue)
 const mockSetRadioMode = vi.mocked(setRadioMode)
+const mockClearQueue = vi.mocked(clearQueue)
+const mockRemoveMultipleFromQueue = vi.mocked(removeMultipleFromQueue)
 
 const makeTracks = (): readonly QueueTrack[] => [
   {
@@ -186,6 +192,8 @@ describe('QueueView', () => {
     mockReorderQueue.mockResolvedValue(ok(undefined))
     mockJumpToTrack.mockResolvedValue(ok(undefined))
     mockSetRadioMode.mockResolvedValue(makeQueueResponse())
+    mockClearQueue.mockResolvedValue(ok(undefined))
+    mockRemoveMultipleFromQueue.mockResolvedValue(ok(undefined))
   })
 
   afterEach(() => {
@@ -1131,6 +1139,201 @@ describe('QueueView', () => {
     await wrapper.find('[data-testid="back-button"]').trigger('click')
 
     expect(backSpy).toHaveBeenCalled()
+  })
+
+  describe('select mode', () => {
+    it('select mode toggle button appears when tracks.length > 0', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="queue-select-mode-toggle"]').exists()).toBe(true)
+    })
+
+    it('select mode toggle button does not appear when queue is empty', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="queue-select-mode-toggle"]').exists()).toBe(false)
+    })
+
+    it('clicking the toggle enters select mode — checkboxes appear, position numbers hidden', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      // checkboxes appear (one per track, plus select-all)
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      expect(checkboxes.length).toBeGreaterThanOrEqual(makeTracks().length)
+
+      // reorder/remove buttons are hidden in select mode
+      expect(wrapper.findAll('[data-testid="queue-track-reorder"]')).toHaveLength(0)
+      expect(wrapper.findAll('[data-testid="queue-track-remove"]')).toHaveLength(0)
+    })
+
+    it('clicking the toggle again exits select mode', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      // position numbers visible again (reorder/remove buttons back)
+      expect(wrapper.findAll('[data-testid="queue-track-reorder"]')).toHaveLength(3)
+      expect(wrapper.findAll('[data-testid="queue-track-remove"]')).toHaveLength(3)
+    })
+
+    it('in select mode: select-all bar is visible', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      expect(wrapper.find('[data-testid="queue-select-all"]').exists()).toBe(true)
+    })
+
+    it('in select mode: bottom action bar is visible', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      expect(wrapper.find('[data-testid="queue-select-action-bar"]').exists()).toBe(true)
+    })
+
+    it('checking select-all checkbox calls selectAllTracks behavior', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      const selectAllCheckbox = wrapper.find(
+        '[data-testid="queue-select-all"] input[type="checkbox"]',
+      )
+      await selectAllCheckbox.trigger('change')
+      await nextTick()
+
+      const store = useQueueStore()
+      expect(store.allTracksSelected).toBe(true)
+      expect(store.selectedCount).toBe(makeTracks().length)
+    })
+
+    it('remove-selected button is disabled when nothing is selected', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      const removeBtn = wrapper.find('[data-testid="queue-remove-selected-button"]')
+      expect(removeBtn.attributes('disabled')).toBeDefined()
+    })
+
+    it('clicking remove-selected button when tracks are selected calls removeSelectedTracks', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+      mockRemoveMultipleFromQueue.mockResolvedValue(
+        ok({ tracks: [], radioModeActive: false, radioBoundaryIndex: null }),
+      )
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+
+      // select the first track by clicking the jump button in select mode
+      const store = useQueueStore()
+      store.toggleTrackSelection('1')
+      await nextTick()
+
+      const removeBtn = wrapper.find('[data-testid="queue-remove-selected-button"]')
+      await removeBtn.trigger('click')
+      await flushPromises()
+
+      expect(mockRemoveMultipleFromQueue).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('clear queue button', () => {
+    it('clear button is present when tracks.length > 0', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="queue-clear-button"]').exists()).toBe(true)
+    })
+
+    it('first click changes button text to the confirmation label', async () => {
+      vi.useFakeTimers()
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      const clearBtn = wrapper.find('[data-testid="queue-clear-button"]')
+      expect(clearBtn.text()).toContain('Clear queue')
+
+      await clearBtn.trigger('click')
+      await nextTick()
+
+      expect(wrapper.find('[data-testid="queue-clear-button"]').text()).toContain('Clear?')
+      vi.useRealTimers()
+    })
+
+    it('second click calls apiClearQueue', async () => {
+      vi.useFakeTimers()
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+      mockClearQueue.mockResolvedValue(
+        ok({ tracks: [], radioModeActive: false, radioBoundaryIndex: null }),
+      )
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      const clearBtn = wrapper.find('[data-testid="queue-clear-button"]')
+      await clearBtn.trigger('click')
+      await nextTick()
+      await wrapper.find('[data-testid="queue-clear-button"]').trigger('click')
+      await flushPromises()
+
+      expect(mockClearQueue).toHaveBeenCalledOnce()
+      vi.useRealTimers()
+    })
   })
 
   describe('keyboard navigation', () => {

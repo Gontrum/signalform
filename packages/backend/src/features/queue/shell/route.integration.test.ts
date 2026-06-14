@@ -44,6 +44,7 @@ type MockLmsClient = LmsClient & {
   readonly addTidalAlbumToQueue: ReturnType<
     typeof vi.fn<LmsClient["addTidalAlbumToQueue"]>
   >;
+  readonly clearQueue: ReturnType<typeof vi.fn<LmsClient["clearQueue"]>>;
 };
 
 type MockIo = {
@@ -71,6 +72,7 @@ const createMockLmsClient = (): MockLmsClient => ({
   addTidalAlbumToQueue: vi
     .fn<LmsClient["addTidalAlbumToQueue"]>()
     .mockResolvedValue(ok(undefined)),
+  clearQueue: vi.fn<LmsClient["clearQueue"]>().mockResolvedValue(ok(undefined)),
 });
 
 const createMockIo = (): MockIo => {
@@ -95,6 +97,7 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
   mockLmsClient.addTidalAlbumToQueue
     .mockReset()
     .mockResolvedValue(ok(undefined));
+  mockLmsClient.clearQueue.mockReset().mockResolvedValue(ok(undefined));
 };
 
 const resetMockIo = (mockIo: MockIo): void => {
@@ -1719,5 +1722,272 @@ describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
     });
 
     expect(response.statusCode).toBe(503);
+  });
+});
+
+// ============================================================
+// Clear queue
+// ============================================================
+describe("POST /api/queue/clear", () => {
+  let server: FastifyInstance;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    resetMockLmsClient(mockLmsClient);
+    resetMockIo(mockIo);
+    resetRadioRuntimeState();
+    server = Fastify();
+    createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
+    await server.ready();
+  });
+
+  afterEach(() => {
+    void server.close();
+  });
+
+  it("returns 200 with empty tracks and emits player.queue.updated", async () => {
+    mockLmsClient.clearQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok([]));
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/clear",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      tracks: [],
+      radioModeActive: false,
+    });
+    expect(mockIo.to).toHaveBeenCalledWith("player-updates");
+    expect(mockEmit).toHaveBeenCalledWith(
+      "player.queue.updated",
+      expect.objectContaining({ tracks: [], playerId: "test-player-id" }),
+    );
+  });
+
+  it("returns 204 and skips emit when getQueue fails after clear", async () => {
+    mockLmsClient.clearQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(
+      err({ type: "NetworkError", message: "getQueue failed" }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/clear",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("returns 503 when LMS clearQueue fails", async () => {
+    mockLmsClient.clearQueue.mockResolvedValue(
+      err({ type: "NetworkError", message: "connection refused" }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/clear",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body)).toMatchObject({
+      error: "LMS_UNREACHABLE",
+    });
+    expect(mockEmit).not.toHaveBeenCalled();
+  });
+
+  it("disables radio mode state so getQueue returns radioModeActive: false", async () => {
+    // Set up radio state before clearing
+    setRadioBoundaryIndex(0);
+    mockLmsClient.clearQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok([]));
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/clear",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = JSON.parse(response.body);
+    expect(body.radioModeActive).toBe(false);
+    expect(body.radioBoundaryIndex).toBeNull();
+  });
+});
+
+// ============================================================
+// Batch remove
+// ============================================================
+describe("POST /api/queue/remove-batch", () => {
+  let server: FastifyInstance;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    resetMockLmsClient(mockLmsClient);
+    resetMockIo(mockIo);
+    resetRadioRuntimeState();
+    server = Fastify();
+    createQueueRoute(server, mockLmsClient, mockIo.io, "test-player-id");
+    await server.ready();
+  });
+
+  afterEach(() => {
+    void server.close();
+  });
+
+  it("returns 400 when trackIndices is missing", async () => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("returns 400 when trackIndices is empty array", async () => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [] },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("returns 400 when trackIndices contains non-integer value", async () => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [0, 1.5] },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("returns 400 when trackIndices has more than 500 entries", async () => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: Array.from({ length: 501 }, (_, i) => i) },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toMatchObject({ code: "INVALID_INPUT" });
+  });
+
+  it("removes tracks in descending index order", async () => {
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok([]));
+
+    await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [0, 2, 1] },
+    });
+
+    const callArgs = mockLmsClient.removeFromQueue.mock.calls.map(
+      (c: readonly [number]) => c[0],
+    );
+    expect(callArgs).toEqual([2, 1, 0]);
+  });
+
+  it("deduplicates indices before removing", async () => {
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok([]));
+
+    await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [1, 1, 2, 2] },
+    });
+
+    expect(mockLmsClient.removeFromQueue).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns 200 with updated queue and emits player.queue.updated", async () => {
+    const remainingTracks = [
+      {
+        id: "3",
+        position: 1,
+        title: "Remaining Track",
+        artist: "Artist",
+        album: "Album",
+        duration: 200,
+        isCurrent: false,
+      },
+    ];
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(ok(remainingTracks));
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [0, 1] },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body)).toMatchObject({
+      tracks: remainingTracks.map((t) => ({ ...t, addedBy: "user" })),
+    });
+    expect(mockIo.to).toHaveBeenCalledWith("player-updates");
+    expect(mockEmit).toHaveBeenCalledWith(
+      "player.queue.updated",
+      expect.objectContaining({ playerId: "test-player-id" }),
+    );
+  });
+
+  it("returns 503 when removeFromQueue fails", async () => {
+    mockLmsClient.removeFromQueue.mockResolvedValue(
+      err({ type: "NetworkError", message: "connection refused" }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [0, 1] },
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(JSON.parse(response.body)).toMatchObject({
+      error: "LMS_UNREACHABLE",
+    });
+  });
+
+  it("returns 204 and skips emit when getQueue fails after batch remove", async () => {
+    mockLmsClient.removeFromQueue.mockResolvedValue(ok(undefined));
+    mockLmsClient.getQueue.mockResolvedValue(
+      err({ type: "NetworkError", message: "getQueue failed" }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/queue/remove-batch",
+      headers: { "Content-Type": "application/json" },
+      payload: { trackIndices: [0] },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(mockEmit).not.toHaveBeenCalled();
   });
 });

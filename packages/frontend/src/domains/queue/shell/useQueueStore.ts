@@ -8,6 +8,8 @@ import {
   removeFromQueue as apiRemoveFromQueue,
   reorderQueue as apiReorderQueue,
   setRadioMode as apiSetRadioMode,
+  clearQueue as apiClearQueue,
+  removeMultipleFromQueue as apiRemoveMultipleFromQueue,
 } from '@/platform/api/queueApi'
 import {
   deriveRadioBoundaryIndex,
@@ -42,14 +44,25 @@ export const useQueueStore = defineStore('queue', () => {
   const hasPendingQueueMutationSync = ref(false)
   const latestQueueSyncTimestamp = ref(0)
   const hasLocalQueueSyncBarrier = ref(false)
+  const isSelectMode = ref(false)
+  const selectedTrackIds = ref<ReadonlySet<string>>(new Set())
+  const isClearingQueue = ref(false)
+  const isBatchRemoving = ref(false)
 
   const currentTrack = computed(() => getCurrentQueueTrack(tracks.value))
   const upcomingTracks = computed(() => getUpcomingQueueTracks(tracks.value))
+  const selectedCount = computed(() => selectedTrackIds.value.size)
+  const allTracksSelected = computed(
+    () => tracks.value.length > 0 && selectedTrackIds.value.size === tracks.value.length,
+  )
+  const hasSelectedTracks = computed(() => selectedTrackIds.value.size > 0)
   const isMutatingQueue = computed(
     () =>
       removeBusyTrackId.value !== null ||
       reorderBusyTrackId.value !== null ||
-      isRadioModeUpdating.value,
+      isRadioModeUpdating.value ||
+      isClearingQueue.value ||
+      isBatchRemoving.value,
   )
 
   const advanceQueueSyncTimestamp = (): number => {
@@ -246,6 +259,93 @@ export const useQueueStore = defineStore('queue', () => {
     isRadioModeUpdating.value = false
   }
 
+  const toggleSelectMode = (): void => {
+    if (isSelectMode.value) {
+      isSelectMode.value = false
+      selectedTrackIds.value = new Set()
+    } else {
+      isSelectMode.value = true
+    }
+  }
+
+  const exitSelectMode = (): void => {
+    isSelectMode.value = false
+    selectedTrackIds.value = new Set()
+  }
+
+  const toggleTrackSelection = (trackId: string): void => {
+    if (selectedTrackIds.value.has(trackId)) {
+      selectedTrackIds.value = new Set([...selectedTrackIds.value].filter((id) => id !== trackId))
+    } else {
+      selectedTrackIds.value = new Set([...selectedTrackIds.value, trackId])
+    }
+  }
+
+  const selectAllTracks = (): void => {
+    selectedTrackIds.value = new Set(tracks.value.map((t) => t.id))
+  }
+
+  const clearQueue = async (): Promise<void> => {
+    if (isMutatingQueue.value) {
+      return
+    }
+
+    isClearingQueue.value = true
+    lastMutationError.value = null
+    exitSelectMode()
+
+    const result = await apiClearQueue()
+    if (result.ok) {
+      if (result.value !== undefined) {
+        commitQueueSnapshot(result.value)
+      } else {
+        await fetchQueue()
+      }
+    } else {
+      lastMutationError.value = mapQueueMutationError(result.error, 'Failed to clear queue')
+      await fetchQueue()
+    }
+
+    isClearingQueue.value = false
+  }
+
+  const removeSelectedTracks = async (): Promise<void> => {
+    if (isMutatingQueue.value || hasPendingQueueMutationSync.value) {
+      return
+    }
+
+    const selectedIds = selectedTrackIds.value
+    const indicesToRemove = tracks.value
+      .filter((t) => selectedIds.has(t.id))
+      .map((t) => t.position - 1)
+
+    if (indicesToRemove.length === 0) {
+      return
+    }
+
+    isBatchRemoving.value = true
+    lastMutationError.value = null
+    exitSelectMode()
+
+    const result = await apiRemoveMultipleFromQueue(indicesToRemove)
+    if (result.ok) {
+      if (result.value !== undefined) {
+        commitQueueSnapshot(result.value)
+      } else {
+        hasPendingQueueMutationSync.value = false
+        await fetchQueue()
+      }
+    } else {
+      lastMutationError.value = mapQueueMutationError(
+        result.error,
+        'Failed to remove selected tracks',
+      )
+      await fetchQueue()
+    }
+
+    isBatchRemoving.value = false
+  }
+
   const { on, subscribe } = useWebSocket()
   subscribe()
 
@@ -294,5 +394,18 @@ export const useQueueStore = defineStore('queue', () => {
     removeTrack,
     reorderTrack,
     setRadioMode,
+    isSelectMode,
+    selectedTrackIds,
+    isClearingQueue,
+    isBatchRemoving,
+    selectedCount,
+    allTracksSelected,
+    hasSelectedTracks,
+    toggleSelectMode,
+    exitSelectMode,
+    toggleTrackSelection,
+    selectAllTracks,
+    clearQueue,
+    removeSelectedTracks,
   }
 })

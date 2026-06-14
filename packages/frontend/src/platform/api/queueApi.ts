@@ -254,6 +254,36 @@ export const setRadioMode = async (
   )
 }
 
+export const clearQueue = async (): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  return await runOptionalQueueSnapshotRequest(
+    getApiUrl('/api/queue/clear'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(15000),
+    },
+    'Failed to clear queue',
+    'Clear queue request',
+  )
+}
+
+export const removeMultipleFromQueue = async (
+  trackIndices: readonly number[],
+): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
+  return await runOptionalQueueSnapshotRequest(
+    getApiUrl('/api/queue/remove-batch'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trackIndices }),
+      signal: AbortSignal.timeout(30000),
+    },
+    'Failed to remove selected tracks',
+    'Batch remove tracks request',
+  )
+}
+
 export const getQueue = async (): Promise<
   Result<
     {
