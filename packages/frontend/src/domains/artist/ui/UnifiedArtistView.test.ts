@@ -18,6 +18,12 @@ vi.mock('@/platform/api/artistApi', () => ({
   getArtistByName: vi.fn(),
   getArtistTopTracks: vi.fn(),
   getArtistTopAlbums: vi.fn(),
+  startArtistRadio: vi.fn(),
+}))
+
+vi.mock('@/platform/api/queueApi', () => ({
+  addToQueue: vi.fn(),
+  addTrackListToQueue: vi.fn(),
 }))
 
 vi.mock('@/platform/api/playbackApi', () => ({
@@ -117,7 +123,8 @@ describe('UnifiedArtistView', () => {
     const { resolveAlbum } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(resolveAlbum).mockResolvedValue({ ok: true, value: { albumId: null } })
 
-    const { getArtistTopTracks, getArtistTopAlbums } = await import('@/platform/api/artistApi')
+    const { getArtistTopTracks, getArtistTopAlbums, startArtistRadio } =
+      await import('@/platform/api/artistApi')
     vi.mocked(getArtistTopTracks).mockResolvedValue({
       ok: false,
       error: { type: 'NOT_FOUND', message: 'No top tracks' },
@@ -125,6 +132,10 @@ describe('UnifiedArtistView', () => {
     vi.mocked(getArtistTopAlbums).mockResolvedValue({
       ok: false,
       error: { type: 'NOT_FOUND', message: 'No top albums' },
+    })
+    vi.mocked(startArtistRadio).mockResolvedValue({
+      ok: true,
+      value: { artistName: 'Radiohead', tracksAdded: 4 },
     })
   })
 
@@ -841,6 +852,181 @@ describe('UnifiedArtistView', () => {
     expect(playTrack).toHaveBeenCalledWith('file:///creep.flac')
   })
 
+  // ── Add to queue tests ────────────────────────────────────────────────────
+
+  it('clicking top-track-add-to-queue-button calls addToQueue with track url', async () => {
+    const { getArtistByName, getArtistTopTracks } = await import('@/platform/api/artistApi')
+    const { addToQueue } = await import('@/platform/api/queueApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        tracks: [
+          {
+            id: '1',
+            title: 'Creep',
+            artist: 'Radiohead',
+            album: 'Pablo Honey',
+            url: 'tidal://12345.flc',
+            source: 'tidal',
+            playcount: 1000,
+            listeners: 500,
+            rank: 1,
+          },
+        ],
+      },
+    })
+    vi.mocked(addToQueue).mockResolvedValue({ ok: true, value: undefined })
+
+    const context = await mountView()
+    await flushPromises()
+
+    await context.wrapper.find('[data-testid="top-track-add-to-queue-button"]').trigger('click')
+    await nextTick()
+
+    expect(addToQueue).toHaveBeenCalledWith('tidal://12345.flc')
+  })
+
+  it('clicking top-tracks-add-all-button calls addTrackListToQueue with all track urls', async () => {
+    const { getArtistByName, getArtistTopTracks } = await import('@/platform/api/artistApi')
+    const { addTrackListToQueue } = await import('@/platform/api/queueApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        tracks: [
+          {
+            id: '1',
+            title: 'Creep',
+            artist: 'Radiohead',
+            album: 'Pablo Honey',
+            url: 'tidal://1.flc',
+            source: 'tidal',
+            playcount: 1000,
+            listeners: 500,
+            rank: 1,
+          },
+          {
+            id: '2',
+            title: 'Karma Police',
+            artist: 'Radiohead',
+            album: 'OK Computer',
+            url: 'tidal://2.flc',
+            source: 'tidal',
+            playcount: 900,
+            listeners: 400,
+            rank: 2,
+          },
+        ],
+      },
+    })
+    vi.mocked(addTrackListToQueue).mockResolvedValue({ ok: true, value: undefined })
+
+    const context = await mountView()
+    await flushPromises()
+
+    await context.wrapper.find('[data-testid="top-tracks-add-all-button"]').trigger('click')
+    await nextTick()
+
+    expect(addTrackListToQueue).toHaveBeenCalledWith(['tidal://1.flc', 'tidal://2.flc'])
+  })
+
+  it('top-track-add-to-queue-button is disabled when track url is empty', async () => {
+    const { getArtistByName, getArtistTopTracks } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(getArtistTopTracks).mockResolvedValue({
+      ok: true,
+      value: {
+        artist: 'Radiohead',
+        tracks: [
+          {
+            id: '1',
+            title: 'Creep',
+            artist: 'Radiohead',
+            album: 'Pablo Honey',
+            url: '',
+            source: 'tidal',
+            playcount: 1000,
+            listeners: 500,
+            rank: 1,
+          },
+        ],
+      },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    const btn = context.wrapper.find('[data-testid="top-track-add-to-queue-button"]')
+    expect(btn.attributes('disabled')).toBeDefined()
+  })
+
+  // ── Artist Radio tests ────────────────────────────────────────────────────
+
+  it('artist-radio-button is present and calls startArtistRadio with artist name on click', async () => {
+    const { getArtistByName, startArtistRadio } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(startArtistRadio).mockResolvedValue({
+      ok: true,
+      value: { artistName: 'Radiohead', tracksAdded: 4 },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    const btn = context.wrapper.find('[data-testid="artist-radio-button"]')
+    expect(btn.exists()).toBe(true)
+    expect(btn.attributes('disabled')).toBeUndefined()
+
+    await btn.trigger('click')
+    await flushPromises()
+
+    expect(startArtistRadio).toHaveBeenCalledWith('Radiohead')
+    expect(context.wrapper.find('[data-testid="artist-radio-error"]').exists()).toBe(false)
+  })
+
+  it('shows artist-radio-error when startArtistRadio returns an error', async () => {
+    const { getArtistByName, startArtistRadio } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+    vi.mocked(startArtistRadio).mockResolvedValue({
+      ok: false,
+      error: { type: 'NOT_FOUND', message: 'No tracks found' },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    await context.wrapper.find('[data-testid="artist-radio-button"]').trigger('click')
+    await flushPromises()
+
+    expect(context.wrapper.find('[data-testid="artist-radio-error"]').exists()).toBe(true)
+    expect(context.wrapper.find('[data-testid="artist-radio-error"]').text()).toBe(
+      'Could not start radio',
+    )
+  })
+
+  it('artist-radio-button is disabled and shows radioStarting text while startArtistRadio is pending', async () => {
+    const { getArtistByName, startArtistRadio } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+
+    const deferred = createDeferred<Awaited<ReturnType<typeof startArtistRadio>>>()
+    vi.mocked(startArtistRadio).mockReturnValueOnce(deferred.promise)
+
+    const context = await mountView()
+    await flushPromises()
+
+    const btn = context.wrapper.find('[data-testid="artist-radio-button"]')
+    void btn.trigger('click')
+    await nextTick()
+
+    expect(btn.attributes('disabled')).toBeDefined()
+    expect(btn.text()).toBe('Starting radio…')
+
+    deferred.resolve({ ok: true, value: { artistName: 'Radiohead', tracksAdded: 4 } })
+    await flushPromises()
+  })
   // ── Album sorting test (AV-010) ───────────────────────────────────────────
 
   it('sorts tidal albums by last.fm popularity when sort-popularity is clicked', async () => {

@@ -9,7 +9,13 @@ import {
 } from '@/platform/api/enrichmentApi'
 import { isTidalAlbumId } from '@signalform/shared'
 import { useArtistImages } from '@/domains/enrichment/shell/useArtistImage'
-import { getArtistByName, getArtistTopAlbums, getArtistTopTracks } from '@/platform/api/artistApi'
+import {
+  getArtistByName,
+  getArtistTopAlbums,
+  getArtistTopTracks,
+  startArtistRadio,
+} from '@/platform/api/artistApi'
+import { addToQueue, addTrackListToQueue } from '@/platform/api/queueApi'
 import { resolveAlbum } from '@/platform/api/tidalAlbumsApi'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import {
@@ -49,8 +55,13 @@ type UseUnifiedArtistViewResult = {
   readonly handleTidalAlbumClick: (album: ArtistByNameAlbum) => Promise<void>
   readonly handleSimilarArtistClick: (similarArtist: SimilarArtistMatch) => void
   readonly handleTopTrackPlay: (track: ArtistTopTrack) => Promise<void>
+  readonly handleTopTrackAddToQueue: (track: ArtistTopTrack) => Promise<void>
+  readonly handleAllTopTracksAddToQueue: () => Promise<void>
   readonly onCoverError: (id: string) => void
   readonly setAlbumSort: (sort: ArtistAlbumSortOption) => void
+  readonly radioLoading: Ref<boolean>
+  readonly radioError: Ref<boolean>
+  readonly handleStartArtistRadio: () => Promise<void>
 }
 
 export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedArtistViewResult => {
@@ -71,6 +82,8 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
   const topTracksLoading = ref(false)
   const albumPopularity = ref<ReadonlyArray<ArtistAlbumPopularity>>([])
   const albumSort = ref<ArtistAlbumSortOption>('year')
+  const radioLoading = ref(false)
+  const radioError = ref(false)
 
   const loadGeneration = ref(0)
 
@@ -99,7 +112,7 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     if (name.trim() === '') return
     topTracksLoading.value = true
     const [tracksResult, albumsResult] = await Promise.all([
-      getArtistTopTracks(name),
+      getArtistTopTracks(name, 15),
       getArtistTopAlbums(name),
     ])
     if (tracksResult.ok) topTracks.value = tracksResult.value.tracks
@@ -258,8 +271,27 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     })
   }
 
+  const handleTopTrackAddToQueue = async (track: ArtistTopTrack): Promise<void> => {
+    await addToQueue(track.url)
+  }
+
+  const handleAllTopTracksAddToQueue = async (): Promise<void> => {
+    const urls = topTracks.value.filter((t) => t.url !== '').map((t) => t.url)
+    await addTrackListToQueue(urls)
+  }
+
   const onCoverError = (id: string): void => {
     coverErrors.value = setCoverError(coverErrors.value, id)
+  }
+
+  const handleStartArtistRadio = async (): Promise<void> => {
+    radioLoading.value = true
+    radioError.value = false
+    const result = await startArtistRadio(artistName.value)
+    radioLoading.value = false
+    if (!result.ok) {
+      radioError.value = true
+    }
   }
 
   const setAlbumSort = (sort: ArtistAlbumSortOption): void => {
@@ -287,7 +319,12 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     handleTidalAlbumClick,
     handleSimilarArtistClick,
     handleTopTrackPlay,
+    handleTopTrackAddToQueue,
+    handleAllTopTracksAddToQueue,
     onCoverError,
     setAlbumSort,
+    radioLoading,
+    radioError,
+    handleStartArtistRadio,
   }
 }

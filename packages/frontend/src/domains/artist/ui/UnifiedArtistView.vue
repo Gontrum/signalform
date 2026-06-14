@@ -28,8 +28,13 @@ const {
   handleTidalAlbumClick,
   handleSimilarArtistClick,
   handleTopTrackPlay,
+  handleTopTrackAddToQueue,
+  handleAllTopTracksAddToQueue,
   onCoverError,
   setAlbumSort,
+  radioLoading,
+  radioError,
+  handleStartArtistRadio,
 } = useUnifiedArtistView(t('artist.errorNotFoundMessage'))
 </script>
 
@@ -84,6 +89,29 @@ const {
           >
             {{ artistName }}
           </h1>
+
+          <div class="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              data-testid="artist-radio-button"
+              :disabled="radioLoading"
+              :class="
+                hasImage
+                  ? 'rounded-full bg-white/20 border border-white/40 px-4 py-2 text-sm font-medium text-white hover:bg-white/30 disabled:opacity-50'
+                  : 'rounded-full bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50'
+              "
+              @click="handleStartArtistRadio"
+            >
+              {{ radioLoading ? t('artist.radioStarting') : t('artist.startRadio') }}
+            </button>
+            <span
+              v-if="radioError"
+              data-testid="artist-radio-error"
+              :class="hasImage ? 'text-sm text-red-300' : 'text-sm text-red-600'"
+            >
+              {{ t('artist.radioError') }}
+            </span>
+          </div>
 
           <!-- Enrichment heading -->
           <h2
@@ -168,9 +196,20 @@ const {
         data-testid="top-tracks-section"
         class="mb-8"
       >
-        <h2 class="mb-3 text-lg font-semibold text-neutral-900">
-          {{ t('artist.topTracksHeading') }}
-        </h2>
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-neutral-900">
+            {{ t('artist.topTracksHeading') }}
+          </h2>
+          <button
+            v-if="topTracks.length > 0 && !topTracksLoading"
+            type="button"
+            data-testid="top-tracks-add-all-button"
+            class="rounded-full border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+            @click="handleAllTopTracksAddToQueue()"
+          >
+            {{ t('artist.addAllTopTracksToQueue') }}
+          </button>
+        </div>
         <div v-if="topTracksLoading" data-testid="top-tracks-loading" class="space-y-2">
           <div class="h-12 animate-pulse rounded bg-neutral-100" />
           <div class="h-12 animate-pulse rounded bg-neutral-100" />
@@ -197,6 +236,16 @@ const {
                 {{ track.album }}
               </p>
             </div>
+            <button
+              type="button"
+              data-testid="top-track-add-to-queue-button"
+              class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
+              :aria-label="`Add ${track.title} to queue`"
+              :disabled="track.url === ''"
+              @click="handleTopTrackAddToQueue(track)"
+            >
+              +
+            </button>
             <button
               type="button"
               data-testid="top-track-play-button"

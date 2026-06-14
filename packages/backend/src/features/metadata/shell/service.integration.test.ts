@@ -1,12 +1,18 @@
 import { describe, it, expect, vi } from "vitest";
 import { ok, err } from "@signalform/shared";
-import { getAlbumDetail } from "./service.js";
+import {
+  getAlbumDetail,
+  getArtistTopTracksByName,
+  type ArtistPopularityClient,
+} from "./service.js";
 import type {
   LmsClient,
   LmsConfig,
+  SearchResult,
 } from "../../../adapters/lms-client/index.js";
 import type { AlbumTrackRaw } from "../../../adapters/lms-client/index.js";
 import { createLmsClient } from "../../../adapters/lms-client/index.js";
+import type { ArtistTopTrack as LastFmArtistTopTrack } from "../../../adapters/lastfm-client/index.js";
 
 const defaultConfig: LmsConfig = {
   host: "localhost",
@@ -271,5 +277,367 @@ describe("getAlbumDetail", () => {
       expect(result.value.tracks[0]?.audioQuality?.format).toBe("FLAC");
       expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(true);
     }
+  });
+});
+
+// ─── getArtistTopTracksByName ───────────────────────────────────────────────
+
+type MockPopularityClient = {
+  readonly getArtistTopTracks: ReturnType<
+    typeof vi.fn<ArtistPopularityClient["getArtistTopTracks"]>
+  >;
+  readonly getArtistTopAlbums: ReturnType<
+    typeof vi.fn<ArtistPopularityClient["getArtistTopAlbums"]>
+  >;
+};
+
+const makeMockPopularityClient = (
+  tracks: readonly LastFmArtistTopTrack[],
+): MockPopularityClient => ({
+  getArtistTopTracks: vi
+    .fn<ArtistPopularityClient["getArtistTopTracks"]>()
+    .mockResolvedValue(ok(tracks)),
+  getArtistTopAlbums: vi
+    .fn<ArtistPopularityClient["getArtistTopAlbums"]>()
+    .mockResolvedValue(ok([])),
+});
+
+const makeLastFmTrack = (
+  overrides: Partial<LastFmArtistTopTrack> = {},
+): LastFmArtistTopTrack => ({
+  name: "Bohemian Rhapsody",
+  artist: "Queen",
+  playcount: 1000000,
+  listeners: 500000,
+  url: "https://www.last.fm/music/Queen/_/Bohemian+Rhapsody",
+  ...overrides,
+});
+
+const makeSearchResult = (
+  overrides: Partial<SearchResult> = {},
+): SearchResult => ({
+  id: "42",
+  title: "Bohemian Rhapsody",
+  artist: "Queen",
+  album: "A Night at the Opera",
+  url: "file:///music/bohemian.flac",
+  source: "local",
+  type: "track",
+  ...overrides,
+});
+
+type TopTracksMockClient = LmsClient & {
+  readonly search: ReturnType<typeof vi.fn<LmsClient["search"]>>;
+};
+
+describe("getArtistTopTracksByName", () => {
+  it("returns local track when per-track local search finds a match", async () => {
+    const localTrack = makeSearchResult({
+      title: "Bohemian Rhapsody",
+      artist: "Queen",
+      source: "local",
+      url: "file:///music/bohemian.flac",
+    });
+
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockImplementation(async (_query, options) => {
+          if (options?.tidalEnabled === false) {
+            // per-track local search
+            return ok({ tracks: [localTrack], tidalAvailable: false });
+          }
+          // artist Tidal search — returns no Tidal tracks
+          return ok({ tracks: [], tidalAvailable: true });
+        }),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.source).toBe("local");
+      expect(result.value.tracks[0]?.title).toBe("Bohemian Rhapsody");
+    }
+  });
+
+  it("returns Tidal track when local search is empty but artist Tidal search has a match", async () => {
+    const tidalTrack = makeSearchResult({
+      id: "tidal://123",
+      title: "Bohemian Rhapsody",
+      artist: "Queen",
+      source: "tidal",
+      url: "tidal://track/123",
+    });
+
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockImplementation(async (_query, options) => {
+          if (options?.tidalEnabled === false) {
+            // per-track local search returns nothing
+            return ok({ tracks: [], tidalAvailable: false });
+          }
+          // artist Tidal search returns a Tidal track
+          return ok({ tracks: [tidalTrack], tidalAvailable: true });
+        }),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.source).toBe("tidal");
+      expect(result.value.tracks[0]?.title).toBe("Bohemian Rhapsody");
+    }
+  });
+
+  it("matches Tidal track with empty artist field (unenriched)", async () => {
+    // Tidal tracks returned by artist search often have artist: "" before enrichment.
+    // selectPlayableTopTrack allows empty artist for tidal source.
+    const tidalTrackEmptyArtist = makeSearchResult({
+      id: "tidal://456",
+      title: "Bohemian Rhapsody",
+      artist: "", // unenriched — no artist tag yet
+      source: "tidal",
+      url: "tidal://track/456",
+    });
+
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockImplementation(async (_query, options) => {
+          if (options?.tidalEnabled === false) {
+            return ok({ tracks: [], tidalAvailable: false });
+          }
+          return ok({
+            tracks: [tidalTrackEmptyArtist],
+            tidalAvailable: true,
+          });
+        }),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.source).toBe("tidal");
+    }
+  });
+
+  it("prefers local over Tidal when both match the same track", async () => {
+    const localTrack = makeSearchResult({
+      id: "99",
+      title: "Bohemian Rhapsody",
+      artist: "Queen",
+      source: "local",
+      url: "file:///music/bohemian.flac",
+    });
+    const tidalTrack = makeSearchResult({
+      id: "tidal://789",
+      title: "Bohemian Rhapsody",
+      artist: "Queen",
+      source: "tidal",
+      url: "tidal://track/789",
+    });
+
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockImplementation(async (_query, options) => {
+          if (options?.tidalEnabled === false) {
+            return ok({ tracks: [localTrack], tidalAvailable: false });
+          }
+          return ok({ tracks: [tidalTrack], tidalAvailable: true });
+        }),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.source).toBe("local");
+    }
+  });
+
+  it("silently drops track when neither local nor Tidal has it", async () => {
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockResolvedValue(ok({ tracks: [], tidalAvailable: false })),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(0);
+    }
+  });
+
+  it("returns only local results when Tidal search returns empty", async () => {
+    const localTrack = makeSearchResult({
+      title: "Bohemian Rhapsody",
+      artist: "Queen",
+      source: "local",
+    });
+
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockImplementation(async (_query, options) => {
+          if (options?.tidalEnabled === false) {
+            return ok({ tracks: [localTrack], tidalAvailable: false });
+          }
+          // Tidal search returns nothing — Tidal not available
+          return ok({ tracks: [], tidalAvailable: false });
+        }),
+    };
+
+    const popularityClient = makeMockPopularityClient([
+      makeLastFmTrack({ name: "Bohemian Rhapsody", artist: "Queen" }),
+    ]);
+
+    const result = await getArtistTopTracksByName(
+      "Queen",
+      lmsClient,
+      popularityClient,
+      1,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks).toHaveLength(1);
+      expect(result.value.tracks[0]?.source).toBe("local");
+    }
+  });
+
+  it("propagates Last.fm error as ArtistPopularityServiceError", async () => {
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockResolvedValue(ok({ tracks: [], tidalAvailable: false })),
+    };
+
+    const popularityClient: MockPopularityClient = {
+      getArtistTopTracks: vi
+        .fn<ArtistPopularityClient["getArtistTopTracks"]>()
+        .mockResolvedValue(
+          err({ type: "NotFoundError", code: 6, message: "Artist not found" }),
+        ),
+      getArtistTopAlbums: vi
+        .fn<ArtistPopularityClient["getArtistTopAlbums"]>()
+        .mockResolvedValue(ok([])),
+    };
+
+    const result = await getArtistTopTracksByName(
+      "UnknownArtist",
+      lmsClient,
+      popularityClient,
+      5,
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NotFound");
+      expect(result.error.message).toBe("Artist not found");
+    }
+  });
+
+  it("fires exactly one Tidal search (artist-only) and N local searches with tidalEnabled:false", async () => {
+    const lmsClient: TopTracksMockClient = {
+      ...createLmsClient(defaultConfig),
+      search: vi
+        .fn<LmsClient["search"]>()
+        .mockResolvedValue(ok({ tracks: [], tidalAvailable: false })),
+    };
+
+    const topTracks: readonly LastFmArtistTopTrack[] = [
+      makeLastFmTrack({ name: "Track A" }),
+      makeLastFmTrack({ name: "Track B" }),
+      makeLastFmTrack({ name: "Track C" }),
+    ];
+    const popularityClient = makeMockPopularityClient(topTracks);
+
+    await getArtistTopTracksByName("Queen", lmsClient, popularityClient, 3);
+
+    const calls = lmsClient.search.mock.calls;
+    // 3 local searches + 1 Tidal artist search = 4 total
+    expect(calls).toHaveLength(4);
+
+    const localCalls = calls.filter(
+      ([_q, opts]) => opts?.tidalEnabled === false,
+    );
+    const tidalCalls = calls.filter(
+      ([_q, opts]) => opts?.tidalEnabled !== false,
+    );
+
+    expect(localCalls).toHaveLength(3);
+    expect(tidalCalls).toHaveLength(1);
+
+    // The Tidal call uses just the artist name
+    expect(tidalCalls[0]?.[0]).toBe("Queen");
+
+    // Each local call uses "artist trackName"
+    const localQueries = localCalls.map(([q]) => q);
+    expect(localQueries).toContain("Queen Track A");
+    expect(localQueries).toContain("Queen Track B");
+    expect(localQueries).toContain("Queen Track C");
   });
 });

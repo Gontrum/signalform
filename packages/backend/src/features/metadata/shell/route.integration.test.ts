@@ -1048,6 +1048,7 @@ describe("GET /api/artist popularity endpoints", () => {
     expect(mockLmsClient.search).toHaveBeenCalledWith("Radiohead Creep", {
       tidalEnabled: false,
     });
+    expect(mockLmsClient.search).toHaveBeenCalledWith("Radiohead");
   });
 
   it("returns top album popularity from last.fm", async () => {
@@ -1080,5 +1081,108 @@ describe("GET /api/artist popularity endpoints", () => {
       "Radiohead",
       5,
     );
+  });
+});
+
+describe("GET /api/artist/top-tracks — Tidal fallback regression", () => {
+  let server: FastifyInstance;
+  let mockLmsClient: MockLmsClient;
+  let mockLastFmClient: MockLastFmClient;
+
+  beforeEach(async () => {
+    clearAlbumCache();
+    mockLmsClient = createMockLmsClient();
+    mockLastFmClient = createMockLastFmClient();
+    server = Fastify({ logger: false });
+    createMetadataRoute(server, mockLmsClient, defaultConfig, mockLastFmClient);
+    await server.ready();
+  });
+
+  afterEach(() => {
+    void server.close();
+  });
+
+  it("returns a Tidal track when nothing is available locally", async () => {
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([
+        {
+          name: "Like a Prayer",
+          artist: "Madonna",
+          playcount: 1000000,
+          listeners: 500000,
+          url: "https://last.fm/music/Madonna/_/Like+a+Prayer",
+          mbid: undefined,
+        },
+      ]),
+    );
+    mockLastFmClient.getArtistTopAlbums.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [
+          {
+            id: "tidal-1",
+            title: "Like a Prayer",
+            artist: "Madonna",
+            album: "Like a Prayer",
+            url: "tidal://track/123.flc",
+            source: "tidal" as const,
+            type: "track" as const,
+            coverArtUrl: undefined,
+            audioQuality: undefined,
+          },
+        ],
+        tidalAvailable: true,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/top-tracks?name=Madonna&limit=1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const parsed = parseJson(response.body);
+    const tracks =
+      isRecord(parsed) && Array.isArray(parsed["tracks"])
+        ? parsed["tracks"]
+        : [];
+    expect(tracks).toHaveLength(1);
+    const first = tracks[0];
+    expect(isRecord(first) ? first["url"] : undefined).toBe(
+      "tidal://track/123.flc",
+    );
+    expect(isRecord(first) ? first["source"] : undefined).toBe("tidal");
+  });
+
+  it("returns no tracks when the track is not available locally or on Tidal", async () => {
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([
+        {
+          name: "Like a Prayer",
+          artist: "Madonna",
+          playcount: 1000000,
+          listeners: 500000,
+          url: "https://last.fm/music/Madonna/_/Like+a+Prayer",
+          mbid: undefined,
+        },
+      ]),
+    );
+    mockLastFmClient.getArtistTopAlbums.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [], tidalAvailable: true }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/artist/top-tracks?name=Madonna&limit=1",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const parsed = parseJson(response.body);
+    const tracks =
+      isRecord(parsed) && Array.isArray(parsed["tracks"])
+        ? parsed["tracks"]
+        : [];
+    expect(tracks).toHaveLength(0);
   });
 });

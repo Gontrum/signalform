@@ -158,6 +158,9 @@ const sourceRank = (
   return 3;
 };
 
+const titlesMatch = (a: string, b: string): boolean =>
+  a === b || a.includes(b) || b.includes(a);
+
 const selectPlayableTopTrack = (
   artist: string,
   topTrack: ArtistTopTrackInput,
@@ -171,10 +174,13 @@ const selectPlayableTopTrack = (
       const candidateArtist = normalizeMatchText(
         candidate.albumartist ?? candidate.artist,
       );
+      const artistMatches =
+        candidateArtist === normalizedArtist ||
+        (candidateArtist === "" && candidate.source === "tidal");
       return (
         candidate.type === "track" &&
-        normalizeMatchText(candidate.title) === normalizedTitle &&
-        candidateArtist === normalizedArtist &&
+        titlesMatch(normalizeMatchText(candidate.title), normalizedTitle) &&
+        artistMatches &&
         candidate.url.trim() !== ""
       );
     })

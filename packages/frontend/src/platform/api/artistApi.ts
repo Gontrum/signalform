@@ -101,9 +101,11 @@ export const getArtistByName = async (
 
 export const getArtistTopTracks = async (
   name: string,
+  limit?: number,
 ): Promise<Result<ArtistTopTracksResponse, ArtistApiError>> => {
+  const limitParam = limit !== undefined ? `&limit=${limit}` : ''
   return await fetchJsonResult(
-    getApiUrl(`/api/artist/top-tracks?name=${encodeURIComponent(name)}`),
+    getApiUrl(`/api/artist/top-tracks?name=${encodeURIComponent(name)}${limitParam}`),
     {
       method: 'GET',
       signal: AbortSignal.timeout(10000),
@@ -148,6 +150,34 @@ export const getArtistTopAlbums = async (
           (await parseErrorBody(response)) ??
           `Artist top albums fetch failed: HTTP ${response.status}`
 
+        return response.status === 404
+          ? { type: 'NOT_FOUND', message }
+          : { type: 'SERVER_ERROR', status: response.status, message }
+      },
+      mapThrownError: mapArtistThrownError,
+      mapParseError: mapArtistParseError,
+    },
+  )
+}
+
+export const startArtistRadio = async (
+  artistName: string,
+): Promise<
+  Result<{ readonly artistName: string; readonly tracksAdded: number }, ArtistApiError>
+> => {
+  return await fetchJsonResult(
+    getApiUrl('/api/artist-radio/start'),
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ artistName }),
+      signal: AbortSignal.timeout(30000),
+    },
+    {
+      schema: z.object({ artistName: z.string(), tracksAdded: z.number() }),
+      mapHttpError: async (response) => {
+        const message =
+          (await parseErrorBody(response)) ?? `Artist radio failed: HTTP ${response.status}`
         return response.status === 404
           ? { type: 'NOT_FOUND', message }
           : { type: 'SERVER_ERROR', status: response.status, message }

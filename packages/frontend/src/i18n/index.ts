@@ -134,6 +134,11 @@ export type MessageKey =
   | 'queue.removeSelected'
   | 'queue.selectAll'
   | 'queue.clearConfirm'
+  | 'artist.addTopTrackToQueue'
+  | 'artist.addAllTopTracksToQueue'
+  | 'artist.startRadio'
+  | 'artist.radioStarting'
+  | 'artist.radioError'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -270,6 +275,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.removeSelected': 'Remove selected',
     'queue.selectAll': 'Select all',
     'queue.clearConfirm': 'Clear?',
+    'artist.addTopTrackToQueue': 'Add to queue',
+    'artist.addAllTopTracksToQueue': 'Add all to queue',
+    'artist.startRadio': 'Artist Radio',
+    'artist.radioStarting': 'Starting radio…',
+    'artist.radioError': 'Could not start radio',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -408,6 +418,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.removeSelected': 'Auswahl entfernen',
     'queue.selectAll': 'Alle auswählen',
     'queue.clearConfirm': 'Wirklich leeren?',
+    'artist.addTopTrackToQueue': 'Zur Warteschlange',
+    'artist.addAllTopTracksToQueue': 'Alle zur Warteschlange',
+    'artist.startRadio': 'Künstler-Radio',
+    'artist.radioStarting': 'Radio wird gestartet…',
+    'artist.radioError': 'Radio konnte nicht gestartet werden',
   },
 }
 

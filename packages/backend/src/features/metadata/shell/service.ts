@@ -65,7 +65,7 @@ export const getAlbumDetail = async (
   return ok(buildAlbumDetail(albumId, tracks, baseUrl));
 };
 
-const searchPlayableCandidates = async (
+const searchLocalCandidates = async (
   artist: string,
   topTrack: LastFmArtistTopTrack,
   lmsClient: LmsClient,
@@ -74,6 +74,17 @@ const searchPlayableCandidates = async (
     tidalEnabled: false,
   });
   return result.ok ? result.value.tracks : [];
+};
+
+const searchTidalCandidates = async (
+  artist: string,
+  lmsClient: LmsClient,
+): Promise<readonly SearchResult[]> => {
+  const result = await lmsClient.search(artist);
+  if (!result.ok) {
+    return [];
+  }
+  return result.value.tracks.filter((t) => t.source === "tidal");
 };
 
 export const getArtistTopTracksByName = async (
@@ -90,10 +101,20 @@ export const getArtistTopTracksByName = async (
     return err(mapLastFmPopularityError(topTracksResult.error));
   }
 
-  const candidateSets = await Promise.all(
-    topTracksResult.value.map((topTrack) =>
-      searchPlayableCandidates(artist, topTrack, lmsClient),
+  const [localCandidateSets, tidalCandidates] = await Promise.all([
+    Promise.all(
+      topTracksResult.value.map((topTrack) =>
+        searchLocalCandidates(artist, topTrack, lmsClient),
+      ),
     ),
+    searchTidalCandidates(artist, lmsClient),
+  ]);
+
+  const candidateSets = localCandidateSets.map(
+    (localCandidates): readonly SearchResult[] => [
+      ...localCandidates,
+      ...tidalCandidates,
+    ],
   );
 
   return ok({
