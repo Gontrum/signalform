@@ -15,6 +15,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.11.0] - 2026-06-14
+
+### Added
+
+- **Artist page — Add Top Tracks to Queue**: Each top track on the artist page now has an
+  individual "Add to queue" button. A second "Add all to queue" button in the section header
+  enqueues all available tracks at once. Buttons are disabled when no playable URL is available
+  (neither local nor Tidal). The top-track limit was raised from 10 to 15.
+- **Artist page — Artist Radio**: A new "Artist Radio" button starts a personalized radio
+  directly from the artist page. The radio blends the artist's own top tracks with tracks from
+  similar artists (both sourced via Last.fm), interleaved in a 1:2 ratio (seed artist : similar
+  artists). The button shows a loading indicator while the radio starts and an error state if
+  it fails. New API endpoint: `POST /api/artist-radio/start`.
+- **Queue — Multi-select delete and Clear Queue**: The queue view now has a select mode
+  (checkbox per track, select-all bar) for removing multiple tracks at once. A separate
+  "Clear Queue" button removes all tracks; it requires a two-step confirmation (3 s countdown)
+  to prevent accidental clears. Clearing automatically disables Radio Mode so the queue is not
+  immediately replenished. New API endpoints: `POST /api/queue/remove-batch`,
+  `POST /api/queue/clear`.
+
+### Fixed
+
+- **Artist Top Tracks — Tidal tracks missing or non-deterministic**: Top tracks were showing
+  only locally available tracks, or no tracks at all for artists without a local library entry.
+  Two root causes were fixed: (1) Tidal search results initially carry an empty artist field
+  (the `tidal_info` enrichment has a 500 ms budget and can time out) — the matching logic now
+  accepts these unenriched tracks when the title matches, and also handles remastered/edition
+  variants ("Like a Prayer (2009 Remaster)" matches "Like a Prayer"). (2) The previous strategy
+  of firing 15 concurrent per-track Tidal searches saturated the LMS Tidal plugin and caused
+  near-universal timeouts. Replaced with a single artist-level Tidal search whose results are
+  shared across all top tracks, reducing Tidal load from 15 calls to 1.
+
+---
+
 ## [0.10.1] - 2026-06-12
 
 ### Fixed
