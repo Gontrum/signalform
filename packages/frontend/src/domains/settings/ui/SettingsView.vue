@@ -24,6 +24,13 @@ const {
   saveError,
   loading,
   loadError,
+  lastFmAuthStep,
+  lastFmAuthError,
+  lastFmUsername,
+  hasLastFmSession,
+  personalRadioEnabled,
+  scrobblingEnabled,
+  personalRadioDiscovery,
   t,
   discover,
   selectServer,
@@ -31,6 +38,12 @@ const {
   selectPlayer,
   save,
   runSetupWizard,
+  handleLastFmConnect,
+  handleLastFmConfirm,
+  handleLastFmDisconnect,
+  handleDiscoveryChange,
+  handlePersonalRadioToggle,
+  handleScrobblingToggle,
 } = useSettingsView()
 </script>
 
@@ -256,6 +269,158 @@ const {
                 "
                 class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
               />
+            </div>
+          </div>
+        </section>
+
+        <!-- Last.fm section -->
+        <section data-testid="lastfm-section">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+            {{ t('settings.lastFm') }}
+          </h2>
+
+          <div class="space-y-4">
+            <!-- Username display (read-only) -->
+            <div v-if="lastFmUsername">
+              <label class="mb-1.5 block text-xs font-medium text-neutral-700">
+                {{ t('settings.lastFmUsername') }}
+              </label>
+              <p data-testid="lastfm-username-display" class="text-sm text-neutral-900">
+                {{ lastFmUsername }}
+              </p>
+            </div>
+
+            <!-- Connection status row -->
+            <div class="flex flex-col gap-2">
+              <!-- Idle: show Connect button -->
+              <div v-if="lastFmAuthStep === 'idle'" class="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="lastfm-connect-button"
+                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  @click="handleLastFmConnect"
+                >
+                  {{ t('settings.lastFmConnect') }}
+                </button>
+              </div>
+
+              <!-- Pending user confirmation -->
+              <div
+                v-else-if="lastFmAuthStep === 'pending-user'"
+                class="flex flex-col gap-2"
+                data-testid="lastfm-pending-prompt"
+              >
+                <p class="text-sm text-neutral-700">{{ t('settings.lastFmOpenPrompt') }}</p>
+                <button
+                  type="button"
+                  data-testid="lastfm-confirm-button"
+                  class="w-fit rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                  @click="handleLastFmConfirm"
+                >
+                  {{ t('settings.lastFmConfirm') }}
+                </button>
+              </div>
+
+              <!-- Connected -->
+              <div
+                v-else-if="lastFmAuthStep === 'done' && hasLastFmSession"
+                class="flex items-center gap-3"
+                data-testid="lastfm-connected-row"
+              >
+                <span class="text-sm text-neutral-900" data-testid="lastfm-connected-label">
+                  {{ t('settings.lastFmConnected').replace('{username}', lastFmUsername) }}
+                </span>
+                <button
+                  type="button"
+                  data-testid="lastfm-disconnect-button"
+                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                  @click="handleLastFmDisconnect"
+                >
+                  {{ t('settings.lastFmDisconnect') }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Auth error -->
+            <p v-if="lastFmAuthError" data-testid="lastfm-auth-error" class="text-sm text-red-600">
+              {{ t('settings.lastFmAuthError') }}
+            </p>
+
+            <!-- Personal Radio toggle -->
+            <div class="flex items-start justify-between gap-4" data-testid="personal-radio-row">
+              <div>
+                <p class="text-sm font-medium text-neutral-900">
+                  {{ t('settings.personalRadio') }}
+                </p>
+                <p class="text-xs text-neutral-500">{{ t('settings.personalRadioHint') }}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="personalRadioEnabled"
+                data-testid="personal-radio-toggle"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none"
+                :class="personalRadioEnabled ? 'bg-neutral-900' : 'bg-neutral-200'"
+                @click="handlePersonalRadioToggle(!personalRadioEnabled)"
+              >
+                <span
+                  class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+                  :class="personalRadioEnabled ? 'translate-x-5' : 'translate-x-0'"
+                />
+              </button>
+            </div>
+
+            <!-- Discovery slider (only when personal radio enabled) -->
+            <div
+              v-if="personalRadioEnabled"
+              class="space-y-2"
+              data-testid="discovery-slider-section"
+            >
+              <label class="text-xs font-medium text-neutral-700">
+                {{ t('settings.discoverySlider') }}
+              </label>
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-neutral-500">{{ t('settings.discoveryComfort') }}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  :value="personalRadioDiscovery"
+                  data-testid="discovery-slider"
+                  class="flex-1"
+                  @change="handleDiscoveryChange(Number(($event.target as HTMLInputElement).value))"
+                />
+                <span class="text-xs text-neutral-500">{{ t('settings.discoveryNew') }}</span>
+              </div>
+            </div>
+
+            <!-- Scrobbling toggle -->
+            <div
+              class="flex items-start justify-between gap-4"
+              :class="!hasLastFmSession ? 'opacity-50' : ''"
+              data-testid="scrobbling-row"
+            >
+              <div>
+                <p class="text-sm font-medium text-neutral-900">
+                  {{ t('settings.scrobbling') }}
+                </p>
+                <p class="text-xs text-neutral-500">{{ t('settings.scrobblingHint') }}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="scrobblingEnabled"
+                :disabled="!hasLastFmSession"
+                data-testid="scrobbling-toggle"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:cursor-not-allowed"
+                :class="scrobblingEnabled ? 'bg-neutral-900' : 'bg-neutral-200'"
+                @click="handleScrobblingToggle(!scrobblingEnabled)"
+              >
+                <span
+                  class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform"
+                  :class="scrobblingEnabled ? 'translate-x-5' : 'translate-x-0'"
+                />
+              </button>
             </div>
           </div>
         </section>

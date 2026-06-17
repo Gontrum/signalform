@@ -19,6 +19,12 @@ export type AppConfig = {
   readonly fanartApiKey: string;
   readonly language: Language;
   readonly configuredAt?: string;
+  readonly lastFmUsername?: string;
+  readonly lastFmSharedSecret?: string;
+  readonly lastFmSessionKey?: string;
+  readonly personalRadioEnabled: boolean;
+  readonly scrobblingEnabled: boolean;
+  readonly personalRadioDiscovery: number;
 };
 
 export type ConfigError =
@@ -46,6 +52,9 @@ const getEnvDefaults = (): AppConfig => ({
   lastFmApiKey: process.env["LASTFM_API_KEY"] ?? "",
   fanartApiKey: process.env["FANART_API_KEY"] ?? "",
   language: getEnvLanguage(),
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
 });
 
 const parseJsonRecord = (raw: string): Result<JsonRecord, ConfigError> => {
@@ -98,6 +107,28 @@ const readOptionalString = (
   return typeof value === "string" ? value : undefined;
 };
 
+const readBoolean = (
+  record: JsonRecord,
+  key: string,
+  fallback: boolean,
+): boolean => {
+  const value = record[key];
+  return typeof value === "boolean" ? value : fallback;
+};
+
+const readNumberInRange = (
+  record: JsonRecord,
+  key: string,
+  min: number,
+  max: number,
+  fallback: number,
+): number => {
+  const value = record[key];
+  return typeof value === "number" && value >= min && value <= max
+    ? value
+    : fallback;
+};
+
 const readLanguage = (record: JsonRecord): Language | undefined => {
   const value = record["language"];
   if (value === "en" || value === "de") {
@@ -116,6 +147,18 @@ const toConfig = (record: JsonRecord, envDefaults: AppConfig): AppConfig => ({
     readNonEmptyString(record, "fanartApiKey") ?? envDefaults.fanartApiKey,
   language: readLanguage(record) ?? envDefaults.language,
   configuredAt: readOptionalString(record, "configuredAt"),
+  lastFmUsername: readNonEmptyString(record, "lastFmUsername"),
+  lastFmSharedSecret: readNonEmptyString(record, "lastFmSharedSecret"),
+  lastFmSessionKey: readNonEmptyString(record, "lastFmSessionKey"),
+  personalRadioEnabled: readBoolean(record, "personalRadioEnabled", false),
+  scrobblingEnabled: readBoolean(record, "scrobblingEnabled", false),
+  personalRadioDiscovery: readNumberInRange(
+    record,
+    "personalRadioDiscovery",
+    0,
+    100,
+    50,
+  ),
 });
 
 /**
@@ -169,6 +212,17 @@ export const saveConfig = (
     return err({
       type: "VALIDATION_ERROR",
       message: `lmsPort must be between 1 and 65535, got ${config.lmsPort}`,
+    });
+  }
+
+  if (
+    config.personalRadioDiscovery < 0 ||
+    config.personalRadioDiscovery > 100 ||
+    !Number.isInteger(config.personalRadioDiscovery)
+  ) {
+    return err({
+      type: "VALIDATION_ERROR",
+      message: `personalRadioDiscovery must be an integer between 0 and 100, got ${config.personalRadioDiscovery}`,
     });
   }
 

@@ -103,6 +103,9 @@ const DEFAULT_APP_CONFIG: AppConfig = {
   lastFmApiKey: "lastfm-key",
   fanartApiKey: "fanart-key",
   language: "en",
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
 };
 
 const DEFAULT_LMS_CONFIG: LmsConfig = {

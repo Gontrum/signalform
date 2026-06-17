@@ -24,6 +24,7 @@ import { createEnrichmentRoute } from "./features/enrichment/index.js";
 import { createFanartClient } from "./adapters/fanart-client/index.js";
 import { createSetupRoute } from "./features/setup/index.js";
 import { createConfigRoute } from "./features/config/index.js";
+import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
 import { loadConfig } from "./infrastructure/config/index.js";
 import type { AppConfig } from "./infrastructure/config/index.js";
 import { getLmsRegistry } from "./infrastructure/lms-registry.js";
@@ -194,6 +195,9 @@ const fallbackConfigFromEnv = (): AppConfig => ({
   lastFmApiKey: process.env["LASTFM_API_KEY"] ?? "",
   fanartApiKey: process.env["FANART_API_KEY"] ?? "",
   language: "en",
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
 });
 
 export const createServer = async (): Promise<FastifyInstance> => {
@@ -288,6 +292,10 @@ export const createServer = async (): Promise<FastifyInstance> => {
   });
 
   createConfigRoute(server, (newConfig: AppConfig) => {
+    registry.reload(newConfig);
+  });
+
+  createLastFmAuthRoute(server, (newConfig: AppConfig) => {
     registry.reload(newConfig);
   });
 

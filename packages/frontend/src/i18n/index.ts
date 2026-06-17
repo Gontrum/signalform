@@ -144,6 +144,22 @@ export type MessageKey =
   | 'search.genreRadioPlaceholder'
   | 'search.genreRadioStart'
   | 'search.genreRadioSearching'
+  | 'settings.lastFm'
+  | 'settings.lastFmConnect'
+  | 'settings.lastFmConnected'
+  | 'settings.lastFmDisconnect'
+  | 'settings.lastFmConnecting'
+  | 'settings.lastFmConfirm'
+  | 'settings.lastFmOpenPrompt'
+  | 'settings.lastFmAuthError'
+  | 'settings.lastFmUsername'
+  | 'settings.personalRadio'
+  | 'settings.personalRadioHint'
+  | 'settings.scrobbling'
+  | 'settings.scrobblingHint'
+  | 'settings.discoverySlider'
+  | 'settings.discoveryComfort'
+  | 'settings.discoveryNew'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -290,6 +306,22 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.genreRadioPlaceholder': 'Type a genre (e.g. Jazz, Punk)…',
     'search.genreRadioStart': 'Start Radio',
     'search.genreRadioSearching': 'Searching…',
+    'settings.lastFm': 'Last.fm',
+    'settings.lastFmConnect': 'Connect with Last.fm',
+    'settings.lastFmConnected': 'Connected as {username}',
+    'settings.lastFmDisconnect': 'Disconnect',
+    'settings.lastFmConnecting': 'Connecting…',
+    'settings.lastFmConfirm': 'Confirm connection',
+    'settings.lastFmOpenPrompt': 'Authorise Signalform on Last.fm, then click confirm.',
+    'settings.lastFmAuthError': 'Could not connect. Please try again.',
+    'settings.lastFmUsername': 'Last.fm username (read-only APIs)',
+    'settings.personalRadio': 'Personal Radio',
+    'settings.personalRadioHint': 'Plays music based on your Last.fm listening history.',
+    'settings.scrobbling': 'Scrobbling',
+    'settings.scrobblingHint': 'Tracks plays to your Last.fm profile. Requires connection.',
+    'settings.discoverySlider': 'Comfort ↔ Discovery',
+    'settings.discoveryComfort': 'Only familiar',
+    'settings.discoveryNew': 'Only new',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -438,6 +470,24 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.genreRadioPlaceholder': 'Genre eingeben (z. B. Jazz, Punk)…',
     'search.genreRadioStart': 'Radio starten',
     'search.genreRadioSearching': 'Suche läuft…',
+    'settings.lastFm': 'Last.fm',
+    'settings.lastFmConnect': 'Mit Last.fm verbinden',
+    'settings.lastFmConnected': 'Verbunden als {username}',
+    'settings.lastFmDisconnect': 'Verbindung trennen',
+    'settings.lastFmConnecting': 'Verbinde…',
+    'settings.lastFmConfirm': 'Verbindung bestätigen',
+    'settings.lastFmOpenPrompt':
+      'Autorisiere Signalform auf Last.fm und klicke danach auf Bestätigen.',
+    'settings.lastFmAuthError': 'Verbindung fehlgeschlagen. Bitte erneut versuchen.',
+    'settings.lastFmUsername': 'Last.fm-Benutzername (nur lesen)',
+    'settings.personalRadio': 'Persönliches Radio',
+    'settings.personalRadioHint': 'Spielt Musik basierend auf deiner Last.fm-Hörhistorie.',
+    'settings.scrobbling': 'Scrobbling',
+    'settings.scrobblingHint':
+      'Überträgt Wiedergaben an dein Last.fm-Profil. Erfordert Verbindung.',
+    'settings.discoverySlider': 'Komfort ↔ Entdeckung',
+    'settings.discoveryComfort': 'Nur Bekanntes',
+    'settings.discoveryNew': 'Nur Neues',
   },
 }
 

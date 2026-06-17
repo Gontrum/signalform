@@ -1,0 +1,382 @@
+import Fastify from "fastify";
+import type { Result } from "@signalform/shared";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createLastFmAuthRoute } from "./route.js";
+import type {
+  AppConfig,
+  ConfigError,
+} from "../../../infrastructure/config/index.js";
+
+type JsonRecord = { readonly [key: string]: unknown };
+type ConfigModule = typeof import("../../../infrastructure/config/index.js");
+type LoadConfigFn = (configPath?: string) => Result<AppConfig, ConfigError>;
+type SaveConfigFn = (
+  config: AppConfig,
+  configPath?: string,
+) => Result<void, ConfigError>;
+
+type MockedConfigModule = ConfigModule & {
+  readonly loadConfig: ReturnType<typeof vi.fn<LoadConfigFn>>;
+  readonly saveConfig: ReturnType<typeof vi.fn<SaveConfigFn>>;
+};
+
+const isMockFunction = (value: unknown): value is ReturnType<typeof vi.fn> => {
+  return typeof value === "function" && "mock" in value;
+};
+
+const isJsonRecord = (value: unknown): value is JsonRecord =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isMockedConfigModule = (
+  value: ConfigModule,
+): value is MockedConfigModule => {
+  return isMockFunction(value.loadConfig) && isMockFunction(value.saveConfig);
+};
+
+const readJsonRecord = (body: string): JsonRecord => {
+  const parsed: unknown = JSON.parse(body);
+  expect(isJsonRecord(parsed)).toBe(true);
+  return isJsonRecord(parsed) ? parsed : {};
+};
+
+vi.mock("../../../infrastructure/config", async (importOriginal) => {
+  const actual = await importOriginal<ConfigModule>();
+  return {
+    ...actual,
+    loadConfig: vi.fn<LoadConfigFn>(),
+    saveConfig: vi.fn<SaveConfigFn>(),
+  } satisfies Partial<MockedConfigModule>;
+});
+
+// Mock core functions so the route test does not depend on @core-dev implementation
+vi.mock("../core/service.js", () => ({
+  buildSignature: vi.fn(
+    (_params: Record<string, string>, _secret: string) => "mock-sig",
+  ),
+  buildAuthUrl: vi.fn(
+    (apiKey: string, token: string) =>
+      `https://www.last.fm/api/auth/?api_key=${apiKey}&token=${token}`,
+  ),
+}));
+
+const getConfigModule = async (): Promise<MockedConfigModule> => {
+  const module = await import("../../../infrastructure/config/index.js");
+  expect(isMockedConfigModule(module)).toBe(true);
+  return isMockedConfigModule(module)
+    ? module
+    : {
+        ...module,
+        loadConfig: vi.fn<LoadConfigFn>(),
+        saveConfig: vi.fn<SaveConfigFn>(),
+      };
+};
+
+const makeBaseConfig = (): AppConfig => ({
+  lmsHost: "localhost",
+  lmsPort: 9000,
+  playerId: "00:00:00:00:00:00",
+  lastFmApiKey: "test-api-key",
+  fanartApiKey: "",
+  language: "en",
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
+  lastFmSharedSecret: "test-secret",
+});
+
+const makeServer = (onConfigChange = vi.fn()): ReturnType<typeof Fastify> => {
+  const server = Fastify({ logger: false });
+  createLastFmAuthRoute(server, onConfigChange);
+  return server;
+};
+
+describe("GET /api/lastfm/auth/request", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns 400 when no lastFmApiKey in config", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: { ...makeBaseConfig(), lastFmApiKey: "" },
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/lastfm/auth/request",
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = readJsonRecord(response.body);
+    expect(typeof body["error"]).toBe("string");
+  });
+
+  it("calls Last.fm and returns { token, authUrl } on success", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ token: "abc123" }),
+      }),
+    );
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/lastfm/auth/request",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = readJsonRecord(response.body);
+    expect(body["token"]).toBe("abc123");
+    expect(typeof body["authUrl"]).toBe("string");
+    expect(
+      typeof body["authUrl"] === "string" &&
+        body["authUrl"].includes("last.fm"),
+    ).toBe(true);
+  });
+
+  it("returns 502 on Last.fm failure (non-ok response)", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+      }),
+    );
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/lastfm/auth/request",
+    });
+
+    expect(response.statusCode).toBe(502);
+    const body = readJsonRecord(response.body);
+    expect(body["error"]).toBe("Failed to obtain Last.fm auth token");
+  });
+
+  it("returns 502 when fetch throws", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new Error("network error")),
+    );
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/lastfm/auth/request",
+    });
+
+    expect(response.statusCode).toBe(502);
+  });
+});
+
+describe("POST /api/lastfm/auth/complete", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns 400 when token body is missing", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/auth/complete",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("returns 400 when lastFmSharedSecret is missing", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: { ...makeBaseConfig(), lastFmSharedSecret: undefined },
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/auth/complete",
+      payload: { token: "sometoken" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = readJsonRecord(response.body);
+    expect(typeof body["error"]).toBe("string");
+  });
+
+  it("saves session key and returns { username } on success", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            session: { key: "session-key-123", name: "testuser" },
+          }),
+      }),
+    );
+
+    const onConfigChange = vi.fn();
+    const server = makeServer(onConfigChange);
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/auth/complete",
+      payload: { token: "mytoken" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = readJsonRecord(response.body);
+    expect(body["username"]).toBe("testuser");
+
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastFmSessionKey: "session-key-123",
+        lastFmUsername: "testuser",
+      }),
+    );
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastFmSessionKey: "session-key-123",
+        lastFmUsername: "testuser",
+      }),
+    );
+  });
+
+  it("returns 502 when Last.fm session request fails", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+      }),
+    );
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/auth/complete",
+      payload: { token: "mytoken" },
+    });
+
+    expect(response.statusCode).toBe(502);
+    const body = readJsonRecord(response.body);
+    expect(body["error"]).toBe("Failed to complete Last.fm authentication");
+  });
+});
+
+describe("DELETE /api/lastfm/auth", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("clears session key and disables scrobbling, returns 204", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: {
+        ...makeBaseConfig(),
+        lastFmSessionKey: "existing-key",
+        scrobblingEnabled: true,
+      },
+    });
+    configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
+
+    const onConfigChange = vi.fn();
+    const server = makeServer(onConfigChange);
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/auth",
+    });
+
+    expect(response.statusCode).toBe(204);
+
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastFmSessionKey: undefined,
+        scrobblingEnabled: false,
+      }),
+    );
+    expect(onConfigChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastFmSessionKey: undefined,
+        scrobblingEnabled: false,
+      }),
+    );
+  });
+
+  it("returns 500 when save fails", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    configModule.saveConfig.mockReturnValue({
+      ok: false,
+      error: { type: "WRITE_ERROR", message: "disk full" },
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/auth",
+    });
+
+    expect(response.statusCode).toBe(500);
+  });
+});

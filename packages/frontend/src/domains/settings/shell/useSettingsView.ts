@@ -14,6 +14,11 @@ import {
   type DiscoveredServer,
   type LmsPlayer,
 } from '@/platform/api/setupApi'
+import {
+  requestLastFmAuth,
+  completeLastFmAuth,
+  disconnectLastFm,
+} from '@/platform/api/lastFmAuthApi'
 import type { Language } from '@/types/i18n'
 import {
   createSettingsConfigUpdate,
@@ -43,6 +48,14 @@ type UseSettingsViewResult = {
   readonly saveError: Ref<string>
   readonly loading: Ref<boolean>
   readonly loadError: Ref<string>
+  readonly lastFmAuthStep: Ref<'idle' | 'pending-user' | 'done'>
+  readonly lastFmToken: Ref<string>
+  readonly lastFmAuthError: Ref<boolean>
+  readonly lastFmUsername: Ref<string>
+  readonly hasLastFmSession: Ref<boolean>
+  readonly personalRadioEnabled: Ref<boolean>
+  readonly scrobblingEnabled: Ref<boolean>
+  readonly personalRadioDiscovery: Ref<number>
   readonly t: (key: import('@/i18n').MessageKey) => string
   readonly goBack: () => void
   readonly discover: () => Promise<void>
@@ -51,6 +64,12 @@ type UseSettingsViewResult = {
   readonly selectPlayer: (player: LmsPlayer) => void
   readonly save: () => Promise<void>
   readonly runSetupWizard: () => void
+  readonly handleLastFmConnect: () => Promise<void>
+  readonly handleLastFmConfirm: () => Promise<void>
+  readonly handleLastFmDisconnect: () => Promise<void>
+  readonly handleDiscoveryChange: (value: number) => Promise<void>
+  readonly handlePersonalRadioToggle: (value: boolean) => Promise<void>
+  readonly handleScrobblingToggle: (value: boolean) => Promise<void>
 }
 
 const getLoadErrorKey = (result: {
@@ -74,6 +93,11 @@ const applyLoadedConfig = (
     readonly hasLastFmKey: Ref<boolean>
     readonly hasFanartKey: Ref<boolean>
     readonly language: Ref<Language>
+    readonly lastFmUsername: Ref<string>
+    readonly hasLastFmSession: Ref<boolean>
+    readonly personalRadioEnabled: Ref<boolean>
+    readonly scrobblingEnabled: Ref<boolean>
+    readonly personalRadioDiscovery: Ref<number>
   },
 ): Language => {
   const resolvedLanguage = resolveSettingsLanguage(config.language, fallbackLanguage)
@@ -83,6 +107,11 @@ const applyLoadedConfig = (
   state.hasLastFmKey.value = config.hasLastFmKey
   state.hasFanartKey.value = config.hasFanartKey
   state.language.value = resolvedLanguage
+  state.lastFmUsername.value = config.lastFmUsername ?? ''
+  state.hasLastFmSession.value = config.hasLastFmSession ?? false
+  state.personalRadioEnabled.value = config.personalRadioEnabled ?? false
+  state.scrobblingEnabled.value = config.scrobblingEnabled ?? false
+  state.personalRadioDiscovery.value = config.personalRadioDiscovery ?? 50
   return resolvedLanguage
 }
 
@@ -118,6 +147,18 @@ export const useSettingsView = (): UseSettingsViewResult => {
   const loading = ref(true)
   const loadError = ref('')
 
+  // Last.fm auth flow
+  const lastFmAuthStep = ref<'idle' | 'pending-user' | 'done'>('idle')
+  const lastFmToken = ref('')
+  const lastFmAuthError = ref(false)
+  const lastFmUsername = ref('')
+  const hasLastFmSession = ref(false)
+
+  // Personal Radio settings
+  const personalRadioEnabled = ref(false)
+  const scrobblingEnabled = ref(false)
+  const personalRadioDiscovery = ref(50)
+
   onMounted(async () => {
     loading.value = true
     loadError.value = ''
@@ -137,7 +178,16 @@ export const useSettingsView = (): UseSettingsViewResult => {
       hasLastFmKey,
       hasFanartKey,
       language,
+      lastFmUsername,
+      hasLastFmSession,
+      personalRadioEnabled,
+      scrobblingEnabled,
+      personalRadioDiscovery,
     })
+
+    if (hasLastFmSession.value) {
+      lastFmAuthStep.value = 'done'
+    }
 
     i18nStore.initLanguageFromConfig(loadedLanguage)
   })
@@ -242,6 +292,57 @@ export const useSettingsView = (): UseSettingsViewResult => {
     void router.push({ name: 'setup' })
   }
 
+  const handleLastFmConnect = async (): Promise<void> => {
+    lastFmAuthError.value = false
+    const result = await requestLastFmAuth()
+    if (!result) {
+      lastFmAuthError.value = true
+      return
+    }
+    lastFmToken.value = result.token
+    window.open(result.authUrl, '_blank')
+    lastFmAuthStep.value = 'pending-user'
+  }
+
+  const handleLastFmConfirm = async (): Promise<void> => {
+    lastFmAuthError.value = false
+    const result = await completeLastFmAuth(lastFmToken.value)
+    if (!result) {
+      lastFmAuthError.value = true
+      return
+    }
+    lastFmUsername.value = result.username
+    hasLastFmSession.value = true
+    lastFmToken.value = ''
+    lastFmAuthStep.value = 'done'
+  }
+
+  const handleLastFmDisconnect = async (): Promise<void> => {
+    const success = await disconnectLastFm()
+    if (!success) {
+      return
+    }
+    hasLastFmSession.value = false
+    lastFmUsername.value = ''
+    scrobblingEnabled.value = false
+    lastFmAuthStep.value = 'idle'
+  }
+
+  const handlePersonalRadioToggle = async (value: boolean): Promise<void> => {
+    personalRadioEnabled.value = value
+    await updateConfig({ personalRadioEnabled: value })
+  }
+
+  const handleScrobblingToggle = async (value: boolean): Promise<void> => {
+    scrobblingEnabled.value = value
+    await updateConfig({ scrobblingEnabled: value })
+  }
+
+  const handleDiscoveryChange = async (value: number): Promise<void> => {
+    personalRadioDiscovery.value = value
+    await updateConfig({ personalRadioDiscovery: value })
+  }
+
   return {
     lmsHost,
     lmsPort,
@@ -264,6 +365,14 @@ export const useSettingsView = (): UseSettingsViewResult => {
     saveError,
     loading,
     loadError,
+    lastFmAuthStep,
+    lastFmToken,
+    lastFmAuthError,
+    lastFmUsername,
+    hasLastFmSession,
+    personalRadioEnabled,
+    scrobblingEnabled,
+    personalRadioDiscovery,
     t,
     goBack,
     discover,
@@ -272,5 +381,11 @@ export const useSettingsView = (): UseSettingsViewResult => {
     selectPlayer,
     save,
     runSetupWizard,
+    handleLastFmConnect,
+    handleLastFmConfirm,
+    handleLastFmDisconnect,
+    handleDiscoveryChange,
+    handlePersonalRadioToggle,
+    handleScrobblingToggle,
   }
 }

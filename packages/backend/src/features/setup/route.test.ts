@@ -11,6 +11,9 @@ type MockConfigValue = {
   readonly lastFmApiKey: string;
   readonly fanartApiKey: string;
   readonly language: import("../../infrastructure/config/service.js").Language;
+  readonly personalRadioEnabled: boolean;
+  readonly scrobblingEnabled: boolean;
+  readonly personalRadioDiscovery: number;
 };
 
 type DiscoverResponseBody = {
@@ -38,6 +41,9 @@ const DEFAULT_CONFIG: MockConfigValue = {
   lastFmApiKey: "",
   fanartApiKey: "",
   language: "en",
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
 };
 
 const parseDiscoverResponseBody = (value: string): DiscoverResponseBody => {

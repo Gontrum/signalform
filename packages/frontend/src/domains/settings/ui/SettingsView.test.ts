@@ -21,6 +21,10 @@ vi.mock('@/platform/api/configApi', async () => {
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
+        hasLastFmSession: false,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
       }),
     ),
     updateConfig: vi.fn().mockResolvedValue(
@@ -32,6 +36,10 @@ vi.mock('@/platform/api/configApi', async () => {
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
+        hasLastFmSession: false,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
       }),
     ),
   }
@@ -44,6 +52,12 @@ vi.mock('@/platform/api/setupApi', async () => {
     getPlayers: vi.fn().mockResolvedValue(ok([])),
   }
 })
+
+vi.mock('@/platform/api/lastFmAuthApi', () => ({
+  requestLastFmAuth: vi.fn().mockResolvedValue(null),
+  completeLastFmAuth: vi.fn().mockResolvedValue(null),
+  disconnectLastFm: vi.fn().mockResolvedValue(false),
+}))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -165,6 +179,10 @@ describe('SettingsView', () => {
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
         language: 'de',
+        hasLastFmSession: false,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
       }),
     )
 
@@ -305,5 +323,210 @@ describe('SettingsView', () => {
     await wrapper.find('[data-testid="nav-search"]').trigger('click')
     await flushPromises()
     expect(router.currentRoute.value.name).toBe('home')
+  })
+
+  // ---------------------------------------------------------------------------
+  // Last.fm section
+  // ---------------------------------------------------------------------------
+
+  it('renders the Last.fm section', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+    expect(wrapper.find('[data-testid="lastfm-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(true)
+  })
+
+  it('connect button triggers auth flow and shows pending prompt', async () => {
+    const { requestLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
+    vi.mocked(requestLastFmAuth).mockResolvedValueOnce({
+      token: 'tok123',
+      authUrl: 'https://www.last.fm/api/auth/?api_key=key&token=tok123',
+    })
+
+    // Mock window.open
+    const openMock = vi.fn()
+    vi.stubGlobal('open', openMock)
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lastfm-connect-button"]').trigger('click')
+    await flushPromises()
+
+    expect(requestLastFmAuth).toHaveBeenCalledOnce()
+    expect(openMock).toHaveBeenCalledWith(
+      'https://www.last.fm/api/auth/?api_key=key&token=tok123',
+      '_blank',
+    )
+    expect(wrapper.find('[data-testid="lastfm-confirm-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(false)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('confirm button shown after connect, completes auth and shows connected state', async () => {
+    const { requestLastFmAuth, completeLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
+    vi.mocked(requestLastFmAuth).mockResolvedValueOnce({
+      token: 'tok123',
+      authUrl: 'https://www.last.fm/api/auth/?api_key=key&token=tok123',
+    })
+    vi.mocked(completeLastFmAuth).mockResolvedValueOnce({ username: 'radiohead_fan' })
+
+    vi.stubGlobal('open', vi.fn())
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lastfm-connect-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="lastfm-confirm-button"]').exists()).toBe(true)
+
+    await wrapper.find('[data-testid="lastfm-confirm-button"]').trigger('click')
+    await flushPromises()
+
+    expect(completeLastFmAuth).toHaveBeenCalledWith('tok123')
+    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').exists()).toBe(true)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('connected state shows username and disconnect button', async () => {
+    const { getConfig } = await import('@/platform/api/configApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getConfig).mockResolvedValueOnce(
+      ok({
+        lmsHost: '192.168.1.100',
+        lmsPort: 9000,
+        playerId: 'aa:bb:cc:dd:ee:ff',
+        hasLastFmKey: true,
+        hasFanartKey: false,
+        isConfigured: true,
+        language: 'en' as const,
+        lastFmUsername: 'radiohead_fan',
+        hasLastFmSession: true,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
+      }),
+    )
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-connected-row"]').text()).toContain('radiohead_fan')
+  })
+
+  it('disconnect button calls disconnectLastFm and resets to idle', async () => {
+    const { getConfig } = await import('@/platform/api/configApi')
+    const { disconnectLastFm } = await import('@/platform/api/lastFmAuthApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getConfig).mockResolvedValueOnce(
+      ok({
+        lmsHost: '192.168.1.100',
+        lmsPort: 9000,
+        playerId: 'aa:bb:cc:dd:ee:ff',
+        hasLastFmKey: true,
+        hasFanartKey: false,
+        isConfigured: true,
+        language: 'en' as const,
+        lastFmUsername: 'radiohead_fan',
+        hasLastFmSession: true,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
+      }),
+    )
+    vi.mocked(disconnectLastFm).mockResolvedValueOnce(true)
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lastfm-disconnect-button"]').trigger('click')
+    await flushPromises()
+
+    expect(disconnectLastFm).toHaveBeenCalledOnce()
+    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(false)
+  })
+
+  it('shows auth error when connect fails', async () => {
+    const { requestLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
+    vi.mocked(requestLastFmAuth).mockResolvedValueOnce(null)
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lastfm-connect-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="lastfm-auth-error"]').exists()).toBe(true)
+  })
+
+  it('Personal Radio toggle calls updateConfig with personalRadioEnabled', async () => {
+    const { updateConfig } = await import('@/platform/api/configApi')
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="personal-radio-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(updateConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ personalRadioEnabled: true }),
+    )
+  })
+
+  it('discovery slider only visible when Personal Radio enabled', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    // Initially hidden
+    expect(wrapper.find('[data-testid="discovery-slider-section"]').exists()).toBe(false)
+
+    // Enable Personal Radio
+    await wrapper.find('[data-testid="personal-radio-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="discovery-slider-section"]').exists()).toBe(true)
+  })
+
+  it('scrobbling toggle is disabled when no session key', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const scrobblingToggle = wrapper.find('[data-testid="scrobbling-toggle"]')
+    expect(scrobblingToggle.exists()).toBe(true)
+    expect(scrobblingToggle.attributes('disabled')).toBeDefined()
+  })
+
+  it('scrobbling toggle is enabled when session key exists', async () => {
+    const { getConfig } = await import('@/platform/api/configApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getConfig).mockResolvedValueOnce(
+      ok({
+        lmsHost: '192.168.1.100',
+        lmsPort: 9000,
+        playerId: 'aa:bb:cc:dd:ee:ff',
+        hasLastFmKey: true,
+        hasFanartKey: false,
+        isConfigured: true,
+        language: 'en' as const,
+        lastFmUsername: 'testuser',
+        hasLastFmSession: true,
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
+      }),
+    )
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const scrobblingToggle = wrapper.find('[data-testid="scrobbling-toggle"]')
+    expect(scrobblingToggle.attributes('disabled')).toBeUndefined()
   })
 })

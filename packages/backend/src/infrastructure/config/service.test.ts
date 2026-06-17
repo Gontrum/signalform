@@ -21,6 +21,9 @@ const makeTestConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   lastFmApiKey: "test-lastfm-key",
   fanartApiKey: "test-fanart-key",
   language: "en",
+  personalRadioEnabled: false,
+  scrobblingEnabled: false,
+  personalRadioDiscovery: 50,
   ...overrides,
 });
 
