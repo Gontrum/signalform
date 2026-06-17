@@ -32,6 +32,9 @@ const {
   handleNavigateTidalAlbum,
   handlePlayAlbum,
   backToSearch,
+  genreRadioLoading,
+  genreRadioError,
+  handleGenreRadioStart,
 } = useSearchPanel()
 </script>
 
@@ -106,19 +109,42 @@ const {
     <div v-else class="flex-1 min-h-0 overflow-y-auto" data-testid="full-results-list">
       <div
         data-testid="scroll-header"
-        class="sticky top-0 z-10 mb-4 flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50/95 px-3 py-3 shadow-sm backdrop-blur-sm"
+        class="sticky top-0 z-10 mb-4 flex flex-col rounded-xl border border-neutral-200 bg-neutral-50/95 px-3 py-3 shadow-sm backdrop-blur-sm"
       >
-        <button
-          type="button"
-          class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-          data-testid="back-button"
-          @click="backToSearch"
-        >
-          ← {{ t('settings.fullResultsBack') }}
-        </button>
-        <h2 class="min-w-0 text-xl font-semibold text-gray-900">
-          {{ t('home.resultsFor') }} "{{ searchQuery }}"
-        </h2>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            data-testid="back-button"
+            @click="backToSearch"
+          >
+            ← {{ t('settings.fullResultsBack') }}
+          </button>
+          <h2 class="min-w-0 text-xl font-semibold text-gray-900">
+            {{ t('home.resultsFor') }} "{{ searchQuery }}"
+          </h2>
+        </div>
+
+        <!-- Genre Radio action for current query -->
+        <div class="mt-2 flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="genre-radio-from-search-button"
+            :disabled="genreRadioLoading"
+            class="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+            @click="handleGenreRadioStart"
+          >
+            {{ genreRadioLoading ? t('search.genreRadioSearching') : t('search.genreRadioStart') }}
+            "{{ searchQuery }}"
+          </button>
+          <span
+            v-if="genreRadioError"
+            class="text-xs text-red-500"
+            data-testid="genre-radio-search-error"
+          >
+            {{ t('artist.genreRadioError') }}
+          </span>
+        </div>
       </div>
 
       <!-- Tidal Unavailable Warning -->

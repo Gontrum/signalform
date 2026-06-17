@@ -10,5 +10,7 @@ export type {
   AlbumInfo,
   ArtistTopTrack,
   ArtistTopAlbum,
+  TagTopTrack,
+  TagSearchResult,
   CircuitBreakerConfig,
 } from "./types.js";

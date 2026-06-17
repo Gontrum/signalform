@@ -109,6 +109,10 @@ export const createCircuitBreakerLastFmClient = (
       wrapCall(() => inner.getArtistTopTracks(artist, limit)),
     getArtistTopAlbums: (artist, limit) =>
       wrapCall(() => inner.getArtistTopAlbums(artist, limit)),
+    getTagTopTracks: (tag, page, limit) =>
+      wrapCall(() => inner.getTagTopTracks(tag, page, limit)),
+    searchTags: (query, limit) =>
+      wrapCall(() => inner.searchTags(query, limit)),
     getCircuitState: () => ref.current.circuitState,
   };
 };

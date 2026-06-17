@@ -65,6 +65,8 @@ const makeInnerClient = (): {
       getAlbumInfo: getAlbumInfoMock,
       getArtistTopTracks: getArtistTopTracksMock,
       getArtistTopAlbums: getArtistTopAlbumsMock,
+      getTagTopTracks: vi.fn(),
+      searchTags: vi.fn(),
       getCircuitState: () => "CLOSED" as const,
     },
     getSimilarTracksMock,

@@ -33,3 +33,10 @@ export {
 // New in Story 6.4
 export type { RadioEngine } from "./shell/radio-service.js";
 export { createRadioEngine } from "./shell/radio-service.js";
+// Genre Radio context
+export type { GenreRadioContext } from "./shell/radio-state.js";
+export {
+  setGenreRadioContext,
+  incrementGenreRadioPage,
+  setRadioModeEnabledState,
+} from "./shell/radio-state.js";

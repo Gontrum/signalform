@@ -12,6 +12,8 @@ import { createLibraryRoute } from "./features/library/index.js";
 import { createTidalAlbumsRoute } from "./features/tidal-albums/index.js";
 import { createTidalArtistsRoute } from "./features/tidal-artists/index.js";
 import { createArtistRadioRoute } from "./features/artist-radio/index.js";
+import { createGenreRadioRoute } from "./features/genre-radio/index.js";
+import { createTagSearchRoute } from "./features/tag-search/index.js";
 import { createQueueRoute } from "./features/queue/index.js";
 import {
   setupWebSocket,
@@ -273,6 +275,8 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createTidalAlbumsRoute(server, lmsProxy, lmsConfigProxy);
   createTidalArtistsRoute(server, lmsProxy, lmsConfigProxy);
   createArtistRadioRoute(server, lmsProxy, lastFmClient);
+  createGenreRadioRoute(server, lmsProxy, lastFmClient);
+  createTagSearchRoute(server, lastFmClient);
   createPlaybackRoute(server, lmsProxy, lmsConfigProxy, io, appConfig.playerId);
   createQueueRoute(server, lmsProxy, io, appConfig.playerId, {
     handleRemoval: async ({ removedTrack }) =>

@@ -8,6 +8,8 @@ import type {
   AlbumInfo,
   ArtistTopTrack,
   ArtistTopAlbum,
+  TagTopTrack,
+  TagSearchResult,
   LastFmClient,
 } from "./types.js";
 
@@ -386,6 +388,85 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
               mbid: mbidStr !== "" ? mbidStr : undefined,
               playcount: parseInt(String(albumValue["playcount"] ?? "0"), 10),
               url: String(albumValue["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getTagTopTracks: async (
+      tag,
+      page = 1,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly TagTopTrack[], LastFmError>> => {
+      const url = buildUrl({ method: "tag.getTopTracks", tag, page, limit });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const topTracksRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "tracks")
+        : undefined;
+      const tracks = topTracksRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      const mapped: readonly TagTopTrack[] = tracks.flatMap(
+        (trackValue): readonly TagTopTrack[] => {
+          if (!isRecord(trackValue)) {
+            return [];
+          }
+          const artistRecord = getNestedRecord(trackValue, "artist");
+          const mbidStr = String(trackValue["mbid"] ?? "");
+          return [
+            {
+              name: String(trackValue["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? ""),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              url: String(trackValue["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    searchTags: async (
+      query,
+      limit = 10,
+    ): Promise<Result<readonly TagSearchResult[], LastFmError>> => {
+      const url = buildUrl({ method: "tag.search", tag: query, limit });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const resultsRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "results")
+        : undefined;
+      const tagMatchesRecord = resultsRecord
+        ? getNestedRecord(resultsRecord, "tagmatches")
+        : undefined;
+      const tags = tagMatchesRecord?.["tag"];
+      if (!Array.isArray(tags)) {
+        return ok([]);
+      }
+
+      const mapped: readonly TagSearchResult[] = tags.flatMap(
+        (tagValue): readonly TagSearchResult[] => {
+          if (!isRecord(tagValue)) {
+            return [];
+          }
+          return [
+            {
+              name: String(tagValue["name"] ?? ""),
+              count: parseInt(String(tagValue["count"] ?? "0"), 10),
+              url: String(tagValue["url"] ?? ""),
             },
           ];
         },

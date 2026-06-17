@@ -87,6 +87,19 @@ export type ArtistTopAlbum = {
   readonly url: string;
 };
 
+export type TagTopTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly mbid?: string;
+  readonly url: string;
+};
+
+export type TagSearchResult = {
+  readonly name: string;
+  readonly count: number;
+  readonly url: string;
+};
+
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 // Client contract type
@@ -117,5 +130,14 @@ export type LastFmClient = {
     artist: string,
     limit?: number,
   ) => Promise<Result<readonly ArtistTopAlbum[], LastFmError>>;
+  readonly getTagTopTracks: (
+    tag: string,
+    page?: number,
+    limit?: number,
+  ) => Promise<Result<readonly TagTopTrack[], LastFmError>>;
+  readonly searchTags: (
+    query: string,
+    limit?: number,
+  ) => Promise<Result<readonly TagSearchResult[], LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

@@ -4,6 +4,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { playAlbum } from '@/platform/api/playbackApi'
+import { startGenreRadio } from '@/platform/api/genreRadioApi'
 import { useSearchStore } from './useSearchStore'
 import {
   getDisplayedAlbumResults,
@@ -45,6 +46,9 @@ type UseSearchPanelResult = {
   }) => void
   readonly handlePlayAlbum: (albumId: string) => Promise<void>
   readonly backToSearch: () => Promise<void>
+  readonly genreRadioLoading: Ref<boolean>
+  readonly genreRadioError: Ref<boolean>
+  readonly handleGenreRadioStart: () => Promise<void>
 }
 
 export const useSearchPanel = (): UseSearchPanelResult => {
@@ -60,6 +64,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const showLoadingIndicator = ref(false)
   const loadingTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const activeIndex = ref(-1)
+  const genreRadioLoading = ref(false)
+  const genreRadioError = ref(false)
 
   const showFullResults = computed(
     () => route.query.full === 'true' && typeof route.query.q === 'string' && route.query.q !== '',
@@ -267,6 +273,16 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     }
   }
 
+  const handleGenreRadioStart = async (): Promise<void> => {
+    genreRadioLoading.value = true
+    genreRadioError.value = false
+    const result = await startGenreRadio(searchQuery.value)
+    if (result === null) {
+      genreRadioError.value = true
+    }
+    genreRadioLoading.value = false
+  }
+
   onUnmounted((): void => {
     if (abortControllerRef.value) {
       abortControllerRef.value.abort()
@@ -309,5 +325,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     handleNavigateTidalAlbum,
     handlePlayAlbum,
     backToSearch,
+    genreRadioLoading,
+    genreRadioError,
+    handleGenreRadioStart,
   }
 }

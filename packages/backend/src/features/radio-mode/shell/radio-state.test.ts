@@ -2,8 +2,12 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { QueueTrack } from "@signalform/shared";
 import {
   annotateRadioQueueTracks,
+  clearRadioQueueRuntimeState,
+  getRadioQueueState,
+  incrementGenreRadioPage,
   recordExplicitRadioTracks,
   resetRadioRuntimeState,
+  setGenreRadioContext,
   setRadioQueueEntries,
 } from "./radio-state.js";
 import {
@@ -199,5 +203,45 @@ describe("radio-state", () => {
       "radio",
     ]);
     expect(projection.radioBoundaryIndex).toBe(3);
+  });
+});
+
+describe("genre radio context", () => {
+  beforeEach(() => {
+    resetRadioRuntimeState();
+  });
+
+  it("setGenreRadioContext sets genreName and page in state", () => {
+    setGenreRadioContext({ genreName: "jazz", page: 1 });
+    expect(getRadioQueueState().genreRadioContext).toEqual({
+      genreName: "jazz",
+      page: 1,
+    });
+  });
+
+  it("incrementGenreRadioPage increments page by 1", () => {
+    setGenreRadioContext({ genreName: "jazz", page: 2 });
+    incrementGenreRadioPage();
+    expect(getRadioQueueState().genreRadioContext).toEqual({
+      genreName: "jazz",
+      page: 3,
+    });
+  });
+
+  it("incrementGenreRadioPage is a no-op when genreRadioContext is undefined", () => {
+    incrementGenreRadioPage();
+    expect(getRadioQueueState().genreRadioContext).toBeUndefined();
+  });
+
+  it("clearRadioQueueRuntimeState resets genreRadioContext to undefined", () => {
+    setGenreRadioContext({ genreName: "jazz", page: 5 });
+    clearRadioQueueRuntimeState();
+    expect(getRadioQueueState().genreRadioContext).toBeUndefined();
+  });
+
+  it("resetRadioRuntimeState resets genreRadioContext to undefined", () => {
+    setGenreRadioContext({ genreName: "jazz", page: 5 });
+    resetRadioRuntimeState();
+    expect(getRadioQueueState().genreRadioContext).toBeUndefined();
   });
 });

@@ -36,6 +36,11 @@ type SuppressedQueueEnd = {
   readonly title: string;
 };
 
+type GenreRadioContext = {
+  readonly genreName: string;
+  readonly page: number;
+};
+
 type RadioQueueState = {
   readonly isEnabled: boolean;
   readonly requestedEnabledState?: boolean | undefined;
@@ -44,6 +49,7 @@ type RadioQueueState = {
   readonly recentArtists: readonly string[];
   readonly isProcessing: boolean;
   readonly suppressedQueueEnd?: SuppressedQueueEnd | undefined;
+  readonly genreRadioContext: GenreRadioContext | undefined;
 };
 
 const INITIAL_STATE: RadioQueueState = {
@@ -54,6 +60,7 @@ const INITIAL_STATE: RadioQueueState = {
   recentArtists: [],
   isProcessing: false,
   suppressedQueueEnd: undefined,
+  genreRadioContext: undefined,
 };
 
 type RadioState = {
@@ -67,6 +74,7 @@ type RadioState = {
   readonly setSuppressedQueueEnd: (
     suppression: SuppressedQueueEnd | undefined,
   ) => void;
+  readonly setGenreRadioContext: (ctx: GenreRadioContext | undefined) => void;
   readonly reset: () => void;
 };
 
@@ -98,6 +106,11 @@ const createRadioState = (): RadioState => {
       suppressedQueueEnd: SuppressedQueueEnd | undefined,
     ): void => {
       ref.current = { ...ref.current, suppressedQueueEnd };
+    },
+    setGenreRadioContext: (
+      genreRadioContext: GenreRadioContext | undefined,
+    ): void => {
+      ref.current = { ...ref.current, genreRadioContext };
     },
     reset: (): void => {
       ref.current = INITIAL_STATE;
@@ -142,7 +155,21 @@ export const clearRadioQueueRuntimeState = (): void => {
   radioState.setRecentArtists([]);
   radioState.setSuppressedQueueEnd(undefined);
   radioState.setRequestedEnabledState(undefined);
+  radioState.setGenreRadioContext(undefined);
 };
+
+export const setGenreRadioContext = (
+  ctx: GenreRadioContext | undefined,
+): void => radioState.setGenreRadioContext(ctx);
+
+export const incrementGenreRadioPage = (): void => {
+  const ctx = getRadioQueueState().genreRadioContext;
+  if (ctx !== undefined) {
+    radioState.setGenreRadioContext({ ...ctx, page: ctx.page + 1 });
+  }
+};
+
+export type { GenreRadioContext };
 
 const matchesSuppressedQueueEnd = (
   track: {

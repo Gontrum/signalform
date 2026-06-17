@@ -12,7 +12,10 @@ import type {
   LmsClient,
   SearchResult,
 } from "../../../adapters/lms-client/index.js";
-import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import type {
+  LastFmClient,
+  TagTopTrack,
+} from "../../../adapters/lastfm-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import { selectBestSource } from "../../source-hierarchy/index.js";
 import type { SelectionError } from "../../source-hierarchy/index.js";
@@ -43,6 +46,7 @@ import {
   setRadioProcessing,
   setRadioRecentArtists,
   setRequestedRadioModeEnabledState,
+  incrementGenreRadioPage,
 } from "./radio-state.js";
 import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
 import {
@@ -277,6 +281,249 @@ export const createRadioEngine = (
     return { status: "skipped", reason: "disabled" };
   };
 
+  const replenishGenreQueue = async (
+    genreContext: { readonly genreName: string; readonly page: number },
+    trigger: ReplenishTrigger,
+  ): Promise<ReplenishOutcome> => {
+    const { genreName, page } = genreContext;
+
+    const tagTracksResult = await lastFmClient.getTagTopTracks(
+      genreName,
+      page,
+      50,
+    );
+    if (!tagTracksResult.ok) {
+      if (tagTracksResult.error.type === "CircuitOpenError") {
+        io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
+          playerId,
+          message: "Radio mode temporarily unavailable",
+          timestamp: Date.now(),
+        } satisfies RadioUnavailablePayload);
+        return {
+          status: "skipped",
+          reason: "lastfm-unavailable",
+          unavailableEmitted: true,
+        };
+      }
+      logger.warn("Genre Radio: tag.getTopTracks failed", {
+        event: "radio.genre_lastfm_failed",
+        trigger,
+        genreName,
+        page,
+        error: tagTracksResult.error,
+      });
+      return { status: "skipped", reason: "lastfm-unavailable" };
+    }
+
+    if (tagTracksResult.value.length === 0) {
+      logger.info("Genre Radio: no more tracks from Last.fm for this genre", {
+        event: "radio.genre_no_more_tracks",
+        trigger,
+        genreName,
+        page,
+      });
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    // Fisher-Yates shuffle via reduce — no mutation, no loop statements
+    const shuffled: readonly TagTopTrack[] = Array.from(
+      { length: tagTracksResult.value.length },
+      (_, i) => i,
+    ).reduce<readonly TagTopTrack[]>(
+      (acc, _, i) => {
+        const remaining = tagTracksResult.value.length - i;
+        const j = Math.floor(Math.random() * remaining);
+        const item = acc[j]!;
+        const last = acc[remaining - 1]!;
+        return acc.map((el, idx) =>
+          idx === j ? last : idx === remaining - 1 ? item : el,
+        );
+      },
+      [...tagTracksResult.value],
+    );
+
+    const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
+      name: t.name,
+      artist: t.artist,
+      match: 1,
+      url: t.url,
+    }));
+
+    const diversityFiltered = filterByDiversity(
+      candidates,
+      getRadioQueueState().recentArtists,
+      DEFAULT_DIVERSITY_CONFIG,
+    );
+
+    if (diversityFiltered.length === 0) {
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    const preRadioQueueResult = await lmsClient.getQueue();
+    if (!preRadioQueueResult.ok || preRadioQueueResult.value === undefined) {
+      const queueFetchError = preRadioQueueResult.ok
+        ? "Unknown queue fetch failure"
+        : (preRadioQueueResult.error?.message ?? "Unknown queue fetch failure");
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: queueFetchError,
+      };
+    }
+    const queuedTrackRepeatKeys = preRadioQueueResult.value.map(
+      getQueueTrackRepeatKey,
+    );
+    const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap((track) => {
+      const urlKey = getTrackUrlKey(track);
+      return urlKey === undefined ? [] : [urlKey];
+    });
+
+    const targetBatchSize =
+      trigger === "queue-remove"
+        ? RADIO_REMOVAL_REPLENISH_SIZE
+        : RADIO_BATCH_SIZE;
+
+    const { artists: addedArtists, trackKeys: addedTrackKeys } =
+      await diversityFiltered.reduce(
+        async (accPromise: Promise<RadioAcc>, candidate): Promise<RadioAcc> => {
+          const acc = await accPromise;
+          if (acc.artists.length >= targetBatchSize) {
+            return acc;
+          }
+          if (
+            acc.artists.some((added) => artistMatches(added, candidate.artist))
+          ) {
+            return acc;
+          }
+
+          const queryResults = await buildRadioSearchQueries(
+            candidate.artist,
+            candidate.name,
+          ).reduce<Promise<readonly SearchResult[]>>(
+            async (resultPromise, query) => {
+              const previousResults = await resultPromise;
+              if (previousResults.length > 0) {
+                return previousResults;
+              }
+              const searchResult = await lmsClient.search(query);
+              if (!searchResult.ok || searchResult.value.tracks.length === 0) {
+                return [];
+              }
+              return searchResult.value.tracks.filter((r) =>
+                artistMatches(r.artist, candidate.artist),
+              );
+            },
+            Promise.resolve([] as readonly SearchResult[]),
+          );
+
+          if (queryResults.length === 0) {
+            return acc;
+          }
+
+          const selectResult = selectBestTrackUrl(queryResults);
+          const bestUrl = selectResult.url;
+          const bestUrlKey = getTrackUrlKey({ url: bestUrl });
+          if (bestUrl === undefined || bestUrlKey === undefined) {
+            return acc;
+          }
+
+          const bestResult =
+            queryResults.find((r) => r.url === bestUrl) ?? null;
+          const repeatKey =
+            bestResult !== null
+              ? getSearchResultRepeatKey(bestResult)
+              : getQueueTrackRepeatKey({
+                  artist: candidate.artist,
+                  title: candidate.name,
+                });
+
+          if (
+            acc.trackKeys.includes(repeatKey) ||
+            queuedTrackRepeatKeys.includes(repeatKey) ||
+            queuedTrackUrlKeys.includes(bestUrlKey) ||
+            acc.urls.includes(bestUrlKey)
+          ) {
+            return acc;
+          }
+
+          const addResult = await lmsClient.addToQueue(bestUrl);
+          if (!addResult.ok) {
+            return acc;
+          }
+
+          logger.info("Genre Radio: track added to queue", {
+            event: "radio.genre_track_queued",
+            trigger,
+            genreName,
+            artist: candidate.artist,
+            title: candidate.name,
+          });
+          return {
+            artists: [...acc.artists, candidate.artist],
+            urls: [...acc.urls, bestUrlKey],
+            trackKeys: [...acc.trackKeys, repeatKey],
+          };
+        },
+        Promise.resolve({
+          artists: [] as readonly string[],
+          urls: [] as readonly string[],
+          trackKeys: [] as readonly string[],
+        }),
+      );
+
+    if (addedArtists.length === 0) {
+      return { status: "skipped", reason: "batch-empty" };
+    }
+
+    const currentStatusResult = await lmsClient.getStatus();
+    if (currentStatusResult.ok && currentStatusResult.value?.mode === "stop") {
+      if (trigger === "queue-end") {
+        await lmsClient.nextTrack();
+      } else {
+        await lmsClient.resume();
+      }
+    }
+
+    const nextRecentArtists = addedArtists.reduce(
+      (window, artist) =>
+        addToSlidingWindow(window, artist, DEFAULT_DIVERSITY_CONFIG.windowSize),
+      getRadioQueueState().recentArtists,
+    );
+    setRadioRecentArtists(nextRecentArtists);
+    incrementGenreRadioPage();
+
+    const queueResult = await lmsClient.getQueue();
+    if (!queueResult.ok || queueResult.value === undefined) {
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: "Queue refresh failed after genre radio add",
+      };
+    }
+
+    const queueProjection = recordExplicitRadioTracks(
+      queueResult.value,
+      addedTrackKeys,
+    );
+    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
+      playerId,
+      tracks: queueProjection.tracks,
+      radioModeActive: queueProjection.radioModeActive,
+      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
+      timestamp: Date.now(),
+    });
+
+    logger.info("Genre Radio replenish succeeded", {
+      event: "radio.genre_replenish_succeeded",
+      trigger,
+      genreName,
+      page,
+      tracksAdded: addedArtists.length,
+    });
+
+    return { status: "success", tracksAdded: addedArtists.length };
+  };
+
   const replenishRadioQueue = async (
     seedArtist: string,
     seedTitle: string,
@@ -304,6 +551,12 @@ export const createRadioEngine = (
     // Result-type errors (last.fm / LMS failures) are handled inline below.
     return Promise.resolve()
       .then(async (): Promise<ReplenishOutcome> => {
+        // Dispatch to genre-specific replenish when genre radio mode is active
+        const genreContext = getRadioQueueState().genreRadioContext;
+        if (genreContext !== undefined) {
+          return replenishGenreQueue(genreContext, trigger);
+        }
+
         logger.info("Radio replenish triggered", {
           event: "radio.replenish_started",
           trigger,

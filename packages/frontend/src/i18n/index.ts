@@ -139,6 +139,11 @@ export type MessageKey =
   | 'artist.startRadio'
   | 'artist.radioStarting'
   | 'artist.radioError'
+  | 'artist.genreRadioError'
+  | 'search.genreRadio'
+  | 'search.genreRadioPlaceholder'
+  | 'search.genreRadioStart'
+  | 'search.genreRadioSearching'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -280,6 +285,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.startRadio': 'Artist Radio',
     'artist.radioStarting': 'Starting radio…',
     'artist.radioError': 'Could not start radio',
+    'artist.genreRadioError': 'Could not start radio',
+    'search.genreRadio': 'Genre Radio',
+    'search.genreRadioPlaceholder': 'Type a genre (e.g. Jazz, Punk)…',
+    'search.genreRadioStart': 'Start Radio',
+    'search.genreRadioSearching': 'Searching…',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -423,6 +433,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.startRadio': 'Künstler-Radio',
     'artist.radioStarting': 'Radio wird gestartet…',
     'artist.radioError': 'Radio konnte nicht gestartet werden',
+    'artist.genreRadioError': 'Radio konnte nicht gestartet werden',
+    'search.genreRadio': 'Genre-Radio',
+    'search.genreRadioPlaceholder': 'Genre eingeben (z. B. Jazz, Punk)…',
+    'search.genreRadioStart': 'Radio starten',
+    'search.genreRadioSearching': 'Suche läuft…',
   },
 }
 

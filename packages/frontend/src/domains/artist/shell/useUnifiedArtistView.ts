@@ -15,6 +15,7 @@ import {
   getArtistTopTracks,
   startArtistRadio,
 } from '@/platform/api/artistApi'
+import { startGenreRadio } from '@/platform/api/genreRadioApi'
 import { addToQueue, addTrackListToQueue } from '@/platform/api/queueApi'
 import { resolveAlbum } from '@/platform/api/tidalAlbumsApi'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
@@ -62,6 +63,10 @@ type UseUnifiedArtistViewResult = {
   readonly radioLoading: Ref<boolean>
   readonly radioError: Ref<boolean>
   readonly handleStartArtistRadio: () => Promise<void>
+  readonly genreRadioLoading: Ref<boolean>
+  readonly genreRadioError: Ref<boolean>
+  readonly genreRadioActiveTag: Ref<string | null>
+  readonly handleGenreRadioStart: (tag: string) => Promise<void>
 }
 
 export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedArtistViewResult => {
@@ -84,6 +89,9 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
   const albumSort = ref<ArtistAlbumSortOption>('year')
   const radioLoading = ref(false)
   const radioError = ref(false)
+  const genreRadioLoading = ref(false)
+  const genreRadioError = ref(false)
+  const genreRadioActiveTag = ref<string | null>(null)
 
   const loadGeneration = ref(0)
 
@@ -294,6 +302,17 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     }
   }
 
+  const handleGenreRadioStart = async (tag: string): Promise<void> => {
+    genreRadioLoading.value = true
+    genreRadioError.value = false
+    genreRadioActiveTag.value = tag
+    const result = await startGenreRadio(tag)
+    if (result === null) {
+      genreRadioError.value = true
+    }
+    genreRadioLoading.value = false
+  }
+
   const setAlbumSort = (sort: ArtistAlbumSortOption): void => {
     albumSort.value = sort
   }
@@ -326,5 +345,9 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     radioLoading,
     radioError,
     handleStartArtistRadio,
+    genreRadioLoading,
+    genreRadioError,
+    genreRadioActiveTag,
+    handleGenreRadioStart,
   }
 }

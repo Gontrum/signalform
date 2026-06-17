@@ -21,6 +21,11 @@ vi.mock('@/platform/api/artistApi', () => ({
   startArtistRadio: vi.fn(),
 }))
 
+vi.mock('@/platform/api/genreRadioApi', () => ({
+  startGenreRadio: vi.fn(),
+  searchTags: vi.fn(),
+}))
+
 vi.mock('@/platform/api/queueApi', () => ({
   addToQueue: vi.fn(),
   addTrackListToQueue: vi.fn(),
@@ -1060,5 +1065,94 @@ describe('UnifiedArtistView', () => {
       .findAll('[data-testid="tidal-album-item"] [data-testid="album-title"]')
       .map((n) => n.text())
     expect(albumTitles).toEqual(['Pablo Honey', 'The Wall'])
+  })
+
+  // ── Genre radio tags tests ────────────────────────────────────────────────
+
+  describe('genre radio tags', () => {
+    const mountWithEnrichment = async (
+      tags: readonly string[],
+    ): Promise<Awaited<ReturnType<typeof mountView>>> => {
+      const { getArtistByName } = await import('@/platform/api/artistApi')
+      const { getArtistEnrichment } = await import('@/platform/api/enrichmentApi')
+      vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
+      vi.mocked(getArtistEnrichment).mockResolvedValue({
+        ok: true,
+        value: makeEnrichment({ tags }),
+      })
+      const context = await mountView()
+      await flushPromises()
+      return context
+    }
+
+    it('genre-tag-radio-button elements are rendered for each enrichment tag', async () => {
+      const context = await mountWithEnrichment(['rock', 'alternative'])
+
+      const buttons = context.wrapper.findAll('[data-testid="genre-tag-radio-button"]')
+      expect(buttons).toHaveLength(2)
+      expect(buttons[0]?.text()).toBe('rock')
+      expect(buttons[1]?.text()).toBe('alternative')
+    })
+
+    it('clicking a tag button calls startGenreRadio with that tag name', async () => {
+      const { startGenreRadio } = await import('@/platform/api/genreRadioApi')
+      vi.mocked(startGenreRadio).mockResolvedValue({ genreName: 'rock', tracksAdded: 5 })
+
+      const context = await mountWithEnrichment(['rock', 'alternative'])
+
+      const buttons = context.wrapper.findAll('[data-testid="genre-tag-radio-button"]')
+      await buttons[0]?.trigger('click')
+      await flushPromises()
+
+      expect(startGenreRadio).toHaveBeenCalledWith('rock')
+    })
+
+    it('button shows loading text while startGenreRadio is pending', async () => {
+      const { startGenreRadio } = await import('@/platform/api/genreRadioApi')
+
+      const deferred = createDeferred<{
+        readonly genreName: string
+        readonly tracksAdded: number
+      } | null>()
+      vi.mocked(startGenreRadio).mockReturnValueOnce(deferred.promise)
+
+      const context = await mountWithEnrichment(['jazz'])
+
+      const btn = context.wrapper.find('[data-testid="genre-tag-radio-button"]')
+      void btn.trigger('click')
+      await nextTick()
+
+      expect(btn.text()).toBe('…')
+      expect(btn.attributes('disabled')).toBeDefined()
+
+      deferred.resolve({ genreName: 'jazz', tracksAdded: 3 })
+      await flushPromises()
+    })
+
+    it('genre-radio-error message appears when startGenreRadio returns null', async () => {
+      const { startGenreRadio } = await import('@/platform/api/genreRadioApi')
+      vi.mocked(startGenreRadio).mockResolvedValue(null)
+
+      const context = await mountWithEnrichment(['punk'])
+
+      const btn = context.wrapper.find('[data-testid="genre-tag-radio-button"]')
+      await btn.trigger('click')
+      await flushPromises()
+
+      expect(context.wrapper.find('[data-testid="genre-radio-error"]').exists()).toBe(true)
+      expect(context.wrapper.find('[data-testid="genre-radio-error"]').text()).toBe(
+        'Could not start radio',
+      )
+    })
+
+    it('data-testid="genre-tag-radio-button" is present on each tag button', async () => {
+      const context = await mountWithEnrichment(['electronic', 'ambient', 'experimental'])
+
+      const buttons = context.wrapper.findAll('[data-testid="genre-tag-radio-button"]')
+      expect(buttons).toHaveLength(3)
+      buttons.forEach((btn) => {
+        expect(btn.attributes('data-testid')).toBe('genre-tag-radio-button')
+      })
+    })
   })
 })

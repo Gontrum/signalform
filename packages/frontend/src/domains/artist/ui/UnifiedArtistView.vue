@@ -35,6 +35,10 @@ const {
   radioLoading,
   radioError,
   handleStartArtistRadio,
+  genreRadioLoading,
+  genreRadioError,
+  genreRadioActiveTag,
+  handleGenreRadioStart,
 } = useUnifiedArtistView(t('artist.errorNotFoundMessage'))
 </script>
 
@@ -174,18 +178,35 @@ const {
               data-testid="enrichment-tags"
               class="mt-3 flex flex-wrap gap-2"
             >
-              <span
+              <button
                 v-for="tag in enrichment.tags"
                 :key="tag"
-                :class="
+                type="button"
+                data-testid="genre-tag-radio-button"
+                :disabled="genreRadioLoading"
+                :class="[
                   hasImage
-                    ? 'text-xs border border-white/40 rounded-full px-2 py-0.5 text-white/80'
-                    : 'text-xs border border-neutral-200 rounded-full px-2 py-0.5 text-neutral-600'
-                "
+                    ? 'text-xs border rounded-full px-2 py-0.5 cursor-pointer transition'
+                    : 'text-xs border rounded-full px-2 py-0.5 cursor-pointer transition',
+                  genreRadioError && genreRadioActiveTag === tag
+                    ? 'border-red-400 text-red-500'
+                    : hasImage
+                      ? 'border-white/40 text-white/80 hover:bg-white/10'
+                      : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100',
+                  'disabled:opacity-50',
+                ]"
+                @click="handleGenreRadioStart(tag)"
               >
-                {{ tag }}
-              </span>
+                {{ genreRadioLoading && genreRadioActiveTag === tag ? '…' : tag }}
+              </button>
             </div>
+            <p
+              v-if="genreRadioError"
+              data-testid="genre-radio-error"
+              :class="hasImage ? 'mt-1 text-xs text-red-300' : 'mt-1 text-xs text-red-500'"
+            >
+              {{ t('artist.genreRadioError') }}
+            </p>
           </template>
         </template>
       </ArtistHero>
