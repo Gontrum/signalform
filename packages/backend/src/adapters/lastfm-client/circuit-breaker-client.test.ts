@@ -71,6 +71,8 @@ const makeInnerClient = (): {
       getUserTopTracks: vi.fn(),
       getUserLovedTracks: vi.fn(),
       getUserRecentTracks: vi.fn(),
+      getUserNeighbours: vi.fn(),
+      getRecommendedTracks: vi.fn(),
       getCircuitState: () => "CLOSED" as const,
     },
     getSimilarTracksMock,

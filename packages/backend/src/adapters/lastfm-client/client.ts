@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ok, err, fromThrowable, type Result } from "@signalform/shared";
 import type {
   LastFmConfig,
@@ -15,6 +16,8 @@ import type {
   UserTopTrack,
   UserLovedTrack,
   UserRecentTrack,
+  UserNeighbour,
+  RecommendedTrack,
   LastFmClient,
 } from "./types.js";
 
@@ -84,6 +87,35 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       base.searchParams.set(key, String(value));
     });
     base.searchParams.set("api_key", config.apiKey);
+    base.searchParams.set("format", "json");
+    return base.toString();
+  };
+
+  const buildSignedUrl = (
+    params: Readonly<Record<string, string | number>>,
+    sessionKey: string,
+    sharedSecret: string,
+  ): string => {
+    const allParams: Readonly<Record<string, string>> = {
+      ...Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+      api_key: config.apiKey,
+      sk: sessionKey,
+    };
+    const sigStr =
+      Object.entries(allParams)
+        .filter(([k]) => k !== "format" && k !== "callback")
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}${v}`)
+        .join("") + sharedSecret;
+    const sig = createHash("md5").update(sigStr).digest("hex");
+
+    const base = new URL(config.baseUrl);
+    Object.entries(allParams).forEach(([key, value]) => {
+      base.searchParams.set(key, value);
+    });
+    base.searchParams.set("api_sig", sig);
     base.searchParams.set("format", "json");
     return base.toString();
   };
@@ -649,6 +681,88 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
             {
               name: String(entry["name"] ?? ""),
               artist: artistName,
+              url: String(entry["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getUserNeighbours: async (
+      username,
+      limit = 10,
+    ): Promise<Result<readonly UserNeighbour[], LastFmError>> => {
+      const url = buildUrl({
+        method: "user.getNeighbours",
+        user: username,
+        limit,
+      });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const neighboursRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "neighbours")
+        : undefined;
+      const users = neighboursRecord?.["user"];
+      if (!Array.isArray(users)) {
+        return ok([]);
+      }
+
+      const mapped: readonly UserNeighbour[] = users.flatMap(
+        (entry): readonly UserNeighbour[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          return [
+            {
+              username: String(entry["name"] ?? ""),
+              url: String(entry["url"] ?? ""),
+              match: parseFloat(String(entry["match"] ?? "0")),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getRecommendedTracks: async (
+      sessionKey,
+      sharedSecret,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly RecommendedTrack[], LastFmError>> => {
+      const url = buildSignedUrl(
+        { method: "user.getRecommendedTracks", limit },
+        sessionKey,
+        sharedSecret,
+      );
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const recommendationsRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "recommendations")
+        : undefined;
+      const tracks = recommendationsRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      const mapped: readonly RecommendedTrack[] = tracks.flatMap(
+        (entry): readonly RecommendedTrack[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          const artistRecord = getNestedRecord(entry, "artist");
+          return [
+            {
+              name: String(entry["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? ""),
               url: String(entry["url"] ?? ""),
             },
           ];

@@ -44,6 +44,7 @@ type GenreRadioContext = {
 export type PersonalRadioContext = {
   readonly username: string;
   readonly seedArtists: readonly string[];
+  readonly neighbours: readonly string[];
   readonly cycle: number;
 };
 

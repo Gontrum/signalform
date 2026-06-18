@@ -121,6 +121,12 @@ export const createCircuitBreakerLastFmClient = (
       wrapCall(() => inner.getUserLovedTracks(username, limit)),
     getUserRecentTracks: (username, limit) =>
       wrapCall(() => inner.getUserRecentTracks(username, limit)),
+    getUserNeighbours: (username, limit) =>
+      wrapCall(() => inner.getUserNeighbours(username, limit)),
+    getRecommendedTracks: (sessionKey, sharedSecret, limit) =>
+      wrapCall(() =>
+        inner.getRecommendedTracks(sessionKey, sharedSecret, limit),
+      ),
     getCircuitState: () => ref.current.circuitState,
   };
 };

@@ -257,11 +257,13 @@ describe("personal radio context", () => {
     setPersonalRadioContext({
       username: "testuser",
       seedArtists: ["Radiohead", "Portishead"],
+      neighbours: [],
       cycle: 0,
     });
     expect(getRadioQueueState().personalRadioContext).toEqual({
       username: "testuser",
       seedArtists: ["Radiohead", "Portishead"],
+      neighbours: [],
       cycle: 0,
     });
   });
@@ -270,12 +272,14 @@ describe("personal radio context", () => {
     setPersonalRadioContext({
       username: "testuser",
       seedArtists: ["Radiohead"],
+      neighbours: [],
       cycle: 3,
     });
     incrementPersonalRadioCycle();
     expect(getRadioQueueState().personalRadioContext).toEqual({
       username: "testuser",
       seedArtists: ["Radiohead"],
+      neighbours: [],
       cycle: 4,
     });
   });
@@ -289,6 +293,7 @@ describe("personal radio context", () => {
     setPersonalRadioContext({
       username: "testuser",
       seedArtists: ["Massive Attack"],
+      neighbours: [],
       cycle: 2,
     });
     clearRadioQueueRuntimeState();
@@ -299,6 +304,7 @@ describe("personal radio context", () => {
     setPersonalRadioContext({
       username: "testuser",
       seedArtists: ["Portishead"],
+      neighbours: [],
       cycle: 1,
     });
     resetRadioRuntimeState();
@@ -309,6 +315,7 @@ describe("personal radio context", () => {
     setPersonalRadioContext({
       username: "testuser",
       seedArtists: ["Björk"],
+      neighbours: [],
       cycle: 0,
     });
     setPersonalRadioContext(undefined);

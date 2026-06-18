@@ -136,6 +136,18 @@ export type UserRecentTrack = {
   readonly url: string;
 };
 
+export type UserNeighbour = {
+  readonly username: string;
+  readonly url: string;
+  readonly match: number;
+};
+
+export type RecommendedTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly url: string;
+};
+
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 // Client contract type
@@ -193,5 +205,14 @@ export type LastFmClient = {
     username: string,
     limit?: number,
   ) => Promise<Result<readonly UserRecentTrack[], LastFmError>>;
+  readonly getUserNeighbours: (
+    username: string,
+    limit?: number,
+  ) => Promise<Result<readonly UserNeighbour[], LastFmError>>;
+  readonly getRecommendedTracks: (
+    sessionKey: string,
+    sharedSecret: string,
+    limit?: number,
+  ) => Promise<Result<readonly RecommendedTrack[], LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

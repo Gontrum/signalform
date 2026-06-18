@@ -3,6 +3,7 @@ import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { SearchResult } from "../../../adapters/lms-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
+import { mergeTrackPools } from "../core/seed-merger.js";
 import {
   setPersonalRadioContext,
   setRadioModeEnabledState,
@@ -128,11 +129,20 @@ export const createPersonalRadioRoute = (
       return reply.status(404).send({ error: "No listening history found" });
     }
 
-    // Step 3: Get similar artists from top 3 seeds
+    // Steps 3+B: Similar artists for comfort + neighbours for discovery, in parallel
     const top3Seeds = seedArtists.slice(0, 3);
-    const similarResults = await Promise.all(
-      top3Seeds.map((seed) => lastFmClient.getSimilarArtists(seed, 15)),
-    );
+    const [similarResults, neighboursResult] = await Promise.all([
+      Promise.all(
+        top3Seeds.map((seed) => lastFmClient.getSimilarArtists(seed, 15)),
+      ),
+      lastFmClient.getUserNeighbours(username, 5),
+    ]);
+
+    const neighbourUsernames = (
+      neighboursResult.ok ? neighboursResult.value : []
+    )
+      .slice(0, 3)
+      .map((n) => n.username);
 
     // Step 4: Pick 5 similar artists spread across the list from each seed
     const pickedSimilarArtists: readonly string[] = similarResults.flatMap(
@@ -162,6 +172,32 @@ export const createPersonalRadioRoute = (
 
     const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));
 
+    // Kanal B: fetch neighbours' top tracks (+ optional recommendations if session key)
+    const [neighbourTrackResults, maybeRecommended] = await Promise.all([
+      Promise.all(
+        neighbourUsernames.map((n) =>
+          lastFmClient.getUserTopTracks(n, "overall", 10),
+        ),
+      ),
+      config.lastFmSessionKey !== undefined &&
+      config.lastFmSharedSecret !== undefined
+        ? lastFmClient.getRecommendedTracks(
+            config.lastFmSessionKey,
+            config.lastFmSharedSecret,
+            15,
+          )
+        : Promise.resolve({ ok: true as const, value: [] as const }),
+    ]);
+
+    const discoveryTracks = [
+      ...neighbourTrackResults.flatMap((r) =>
+        r.ok
+          ? r.value.map((t) => ({ name: t.name, artist: t.artist, url: t.url }))
+          : [],
+      ),
+      ...(maybeRecommended.ok ? maybeRecommended.value : []),
+    ];
+
     // Step 6: Exclude recently played tracks
     const recentResult = await lastFmClient.getUserRecentTracks(username, 30);
     const recentKeys = new Set<string>(
@@ -177,11 +213,25 @@ export const createPersonalRadioRoute = (
         !recentKeys.has(`${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`),
     );
 
-    // Step 7: Shuffle candidates
-    const shuffled = fisherYatesShuffle(candidateTracks);
+    const discoveryPool = discoveryTracks.filter(
+      (t) =>
+        !recentKeys.has(`${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`),
+    );
+
+    // Step 7: Blend comfort + discovery based on personalRadioDiscovery ratio
+    const discoveryRatio = config.personalRadioDiscovery;
+    const shuffledComfort = fisherYatesShuffle(candidateTracks);
+    const shuffledDiscovery = fisherYatesShuffle(discoveryPool);
+
+    const blendedCandidates = mergeTrackPools(
+      shuffledComfort,
+      shuffledDiscovery,
+      discoveryRatio,
+      MAX_CANDIDATE_SEARCHES,
+    );
 
     // Step 8: LMS search — collect up to MAX_INITIAL_TRACKS playable URLs
-    const { urls: playableUrls } = await shuffled
+    const { urls: playableUrls } = await blendedCandidates
       .slice(0, MAX_CANDIDATE_SEARCHES)
       .reduce<Promise<{ readonly urls: readonly string[] }>>(
         async (accPromise, track) => {
@@ -222,6 +272,7 @@ export const createPersonalRadioRoute = (
     setPersonalRadioContext({
       username,
       seedArtists: [...seedArtists],
+      neighbours: neighbourUsernames,
       cycle: 1,
     });
     setRadioModeEnabledState(true);

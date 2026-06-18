@@ -17,5 +17,7 @@ export type {
   UserTopTrack,
   UserLovedTrack,
   UserRecentTrack,
+  UserNeighbour,
+  RecommendedTrack,
   CircuitBreakerConfig,
 } from "./types.js";

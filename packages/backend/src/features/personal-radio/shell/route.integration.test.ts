@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import Fastify, { type FastifyInstance } from "fastify";
-import { ok } from "@signalform/shared";
+import { ok, err } from "@signalform/shared";
 import { createPersonalRadioRoute } from "./route.js";
 import { createLmsClient } from "../../../adapters/lms-client/index.js";
 import { createLastFmClient } from "../../../adapters/lastfm-client/index.js";
@@ -15,6 +15,7 @@ import type {
   SimilarArtist,
   ArtistTopTrack,
   UserRecentTrack,
+  UserNeighbour,
 } from "../../../adapters/lastfm-client/index.js";
 
 // Mock config loading and radio state
@@ -75,6 +76,15 @@ type MockLastFmClient = LastFmClient & {
   readonly getArtistTopTracks: ReturnType<
     typeof vi.fn<LastFmClient["getArtistTopTracks"]>
   >;
+  readonly getUserTopTracks: ReturnType<
+    typeof vi.fn<LastFmClient["getUserTopTracks"]>
+  >;
+  readonly getUserNeighbours: ReturnType<
+    typeof vi.fn<LastFmClient["getUserNeighbours"]>
+  >;
+  readonly getRecommendedTracks: ReturnType<
+    typeof vi.fn<LastFmClient["getRecommendedTracks"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -107,6 +117,12 @@ const createMockLastFmClient = (): MockLastFmClient => ({
     .fn<LastFmClient["getArtistTopTracks"]>()
     .mockResolvedValue(ok([])),
   searchTags: vi.fn<LastFmClient["searchTags"]>().mockResolvedValue(ok([])),
+  getUserNeighbours: vi
+    .fn<LastFmClient["getUserNeighbours"]>()
+    .mockResolvedValue(ok([])),
+  getRecommendedTracks: vi
+    .fn<LastFmClient["getRecommendedTracks"]>()
+    .mockResolvedValue(ok([])),
 });
 
 const parseJson = (body: string): unknown => JSON.parse(body);
@@ -414,5 +430,87 @@ describe("POST /api/personal-radio/start", () => {
       q.toLowerCase().includes("roads"),
     );
     expect(roadSearched).toBe(false);
+  });
+
+  it("fetches neighbours for discovery pool when discoveryRatio > 0", async () => {
+    vi.mocked(loadConfig).mockReturnValue(makeEnabledConfig());
+    const neighbour: UserNeighbour = {
+      username: "neighbour1",
+      url: "https://last.fm/user/neighbour1",
+      match: 0.9,
+    };
+    mockLastFmClient.getUserNeighbours.mockResolvedValue(ok([neighbour]));
+    mockLastFmClient.getUserLovedTracks.mockResolvedValue(
+      ok([makeLovedTrack("Creep", "Radiohead")]),
+    );
+    mockLastFmClient.getUserTopArtists.mockResolvedValue(ok([]));
+    mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([makeSimilarArtist("Portishead")]),
+    );
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeArtistTopTrack("Roads", "Portishead")]),
+    );
+    mockLastFmClient.getUserTopTracks.mockResolvedValue(
+      ok([
+        {
+          name: "Go",
+          artist: "Moby",
+          playcount: 500,
+          url: "https://last.fm/music/Moby/_/Go",
+        },
+      ]),
+    );
+    mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeSearchResult("file:///roads.flac", "Portishead")],
+        tidalAvailable: true,
+      }),
+    );
+
+    await server.inject({
+      method: "POST",
+      url: "/api/personal-radio/start",
+    });
+
+    expect(mockLastFmClient.getUserNeighbours).toHaveBeenCalledWith(
+      "testuser",
+      5,
+    );
+  });
+
+  it("gracefully handles getUserNeighbours failure", async () => {
+    vi.mocked(loadConfig).mockReturnValue(makeEnabledConfig());
+    mockLastFmClient.getUserNeighbours.mockResolvedValue(
+      err({ type: "NetworkError" as const, message: "Connection refused" }),
+    );
+    mockLastFmClient.getUserLovedTracks.mockResolvedValue(
+      ok([makeLovedTrack("Creep", "Radiohead")]),
+    );
+    mockLastFmClient.getUserTopArtists.mockResolvedValue(ok([]));
+    mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([makeSimilarArtist("Portishead")]),
+    );
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeArtistTopTrack("Roads", "Portishead")]),
+    );
+    mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeSearchResult("file:///roads.flac", "Portishead")],
+        tidalAvailable: true,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/personal-radio/start",
+    });
+
+    expect(response.statusCode).toBe(200);
+    const parsed = parseJson(response.body);
+    expect(isRecord(parsed) && typeof parsed["tracksAdded"] === "number").toBe(
+      true,
+    );
   });
 });
