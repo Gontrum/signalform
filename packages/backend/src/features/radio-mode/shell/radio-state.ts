@@ -41,6 +41,12 @@ type GenreRadioContext = {
   readonly page: number;
 };
 
+export type PersonalRadioContext = {
+  readonly username: string;
+  readonly seedArtists: readonly string[];
+  readonly cycle: number;
+};
+
 type RadioQueueState = {
   readonly isEnabled: boolean;
   readonly requestedEnabledState?: boolean | undefined;
@@ -50,6 +56,7 @@ type RadioQueueState = {
   readonly isProcessing: boolean;
   readonly suppressedQueueEnd?: SuppressedQueueEnd | undefined;
   readonly genreRadioContext: GenreRadioContext | undefined;
+  readonly personalRadioContext: PersonalRadioContext | undefined;
 };
 
 const INITIAL_STATE: RadioQueueState = {
@@ -61,6 +68,7 @@ const INITIAL_STATE: RadioQueueState = {
   isProcessing: false,
   suppressedQueueEnd: undefined,
   genreRadioContext: undefined,
+  personalRadioContext: undefined,
 };
 
 type RadioState = {
@@ -75,6 +83,9 @@ type RadioState = {
     suppression: SuppressedQueueEnd | undefined,
   ) => void;
   readonly setGenreRadioContext: (ctx: GenreRadioContext | undefined) => void;
+  readonly setPersonalRadioContext: (
+    ctx: PersonalRadioContext | undefined,
+  ) => void;
   readonly reset: () => void;
 };
 
@@ -111,6 +122,11 @@ const createRadioState = (): RadioState => {
       genreRadioContext: GenreRadioContext | undefined,
     ): void => {
       ref.current = { ...ref.current, genreRadioContext };
+    },
+    setPersonalRadioContext: (
+      personalRadioContext: PersonalRadioContext | undefined,
+    ): void => {
+      ref.current = { ...ref.current, personalRadioContext };
     },
     reset: (): void => {
       ref.current = INITIAL_STATE;
@@ -156,6 +172,7 @@ export const clearRadioQueueRuntimeState = (): void => {
   radioState.setSuppressedQueueEnd(undefined);
   radioState.setRequestedEnabledState(undefined);
   radioState.setGenreRadioContext(undefined);
+  radioState.setPersonalRadioContext(undefined);
 };
 
 export const setGenreRadioContext = (
@@ -166,6 +183,17 @@ export const incrementGenreRadioPage = (): void => {
   const ctx = getRadioQueueState().genreRadioContext;
   if (ctx !== undefined) {
     radioState.setGenreRadioContext({ ...ctx, page: ctx.page + 1 });
+  }
+};
+
+export const setPersonalRadioContext = (
+  ctx: PersonalRadioContext | undefined,
+): void => radioState.setPersonalRadioContext(ctx);
+
+export const incrementPersonalRadioCycle = (): void => {
+  const ctx = getRadioQueueState().personalRadioContext;
+  if (ctx !== undefined) {
+    radioState.setPersonalRadioContext({ ...ctx, cycle: ctx.cycle + 1 });
   }
 };
 

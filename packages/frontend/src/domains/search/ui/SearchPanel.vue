@@ -35,6 +35,10 @@ const {
   genreRadioLoading,
   genreRadioError,
   handleGenreRadioStart,
+  personalRadioEnabled,
+  personalRadioLoading,
+  personalRadioError,
+  handlePersonalRadioStart,
 } = useSearchPanel()
 </script>
 
@@ -101,6 +105,26 @@ const {
           data-testid="results-count"
         >
           {{ searchStore.suggestionCount }}
+        </div>
+
+        <!-- Personal Radio — only shown when feature is enabled in settings -->
+        <div v-if="personalRadioEnabled" class="mt-6 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            data-testid="personal-radio-button"
+            :disabled="personalRadioLoading"
+            class="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+            @click="handlePersonalRadioStart"
+          >
+            {{ personalRadioLoading ? t('home.personalRadioStarting') : t('home.personalRadio') }}
+          </button>
+          <span
+            v-if="personalRadioError"
+            class="text-xs text-red-500"
+            data-testid="personal-radio-error"
+          >
+            {{ t('home.personalRadioError') }}
+          </span>
         </div>
       </div>
     </div>

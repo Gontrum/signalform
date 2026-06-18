@@ -113,6 +113,14 @@ export const createCircuitBreakerLastFmClient = (
       wrapCall(() => inner.getTagTopTracks(tag, page, limit)),
     searchTags: (query, limit) =>
       wrapCall(() => inner.searchTags(query, limit)),
+    getUserTopArtists: (username, period, limit) =>
+      wrapCall(() => inner.getUserTopArtists(username, period, limit)),
+    getUserTopTracks: (username, period, limit) =>
+      wrapCall(() => inner.getUserTopTracks(username, period, limit)),
+    getUserLovedTracks: (username, limit) =>
+      wrapCall(() => inner.getUserLovedTracks(username, limit)),
+    getUserRecentTracks: (username, limit) =>
+      wrapCall(() => inner.getUserRecentTracks(username, limit)),
     getCircuitState: () => ref.current.circuitState,
   };
 };

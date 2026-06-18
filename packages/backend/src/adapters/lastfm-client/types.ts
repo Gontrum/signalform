@@ -100,6 +100,42 @@ export type TagSearchResult = {
   readonly url: string;
 };
 
+export type LastFmPeriod =
+  | "overall"
+  | "7day"
+  | "1month"
+  | "3month"
+  | "6month"
+  | "12month";
+
+export type UserTopArtist = {
+  readonly name: string;
+  readonly mbid?: string;
+  readonly playcount: number;
+  readonly url: string;
+};
+
+export type UserTopTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly mbid?: string;
+  readonly playcount: number;
+  readonly url: string;
+};
+
+export type UserLovedTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly mbid?: string;
+  readonly url: string;
+};
+
+export type UserRecentTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly url: string;
+};
+
 export type CircuitState = "CLOSED" | "OPEN" | "HALF_OPEN";
 
 // Client contract type
@@ -139,5 +175,23 @@ export type LastFmClient = {
     query: string,
     limit?: number,
   ) => Promise<Result<readonly TagSearchResult[], LastFmError>>;
+  readonly getUserTopArtists: (
+    username: string,
+    period?: LastFmPeriod,
+    limit?: number,
+  ) => Promise<Result<readonly UserTopArtist[], LastFmError>>;
+  readonly getUserTopTracks: (
+    username: string,
+    period?: LastFmPeriod,
+    limit?: number,
+  ) => Promise<Result<readonly UserTopTrack[], LastFmError>>;
+  readonly getUserLovedTracks: (
+    username: string,
+    limit?: number,
+  ) => Promise<Result<readonly UserLovedTrack[], LastFmError>>;
+  readonly getUserRecentTracks: (
+    username: string,
+    limit?: number,
+  ) => Promise<Result<readonly UserRecentTrack[], LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

@@ -47,7 +47,9 @@ import {
   setRadioRecentArtists,
   setRequestedRadioModeEnabledState,
   incrementGenreRadioPage,
+  incrementPersonalRadioCycle,
 } from "./radio-state.js";
+import type { PersonalRadioContext } from "./radio-state.js";
 import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
 import {
   getQueueTrackRepeatKey,
@@ -279,6 +281,272 @@ export const createRadioEngine = (
       seedTitle,
     });
     return { status: "skipped", reason: "disabled" };
+  };
+
+  const replenishPersonalRadioQueue = async (
+    context: PersonalRadioContext,
+    trigger: ReplenishTrigger,
+  ): Promise<ReplenishOutcome> => {
+    const { username, seedArtists, cycle } = context;
+
+    if (seedArtists.length === 0) {
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    // Rotate through seed artists by cycle
+    const seedArtist = seedArtists[cycle % seedArtists.length]!;
+
+    // Get similar artists for this seed
+    const similarResult = await lastFmClient.getSimilarArtists(seedArtist, 20);
+    if (!similarResult.ok) {
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: similarResult.error.message,
+      };
+    }
+
+    // Pick up to 4 similar artists (spread across the similar list by index)
+    const similar = similarResult.value;
+    const pickedSimilar =
+      similar.length === 0
+        ? []
+        : [
+            0,
+            Math.floor(similar.length / 3),
+            Math.floor((similar.length * 2) / 3),
+            similar.length - 1,
+          ]
+            .map((i) => similar[i]!)
+            .filter((a, i, arr) => arr.indexOf(a) === i) // dedup
+            .slice(0, 4);
+
+    // Fetch top tracks for each picked artist
+    const trackResults = await Promise.all(
+      pickedSimilar.map((a) => lastFmClient.getArtistTopTracks(a.name, 8)),
+    );
+
+    const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));
+
+    if (allTracks.length === 0) {
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    // Exclude recently played (get recent tracks, build exclusion set)
+    const recentResult = await lastFmClient.getUserRecentTracks(username, 30);
+    const recentKeys = new Set(
+      recentResult.ok
+        ? recentResult.value.map(
+            (t) => `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
+          )
+        : [],
+    );
+
+    const candidates: readonly CandidateTrack[] = allTracks
+      .filter(
+        (t) =>
+          !recentKeys.has(
+            `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
+          ),
+      )
+      .map((t) => ({ name: t.name, artist: t.artist, match: 1, url: t.url }));
+
+    if (candidates.length === 0) {
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    // Fisher-Yates shuffle via reduce
+    const shuffled: readonly CandidateTrack[] = Array.from(
+      { length: candidates.length },
+      (_, i) => i,
+    ).reduce<readonly CandidateTrack[]>(
+      (acc, _, i) => {
+        const remaining = candidates.length - i;
+        const j = Math.floor(Math.random() * remaining);
+        const item = acc[j]!;
+        const last = acc[remaining - 1]!;
+        return acc.map((el, idx) =>
+          idx === j ? last : idx === remaining - 1 ? item : el,
+        );
+      },
+      [...candidates],
+    );
+
+    const diversityFiltered = filterByDiversity(
+      shuffled,
+      getRadioQueueState().recentArtists,
+      DEFAULT_DIVERSITY_CONFIG,
+    );
+
+    if (diversityFiltered.length === 0) {
+      return { status: "skipped", reason: "no-candidates" };
+    }
+
+    const preRadioQueueResult = await lmsClient.getQueue();
+    if (!preRadioQueueResult.ok || preRadioQueueResult.value === undefined) {
+      const queueFetchError = preRadioQueueResult.ok
+        ? "Unknown queue fetch failure"
+        : (preRadioQueueResult.error?.message ?? "Unknown queue fetch failure");
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: queueFetchError,
+      };
+    }
+    const queuedTrackRepeatKeys = preRadioQueueResult.value.map(
+      getQueueTrackRepeatKey,
+    );
+    const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap((track) => {
+      const urlKey = getTrackUrlKey(track);
+      return urlKey === undefined ? [] : [urlKey];
+    });
+
+    const targetBatchSize =
+      trigger === "queue-remove"
+        ? RADIO_REMOVAL_REPLENISH_SIZE
+        : RADIO_BATCH_SIZE;
+
+    const { artists: addedArtists, trackKeys: addedTrackKeys } =
+      await diversityFiltered.reduce(
+        async (accPromise: Promise<RadioAcc>, candidate): Promise<RadioAcc> => {
+          const acc = await accPromise;
+          if (acc.artists.length >= targetBatchSize) {
+            return acc;
+          }
+          if (
+            acc.artists.some((added) => artistMatches(added, candidate.artist))
+          ) {
+            return acc;
+          }
+
+          const queryResults = await buildRadioSearchQueries(
+            candidate.artist,
+            candidate.name,
+          ).reduce<Promise<readonly SearchResult[]>>(
+            async (resultPromise, query) => {
+              const previousResults = await resultPromise;
+              if (previousResults.length > 0) {
+                return previousResults;
+              }
+              const searchResult = await lmsClient.search(query);
+              if (!searchResult.ok || searchResult.value.tracks.length === 0) {
+                return [];
+              }
+              return searchResult.value.tracks.filter((r) =>
+                artistMatches(r.artist, candidate.artist),
+              );
+            },
+            Promise.resolve([] as readonly SearchResult[]),
+          );
+
+          if (queryResults.length === 0) {
+            return acc;
+          }
+
+          const selectResult = selectBestTrackUrl(queryResults);
+          const bestUrl = selectResult.url;
+          const bestUrlKey = getTrackUrlKey({ url: bestUrl });
+          if (bestUrl === undefined || bestUrlKey === undefined) {
+            return acc;
+          }
+
+          const bestResult =
+            queryResults.find((r) => r.url === bestUrl) ?? null;
+          const repeatKey =
+            bestResult !== null
+              ? getSearchResultRepeatKey(bestResult)
+              : getQueueTrackRepeatKey({
+                  artist: candidate.artist,
+                  title: candidate.name,
+                });
+
+          if (
+            acc.trackKeys.includes(repeatKey) ||
+            queuedTrackRepeatKeys.includes(repeatKey) ||
+            queuedTrackUrlKeys.includes(bestUrlKey) ||
+            acc.urls.includes(bestUrlKey)
+          ) {
+            return acc;
+          }
+
+          const addResult = await lmsClient.addToQueue(bestUrl);
+          if (!addResult.ok) {
+            return acc;
+          }
+
+          logger.info("Personal Radio: track added to queue", {
+            event: "radio.personal_track_queued",
+            trigger,
+            username,
+            seedArtist,
+            artist: candidate.artist,
+            title: candidate.name,
+          });
+          return {
+            artists: [...acc.artists, candidate.artist],
+            urls: [...acc.urls, bestUrlKey],
+            trackKeys: [...acc.trackKeys, repeatKey],
+          };
+        },
+        Promise.resolve({
+          artists: [] as readonly string[],
+          urls: [] as readonly string[],
+          trackKeys: [] as readonly string[],
+        }),
+      );
+
+    if (addedArtists.length === 0) {
+      return { status: "skipped", reason: "batch-empty" };
+    }
+
+    const currentStatusResult = await lmsClient.getStatus();
+    if (currentStatusResult.ok && currentStatusResult.value?.mode === "stop") {
+      if (trigger === "queue-end") {
+        await lmsClient.nextTrack();
+      } else {
+        await lmsClient.resume();
+      }
+    }
+
+    const nextRecentArtists = addedArtists.reduce(
+      (window, artist) =>
+        addToSlidingWindow(window, artist, DEFAULT_DIVERSITY_CONFIG.windowSize),
+      getRadioQueueState().recentArtists,
+    );
+    setRadioRecentArtists(nextRecentArtists);
+    incrementPersonalRadioCycle();
+
+    const queueResult = await lmsClient.getQueue();
+    if (!queueResult.ok || queueResult.value === undefined) {
+      return {
+        status: "failed",
+        reason: "queue-fetch-failed",
+        error: "Queue refresh failed after personal radio add",
+      };
+    }
+
+    const queueProjection = recordExplicitRadioTracks(
+      queueResult.value,
+      addedTrackKeys,
+    );
+    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
+      playerId,
+      tracks: queueProjection.tracks,
+      radioModeActive: queueProjection.radioModeActive,
+      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
+      timestamp: Date.now(),
+    });
+
+    logger.info("Personal Radio replenish succeeded", {
+      event: "radio.personal_replenish_succeeded",
+      trigger,
+      username,
+      seedArtist,
+      cycle,
+      tracksAdded: addedArtists.length,
+    });
+
+    return { status: "success", tracksAdded: addedArtists.length };
   };
 
   const replenishGenreQueue = async (
@@ -555,6 +823,12 @@ export const createRadioEngine = (
         const genreContext = getRadioQueueState().genreRadioContext;
         if (genreContext !== undefined) {
           return replenishGenreQueue(genreContext, trigger);
+        }
+
+        // Dispatch to personal radio replenish when personal radio mode is active
+        const personalContext = getRadioQueueState().personalRadioContext;
+        if (personalContext !== undefined) {
+          return replenishPersonalRadioQueue(personalContext, trigger);
         }
 
         logger.info("Radio replenish triggered", {

@@ -12,5 +12,10 @@ export type {
   ArtistTopAlbum,
   TagTopTrack,
   TagSearchResult,
+  LastFmPeriod,
+  UserTopArtist,
+  UserTopTrack,
+  UserLovedTrack,
+  UserRecentTrack,
   CircuitBreakerConfig,
 } from "./types.js";

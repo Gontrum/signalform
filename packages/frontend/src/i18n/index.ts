@@ -160,6 +160,9 @@ export type MessageKey =
   | 'settings.discoverySlider'
   | 'settings.discoveryComfort'
   | 'settings.discoveryNew'
+  | 'home.personalRadio'
+  | 'home.personalRadioStarting'
+  | 'home.personalRadioError'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -322,6 +325,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.discoverySlider': 'Comfort ↔ Discovery',
     'settings.discoveryComfort': 'Only familiar',
     'settings.discoveryNew': 'Only new',
+    'home.personalRadio': 'Personal Radio',
+    'home.personalRadioStarting': 'Starting…',
+    'home.personalRadioError': 'Could not start Personal Radio.',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -488,6 +494,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.discoverySlider': 'Komfort ↔ Entdeckung',
     'settings.discoveryComfort': 'Nur Bekanntes',
     'settings.discoveryNew': 'Nur Neues',
+    'home.personalRadio': 'Persönliches Radio',
+    'home.personalRadioStarting': 'Wird gestartet…',
+    'home.personalRadioError': 'Persönliches Radio konnte nicht gestartet werden.',
   },
 }
 

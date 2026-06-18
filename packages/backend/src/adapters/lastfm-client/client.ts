@@ -10,6 +10,11 @@ import type {
   ArtistTopAlbum,
   TagTopTrack,
   TagSearchResult,
+  LastFmPeriod,
+  UserTopArtist,
+  UserTopTrack,
+  UserLovedTrack,
+  UserRecentTrack,
   LastFmClient,
 } from "./types.js";
 
@@ -467,6 +472,184 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
               name: String(tagValue["name"] ?? ""),
               count: parseInt(String(tagValue["count"] ?? "0"), 10),
               url: String(tagValue["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getUserTopArtists: async (
+      username,
+      period: LastFmPeriod = "overall",
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly UserTopArtist[], LastFmError>> => {
+      const url = buildUrl({
+        method: "user.getTopArtists",
+        user: username,
+        period,
+        limit,
+      });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const topArtistsRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "topartists")
+        : undefined;
+      const artists = topArtistsRecord?.["artist"];
+      if (!Array.isArray(artists)) {
+        return ok([]);
+      }
+
+      const mapped: readonly UserTopArtist[] = artists.flatMap(
+        (entry): readonly UserTopArtist[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          const mbidStr = String(entry["mbid"] ?? "");
+          return [
+            {
+              name: String(entry["name"] ?? ""),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              playcount: parseInt(String(entry["playcount"] ?? "0"), 10),
+              url: String(entry["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getUserTopTracks: async (
+      username,
+      period: LastFmPeriod = "overall",
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly UserTopTrack[], LastFmError>> => {
+      const url = buildUrl({
+        method: "user.getTopTracks",
+        user: username,
+        period,
+        limit,
+      });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const topTracksRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "toptracks")
+        : undefined;
+      const tracks = topTracksRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      const mapped: readonly UserTopTrack[] = tracks.flatMap(
+        (entry): readonly UserTopTrack[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          const artistRecord = getNestedRecord(entry, "artist");
+          const mbidStr = String(entry["mbid"] ?? "");
+          return [
+            {
+              name: String(entry["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? ""),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              playcount: parseInt(String(entry["playcount"] ?? "0"), 10),
+              url: String(entry["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getUserLovedTracks: async (
+      username,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly UserLovedTrack[], LastFmError>> => {
+      const url = buildUrl({
+        method: "user.getLovedTracks",
+        user: username,
+        limit,
+      });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const lovedTracksRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "lovedtracks")
+        : undefined;
+      const tracks = lovedTracksRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      const mapped: readonly UserLovedTrack[] = tracks.flatMap(
+        (entry): readonly UserLovedTrack[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          const artistRecord = getNestedRecord(entry, "artist");
+          const mbidStr = String(entry["mbid"] ?? "");
+          return [
+            {
+              name: String(entry["name"] ?? ""),
+              artist: String(artistRecord?.["name"] ?? ""),
+              mbid: mbidStr !== "" ? mbidStr : undefined,
+              url: String(entry["url"] ?? ""),
+            },
+          ];
+        },
+      );
+
+      return ok(mapped);
+    },
+
+    getUserRecentTracks: async (
+      username,
+      limit = DEFAULT_LIMIT,
+    ): Promise<Result<readonly UserRecentTrack[], LastFmError>> => {
+      const url = buildUrl({
+        method: "user.getRecentTracks",
+        user: username,
+        limit,
+      });
+      const result = await fetchJson(url);
+      if (!result.ok) {
+        return result;
+      }
+
+      const recentTracksRecord = isRecord(result.value)
+        ? getNestedRecord(result.value, "recenttracks")
+        : undefined;
+      const tracks = recentTracksRecord?.["track"];
+      if (!Array.isArray(tracks)) {
+        return ok([]);
+      }
+
+      // recentTracks artist field uses "#text" key, not "name"
+      const mapped: readonly UserRecentTrack[] = tracks.flatMap(
+        (entry): readonly UserRecentTrack[] => {
+          if (!isRecord(entry)) {
+            return [];
+          }
+          const artistRecord = getNestedRecord(entry, "artist");
+          const artistName = String(
+            artistRecord?.["#text"] ?? artistRecord?.["name"] ?? "",
+          );
+          return [
+            {
+              name: String(entry["name"] ?? ""),
+              artist: artistName,
+              url: String(entry["url"] ?? ""),
             },
           ];
         },

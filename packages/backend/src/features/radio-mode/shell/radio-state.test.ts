@@ -5,9 +5,11 @@ import {
   clearRadioQueueRuntimeState,
   getRadioQueueState,
   incrementGenreRadioPage,
+  incrementPersonalRadioCycle,
   recordExplicitRadioTracks,
   resetRadioRuntimeState,
   setGenreRadioContext,
+  setPersonalRadioContext,
   setRadioQueueEntries,
 } from "./radio-state.js";
 import {
@@ -243,5 +245,73 @@ describe("genre radio context", () => {
     setGenreRadioContext({ genreName: "jazz", page: 5 });
     resetRadioRuntimeState();
     expect(getRadioQueueState().genreRadioContext).toBeUndefined();
+  });
+});
+
+describe("personal radio context", () => {
+  beforeEach(() => {
+    resetRadioRuntimeState();
+  });
+
+  it("setPersonalRadioContext sets username, seedArtists, and cycle in state", () => {
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Radiohead", "Portishead"],
+      cycle: 0,
+    });
+    expect(getRadioQueueState().personalRadioContext).toEqual({
+      username: "testuser",
+      seedArtists: ["Radiohead", "Portishead"],
+      cycle: 0,
+    });
+  });
+
+  it("incrementPersonalRadioCycle increments cycle by 1", () => {
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Radiohead"],
+      cycle: 3,
+    });
+    incrementPersonalRadioCycle();
+    expect(getRadioQueueState().personalRadioContext).toEqual({
+      username: "testuser",
+      seedArtists: ["Radiohead"],
+      cycle: 4,
+    });
+  });
+
+  it("incrementPersonalRadioCycle is a no-op when personalRadioContext is undefined", () => {
+    incrementPersonalRadioCycle();
+    expect(getRadioQueueState().personalRadioContext).toBeUndefined();
+  });
+
+  it("clearRadioQueueRuntimeState resets personalRadioContext to undefined", () => {
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Massive Attack"],
+      cycle: 2,
+    });
+    clearRadioQueueRuntimeState();
+    expect(getRadioQueueState().personalRadioContext).toBeUndefined();
+  });
+
+  it("resetRadioRuntimeState resets personalRadioContext to undefined", () => {
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Portishead"],
+      cycle: 1,
+    });
+    resetRadioRuntimeState();
+    expect(getRadioQueueState().personalRadioContext).toBeUndefined();
+  });
+
+  it("setPersonalRadioContext(undefined) clears the context", () => {
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Björk"],
+      cycle: 0,
+    });
+    setPersonalRadioContext(undefined);
+    expect(getRadioQueueState().personalRadioContext).toBeUndefined();
   });
 });

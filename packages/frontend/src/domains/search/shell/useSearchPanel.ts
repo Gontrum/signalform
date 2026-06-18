@@ -1,10 +1,12 @@
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
+import { getConfig } from '@/platform/api/configApi'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { playAlbum } from '@/platform/api/playbackApi'
 import { startGenreRadio } from '@/platform/api/genreRadioApi'
+import { startPersonalRadio } from '@/platform/api/personalRadioApi'
 import { useSearchStore } from './useSearchStore'
 import {
   getDisplayedAlbumResults,
@@ -49,6 +51,10 @@ type UseSearchPanelResult = {
   readonly genreRadioLoading: Ref<boolean>
   readonly genreRadioError: Ref<boolean>
   readonly handleGenreRadioStart: () => Promise<void>
+  readonly personalRadioEnabled: Ref<boolean>
+  readonly personalRadioLoading: Ref<boolean>
+  readonly personalRadioError: Ref<boolean>
+  readonly handlePersonalRadioStart: () => Promise<void>
 }
 
 export const useSearchPanel = (): UseSearchPanelResult => {
@@ -66,6 +72,9 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const activeIndex = ref(-1)
   const genreRadioLoading = ref(false)
   const genreRadioError = ref(false)
+  const personalRadioEnabled = ref(false)
+  const personalRadioLoading = ref(false)
+  const personalRadioError = ref(false)
 
   const showFullResults = computed(
     () => route.query.full === 'true' && typeof route.query.q === 'string' && route.query.q !== '',
@@ -283,6 +292,23 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     genreRadioLoading.value = false
   }
 
+  const handlePersonalRadioStart = async (): Promise<void> => {
+    personalRadioLoading.value = true
+    personalRadioError.value = false
+    const result = await startPersonalRadio()
+    if (result === null) {
+      personalRadioError.value = true
+    }
+    personalRadioLoading.value = false
+  }
+
+  onMounted(async (): Promise<void> => {
+    const configResult = await getConfig()
+    if (configResult.ok) {
+      personalRadioEnabled.value = configResult.value.personalRadioEnabled ?? false
+    }
+  })
+
   onUnmounted((): void => {
     if (abortControllerRef.value) {
       abortControllerRef.value.abort()
@@ -328,5 +354,9 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     genreRadioLoading,
     genreRadioError,
     handleGenreRadioStart,
+    personalRadioEnabled,
+    personalRadioLoading,
+    personalRadioError,
+    handlePersonalRadioStart,
   }
 }
