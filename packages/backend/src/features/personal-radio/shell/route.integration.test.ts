@@ -123,6 +123,10 @@ const createMockLastFmClient = (): MockLastFmClient => ({
   getRecommendedTracks: vi
     .fn<LastFmClient["getRecommendedTracks"]>()
     .mockResolvedValue(ok([])),
+  nowPlaying: vi
+    .fn<LastFmClient["nowPlaying"]>()
+    .mockResolvedValue(ok(undefined)),
+  scrobble: vi.fn<LastFmClient["scrobble"]>().mockResolvedValue(ok(undefined)),
 });
 
 const parseJson = (body: string): unknown => JSON.parse(body);

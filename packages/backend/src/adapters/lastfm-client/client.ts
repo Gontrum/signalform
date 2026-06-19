@@ -120,6 +120,84 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
     return base.toString();
   };
 
+  const postSigned = async (
+    params: Readonly<Record<string, string | number>>,
+    sessionKey: string,
+    sharedSecret: string,
+  ): Promise<Result<unknown, LastFmError>> => {
+    const allParams: Record<string, string> = {
+      ...Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+      api_key: config.apiKey,
+      sk: sessionKey,
+    };
+    const sigStr =
+      Object.entries(allParams)
+        .filter(([k]) => k !== "format" && k !== "callback")
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => `${k}${v}`)
+        .join("") + sharedSecret;
+    const sig = createHash("md5").update(sigStr).digest("hex");
+
+    const body = new URLSearchParams({
+      ...allParams,
+      api_sig: sig,
+      format: "json",
+    });
+
+    const responseResult = await fetch(config.baseUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+      signal: AbortSignal.timeout(config.timeout),
+    })
+      .then<Result<Response, LastFmError>>((response) => ok(response))
+      .catch<Result<Response, LastFmError>>((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === "TimeoutError") {
+          return err({
+            type: "TimeoutError",
+            message: "last.fm request timed out",
+          });
+        }
+        const message =
+          cause instanceof Error ? cause.message : "Unknown network error";
+        return err({ type: "NetworkError", message });
+      });
+
+    if (!responseResult.ok) {
+      return responseResult;
+    }
+    const response = responseResult.value;
+    if (response.status === 429) {
+      return err({
+        type: "RateLimitError",
+        message: "last.fm rate limit exceeded",
+      });
+    }
+    const text = await response.text();
+    const parseResult = parseJson(text);
+    if (!parseResult.ok) {
+      return parseResult;
+    }
+    const maybeError = getApiError(parseResult.value);
+    if (maybeError !== null) {
+      if (maybeError.error === LASTFM_NOT_FOUND_CODE) {
+        return err({
+          type: "NotFoundError",
+          code: maybeError.error,
+          message: maybeError.message ?? "Not found",
+        });
+      }
+      return err({
+        type: "ApiError",
+        code: maybeError.error,
+        message: maybeError.message ?? "Unknown last.fm error",
+      });
+    }
+    return ok(parseResult.value);
+  };
+
   const fetchJson = async (
     url: string,
   ): Promise<Result<unknown, LastFmError>> => {
@@ -770,6 +848,42 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       );
 
       return ok(mapped);
+    },
+
+    nowPlaying: async ({
+      artist,
+      track,
+      duration,
+      sessionKey,
+      sharedSecret,
+    }): Promise<Result<void, LastFmError>> => {
+      const params: Record<string, string | number> = {
+        method: "track.updateNowPlaying",
+        artist,
+        track,
+        ...(duration !== undefined ? { duration } : {}),
+      };
+      const result = await postSigned(params, sessionKey, sharedSecret);
+      return result.ok ? ok(undefined) : result;
+    },
+
+    scrobble: async ({
+      artist,
+      track,
+      timestamp,
+      duration,
+      sessionKey,
+      sharedSecret,
+    }): Promise<Result<void, LastFmError>> => {
+      const params: Record<string, string | number> = {
+        method: "track.scrobble",
+        artist,
+        track,
+        timestamp,
+        ...(duration !== undefined ? { duration } : {}),
+      };
+      const result = await postSigned(params, sessionKey, sharedSecret);
+      return result.ok ? ok(undefined) : result;
     },
 
     getCircuitState: () => "CLOSED" as const,

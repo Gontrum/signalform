@@ -127,6 +127,8 @@ export const createCircuitBreakerLastFmClient = (
       wrapCall(() =>
         inner.getRecommendedTracks(sessionKey, sharedSecret, limit),
       ),
+    nowPlaying: (params) => wrapCall(() => inner.nowPlaying(params)),
+    scrobble: (params) => wrapCall(() => inner.scrobble(params)),
     getCircuitState: () => ref.current.circuitState,
   };
 };

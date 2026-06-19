@@ -214,5 +214,20 @@ export type LastFmClient = {
     sharedSecret: string,
     limit?: number,
   ) => Promise<Result<readonly RecommendedTrack[], LastFmError>>;
+  readonly nowPlaying: (params: {
+    readonly artist: string;
+    readonly track: string;
+    readonly duration?: number;
+    readonly sessionKey: string;
+    readonly sharedSecret: string;
+  }) => Promise<Result<void, LastFmError>>;
+  readonly scrobble: (params: {
+    readonly artist: string;
+    readonly track: string;
+    readonly timestamp: number;
+    readonly duration?: number;
+    readonly sessionKey: string;
+    readonly sharedSecret: string;
+  }) => Promise<Result<void, LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

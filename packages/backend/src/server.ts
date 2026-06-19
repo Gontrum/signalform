@@ -26,6 +26,7 @@ import { createFanartClient } from "./adapters/fanart-client/index.js";
 import { createSetupRoute } from "./features/setup/index.js";
 import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
+import { createScrobbler } from "./features/scrobbling/index.js";
 import { loadConfig } from "./infrastructure/config/index.js";
 import type { AppConfig } from "./infrastructure/config/index.js";
 import { getLmsRegistry } from "./infrastructure/lms-registry.js";
@@ -251,6 +252,8 @@ export const createServer = async (): Promise<FastifyInstance> => {
     logger,
   );
 
+  const scrobbler = createScrobbler(lastFmClient);
+
   const registry = getLmsRegistry();
   registry.init(
     appConfig,
@@ -262,6 +265,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
         config.playerId,
         1000,
         radioEngine.handleQueueEnd,
+        scrobbler.onStatusUpdate,
       ),
     server,
   );

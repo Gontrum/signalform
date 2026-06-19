@@ -91,6 +91,10 @@ export const startStatusPolling = (
   playerId: string,
   intervalMs: number = 1000,
   onQueueEnd?: (seedArtist: string, seedTitle: string) => Promise<void>,
+  onStatusUpdate?: (
+    previousStatus: LmsPlayerStatus | null,
+    currentStatus: LmsPlayerStatus,
+  ) => Promise<void>,
 ): (() => void) => {
   const pollingAbortController = new AbortController();
 
@@ -244,6 +248,10 @@ export const startStatusPolling = (
     };
 
     reconcileSuppressedQueueEnd(previousStatus, currentStatus);
+
+    if (onStatusUpdate !== undefined) {
+      void onStatusUpdate(previousStatus, currentStatus).catch(() => undefined);
+    }
 
     // Only emit if status changed
     const nextStatus = hasStatusChanged(previousStatus, currentStatus)

@@ -150,6 +150,7 @@ export default [
       "src/features/library/shell/service.ts",
       "src/features/metadata/shell/cache.ts",
       "src/features/radio-mode/shell/radio-state.ts",
+      "src/features/scrobbling/shell/scrobbler.ts",
       "src/features/search/shell/cache.ts",
       "src/features/setup/shell/discovery.ts",
       "src/infrastructure/lms-registry.ts",
