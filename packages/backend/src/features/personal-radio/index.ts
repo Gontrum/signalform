@@ -1,2 +1,8 @@
 export { createPersonalRadioRoute } from "./shell/route.js";
-export { pickChannel, mergeTrackPools } from "./core/seed-merger.js";
+export { scoreArtistsFromHistory } from "./core/artist-scorer.js";
+export {
+  pickChannel,
+  mergeTrackPools,
+  spreadSample,
+  fisherYatesShuffle,
+} from "./core/seed-merger.js";

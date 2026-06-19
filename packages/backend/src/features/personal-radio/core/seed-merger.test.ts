@@ -1,12 +1,17 @@
 /**
- * Personal Radio — Seed Merger Unit Tests
+ * Personal Radio — spreadSample Unit Tests
  *
- * No mocks needed — pure functions only.
- * Covers pickChannel and mergeTrackPools with all specified cases.
+ * Appended to the existing seed-merger test file.
+ * Covers all specified edge cases for spreadSample.
  */
 
-import { describe, test, expect } from "vitest";
-import { pickChannel, mergeTrackPools } from "./seed-merger.js";
+import { describe, it, test, expect } from "vitest";
+import {
+  pickChannel,
+  mergeTrackPools,
+  spreadSample,
+  fisherYatesShuffle,
+} from "./seed-merger.js";
 
 // ---------------------------------------------------------------------------
 // pickChannel
@@ -118,5 +123,95 @@ describe("mergeTrackPools", () => {
   test("totalSlots=0 → returns empty array regardless of ratio", () => {
     const result = mergeTrackPools(comfort8, discovery8, 50, 0);
     expect(result).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// spreadSample
+// ---------------------------------------------------------------------------
+
+describe("spreadSample", () => {
+  test("empty array → []", () => {
+    expect(spreadSample([], 5)).toEqual([]);
+  });
+
+  test("n=0 → []", () => {
+    expect(spreadSample(["a", "b", "c"], 0)).toEqual([]);
+  });
+
+  test("single-element array with n=5 → [that element]", () => {
+    expect(spreadSample(["a"], 5)).toEqual(["a"]);
+  });
+
+  test("array of 5, n=5 → all 5 elements in order", () => {
+    expect(spreadSample(["a", "b", "c", "d", "e"], 5)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
+  });
+
+  test("n=1 → only first element", () => {
+    expect(spreadSample(["a", "b", "c"], 1)).toEqual(["a"]);
+  });
+
+  test("array of 10, n=5 → 5 elements including first and last", () => {
+    const arr = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const result = spreadSample(arr, 5);
+    expect(result).toHaveLength(5);
+    expect(result[0]).toBe("a");
+    expect(result[result.length - 1]).toBe("j");
+  });
+
+  test("array of 10, n=3 → 3 elements including first and last", () => {
+    const arr = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+    const result = spreadSample(arr, 3);
+    expect(result).toHaveLength(3);
+    expect(result[0]).toBe("a");
+    expect(result[result.length - 1]).toBe("j");
+  });
+
+  test("deduplication: array shorter than n returns unique elements only", () => {
+    // arr of length 3, n=10 → should return arr as-is (no duplicates)
+    const result = spreadSample(["x", "y", "z"], 10);
+    expect(result).toEqual(["x", "y", "z"]);
+    // Verify no duplicates
+    expect(new Set(result).size).toBe(result.length);
+  });
+
+  test("n=2 → first and last element", () => {
+    const arr = ["a", "b", "c", "d", "e"];
+    const result = spreadSample(arr, 2);
+    expect(result).toEqual(["a", "e"]);
+  });
+
+  test("evenly spread: array of 9, n=5 → indices 0,2,4,6,8", () => {
+    const arr = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
+    // Math.round(i * 8 / 4) for i in 0..4 → 0, 2, 4, 6, 8
+    const result = spreadSample(arr, 5);
+    expect(result).toEqual(["a", "c", "e", "g", "i"]);
+  });
+});
+
+describe("fisherYatesShuffle", () => {
+  it("returns empty array for empty input", () => {
+    expect(fisherYatesShuffle([])).toEqual([]);
+  });
+
+  it("returns single element unchanged", () => {
+    expect(fisherYatesShuffle([42])).toEqual([42]);
+  });
+
+  it("preserves all elements (set equality)", () => {
+    const arr = [1, 2, 3, 4, 5];
+    const result = fisherYatesShuffle(arr);
+    expect(new Set(result)).toEqual(new Set(arr));
+  });
+
+  it("preserves length", () => {
+    const arr = ["a", "b", "c", "d"];
+    expect(fisherYatesShuffle(arr)).toHaveLength(arr.length);
   });
 });

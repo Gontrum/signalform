@@ -3,7 +3,12 @@ import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { SearchResult } from "../../../adapters/lms-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
-import { mergeTrackPools } from "../core/seed-merger.js";
+import {
+  mergeTrackPools,
+  spreadSample,
+  fisherYatesShuffle,
+} from "../core/seed-merger.js";
+import { scoreArtistsFromHistory } from "../core/artist-scorer.js";
 import {
   setPersonalRadioContext,
   setRadioModeEnabledState,
@@ -33,44 +38,8 @@ const pickBestResult = (
 ): SearchResult | undefined =>
   [...results].sort((a, b) => sourceRank(a.source) - sourceRank(b.source))[0];
 
-/** Fisher-Yates shuffle via Array.from + reduce — no mutation */
-const fisherYatesShuffle = <T>(arr: readonly T[]): readonly T[] =>
-  Array.from({ length: arr.length }, (_, i) => i).reduce<readonly T[]>(
-    (acc, _, i) => {
-      const remaining = arr.length - i;
-      const j = Math.floor(Math.random() * remaining);
-      const item = acc[j]!;
-      const last = acc[remaining - 1]!;
-      return acc.map((el, idx) =>
-        idx === j ? last : idx === remaining - 1 ? item : el,
-      );
-    },
-    [...arr],
-  );
-
 const MAX_INITIAL_TRACKS = 8;
 const MAX_CANDIDATE_SEARCHES = 50;
-
-type ArtistScore = {
-  readonly key: string;
-  readonly name: string;
-  readonly score: number;
-};
-
-const mergeArtistScore = (
-  scores: readonly ArtistScore[],
-  name: string,
-  delta: number,
-): readonly ArtistScore[] => {
-  const key = name.toLowerCase();
-  const existing = scores.find((s) => s.key === key);
-  if (existing !== undefined) {
-    return scores.map((s) =>
-      s.key === key ? { ...s, score: s.score + delta } : s,
-    );
-  }
-  return [...scores, { key, name, score: delta }];
-};
 
 export const createPersonalRadioRoute = (
   server: FastifyInstance,
@@ -107,23 +76,11 @@ export const createPersonalRadioRoute = (
     const recentArtists = topRecentResult.ok ? topRecentResult.value : [];
     const overallArtists = topOverallResult.ok ? topOverallResult.value : [];
 
-    const withLoved = lovedArtists.reduce<readonly ArtistScore[]>(
-      (acc, track) => mergeArtistScore(acc, track.artist, 3),
-      [],
-    );
-    const withRecent = recentArtists.reduce<readonly ArtistScore[]>(
-      (acc, artist) => mergeArtistScore(acc, artist.name, 3),
-      withLoved,
-    );
-    const allScores = overallArtists.reduce<readonly ArtistScore[]>(
-      (acc, artist) => mergeArtistScore(acc, artist.name, 1),
-      withRecent,
-    );
-
-    const seedArtists: readonly string[] = [...allScores]
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 8)
-      .map((s) => s.name);
+    const seedArtists = scoreArtistsFromHistory({
+      lovedArtists: lovedArtists.map((t) => t.artist),
+      recentTopArtists: recentArtists.map((a) => a.name),
+      overallTopArtists: overallArtists.map((a) => a.name),
+    });
 
     if (seedArtists.length === 0) {
       return reply.status(404).send({ error: "No listening history found" });
@@ -146,23 +103,8 @@ export const createPersonalRadioRoute = (
 
     // Step 4: Pick 5 similar artists spread across the list from each seed
     const pickedSimilarArtists: readonly string[] = similarResults.flatMap(
-      (result) => {
-        if (!result.ok || result.value.length === 0) {
-          return [];
-        }
-        const similar = result.value;
-        return [
-          0,
-          Math.floor(similar.length / 4),
-          Math.floor(similar.length / 2),
-          Math.floor((similar.length * 3) / 4),
-          similar.length - 1,
-        ]
-          .map((i) => similar[i]?.name)
-          .filter((name): name is string => name !== undefined)
-          .filter((name, i, arr) => arr.indexOf(name) === i)
-          .slice(0, 5);
-      },
+      (result) =>
+        result.ok ? spreadSample(result.value, 5).map((a) => a.name) : [],
     );
 
     // Step 5: Fetch top tracks for picked similar artists

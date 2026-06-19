@@ -513,4 +513,45 @@ describe("POST /api/personal-radio/start", () => {
       true,
     );
   });
+
+  it("calls getRecommendedTracks when session key and shared secret are configured", async () => {
+    vi.mocked(loadConfig).mockReturnValue({
+      ok: true,
+      value: {
+        ...makeEnabledConfig().value,
+        lastFmSessionKey: "session-abc",
+        lastFmSharedSecret: "secret-xyz",
+      },
+    });
+    mockLastFmClient.getUserLovedTracks.mockResolvedValue(
+      ok([makeLovedTrack("Creep", "Radiohead")]),
+    );
+    mockLastFmClient.getUserTopArtists.mockResolvedValue(ok([]));
+    mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([makeSimilarArtist("Portishead")]),
+    );
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeArtistTopTrack("Roads", "Portishead")]),
+    );
+    mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    mockLastFmClient.getUserNeighbours.mockResolvedValue(ok([]));
+    mockLastFmClient.getRecommendedTracks.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeSearchResult("file:///roads.flac", "Portishead")],
+        tidalAvailable: true,
+      }),
+    );
+
+    await server.inject({
+      method: "POST",
+      url: "/api/personal-radio/start",
+    });
+
+    expect(mockLastFmClient.getRecommendedTracks).toHaveBeenCalledWith(
+      "session-abc",
+      "secret-xyz",
+      expect.any(Number),
+    );
+  });
 });
