@@ -75,6 +75,8 @@ const makeInnerClient = (): {
       getRecommendedTracks: vi.fn(),
       nowPlaying: vi.fn(),
       scrobble: vi.fn(),
+      love: vi.fn(),
+      unlove: vi.fn(),
       getCircuitState: () => "CLOSED" as const,
     },
     getSimilarTracksMock,

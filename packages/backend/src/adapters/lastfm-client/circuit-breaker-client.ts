@@ -129,6 +129,8 @@ export const createCircuitBreakerLastFmClient = (
       ),
     nowPlaying: (params) => wrapCall(() => inner.nowPlaying(params)),
     scrobble: (params) => wrapCall(() => inner.scrobble(params)),
+    love: (params) => wrapCall(() => inner.love(params)),
+    unlove: (params) => wrapCall(() => inner.unlove(params)),
     getCircuitState: () => ref.current.circuitState,
   };
 };

@@ -229,5 +229,17 @@ export type LastFmClient = {
     readonly sessionKey: string;
     readonly sharedSecret: string;
   }) => Promise<Result<void, LastFmError>>;
+  readonly love: (params: {
+    readonly artist: string;
+    readonly track: string;
+    readonly sessionKey: string;
+    readonly sharedSecret: string;
+  }) => Promise<Result<void, LastFmError>>;
+  readonly unlove: (params: {
+    readonly artist: string;
+    readonly track: string;
+    readonly sessionKey: string;
+    readonly sharedSecret: string;
+  }) => Promise<Result<void, LastFmError>>;
   readonly getCircuitState: () => CircuitState;
 };

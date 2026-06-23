@@ -7,6 +7,7 @@ import PlaybackControls from './PlaybackControls.vue'
 import VolumeControl from './VolumeControl.vue'
 import ProgressBar from './ProgressBar.vue'
 import { useI18nStore } from '@/app/i18nStore'
+import { useLoveTrack } from '@/domains/playback/shell/useLoveTrack'
 
 const {
   playbackStore,
@@ -21,6 +22,7 @@ const {
 const i18nStore = useI18nStore()
 const { isPhone } = useResponsiveLayout()
 const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
+const { hasLastFmSession, isLoved, isLoving, toggleLove } = useLoveTrack()
 </script>
 
 <template>
@@ -85,6 +87,34 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
         <p v-else data-testid="track-album" class="text-sm text-neutral-500 truncate">
           {{ playbackStore.currentTrack?.album }}
         </p>
+        <!-- Love Button -->
+        <div v-if="hasLastFmSession" class="mt-2 flex justify-center">
+          <button
+            type="button"
+            :aria-label="isLoved ? 'Unlove track on Last.fm' : 'Love track on Last.fm'"
+            :disabled="isLoving"
+            data-testid="love-button"
+            class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-neutral-400 hover:text-red-500 focus:outline-none focus:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :class="{ 'text-red-500': isLoved }"
+            @click="toggleLove"
+          >
+            <svg
+              class="h-6 w-6"
+              :fill="isLoved ? 'currentColor' : 'none'"
+              stroke="currentColor"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
+        </div>
         <!-- Source info (Story 3.3 badge + Story 3.4 tooltip & also-available) -->
         <!-- audioQuality set for Tidal tracks (inferred from URL extension via parseTidalAudioQuality) -->
         <div

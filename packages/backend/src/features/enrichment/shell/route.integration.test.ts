@@ -45,6 +45,8 @@ const makeMockClient = (): MockLastFmClient => ({
   getRecommendedTracks: vi.fn<LastFmClient["getRecommendedTracks"]>(),
   nowPlaying: vi.fn<LastFmClient["nowPlaying"]>(),
   scrobble: vi.fn<LastFmClient["scrobble"]>(),
+  love: vi.fn(),
+  unlove: vi.fn(),
   getCircuitState: vi
     .fn<LastFmClient["getCircuitState"]>()
     .mockReturnValue("CLOSED"),

@@ -11,6 +11,9 @@ type PlaybackStore = ReturnType<
 >
 
 const isPhone = ref(false)
+const mockHasLastFmSession = ref(false)
+const mockIsLoved = ref(false)
+const mockToggleLove = vi.fn().mockResolvedValue(undefined)
 
 // Mock the playback API
 vi.mock('@/platform/api/playbackApi', async () => {
@@ -39,6 +42,20 @@ vi.mock('@/app/useResponsiveLayout', () => ({
   }),
 }))
 
+vi.mock('@/domains/playback/shell/useLoveTrack', () => ({
+  useLoveTrack: (): {
+    readonly hasLastFmSession: typeof mockHasLastFmSession
+    readonly isLoved: typeof mockIsLoved
+    readonly isLoving: ReturnType<typeof ref<boolean>>
+    readonly toggleLove: typeof mockToggleLove
+  } => ({
+    hasLastFmSession: mockHasLastFmSession,
+    isLoved: mockIsLoved,
+    isLoving: ref(false),
+    toggleLove: mockToggleLove,
+  }),
+}))
+
 describe('NowPlayingPanel', () => {
   type TestContext = {
     readonly router: Router
@@ -49,6 +66,8 @@ describe('NowPlayingPanel', () => {
     setupTestEnv()
     vi.clearAllMocks()
     isPhone.value = false
+    mockHasLastFmSession.value = false
+    mockIsLoved.value = false
   })
 
   const createRouter = async (): Promise<Router> => {
@@ -816,6 +835,34 @@ describe('NowPlayingPanel', () => {
       expect(context.wrapper.find('[data-testid="track-announcement"]').text()).toContain(
         'Now playing: Money by Pink Floyd',
       )
+    })
+  })
+
+  // === Love Button (Story 5) ===
+
+  describe('Love Button', () => {
+    it('shows love button when Last.fm session is active and track is playing', async () => {
+      mockHasLastFmSession.value = true
+      const context = await givenTrackIsPlaying()
+
+      expect(context.wrapper.find('[data-testid="love-button"]').exists()).toBe(true)
+    })
+
+    it('hides love button when no Last.fm session', async () => {
+      mockHasLastFmSession.value = false
+      const context = await givenTrackIsPlaying()
+
+      expect(context.wrapper.find('[data-testid="love-button"]').exists()).toBe(false)
+    })
+
+    it('calls toggleLove when love button is clicked', async () => {
+      mockHasLastFmSession.value = true
+      const context = await givenTrackIsPlaying()
+
+      await context.wrapper.find('[data-testid="love-button"]').trigger('click')
+      await flushPromises()
+
+      expect(mockToggleLove).toHaveBeenCalledOnce()
     })
   })
 })

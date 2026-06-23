@@ -886,6 +886,34 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       return result.ok ? ok(undefined) : result;
     },
 
+    love: async ({
+      artist,
+      track,
+      sessionKey,
+      sharedSecret,
+    }): Promise<Result<void, LastFmError>> => {
+      const result = await postSigned(
+        { method: "track.love", artist, track },
+        sessionKey,
+        sharedSecret,
+      );
+      return result.ok ? ok(undefined) : result;
+    },
+
+    unlove: async ({
+      artist,
+      track,
+      sessionKey,
+      sharedSecret,
+    }): Promise<Result<void, LastFmError>> => {
+      const result = await postSigned(
+        { method: "track.unlove", artist, track },
+        sessionKey,
+        sharedSecret,
+      );
+      return result.ok ? ok(undefined) : result;
+    },
+
     getCircuitState: () => "CLOSED" as const,
   };
 };

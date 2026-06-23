@@ -26,6 +26,7 @@ import { createFanartClient } from "./adapters/fanart-client/index.js";
 import { createSetupRoute } from "./features/setup/index.js";
 import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
+import { createLastFmLoveRoute } from "./features/lastfm-love/index.js";
 import { createScrobbler } from "./features/scrobbling/index.js";
 import { loadConfig } from "./infrastructure/config/index.js";
 import type { AppConfig } from "./infrastructure/config/index.js";
@@ -304,6 +305,8 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createLastFmAuthRoute(server, (newConfig: AppConfig) => {
     registry.reload(newConfig);
   });
+
+  createLastFmLoveRoute(server, lastFmClient);
 
   void server.addHook("onClose", async () => {
     registry.stopAll();
