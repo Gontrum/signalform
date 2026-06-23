@@ -221,4 +221,62 @@ describe("DELETE /api/lastfm/love", () => {
       sharedSecret: "sec",
     });
   });
+
+  it("returns 400 when artist is missing", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/love",
+      payload: { track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("returns 400 when no session configured", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: { ...makeBaseConfig(), lastFmSessionKey: undefined },
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/love",
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("returns 502 when unlove fails", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    const client = makeMockClient();
+    client.unlove.mockResolvedValue({
+      ok: false,
+      error: { type: "NetworkError", message: "down" },
+    });
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/love",
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(502);
+  });
 });

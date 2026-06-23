@@ -1,42 +1,18 @@
 import type { FastifyInstance } from "fastify";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
-import type { SearchResult } from "../../../adapters/lms-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
 import {
   mergeTrackPools,
   spreadSample,
   fisherYatesShuffle,
 } from "../core/seed-merger.js";
+import { artistMatches, pickBestResult } from "../core/search-matcher.js";
 import { scoreArtistsFromHistory } from "../core/artist-scorer.js";
 import {
   setPersonalRadioContext,
   setRadioModeEnabledState,
 } from "../../radio-mode/index.js";
-
-const normalizeStr = (s: string): string =>
-  s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-const artistMatches = (
-  resultArtist: string,
-  candidateArtist: string,
-): boolean => {
-  const r = normalizeStr(resultArtist);
-  const c = normalizeStr(candidateArtist);
-  return r.includes(c) || c.includes(r);
-};
-
-const sourceRank = (source: string): number =>
-  source === "local" ? 0 : source === "qobuz" ? 1 : source === "tidal" ? 2 : 3;
-
-const pickBestResult = (
-  results: readonly SearchResult[],
-): SearchResult | undefined =>
-  [...results].sort((a, b) => sourceRank(a.source) - sourceRank(b.source))[0];
 
 const MAX_INITIAL_TRACKS = 8;
 const MAX_CANDIDATE_SEARCHES = 50;
