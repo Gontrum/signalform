@@ -24,6 +24,7 @@ export const createSettingsConfigUpdate = (input: {
   readonly playerId: string
   readonly language: Language
   readonly lastFmApiKey: string
+  readonly lastFmSharedSecret: string
   readonly fanartApiKey: string
 }): ConfigUpdate => {
   return {
@@ -32,6 +33,7 @@ export const createSettingsConfigUpdate = (input: {
     playerId: input.playerId.trim(),
     language: input.language,
     ...(input.lastFmApiKey ? { lastFmApiKey: input.lastFmApiKey } : {}),
+    ...(input.lastFmSharedSecret ? { lastFmSharedSecret: input.lastFmSharedSecret } : {}),
     ...(input.fanartApiKey ? { fanartApiKey: input.fanartApiKey } : {}),
   }
 }

@@ -12,6 +12,7 @@ const ConfigUpdateSchema = z.object({
   lmsPort: z.coerce.number().int().min(1).max(65535).optional(),
   playerId: z.string().min(1).optional(),
   lastFmApiKey: z.string().optional(),
+  lastFmSharedSecret: z.string().optional(),
   fanartApiKey: z.string().optional(),
   language: z.enum(["en", "de"]).optional(),
 });

@@ -31,6 +31,7 @@ type UseSettingsViewResult = {
   readonly lmsPort: Ref<string>
   readonly playerId: Ref<string>
   readonly lastFmApiKey: Ref<string>
+  readonly lastFmSharedSecret: Ref<string>
   readonly fanartApiKey: Ref<string>
   readonly language: Ref<Language>
   readonly hasLastFmKey: Ref<boolean>
@@ -124,6 +125,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
   const lmsPort = ref('9000')
   const playerId = ref('')
   const lastFmApiKey = ref('')
+  const lastFmSharedSecret = ref('')
   const fanartApiKey = ref('')
   const language = ref<Language>('en')
 
@@ -269,6 +271,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
         playerId: playerId.value,
         language: language.value,
         lastFmApiKey: lastFmApiKey.value,
+        lastFmSharedSecret: lastFmSharedSecret.value,
         fanartApiKey: fanartApiKey.value,
       }),
     )
@@ -285,6 +288,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
     hasFanartKey.value = result.value.hasFanartKey
     i18nStore.setLanguage(language.value)
     lastFmApiKey.value = ''
+    lastFmSharedSecret.value = ''
     fanartApiKey.value = ''
   }
 
@@ -348,6 +352,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
     lmsPort,
     playerId,
     lastFmApiKey,
+    lastFmSharedSecret,
     fanartApiKey,
     language,
     hasLastFmKey,

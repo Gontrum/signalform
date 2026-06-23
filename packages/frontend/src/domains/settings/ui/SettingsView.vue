@@ -7,6 +7,7 @@ const {
   lmsPort,
   playerId,
   lastFmApiKey,
+  lastFmSharedSecret,
   fanartApiKey,
   language,
   hasLastFmKey,
@@ -48,7 +49,7 @@ const {
 </script>
 
 <template>
-  <div class="p-6" data-testid="settings-view">
+  <div class="h-full overflow-y-auto p-6" data-testid="settings-view">
     <MainNavBar />
 
     <div class="mx-auto max-w-xl">
@@ -243,6 +244,24 @@ const {
                 v-model="lastFmApiKey"
                 type="text"
                 data-testid="lastfm-key-input"
+                :placeholder="
+                  hasLastFmKey
+                    ? t('settings.lastfmPlaceholderConfigured')
+                    : t('settings.lastfmPlaceholderEmpty')
+                "
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-secret">
+                Last.fm Shared Secret
+              </label>
+              <input
+                id="lastfm-secret"
+                v-model="lastFmSharedSecret"
+                type="password"
+                data-testid="lastfm-secret-input"
                 :placeholder="
                   hasLastFmKey
                     ? t('settings.lastfmPlaceholderConfigured')
