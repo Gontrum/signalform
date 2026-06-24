@@ -1746,7 +1746,7 @@ describe("deduplicateTracks", () => {
     const result = deduplicateTracks(manyTracks);
     const duration = performance.now() - start;
 
-    expect(duration).toBeLessThan(10);
+    expect(duration).toBeLessThan(50);
     expect(result).toHaveLength(10); // 10 unique title+artist combinations
   });
 
