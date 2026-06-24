@@ -859,3 +859,767 @@ describe("createLastFmClient - getAlbumInfo", () => {
     }
   });
 });
+
+describe("createLastFmClient - getTagTopTracks", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly, non-empty mbid preserved", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          tracks: {
+            track: [
+              {
+                name: "Jazz Track",
+                artist: { name: "Jazz Artist" },
+                mbid: "track-mbid-1",
+                url: "https://www.last.fm/music/Jazz+Artist/_/Jazz+Track",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getTagTopTracks("jazz");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("Jazz Track");
+      expect(result.value[0]?.artist).toBe("Jazz Artist");
+      expect(result.value[0]?.mbid).toBe("track-mbid-1");
+      expect(result.value[0]?.url).toBe(
+        "https://www.last.fm/music/Jazz+Artist/_/Jazz+Track",
+      );
+    }
+  });
+
+  it("maps empty mbid string to undefined", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          tracks: {
+            track: [
+              {
+                name: "Track",
+                artist: { name: "Artist" },
+                mbid: "",
+                url: "https://last.fm",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getTagTopTracks("rock");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]?.mbid).toBeUndefined();
+    }
+  });
+
+  it("missing top-level tracks key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getTagTopTracks("jazz");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array track value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ tracks: { track: "not-an-array" } }),
+    });
+    const result = await makeClient().getTagTopTracks("jazz");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-record entry in track array is skipped", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          tracks: { track: ["not-a-record", null, 42] },
+        }),
+    });
+    const result = await makeClient().getTagTopTracks("jazz");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - searchTags", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly, count is parseInt'd", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          results: {
+            tagmatches: {
+              tag: [
+                {
+                  name: "rock",
+                  count: "4567890",
+                  url: "https://www.last.fm/tag/rock",
+                },
+              ],
+            },
+          },
+        }),
+    });
+    const result = await makeClient().searchTags("rock");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("rock");
+      expect(result.value[0]?.count).toBe(4567890);
+      expect(result.value[0]?.url).toBe("https://www.last.fm/tag/rock");
+    }
+  });
+
+  it("missing results key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().searchTags("rock");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array tag value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ results: { tagmatches: { tag: "not-an-array" } } }),
+    });
+    const result = await makeClient().searchTags("rock");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getUserTopArtists", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly, non-empty mbid preserved", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          topartists: {
+            artist: [
+              {
+                name: "Radiohead",
+                mbid: "artist-mbid",
+                playcount: "9876",
+                url: "https://www.last.fm/music/Radiohead",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserTopArtists("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("Radiohead");
+      expect(result.value[0]?.mbid).toBe("artist-mbid");
+      expect(result.value[0]?.playcount).toBe(9876);
+      expect(result.value[0]?.url).toBe("https://www.last.fm/music/Radiohead");
+    }
+  });
+
+  it("maps empty mbid string to undefined", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          topartists: {
+            artist: [
+              {
+                name: "Artist",
+                mbid: "",
+                playcount: "0",
+                url: "https://last.fm",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserTopArtists("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]?.mbid).toBeUndefined();
+    }
+  });
+
+  it("missing topartists key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getUserTopArtists("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array artist value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ topartists: { artist: "not-an-array" } }),
+    });
+    const result = await makeClient().getUserTopArtists("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getUserTopTracks", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          toptracks: {
+            track: [
+              {
+                name: "Paranoid Android",
+                artist: { name: "Radiohead" },
+                mbid: "track-mbid",
+                playcount: "1234",
+                url: "https://www.last.fm/music/Radiohead/_/Paranoid+Android",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserTopTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("Paranoid Android");
+      expect(result.value[0]?.artist).toBe("Radiohead");
+      expect(result.value[0]?.mbid).toBe("track-mbid");
+      expect(result.value[0]?.playcount).toBe(1234);
+      expect(result.value[0]?.url).toBe(
+        "https://www.last.fm/music/Radiohead/_/Paranoid+Android",
+      );
+    }
+  });
+
+  it("missing toptracks key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getUserTopTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array track value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ toptracks: { track: "not-an-array" } }),
+    });
+    const result = await makeClient().getUserTopTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getUserLovedTracks", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          lovedtracks: {
+            track: [
+              {
+                name: "Exit Music",
+                artist: { name: "Radiohead" },
+                mbid: "loved-mbid",
+                url: "https://www.last.fm/music/Radiohead/_/Exit+Music",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserLovedTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("Exit Music");
+      expect(result.value[0]?.artist).toBe("Radiohead");
+      expect(result.value[0]?.mbid).toBe("loved-mbid");
+      expect(result.value[0]?.url).toBe(
+        "https://www.last.fm/music/Radiohead/_/Exit+Music",
+      );
+    }
+  });
+
+  it("maps empty mbid string to undefined", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          lovedtracks: {
+            track: [
+              {
+                name: "Track",
+                artist: { name: "Artist" },
+                mbid: "",
+                url: "https://last.fm",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserLovedTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value[0]?.mbid).toBeUndefined();
+    }
+  });
+
+  it("missing lovedtracks key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getUserLovedTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getUserRecentTracks", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it('happy path: maps artist["#text"] field correctly', async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          recenttracks: {
+            track: [
+              {
+                name: "Karma Police",
+                artist: { "#text": "Radiohead" },
+                url: "https://www.last.fm/music/Radiohead/_/Karma+Police",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserRecentTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("Karma Police");
+      expect(result.value[0]?.artist).toBe("Radiohead");
+      expect(result.value[0]?.url).toBe(
+        "https://www.last.fm/music/Radiohead/_/Karma+Police",
+      );
+    }
+  });
+
+  it("missing recenttracks key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getUserRecentTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array track value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ recenttracks: { track: "not-an-array" } }),
+    });
+    const result = await makeClient().getUserRecentTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-record entry in track array is skipped", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          recenttracks: { track: ["not-a-record", null] },
+        }),
+    });
+    const result = await makeClient().getUserRecentTracks("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getUserNeighbours", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly, match is parseFloat'd", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          neighbours: {
+            user: [
+              {
+                name: "neighbour1",
+                url: "https://www.last.fm/user/neighbour1",
+                match: "0.9123",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getUserNeighbours("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.username).toBe("neighbour1");
+      expect(result.value[0]?.url).toBe("https://www.last.fm/user/neighbour1");
+      expect(result.value[0]?.match).toBeCloseTo(0.9123);
+    }
+  });
+
+  it("missing neighbours key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getUserNeighbours("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array user value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ neighbours: { user: "not-an-array" } }),
+    });
+    const result = await makeClient().getUserNeighbours("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-record entry in user array is skipped", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ neighbours: { user: ["not-a-record", null] } }),
+    });
+    const result = await makeClient().getUserNeighbours("johndoe");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - getRecommendedTracks", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: maps all fields correctly", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          recommendations: {
+            track: [
+              {
+                name: "How to Disappear Completely",
+                artist: { name: "Radiohead" },
+                url: "https://www.last.fm/music/Radiohead/_/How+to+Disappear",
+              },
+            ],
+          },
+        }),
+    });
+    const result = await makeClient().getRecommendedTracks(
+      "session-key",
+      "secret",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(1);
+      expect(result.value[0]?.name).toBe("How to Disappear Completely");
+      expect(result.value[0]?.artist).toBe("Radiohead");
+      expect(result.value[0]?.url).toBe(
+        "https://www.last.fm/music/Radiohead/_/How+to+Disappear",
+      );
+    }
+  });
+
+  it("missing recommendations key returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({ something: "else" }),
+    });
+    const result = await makeClient().getRecommendedTracks(
+      "session-key",
+      "secret",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("non-array track value returns ok([])", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () =>
+        JSON.stringify({ recommendations: { track: "not-an-array" } }),
+    });
+    const result = await makeClient().getRecommendedTracks(
+      "session-key",
+      "secret",
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+});
+
+describe("createLastFmClient - scrobble", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: returns ok(undefined)", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({}),
+    });
+    const result = await makeClient().scrobble({
+      artist: "Radiohead",
+      track: "Creep",
+      timestamp: 1700000000,
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBeUndefined();
+    }
+  });
+
+  it("network failure returns err with NetworkError", async () => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+    const result = await makeClient().scrobble({
+      artist: "Radiohead",
+      track: "Creep",
+      timestamp: 1700000000,
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+
+  it("scrobble with optional duration: returns ok(undefined)", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({}),
+    });
+    const result = await makeClient().scrobble({
+      artist: "Radiohead",
+      track: "Creep",
+      timestamp: 1700000000,
+      duration: 238,
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBeUndefined();
+    }
+  });
+});
+
+describe("createLastFmClient - love", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: returns ok(undefined)", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({}),
+    });
+    const result = await makeClient().love({
+      artist: "Radiohead",
+      track: "Creep",
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBeUndefined();
+    }
+  });
+
+  it("network failure returns err with NetworkError", async () => {
+    fetchMock.mockRejectedValue(new Error("connection refused"));
+    const result = await makeClient().love({
+      artist: "Radiohead",
+      track: "Creep",
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});
+
+describe("createLastFmClient - unlove", () => {
+  const makeClient = (): ReturnType<typeof createLastFmClient> =>
+    createLastFmClient({
+      apiKey: "testkey",
+      timeout: 5000,
+      baseUrl: "https://ws.audioscrobbler.com/2.0/",
+      language: "en",
+    });
+
+  it("happy path: returns ok(undefined)", async () => {
+    fetchMock.mockResolvedValue({
+      status: 200,
+      text: async () => JSON.stringify({}),
+    });
+    const result = await makeClient().unlove({
+      artist: "Radiohead",
+      track: "Creep",
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBeUndefined();
+    }
+  });
+
+  it("network failure returns err with NetworkError", async () => {
+    fetchMock.mockRejectedValue(new Error("connection refused"));
+    const result = await makeClient().unlove({
+      artist: "Radiohead",
+      track: "Creep",
+      sessionKey: "session-key",
+      sharedSecret: "secret",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});

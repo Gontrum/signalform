@@ -16,6 +16,8 @@ export default defineConfig({
         "**/*.test.ts",
         "**/*.spec.ts",
         "src/index.ts", // Entry point - no business logic
+        "src/server.ts", // Fastify server wiring - no testable logic
+        "src/features/setup/shell/discovery.ts", // UDP broadcast I/O - not unit-testable
       ],
       excludeAfterRemap: true, // Exclude after source map remapping
       skipFull: false,
