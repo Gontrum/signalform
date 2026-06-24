@@ -32,6 +32,7 @@ export interface ApiMocks {
   readonly libraryAlbums?: JsonObject
   readonly queue?: JsonValue
   readonly playbackStatus?: JsonObject
+  readonly config?: JsonObject
 }
 
 /**
@@ -45,7 +46,7 @@ export interface ApiMocks {
 export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<void> => {
   // Config state — mutable so PUT updates survive page.reload() within the same test.
   // Declared in the closure so each test gets its own independent copy.
-  let currentConfig = { ...defaultConfigResponse }
+  let currentConfig: JsonObject = { ...defaultConfigResponse, ...mocks.config }
 
   // Abort socket.io requests — suppresses WS connection errors in E2E (no backend)
   await page.route(
@@ -116,7 +117,7 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       // Config update (PUT /api/config) — merge into currentConfig so subsequent
       // GETs (including after page.reload()) return the updated language/settings.
       if (pathname === '/api/config' && method === 'PUT') {
-        const body = route.request().postDataJSON() as Partial<typeof defaultConfigResponse>
+        const body = route.request().postDataJSON() as JsonObject
         currentConfig = { ...currentConfig, ...body }
         await fulfill200(route, currentConfig)
         return

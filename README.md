@@ -18,6 +18,9 @@ Signalform sits in front of your existing LMS installation and gives it a modern
 - **Artist hero images** via Fanart.tv
 - **Queue management** and playback control
 - **Radio mode** — continuous playback based on artist similarity
+- **Personal Radio** — dynamic queue built from your Last.fm listening history, with a configurable comfort/discovery blend
+- **Scrobbling** — automatically reports played tracks to your Last.fm profile
+- **Love tracks** — mark tracks as loved on Last.fm directly from the player
 - **PWA support** — installable on desktop and mobile via browser
 
 ## Interface
@@ -41,6 +44,12 @@ Artist pages combine biographies, tags, related releases, and streaming results 
 Configure LMS connectivity, player selection, language, and optional enrichment APIs from the built-in settings flow.
 
 ![Signalform settings](docs/images/readme/settings.png)
+
+### Mobile (PWA)
+
+The Now Playing view is designed for one-handed use — cover art, playback controls, love button, and queue preview in a single scroll.
+
+<img src="docs/images/readme/now-playing-mobile.png" alt="Signalform Now Playing on iPhone" width="390"/>
 
 ## Architecture
 
@@ -175,15 +184,30 @@ On first launch, Signalform opens a setup wizard in your browser. It will ask fo
 1. **LMS connection** — the IP address and port of your LMS server
 2. **Player** — which LMS player Signalform should control (auto-discovered)
 3. **API keys** — optional, but recommended for the best experience:
-   - **Last.fm** — enables artist biographies, similar artists, and top tracks
+   - **Last.fm** — enables artist biographies, similar artists, and top tracks; required for scrobbling, track loving, and Personal Radio
    - **Fanart.tv** — enables high-quality artist images
 
-### Getting a Last.fm API key
+### Getting a Last.fm API key and Shared Secret
+
+Last.fm features that only read data (biographies, similar artists) need just an API key. Features that write to your account — scrobbling, loving tracks, Personal Radio — additionally need a Shared Secret and your Last.fm session, obtained via OAuth.
+
+**Step 1: Register an API application (once per installation)**
 
 1. Create a free account at [last.fm](https://www.last.fm/join) if you don't have one
-2. Go to [last.fm/api/account/create](https://www.last.fm/api/account/create)
-3. Fill in a name (e.g. "Signalform") and submit
-4. Copy the **API key** shown on the next page and paste it into the wizard
+2. Go to [last.fm/api/account/create](https://www.last.fm/api/account/create) and fill in a name (e.g. "Signalform"), leave the Callback URL blank, and submit
+3. Copy both the **API key** and the **Shared secret** from the confirmation page
+
+**Step 2: Enter API key and Shared Secret in Signalform**
+
+Paste both values into the respective fields in the setup wizard or in Settings → Last.fm. Save.
+
+**Step 3: Connect your Last.fm account (OAuth)**
+
+1. Open Settings in Signalform and click **Mit Last.fm verbinden** (Connect with Last.fm)
+2. You will be redirected to last.fm to authorise the application — log in if prompted and click Allow
+3. You are redirected back to Signalform, which stores the session key automatically
+
+After step 3, scrobbling, track loving, and Personal Radio are fully active.
 
 ### Getting a Fanart.tv API key
 
