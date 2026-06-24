@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.0] - 2026-06-24
+
+### Added
+
+- Story 5 — Last.fm love/unlove button in NowPlayingPanel
+- scrobble tracks to Last.fm while playing
+- discovery channel via Last.fm neighbours and recommendations
+- comfort-channel radio from listening history
+- Last.fm account setup — config, auth flow, settings UI
+- genre radio via Last.fm tag tracks
+
+### Fixed
+
+- persist personalRadioEnabled, scrobblingEnabled, personalRadioDiscovery
+- scroll and Last.fm auth — missing shared secret and overflow
+
+### Changed
+
+- move pure helpers to core, complete DELETE test coverage
+- extract business logic from route handler into core
+
+---
+
 ## [0.11.0] - 2026-06-14
 
 ### Added
