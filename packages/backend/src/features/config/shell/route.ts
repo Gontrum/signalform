@@ -15,6 +15,9 @@ const ConfigUpdateSchema = z.object({
   lastFmSharedSecret: z.string().optional(),
   fanartApiKey: z.string().optional(),
   language: z.enum(["en", "de"]).optional(),
+  personalRadioEnabled: z.boolean().optional(),
+  scrobblingEnabled: z.boolean().optional(),
+  personalRadioDiscovery: z.number().int().min(0).max(100).optional(),
 });
 
 export const createConfigRoute = (
