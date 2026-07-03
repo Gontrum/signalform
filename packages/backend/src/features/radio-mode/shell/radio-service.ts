@@ -5,30 +5,31 @@
  * applies functional filters (Stories 6.2 + 6.3), searches LMS, adds to queue.
  *
  * Imperative shell: has IO, state, and side effects.
- * All pure logic lives in service.ts and diversity-service.ts (functional core).
+ * Per-mode candidate sourcing lives here; the shared queue-facing pipeline lives in
+ * replenish-pipeline.ts; all pure logic lives in the core/ modules.
  */
 
-import type {
-  LmsClient,
-  SearchResult,
-} from "../../../adapters/lms-client/index.js";
-import type {
-  LastFmClient,
-  TagTopTrack,
-} from "../../../adapters/lastfm-client/index.js";
+import type { LmsClient } from "../../../adapters/lms-client/index.js";
+import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import {
   filterByContext,
   filterByDiversity,
-  addToSlidingWindow,
   DEFAULT_DIVERSITY_CONFIG,
 } from "../index.js";
-import type { CandidateTrack } from "../core/types.js";
+import type {
+  CandidateTrack,
+  ReplenishOutcome,
+  ReplenishTrigger,
+} from "../core/types.js";
 import {
-  selectBestTrackUrl,
-  artistMatches,
-  buildRadioSearchQueries,
-} from "../core/track-selection.js";
+  buildRecentTrackKey,
+  chooseEffectiveCandidates,
+  excludeSeedArtist,
+  filterRecentCandidates,
+  pickSpreadSimilarArtists,
+  shuffleWithRandom,
+} from "../core/replenish.js";
 import {
   PLAYER_UPDATES_ROOM,
   PLAYER_RADIO_STARTED,
@@ -43,78 +44,20 @@ import {
   clearRadioQueueRuntimeState,
   getRadioQueueState,
   isRadioModeEnabledForReplenishment,
-  recordExplicitRadioTracks,
   resetRadioRuntimeState,
   setRadioModeEnabledState,
   setRadioProcessing,
-  setRadioRecentArtists,
   setRequestedRadioModeEnabledState,
   incrementGenreRadioPage,
   incrementPersonalRadioCycle,
 } from "./radio-state.js";
 import type { PersonalRadioContext } from "./radio-state.js";
 import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
-import {
-  getQueueTrackRepeatKey,
-  getSearchResultRepeatKey,
-  getTrackUrlKey,
-} from "../core/identity.js";
-
-// Number of radio tracks to add per queue-end trigger
-const RADIO_BATCH_SIZE = 5;
-const RADIO_REMOVAL_REPLENISH_SIZE = 1;
-
-type ReplenishTrigger = "queue-end" | "queue-remove";
-
-type ReplenishOutcome =
-  | {
-      readonly status: "success";
-      readonly tracksAdded: number;
-    }
-  | {
-      readonly status: "skipped";
-      readonly reason:
-        | "already-processing"
-        | "disabled"
-        | "lastfm-unavailable"
-        | "no-candidates"
-        | "batch-empty"
-        | "queue-refilled";
-      readonly unavailableEmitted?: boolean;
-    }
-  | {
-      readonly status: "failed";
-      readonly reason: "queue-fetch-failed" | "unexpected-error";
-      readonly error: string;
-    };
-
-/**
- * Accumulator for the radio batch reduce loop.
- * Tracks added artist names (intra-batch diversity) and added URLs (URL-level deduplication).
- */
-type RadioAcc = {
-  readonly artists: readonly string[];
-  readonly urls: readonly string[];
-  readonly trackKeys: readonly string[];
-};
+import { runReplenishPipeline } from "./replenish-pipeline.js";
+import type { Logger } from "./replenish-pipeline.js";
 
 // Number of similar tracks to fetch from last.fm (larger pool = better filtering results)
 const LASTFM_SIMILAR_LIMIT = 50;
-
-type Logger = {
-  readonly info: (
-    msg: string,
-    meta?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    msg: string,
-    meta?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    msg: string,
-    meta?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 export type RadioEngine = {
   readonly handleQueueEnd: (
@@ -146,6 +89,8 @@ export const createRadioEngine = (
   logger: Logger,
 ): RadioEngine => {
   resetRadioRuntimeState();
+
+  const pipelineDeps = { lmsClient, logger, io, playerId } as const;
 
   const getDisabledReplenishOutcome = (
     trigger: ReplenishTrigger,
@@ -201,46 +146,27 @@ export const createRadioEngine = (
               );
               const recentKeys = new Set(
                 recentResult.ok
-                  ? recentResult.value.map(
-                      (t) =>
-                        `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
+                  ? recentResult.value.map((t) =>
+                      buildRecentTrackKey(t.artist, t.name),
                     )
                   : [],
               );
 
-              const candidates: readonly CandidateTrack[] = tracksResult.value
-                .filter(
-                  (t) =>
-                    !recentKeys.has(
-                      `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
-                    ),
-                )
-                .map((t) => ({
-                  name: t.name,
-                  artist: t.artist,
-                  match: 1,
-                  url: t.url,
-                }));
+              const candidates: readonly CandidateTrack[] =
+                filterRecentCandidates(tracksResult.value, recentKeys).map(
+                  (t) => ({
+                    name: t.name,
+                    artist: t.artist,
+                    match: 1,
+                    url: t.url,
+                  }),
+                );
 
               if (candidates.length === 0) {
                 return null;
               }
 
-              const shuffled: readonly CandidateTrack[] = Array.from(
-                { length: candidates.length },
-                (_, i) => i,
-              ).reduce<readonly CandidateTrack[]>(
-                (acc, _, i) => {
-                  const remaining = candidates.length - i;
-                  const j = Math.floor(Math.random() * remaining);
-                  const item = acc[j]!;
-                  const last = acc[remaining - 1]!;
-                  return acc.map((el, idx) =>
-                    idx === j ? last : idx === remaining - 1 ? item : el,
-                  );
-                },
-                [...candidates],
-              );
+              const shuffled = shuffleWithRandom(candidates, Math.random);
 
               const diversityFiltered = filterByDiversity(
                 shuffled,
@@ -252,197 +178,20 @@ export const createRadioEngine = (
                 return null;
               }
 
-              const preRadioQueueResult = await lmsClient.getQueue();
-              if (
-                !preRadioQueueResult.ok ||
-                preRadioQueueResult.value === undefined
-              ) {
-                const queueFetchError = preRadioQueueResult.ok
-                  ? "Unknown queue fetch failure"
-                  : (preRadioQueueResult.error?.message ??
-                    "Unknown queue fetch failure");
-                return {
-                  status: "failed",
-                  reason: "queue-fetch-failed",
-                  error: queueFetchError,
-                };
-              }
-              const queuedTrackRepeatKeys = preRadioQueueResult.value.map(
-                getQueueTrackRepeatKey,
-              );
-              const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap(
-                (track) => {
-                  const urlKey = getTrackUrlKey(track);
-                  return urlKey === undefined ? [] : [urlKey];
-                },
-              );
-
-              const targetBatchSize =
-                trigger === "queue-remove"
-                  ? RADIO_REMOVAL_REPLENISH_SIZE
-                  : RADIO_BATCH_SIZE;
-
-              const { artists: addedArtists, trackKeys: addedTrackKeys } =
-                await diversityFiltered.reduce(
-                  async (
-                    accPromise: Promise<RadioAcc>,
-                    candidate,
-                  ): Promise<RadioAcc> => {
-                    const acc = await accPromise;
-                    if (acc.artists.length >= targetBatchSize) {
-                      return acc;
-                    }
-                    if (
-                      acc.artists.some((added) =>
-                        artistMatches(added, candidate.artist),
-                      )
-                    ) {
-                      return acc;
-                    }
-
-                    const queryResults = await buildRadioSearchQueries(
-                      candidate.artist,
-                      candidate.name,
-                    ).reduce<Promise<readonly SearchResult[]>>(
-                      async (resultPromise, query) => {
-                        const previousResults = await resultPromise;
-                        if (previousResults.length > 0) {
-                          return previousResults;
-                        }
-                        const searchResult = await lmsClient.search(query);
-                        if (
-                          !searchResult.ok ||
-                          searchResult.value.tracks.length === 0
-                        ) {
-                          return [];
-                        }
-                        return searchResult.value.tracks.filter((r) =>
-                          artistMatches(r.artist, candidate.artist),
-                        );
-                      },
-                      Promise.resolve([] as readonly SearchResult[]),
-                    );
-
-                    if (queryResults.length === 0) {
-                      return acc;
-                    }
-
-                    const selectResult = selectBestTrackUrl(queryResults);
-                    const bestUrl = selectResult.url;
-                    const bestUrlKey = getTrackUrlKey({ url: bestUrl });
-                    if (bestUrl === undefined || bestUrlKey === undefined) {
-                      return acc;
-                    }
-
-                    const bestResult =
-                      queryResults.find((r) => r.url === bestUrl) ?? null;
-                    const repeatKey =
-                      bestResult !== null
-                        ? getSearchResultRepeatKey(bestResult)
-                        : getQueueTrackRepeatKey({
-                            artist: candidate.artist,
-                            title: candidate.name,
-                          });
-
-                    if (
-                      acc.trackKeys.includes(repeatKey) ||
-                      queuedTrackRepeatKeys.includes(repeatKey) ||
-                      queuedTrackUrlKeys.includes(bestUrlKey) ||
-                      acc.urls.includes(bestUrlKey)
-                    ) {
-                      return acc;
-                    }
-
-                    const addResult = await lmsClient.addToQueue(bestUrl);
-                    if (!addResult.ok) {
-                      return acc;
-                    }
-
-                    logger.info(
-                      "Personal Radio (Discovery): track added to queue",
-                      {
-                        event: "radio.personal_discovery_track_queued",
-                        trigger,
-                        username,
-                        neighbourUsername,
-                        artist: candidate.artist,
-                        title: candidate.name,
-                      },
-                    );
-                    return {
-                      artists: [...acc.artists, candidate.artist],
-                      urls: [...acc.urls, bestUrlKey],
-                      trackKeys: [...acc.trackKeys, repeatKey],
-                    };
-                  },
-                  Promise.resolve({
-                    artists: [] as readonly string[],
-                    urls: [] as readonly string[],
-                    trackKeys: [] as readonly string[],
-                  }),
-                );
-
-              if (addedArtists.length === 0) {
-                return null;
-              }
-
-              const currentStatusResult = await lmsClient.getStatus();
-              if (
-                currentStatusResult.ok &&
-                currentStatusResult.value?.mode === "stop"
-              ) {
-                if (trigger === "queue-end") {
-                  await lmsClient.nextTrack();
-                } else {
-                  await lmsClient.resume();
-                }
-              }
-
-              const nextRecentArtists = addedArtists.reduce(
-                (window, artist) =>
-                  addToSlidingWindow(
-                    window,
-                    artist,
-                    DEFAULT_DIVERSITY_CONFIG.windowSize,
-                  ),
-                getRadioQueueState().recentArtists,
-              );
-              setRadioRecentArtists(nextRecentArtists);
-              incrementPersonalRadioCycle();
-
-              const queueResult = await lmsClient.getQueue();
-              if (!queueResult.ok || queueResult.value === undefined) {
-                return {
-                  status: "failed",
-                  reason: "queue-fetch-failed",
-                  error:
-                    "Queue refresh failed after personal radio discovery add",
-                };
-              }
-
-              const queueProjection = recordExplicitRadioTracks(
-                queueResult.value,
-                addedTrackKeys,
-              );
-              io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-                playerId,
-                tracks: queueProjection.tracks,
-                radioModeActive: queueProjection.radioModeActive,
-                radioBoundaryIndex:
-                  queueProjection.radioBoundaryIndex ?? undefined,
-                timestamp: Date.now(),
-              });
-
-              logger.info("Personal Radio (Discovery) replenish succeeded", {
-                event: "radio.personal_discovery_replenish_succeeded",
+              const outcome = await runReplenishPipeline(pipelineDeps, {
+                candidates: diversityFiltered,
                 trigger,
-                username,
-                neighbourUsername,
-                cycle,
-                tracksAdded: addedArtists.length,
+                logContext: { username, neighbourUsername, cycle },
+                onCommit: incrementPersonalRadioCycle,
+                refreshFailureError:
+                  "Queue refresh failed after personal radio discovery add",
               });
 
-              return { status: "success", tracksAdded: addedArtists.length };
+              // Empty batch falls through to the comfort channel (current behaviour)
+              return outcome.status === "skipped" &&
+                outcome.reason === "batch-empty"
+                ? null
+                : outcome;
             })()
           : null;
 
@@ -466,23 +215,14 @@ export const createRadioEngine = (
     }
 
     // Pick up to 4 similar artists (spread across the similar list by index)
-    const similar = similarResult.value;
-    const pickedSimilar =
-      similar.length === 0
-        ? []
-        : [
-            0,
-            Math.floor(similar.length / 3),
-            Math.floor((similar.length * 2) / 3),
-            similar.length - 1,
-          ]
-            .map((i) => similar[i]!)
-            .filter((a, i, arr) => arr.indexOf(a) === i) // dedup
-            .slice(0, 4);
+    const pickedSimilar = pickSpreadSimilarArtists(
+      similarResult.value.map((a) => a.name),
+      4,
+    );
 
     // Fetch top tracks for each picked artist
     const trackResults = await Promise.all(
-      pickedSimilar.map((a) => lastFmClient.getArtistTopTracks(a.name, 8)),
+      pickedSimilar.map((name) => lastFmClient.getArtistTopTracks(name, 8)),
     );
 
     const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));
@@ -495,41 +235,20 @@ export const createRadioEngine = (
     const recentResult = await lastFmClient.getUserRecentTracks(username, 30);
     const recentKeys = new Set(
       recentResult.ok
-        ? recentResult.value.map(
-            (t) => `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
-          )
+        ? recentResult.value.map((t) => buildRecentTrackKey(t.artist, t.name))
         : [],
     );
 
-    const candidates: readonly CandidateTrack[] = allTracks
-      .filter(
-        (t) =>
-          !recentKeys.has(
-            `${t.artist.toLowerCase()}|||${t.name.toLowerCase()}`,
-          ),
-      )
-      .map((t) => ({ name: t.name, artist: t.artist, match: 1, url: t.url }));
+    const candidates: readonly CandidateTrack[] = filterRecentCandidates(
+      allTracks,
+      recentKeys,
+    ).map((t) => ({ name: t.name, artist: t.artist, match: 1, url: t.url }));
 
     if (candidates.length === 0) {
       return { status: "skipped", reason: "no-candidates" };
     }
 
-    // Fisher-Yates shuffle via reduce
-    const shuffled: readonly CandidateTrack[] = Array.from(
-      { length: candidates.length },
-      (_, i) => i,
-    ).reduce<readonly CandidateTrack[]>(
-      (acc, _, i) => {
-        const remaining = candidates.length - i;
-        const j = Math.floor(Math.random() * remaining);
-        const item = acc[j]!;
-        const last = acc[remaining - 1]!;
-        return acc.map((el, idx) =>
-          idx === j ? last : idx === remaining - 1 ? item : el,
-        );
-      },
-      [...candidates],
-    );
+    const shuffled = shuffleWithRandom(candidates, Math.random);
 
     const diversityFiltered = filterByDiversity(
       shuffled,
@@ -541,171 +260,13 @@ export const createRadioEngine = (
       return { status: "skipped", reason: "no-candidates" };
     }
 
-    const preRadioQueueResult = await lmsClient.getQueue();
-    if (!preRadioQueueResult.ok || preRadioQueueResult.value === undefined) {
-      const queueFetchError = preRadioQueueResult.ok
-        ? "Unknown queue fetch failure"
-        : (preRadioQueueResult.error?.message ?? "Unknown queue fetch failure");
-      return {
-        status: "failed",
-        reason: "queue-fetch-failed",
-        error: queueFetchError,
-      };
-    }
-    const queuedTrackRepeatKeys = preRadioQueueResult.value.map(
-      getQueueTrackRepeatKey,
-    );
-    const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap((track) => {
-      const urlKey = getTrackUrlKey(track);
-      return urlKey === undefined ? [] : [urlKey];
-    });
-
-    const targetBatchSize =
-      trigger === "queue-remove"
-        ? RADIO_REMOVAL_REPLENISH_SIZE
-        : RADIO_BATCH_SIZE;
-
-    const { artists: addedArtists, trackKeys: addedTrackKeys } =
-      await diversityFiltered.reduce(
-        async (accPromise: Promise<RadioAcc>, candidate): Promise<RadioAcc> => {
-          const acc = await accPromise;
-          if (acc.artists.length >= targetBatchSize) {
-            return acc;
-          }
-          if (
-            acc.artists.some((added) => artistMatches(added, candidate.artist))
-          ) {
-            return acc;
-          }
-
-          const queryResults = await buildRadioSearchQueries(
-            candidate.artist,
-            candidate.name,
-          ).reduce<Promise<readonly SearchResult[]>>(
-            async (resultPromise, query) => {
-              const previousResults = await resultPromise;
-              if (previousResults.length > 0) {
-                return previousResults;
-              }
-              const searchResult = await lmsClient.search(query);
-              if (!searchResult.ok || searchResult.value.tracks.length === 0) {
-                return [];
-              }
-              return searchResult.value.tracks.filter((r) =>
-                artistMatches(r.artist, candidate.artist),
-              );
-            },
-            Promise.resolve([] as readonly SearchResult[]),
-          );
-
-          if (queryResults.length === 0) {
-            return acc;
-          }
-
-          const selectResult = selectBestTrackUrl(queryResults);
-          const bestUrl = selectResult.url;
-          const bestUrlKey = getTrackUrlKey({ url: bestUrl });
-          if (bestUrl === undefined || bestUrlKey === undefined) {
-            return acc;
-          }
-
-          const bestResult =
-            queryResults.find((r) => r.url === bestUrl) ?? null;
-          const repeatKey =
-            bestResult !== null
-              ? getSearchResultRepeatKey(bestResult)
-              : getQueueTrackRepeatKey({
-                  artist: candidate.artist,
-                  title: candidate.name,
-                });
-
-          if (
-            acc.trackKeys.includes(repeatKey) ||
-            queuedTrackRepeatKeys.includes(repeatKey) ||
-            queuedTrackUrlKeys.includes(bestUrlKey) ||
-            acc.urls.includes(bestUrlKey)
-          ) {
-            return acc;
-          }
-
-          const addResult = await lmsClient.addToQueue(bestUrl);
-          if (!addResult.ok) {
-            return acc;
-          }
-
-          logger.info("Personal Radio: track added to queue", {
-            event: "radio.personal_track_queued",
-            trigger,
-            username,
-            seedArtist,
-            artist: candidate.artist,
-            title: candidate.name,
-          });
-          return {
-            artists: [...acc.artists, candidate.artist],
-            urls: [...acc.urls, bestUrlKey],
-            trackKeys: [...acc.trackKeys, repeatKey],
-          };
-        },
-        Promise.resolve({
-          artists: [] as readonly string[],
-          urls: [] as readonly string[],
-          trackKeys: [] as readonly string[],
-        }),
-      );
-
-    if (addedArtists.length === 0) {
-      return { status: "skipped", reason: "batch-empty" };
-    }
-
-    const currentStatusResult = await lmsClient.getStatus();
-    if (currentStatusResult.ok && currentStatusResult.value?.mode === "stop") {
-      if (trigger === "queue-end") {
-        await lmsClient.nextTrack();
-      } else {
-        await lmsClient.resume();
-      }
-    }
-
-    const nextRecentArtists = addedArtists.reduce(
-      (window, artist) =>
-        addToSlidingWindow(window, artist, DEFAULT_DIVERSITY_CONFIG.windowSize),
-      getRadioQueueState().recentArtists,
-    );
-    setRadioRecentArtists(nextRecentArtists);
-    incrementPersonalRadioCycle();
-
-    const queueResult = await lmsClient.getQueue();
-    if (!queueResult.ok || queueResult.value === undefined) {
-      return {
-        status: "failed",
-        reason: "queue-fetch-failed",
-        error: "Queue refresh failed after personal radio add",
-      };
-    }
-
-    const queueProjection = recordExplicitRadioTracks(
-      queueResult.value,
-      addedTrackKeys,
-    );
-    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-      playerId,
-      tracks: queueProjection.tracks,
-      radioModeActive: queueProjection.radioModeActive,
-      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-      timestamp: Date.now(),
-    });
-
-    logger.info("Personal Radio replenish succeeded", {
-      event: "radio.personal_replenish_succeeded",
+    return runReplenishPipeline(pipelineDeps, {
+      candidates: diversityFiltered,
       trigger,
-      username,
-      seedArtist,
-      cycle,
-      tracksAdded: addedArtists.length,
+      logContext: { username, seedArtist, cycle },
+      onCommit: incrementPersonalRadioCycle,
+      refreshFailureError: "Queue refresh failed after personal radio add",
     });
-
-    return { status: "success", tracksAdded: addedArtists.length };
   };
 
   const replenishGenreQueue = async (
@@ -752,22 +313,7 @@ export const createRadioEngine = (
       return { status: "skipped", reason: "no-candidates" };
     }
 
-    // Fisher-Yates shuffle via reduce — no mutation, no loop statements
-    const shuffled: readonly TagTopTrack[] = Array.from(
-      { length: tagTracksResult.value.length },
-      (_, i) => i,
-    ).reduce<readonly TagTopTrack[]>(
-      (acc, _, i) => {
-        const remaining = tagTracksResult.value.length - i;
-        const j = Math.floor(Math.random() * remaining);
-        const item = acc[j]!;
-        const last = acc[remaining - 1]!;
-        return acc.map((el, idx) =>
-          idx === j ? last : idx === remaining - 1 ? item : el,
-        );
-      },
-      [...tagTracksResult.value],
-    );
+    const shuffled = shuffleWithRandom(tagTracksResult.value, Math.random);
 
     const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
       name: t.name,
@@ -786,169 +332,13 @@ export const createRadioEngine = (
       return { status: "skipped", reason: "no-candidates" };
     }
 
-    const preRadioQueueResult = await lmsClient.getQueue();
-    if (!preRadioQueueResult.ok || preRadioQueueResult.value === undefined) {
-      const queueFetchError = preRadioQueueResult.ok
-        ? "Unknown queue fetch failure"
-        : (preRadioQueueResult.error?.message ?? "Unknown queue fetch failure");
-      return {
-        status: "failed",
-        reason: "queue-fetch-failed",
-        error: queueFetchError,
-      };
-    }
-    const queuedTrackRepeatKeys = preRadioQueueResult.value.map(
-      getQueueTrackRepeatKey,
-    );
-    const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap((track) => {
-      const urlKey = getTrackUrlKey(track);
-      return urlKey === undefined ? [] : [urlKey];
-    });
-
-    const targetBatchSize =
-      trigger === "queue-remove"
-        ? RADIO_REMOVAL_REPLENISH_SIZE
-        : RADIO_BATCH_SIZE;
-
-    const { artists: addedArtists, trackKeys: addedTrackKeys } =
-      await diversityFiltered.reduce(
-        async (accPromise: Promise<RadioAcc>, candidate): Promise<RadioAcc> => {
-          const acc = await accPromise;
-          if (acc.artists.length >= targetBatchSize) {
-            return acc;
-          }
-          if (
-            acc.artists.some((added) => artistMatches(added, candidate.artist))
-          ) {
-            return acc;
-          }
-
-          const queryResults = await buildRadioSearchQueries(
-            candidate.artist,
-            candidate.name,
-          ).reduce<Promise<readonly SearchResult[]>>(
-            async (resultPromise, query) => {
-              const previousResults = await resultPromise;
-              if (previousResults.length > 0) {
-                return previousResults;
-              }
-              const searchResult = await lmsClient.search(query);
-              if (!searchResult.ok || searchResult.value.tracks.length === 0) {
-                return [];
-              }
-              return searchResult.value.tracks.filter((r) =>
-                artistMatches(r.artist, candidate.artist),
-              );
-            },
-            Promise.resolve([] as readonly SearchResult[]),
-          );
-
-          if (queryResults.length === 0) {
-            return acc;
-          }
-
-          const selectResult = selectBestTrackUrl(queryResults);
-          const bestUrl = selectResult.url;
-          const bestUrlKey = getTrackUrlKey({ url: bestUrl });
-          if (bestUrl === undefined || bestUrlKey === undefined) {
-            return acc;
-          }
-
-          const bestResult =
-            queryResults.find((r) => r.url === bestUrl) ?? null;
-          const repeatKey =
-            bestResult !== null
-              ? getSearchResultRepeatKey(bestResult)
-              : getQueueTrackRepeatKey({
-                  artist: candidate.artist,
-                  title: candidate.name,
-                });
-
-          if (
-            acc.trackKeys.includes(repeatKey) ||
-            queuedTrackRepeatKeys.includes(repeatKey) ||
-            queuedTrackUrlKeys.includes(bestUrlKey) ||
-            acc.urls.includes(bestUrlKey)
-          ) {
-            return acc;
-          }
-
-          const addResult = await lmsClient.addToQueue(bestUrl);
-          if (!addResult.ok) {
-            return acc;
-          }
-
-          logger.info("Genre Radio: track added to queue", {
-            event: "radio.genre_track_queued",
-            trigger,
-            genreName,
-            artist: candidate.artist,
-            title: candidate.name,
-          });
-          return {
-            artists: [...acc.artists, candidate.artist],
-            urls: [...acc.urls, bestUrlKey],
-            trackKeys: [...acc.trackKeys, repeatKey],
-          };
-        },
-        Promise.resolve({
-          artists: [] as readonly string[],
-          urls: [] as readonly string[],
-          trackKeys: [] as readonly string[],
-        }),
-      );
-
-    if (addedArtists.length === 0) {
-      return { status: "skipped", reason: "batch-empty" };
-    }
-
-    const currentStatusResult = await lmsClient.getStatus();
-    if (currentStatusResult.ok && currentStatusResult.value?.mode === "stop") {
-      if (trigger === "queue-end") {
-        await lmsClient.nextTrack();
-      } else {
-        await lmsClient.resume();
-      }
-    }
-
-    const nextRecentArtists = addedArtists.reduce(
-      (window, artist) =>
-        addToSlidingWindow(window, artist, DEFAULT_DIVERSITY_CONFIG.windowSize),
-      getRadioQueueState().recentArtists,
-    );
-    setRadioRecentArtists(nextRecentArtists);
-    incrementGenreRadioPage();
-
-    const queueResult = await lmsClient.getQueue();
-    if (!queueResult.ok || queueResult.value === undefined) {
-      return {
-        status: "failed",
-        reason: "queue-fetch-failed",
-        error: "Queue refresh failed after genre radio add",
-      };
-    }
-
-    const queueProjection = recordExplicitRadioTracks(
-      queueResult.value,
-      addedTrackKeys,
-    );
-    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-      playerId,
-      tracks: queueProjection.tracks,
-      radioModeActive: queueProjection.radioModeActive,
-      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-      timestamp: Date.now(),
-    });
-
-    logger.info("Genre Radio replenish succeeded", {
-      event: "radio.genre_replenish_succeeded",
+    return runReplenishPipeline(pipelineDeps, {
+      candidates: diversityFiltered,
       trigger,
-      genreName,
-      page,
-      tracksAdded: addedArtists.length,
+      logContext: { genreName, page },
+      onCommit: incrementGenreRadioPage,
+      refreshFailureError: "Queue refresh failed after genre radio add",
     });
-
-    return { status: "success", tracksAdded: addedArtists.length };
   };
 
   const replenishRadioQueue = async (
@@ -1102,18 +492,20 @@ export const createRadioEngine = (
           }
         }
 
-        const effectiveCandidates: readonly CandidateTrack[] =
-          candidates.length > 0
-            ? candidates
-            : artistFallbackResult?.ok && artistFallbackResult.value.length > 0
-              ? artistFallbackResult.value.map((a) => ({
-                  name: "",
-                  artist: a.name,
-                  match: a.match,
-                  mbid: a.mbid,
-                  url: a.url,
-                }))
-              : [];
+        const artistFallbackCandidates: readonly CandidateTrack[] =
+          artistFallbackResult?.ok === true
+            ? artistFallbackResult.value.map((a) => ({
+                name: "",
+                artist: a.name,
+                match: a.match,
+                mbid: a.mbid,
+                url: a.url,
+              }))
+            : [];
+        const effectiveCandidates = chooseEffectiveCandidates(
+          candidates,
+          artistFallbackCandidates,
+        );
 
         // Step 3: Apply functional core filters
         // filterByContext gracefully passes all when no seedYear/seedGenres given
@@ -1127,8 +519,9 @@ export const createRadioEngine = (
         // Step 3.5: Exclude seed artist from candidates (AC5/AC6 Story 9.17).
         // Radio should recommend OTHER artists — the seed artist is already known to the user.
         // Uses existing artistMatches() for NFD-normalized bidirectional includes-check.
-        const seedArtistFiltered = diversityFiltered.filter(
-          (c) => !artistMatches(c.artist, seedArtist),
+        const seedArtistFiltered = excludeSeedArtist(
+          diversityFiltered,
+          seedArtist,
         );
         if (seedArtistFiltered.length < diversityFiltered.length) {
           logger.info("Radio: seed artist excluded from candidates", {
@@ -1154,424 +547,16 @@ export const createRadioEngine = (
           return { status: "skipped", reason: "no-candidates" };
         }
 
-        // Step 4.5: Capture pre-radio queue length for accurate radioBoundaryIndex.
-        // LMS keeps previously played tracks in the queue even after mode→stop.
-        // We must measure the length BEFORE adding radio tracks so the boundary marker
-        // appears after the last user-queued track, not at position 0.
-        const preRadioQueueResult = await lmsClient.getQueue();
-        if (
-          !preRadioQueueResult.ok ||
-          preRadioQueueResult.value === undefined
-        ) {
-          const queueFetchError = preRadioQueueResult.ok
-            ? "Unknown queue fetch failure"
-            : (preRadioQueueResult.error?.message ??
-              "Unknown queue fetch failure");
-          logger.warn(
-            "Radio: could not get pre-radio queue length — replenish aborted",
-            {
-              event: "radio.queue_length_fetch_failed",
-              trigger,
-              error: queueFetchError,
-              seedArtist,
-              seedTitle,
-            },
-          );
-          return {
-            status: "failed",
-            reason: "queue-fetch-failed",
-            error: queueFetchError,
-          };
-        }
-        const preRadioQueueLength = preRadioQueueResult.value.length;
-        const queuedTrackRepeatKeys = preRadioQueueResult.value.map((track) =>
-          getQueueTrackRepeatKey(track),
-        );
-        const queuedTrackUrlKeys = preRadioQueueResult.value.flatMap(
-          (track) => {
-            const urlKey = getTrackUrlKey(track);
-            return urlKey === undefined ? [] : [urlKey];
-          },
-        );
-        const disabledAfterQueueSnapshot = getDisabledReplenishOutcome(
+        // Steps 4.5–7: shared replenish pipeline (queue snapshot, batch add,
+        // status advance, sliding window, queue refresh + emit)
+        return runReplenishPipeline(pipelineDeps, {
+          candidates: seedArtistFiltered,
           trigger,
-          seedArtist,
-          seedTitle,
-        );
-        if (disabledAfterQueueSnapshot !== undefined) {
-          return disabledAfterQueueSnapshot;
-        }
-
-        if (trigger === "queue-end") {
-          const queueFreshnessResult = await lmsClient.getQueue();
-          if (
-            queueFreshnessResult.ok &&
-            queueFreshnessResult.value !== undefined &&
-            queueFreshnessResult.value.length > preRadioQueueLength
-          ) {
-            logger.info(
-              "Radio: queue-end replenish skipped because queue was refilled",
-              {
-                event: "radio.queue_refilled_before_replenish",
-                trigger,
-                seedArtist,
-                seedTitle,
-                preRadioQueueLength,
-                refreshedQueueLength: queueFreshnessResult.value.length,
-              },
-            );
-            return { status: "skipped", reason: "queue-refilled" };
-          }
-        }
-
-        // Step 5: Search LMS for each candidate and add to queue (sequential — avoids overwhelming LMS)
-        // Process ALL diversity-filtered candidates (up to LASTFM_SIMILAR_LIMIT=50) until
-        // RADIO_BATCH_SIZE tracks are added. Previously we sliced to top 5 before searching LMS,
-        // which caused sparse libraries to yield 0-1 tracks even though 50 candidates were available.
-
-        // Accumulator tracks both added artist names (for intra-batch diversity) and added URLs
-        // (for URL-level deduplication — different last.fm candidates can resolve to the same track URL).
-        const targetBatchSize =
-          trigger === "queue-remove"
-            ? RADIO_REMOVAL_REPLENISH_SIZE
-            : RADIO_BATCH_SIZE;
-
-        const { artists: addedArtists, trackKeys: addedTrackKeys } =
-          await seedArtistFiltered.reduce(
-            async (
-              accPromise: Promise<RadioAcc>,
-              candidate,
-            ): Promise<RadioAcc> => {
-              const acc = await accPromise;
-              const disabledDuringBatch = getDisabledReplenishOutcome(
-                trigger,
-                seedArtist,
-                seedTitle,
-              );
-              if (disabledDuringBatch !== undefined) {
-                return acc;
-              }
-
-              // Batch is full — skip remaining candidates
-              if (acc.artists.length >= targetBatchSize) {
-                return acc;
-              }
-
-              // Skip if artist already added in this batch (NFD-normalized bidirectional match).
-              // filterByDiversity only filters against state.recentArtists (previous batches).
-              // On first run recentArtists = [] → all same-artist candidates pass diversity filter.
-              // Uses artistMatches() for consistency with seed exclusion — handles collaboration
-              // variants like "Adele" vs "Adele feat. James Brown" as the same artist.
-              if (
-                acc.artists.some((added) =>
-                  artistMatches(added, candidate.artist),
-                )
-              ) {
-                logger.info(
-                  "Radio: skipping duplicate artist in batch — artist already queued in this batch",
-                  {
-                    event: "radio.duplicate_artist_skipped",
-                    trigger,
-                    artist: candidate.artist,
-                    title: candidate.name,
-                  },
-                );
-                return acc;
-              }
-
-              const queryResults = await buildRadioSearchQueries(
-                candidate.artist,
-                candidate.name,
-              ).reduce<Promise<readonly SearchResult[]>>(
-                async (resultPromise, query) => {
-                  const previousResults = await resultPromise;
-                  if (previousResults.length > 0) {
-                    return previousResults;
-                  }
-
-                  const searchResult = await lmsClient.search(query);
-                  if (
-                    !searchResult.ok ||
-                    searchResult.value.tracks.length === 0
-                  ) {
-                    return [];
-                  }
-
-                  const matchingResults = searchResult.value.tracks.filter(
-                    (r) => artistMatches(r.artist, candidate.artist),
-                  );
-                  return matchingResults;
-                },
-                Promise.resolve([] as readonly SearchResult[]),
-              );
-              if (queryResults.length === 0) {
-                logger.warn("Radio: track not found in LMS — skipped", {
-                  event: "radio.track_not_found",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                });
-                return acc;
-              }
-
-              // Select best quality track using source hierarchy scoring + tie-breaking
-              const selectResult = selectBestTrackUrl(queryResults);
-              if (selectResult.selectionError !== undefined) {
-                // AC6: log SelectionError details when source hierarchy falls back to simple comparison
-                logger.warn(
-                  "Radio: source hierarchy selection failed — using fallback lossless/bitrate comparison",
-                  {
-                    event: "radio.source_hierarchy_fallback",
-                    trigger,
-                    artist: candidate.artist,
-                    title: candidate.name,
-                    selectionError: selectResult.selectionError.type,
-                    selectionMessage: selectResult.selectionError.message,
-                  },
-                );
-              }
-              const bestUrl = selectResult.url;
-              const bestUrlKey = getTrackUrlKey({ url: bestUrl });
-              if (bestUrl === undefined || bestUrlKey === undefined) {
-                logger.warn(
-                  "Radio: could not determine best track URL — skipped",
-                  {
-                    event: "radio.no_best_url",
-                    trigger,
-                    artist: candidate.artist,
-                    title: candidate.name,
-                  },
-                );
-                return acc;
-              }
-
-              const bestResult =
-                queryResults.find((result) => result.url === bestUrl) ?? null;
-              const repeatKey =
-                bestResult !== null
-                  ? getSearchResultRepeatKey(bestResult)
-                  : getQueueTrackRepeatKey({
-                      artist: candidate.artist,
-                      title: candidate.name,
-                    });
-
-              if (
-                acc.trackKeys.includes(repeatKey) ||
-                queuedTrackRepeatKeys.includes(repeatKey) ||
-                queuedTrackUrlKeys.includes(bestUrlKey)
-              ) {
-                logger.info("Radio: skipping recent duplicate track", {
-                  event: "radio.recent_duplicate_skipped",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                });
-                return acc;
-              }
-
-              // Skip if this URL was already added in this batch.
-              // Different last.fm candidates can resolve to the same track URL (local or Tidal)
-              // (e.g. "Lisa Dream" and "Adele When We Were Young" both match "Holiday.flac"),
-              // causing duplicates that the artist-level check above cannot prevent.
-              if (acc.urls.includes(bestUrlKey)) {
-                logger.warn(
-                  "Radio: skipping duplicate URL — track already in queue batch",
-                  {
-                    event: "radio.duplicate_url_skipped",
-                    trigger,
-                    artist: candidate.artist,
-                    title: candidate.name,
-                    url: bestUrl,
-                  },
-                );
-                return acc;
-              }
-
-              const addResult = await lmsClient.addToQueue(bestUrl);
-              if (!addResult.ok) {
-                logger.warn("Radio: addToQueue failed — skipped", {
-                  event: "radio.add_to_queue_failed",
-                  trigger,
-                  artist: candidate.artist,
-                  title: candidate.name,
-                  error: addResult.error,
-                });
-                return acc;
-              }
-
-              logger.info("Radio: track added to queue", {
-                event: "radio.track_queued",
-                trigger,
-                artist: candidate.artist,
-                title: candidate.name,
-              });
-              return {
-                artists: [...acc.artists, candidate.artist],
-                urls: [...acc.urls, bestUrlKey],
-                trackKeys: [...acc.trackKeys, repeatKey],
-              };
-            },
-            Promise.resolve({
-              artists: [] as readonly string[],
-              urls: [] as readonly string[],
-              trackKeys: [] as readonly string[],
-            }),
-          );
-
-        if (addedArtists.length === 0) {
-          const disabledWithoutAdds = getDisabledReplenishOutcome(
-            trigger,
-            seedArtist,
-            seedTitle,
-          );
-          if (disabledWithoutAdds !== undefined) {
-            return disabledWithoutAdds;
-          }
-          logger.warn("Radio: no tracks could be added to queue", {
-            event: "radio.batch_empty",
-            trigger,
-            seedArtist,
-            seedTitle,
-          });
-          return { status: "skipped", reason: "batch-empty" };
-        }
-
-        // Step 5b: Advance playback if the player stopped while we were adding tracks.
-        const disabledBeforeAdvance = getDisabledReplenishOutcome(
-          trigger,
-          seedArtist,
-          seedTitle,
-        );
-        if (disabledBeforeAdvance !== undefined) {
-          return disabledBeforeAdvance;
-        }
-
-        // On queue-end, LMS can still consider the seed track current after stop; resume()
-        // may replay that just-finished track instead of moving into the newly queued radio track.
-        // nextTrack() advances onto the first appended radio item. For queue-remove replenishment,
-        // we do not force playback movement because playback may still be progressing normally.
-        const currentStatusResult = await lmsClient.getStatus();
-        if (
-          currentStatusResult.ok &&
-          currentStatusResult.value?.mode === "stop"
-        ) {
-          const resumeResult =
-            trigger === "queue-end"
-              ? await lmsClient.nextTrack()
-              : await lmsClient.resume();
-          if (resumeResult.ok) {
-            logger.info(
-              trigger === "queue-end"
-                ? "Radio: advanced to first radio track after queue-end stop"
-                : "Radio: auto-resumed playback after adding tracks to stopped player",
-              {
-                event:
-                  trigger === "queue-end"
-                    ? "radio.auto_advanced"
-                    : "radio.auto_resumed",
-                trigger,
-                seedArtist,
-                seedTitle,
-              },
-            );
-          } else {
-            logger.warn(
-              trigger === "queue-end"
-                ? "Radio: could not advance to first radio track — player remains stopped"
-                : "Radio: auto-resume failed — player remains stopped",
-              {
-                event:
-                  trigger === "queue-end"
-                    ? "radio.auto_advance_failed"
-                    : "radio.auto_resume_failed",
-                trigger,
-                error: resumeResult.error,
-                seedArtist,
-                seedTitle,
-              },
-            );
-          }
-        } else if (!currentStatusResult.ok) {
-          logger.warn(
-            "Radio: could not check player status for auto-resume — skipping",
-            {
-              event: "radio.status_check_failed",
-              trigger,
-              error: currentStatusResult.error,
-              seedArtist,
-              seedTitle,
-            },
-          );
-        }
-
-        // Step 6: Update sliding window state
-        const nextRecentArtists = addedArtists.reduce(
-          (window, artist) =>
-            addToSlidingWindow(
-              window,
-              artist,
-              DEFAULT_DIVERSITY_CONFIG.windowSize,
-            ),
-          getRadioQueueState().recentArtists,
-        );
-        setRadioRecentArtists(nextRecentArtists);
-        const disabledBeforeRefresh = getDisabledReplenishOutcome(
-          trigger,
-          seedArtist,
-          seedTitle,
-        );
-        if (disabledBeforeRefresh !== undefined) {
-          return disabledBeforeRefresh;
-        }
-
-        // Step 7: Fetch updated queue and emit player.queue.updated
-        const queueResult = await lmsClient.getQueue();
-        if (!queueResult.ok || queueResult.value === undefined) {
-          const queueRefreshError = queueResult.ok
-            ? "Unknown queue refresh failure"
-            : (queueResult.error?.message ?? "Unknown queue refresh failure");
-          logger.warn(
-            "Radio: could not fetch updated queue — replenish failed after add",
-            {
-              event: "radio.queue_fetch_failed",
-              trigger,
-              error: queueRefreshError,
-              seedArtist,
-              seedTitle,
-            },
-          );
-          return {
-            status: "failed",
-            reason: "queue-fetch-failed",
-            error: queueRefreshError,
-          };
-        }
-
-        const queueProjection = recordExplicitRadioTracks(
-          queueResult.value,
-          addedTrackKeys,
-        );
-        io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-          playerId,
-          tracks: queueProjection.tracks,
-          radioModeActive: queueProjection.radioModeActive,
-          radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-          timestamp: Date.now(),
+          logContext: { seedArtist, seedTitle },
+          checkDisabled: () =>
+            getDisabledReplenishOutcome(trigger, seedArtist, seedTitle) ?? null,
+          recheckQueueFreshness: true,
         });
-
-        logger.info("Radio replenish succeeded", {
-          event: "radio.replenish_succeeded",
-          trigger,
-          seedArtist,
-          seedTitle,
-          tracksAdded: addedArtists.length,
-          radioBoundaryIndex: queueProjection.radioBoundaryIndex,
-        });
-
-        return {
-          status: "success",
-          tracksAdded: addedArtists.length,
-        };
       })
       .catch((error: unknown): ReplenishOutcome => {
         const message = error instanceof Error ? error.message : String(error);
