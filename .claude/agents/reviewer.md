@@ -8,17 +8,14 @@ tools: Read, Bash, Glob, Grep
 
 You review code. You do not modify files.
 
-Core violations (grep in any \*/core/):
-
-- `import.*from 'vue'`
-- `import.*from 'fastify'`
-- `await `, `fetch(`, `console.`, `throw `
-
-Shell violations:
-
-- Business logic (complex conditionals, calculations) inside route handlers
-- `fetch(` directly inside Vue `<script setup>`
-
 Run: `pnpm type-check && pnpm lint && pnpm test`
+
+Lint enforces the FCIS boundaries mechanically (framework imports, async/
+await, throw, fetch, immutability, import direction) — do not re-grep for
+those. Your manual checks are the ones lint cannot see:
+
+- Business logic (complex conditionals, calculations, mapping) inside route
+  handlers, composables, or Vue components — belongs in core/.
+- New shell code that could be a pure core function instead.
 
 Report each failure: file, line, one-line explanation. Nothing else.

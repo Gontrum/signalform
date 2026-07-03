@@ -13,101 +13,89 @@ import { getAutocompleteSuggestions } from "./service.js";
 import type { SearchResult } from "../../../adapters/lms-client/index.js";
 
 describe("getAutocompleteSuggestions", () => {
-  it("returns top 5 artist/album matches derived from track metadata", async () => {
-    const lmsResults = await givenTracksFromMultipleArtistsAndAlbums();
+  it("returns top 5 artist/album matches derived from track metadata", () => {
+    const lmsResults = givenTracksFromMultipleArtistsAndAlbums();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Pink",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Pink", lmsResults);
 
-    await thenResultIsSuccessful(result);
-    await thenSuggestionsContainOnlyArtistsAndAlbums(result);
-    await thenSuggestionsAreLimitedTo5OrLess(result);
+    thenResultIsSuccessful(result);
+    thenSuggestionsContainOnlyArtistsAndAlbums(result);
+    thenSuggestionsAreLimitedTo5OrLess(result);
   });
 
-  it("suggestions are always artists and albums (never tracks)", async () => {
-    const lmsResults = await givenTracksWithArtistAndAlbum();
+  it("suggestions are always artists and albums (never tracks)", () => {
+    const lmsResults = givenTracksWithArtistAndAlbum();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
+    const result = whenGetAutocompleteSuggestionsIsCalled(
       "Pink Floyd",
       lmsResults,
     );
 
-    await thenResultIsSuccessful(result);
-    await thenSuggestionsContainNoTracks(result);
+    thenResultIsSuccessful(result);
+    thenSuggestionsContainNoTracks(result);
   });
 
-  it("returns error when query is empty", async () => {
-    const lmsResults = await givenTracksWithArtistAndAlbum();
+  it("returns error when query is empty", () => {
+    const lmsResults = givenTracksWithArtistAndAlbum();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled("", lmsResults);
+    const result = whenGetAutocompleteSuggestionsIsCalled("", lmsResults);
 
-    await thenResultIsError(result);
-    await thenErrorCodeIs(result, "EMPTY_QUERY");
+    thenResultIsError(result);
+    thenErrorCodeIs(result, "EMPTY_QUERY");
   });
 
-  it("returns empty array when tracks have no artist and no album metadata", async () => {
-    const lmsResults = await givenTracksWithNoMetadata();
+  it("returns empty array when tracks have no artist and no album metadata", () => {
+    const lmsResults = givenTracksWithNoMetadata();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Pink",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Pink", lmsResults);
 
-    await thenResultIsSuccessful(result);
-    await thenSuggestionsAreEmpty(result);
+    thenResultIsSuccessful(result);
+    thenSuggestionsAreEmpty(result);
   });
 
-  it("limits to exactly 5 results when many unique albums exist", async () => {
-    const lmsResults = await givenTracksWith10UniqueAlbums();
+  it("limits to exactly 5 results when many unique albums exist", () => {
+    const lmsResults = givenTracksWith10UniqueAlbums();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Pi",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Pi", lmsResults);
 
-    await thenResultIsSuccessful(result);
-    await thenSuggestionsContainExactly5Results(result);
+    thenResultIsSuccessful(result);
+    thenSuggestionsContainExactly5Results(result);
   });
 
-  it("includes album name for album type suggestions", async () => {
-    const lmsResults = await givenTracksWithAlbumMetadata();
+  it("includes album name for album type suggestions", () => {
+    const lmsResults = givenTracksWithAlbumMetadata();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
+    const result = whenGetAutocompleteSuggestionsIsCalled(
       "Dark Side",
       lmsResults,
     );
 
-    await thenResultIsSuccessful(result);
-    await thenAlbumSuggestionsIncludeAlbumName(result);
+    thenResultIsSuccessful(result);
+    thenAlbumSuggestionsIncludeAlbumName(result);
   });
 
-  it("excludes album name for artist type suggestions", async () => {
-    const lmsResults = await givenTracksWithArtistMetadata();
+  it("excludes album name for artist type suggestions", () => {
+    const lmsResults = givenTracksWithArtistMetadata();
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
+    const result = whenGetAutocompleteSuggestionsIsCalled(
       "Pink Floyd",
       lmsResults,
     );
 
-    await thenResultIsSuccessful(result);
-    await thenArtistSuggestionsExcludeAlbumName(result);
+    thenResultIsSuccessful(result);
+    thenArtistSuggestionsExcludeAlbumName(result);
   });
 
-  it("deduplicates artists across multiple tracks from the same artist", async () => {
+  it("deduplicates artists across multiple tracks from the same artist", () => {
     const lmsResults: readonly SearchResult[] = [
       makeTrack("Pink Floyd", "Dark Side of the Moon", "Money"),
       makeTrack("Pink Floyd", "Dark Side of the Moon", "Time"),
       makeTrack("Pink Floyd", "The Wall", "Comfortably Numb"),
     ];
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Pink",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Pink", lmsResults);
 
-    await thenResultIsSuccessful(result);
+    thenResultIsSuccessful(result);
     if (result.ok) {
       const artists = result.value.filter((s) => s.type === "artist");
       // "Pink Floyd" should appear only once
@@ -115,18 +103,15 @@ describe("getAutocompleteSuggestions", () => {
     }
   });
 
-  it("deduplicates albums across multiple tracks from the same album", async () => {
+  it("deduplicates albums across multiple tracks from the same album", () => {
     const lmsResults: readonly SearchResult[] = [
       makeTrack("Pink Floyd", "Dark Side of the Moon", "Money"),
       makeTrack("Pink Floyd", "Dark Side of the Moon", "Time"),
     ];
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Dark",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Dark", lmsResults);
 
-    await thenResultIsSuccessful(result);
+    thenResultIsSuccessful(result);
     if (result.ok) {
       const albums = result.value.filter((s) => s.type === "album");
       // "Dark Side of the Moon" should appear only once
@@ -134,7 +119,7 @@ describe("getAutocompleteSuggestions", () => {
     }
   });
 
-  it("ranks exact-match artist above substring-match artist", async () => {
+  it("ranks exact-match artist above substring-match artist", () => {
     // LMS returns "Dr. Know" tracks first, "The Black Keys" tracks second
     // (simulating an arbitrary LMS ordering). With relevance scoring,
     // "The Black Keys" must appear first for query "the black keys".
@@ -145,31 +130,28 @@ describe("getAutocompleteSuggestions", () => {
       makeTrack("The Black Keys", "Delta Kream", "Crawling Kingsnake"),
     ];
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
+    const result = whenGetAutocompleteSuggestionsIsCalled(
       "The Black Keys",
       lmsResults,
     );
 
-    await thenResultIsSuccessful(result);
+    thenResultIsSuccessful(result);
     if (result.ok) {
       const artists = result.value.filter((s) => s.type === "artist");
       expect(artists[0]?.artist).toBe("The Black Keys");
     }
   });
 
-  it("ranks prefix-match above substring-match", async () => {
+  it("ranks prefix-match above substring-match", () => {
     const lmsResults: readonly SearchResult[] = [
       makeTrack("Unknown Black Artist", "Some Album", "Track 1"),
       makeTrack("Blackwater", "Debut", "Intro"),
       makeTrack("Black Sabbath", "Paranoid", "War Pigs"),
     ];
 
-    const result = await whenGetAutocompleteSuggestionsIsCalled(
-      "Black",
-      lmsResults,
-    );
+    const result = whenGetAutocompleteSuggestionsIsCalled("Black", lmsResults);
 
-    await thenResultIsSuccessful(result);
+    thenResultIsSuccessful(result);
     if (result.ok) {
       const artists = result.value.filter((s) => s.type === "artist");
       // "Blackwater" starts with "Black" (prefix=2) — should rank above
@@ -197,28 +179,23 @@ describe("getAutocompleteSuggestions", () => {
     type: "track" as const,
   });
 
-  const givenTracksFromMultipleArtistsAndAlbums = async (): Promise<
-    readonly SearchResult[]
-  > => {
-    return [
-      makeTrack("Pink Floyd", "The Dark Side of the Moon", "Money"),
-      makeTrack("Pink Floyd", "The Wall", "Comfortably Numb"),
-      makeTrack("Led Zeppelin", "Led Zeppelin IV", "Stairway to Heaven"),
-    ];
-  };
+  const givenTracksFromMultipleArtistsAndAlbums =
+    (): readonly SearchResult[] => {
+      return [
+        makeTrack("Pink Floyd", "The Dark Side of the Moon", "Money"),
+        makeTrack("Pink Floyd", "The Wall", "Comfortably Numb"),
+        makeTrack("Led Zeppelin", "Led Zeppelin IV", "Stairway to Heaven"),
+      ];
+    };
 
-  const givenTracksWithArtistAndAlbum = async (): Promise<
-    readonly SearchResult[]
-  > => {
+  const givenTracksWithArtistAndAlbum = (): readonly SearchResult[] => {
     return [
       makeTrack("Pink Floyd", "The Wall", "Comfortably Numb"),
       makeTrack("Pink Floyd", "The Wall", "Another Brick in the Wall"),
     ];
   };
 
-  const givenTracksWithNoMetadata = async (): Promise<
-    readonly SearchResult[]
-  > => {
+  const givenTracksWithNoMetadata = (): readonly SearchResult[] => {
     return [
       {
         id: "track-1",
@@ -232,59 +209,53 @@ describe("getAutocompleteSuggestions", () => {
     ];
   };
 
-  const givenTracksWith10UniqueAlbums = async (): Promise<
-    readonly SearchResult[]
-  > => {
+  const givenTracksWith10UniqueAlbums = (): readonly SearchResult[] => {
     return Array.from({ length: 10 }, (_, i) =>
       makeTrack(`Artist ${i}`, `Album ${i}`, `Track ${i}`),
     );
   };
 
-  const givenTracksWithAlbumMetadata = async (): Promise<
-    readonly SearchResult[]
-  > => {
+  const givenTracksWithAlbumMetadata = (): readonly SearchResult[] => {
     return [makeTrack("Pink Floyd", "The Dark Side of the Moon", "Money")];
   };
 
-  const givenTracksWithArtistMetadata = async (): Promise<
-    readonly SearchResult[]
-  > => {
+  const givenTracksWithArtistMetadata = (): readonly SearchResult[] => {
     return [makeTrack("Pink Floyd", "The Wall", "Comfortably Numb")];
   };
 
   // WHEN helper functions
-  const whenGetAutocompleteSuggestionsIsCalled = async (
+  const whenGetAutocompleteSuggestionsIsCalled = (
     query: string,
     lmsResults: readonly SearchResult[],
-  ): Promise<ReturnType<typeof getAutocompleteSuggestions>> => {
+  ): ReturnType<typeof getAutocompleteSuggestions> => {
     return getAutocompleteSuggestions(query, lmsResults);
   };
 
   // THEN helper functions
-  const thenResultIsSuccessful = async (
+  const thenResultIsSuccessful = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     expect(result.ok).toBe(true);
   };
 
-  const thenResultIsError = async (
+  const thenResultIsError = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     expect(result.ok).toBe(false);
   };
 
-  const thenErrorCodeIs = async (
+  const thenErrorCodeIs = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
     expectedCode: string,
-  ): Promise<void> => {
+  ): void => {
     if (!result.ok) {
       expect(result.error.code).toBe(expectedCode);
     }
   };
 
-  const thenSuggestionsContainOnlyArtistsAndAlbums = async (
+  const thenSuggestionsContainOnlyArtistsAndAlbums = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       const allArtistsOrAlbums = result.value.every(
         (s) => s.type === "artist" || s.type === "album",
@@ -293,17 +264,17 @@ describe("getAutocompleteSuggestions", () => {
     }
   };
 
-  const thenSuggestionsAreLimitedTo5OrLess = async (
+  const thenSuggestionsAreLimitedTo5OrLess = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       expect(result.value.length).toBeLessThanOrEqual(5);
     }
   };
 
-  const thenSuggestionsContainNoTracks = async (
+  const thenSuggestionsContainNoTracks = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       const allArtistsOrAlbums = result.value.every(
         (s) => s.type === "artist" || s.type === "album",
@@ -312,25 +283,25 @@ describe("getAutocompleteSuggestions", () => {
     }
   };
 
-  const thenSuggestionsAreEmpty = async (
+  const thenSuggestionsAreEmpty = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       expect(result.value.length).toBe(0);
     }
   };
 
-  const thenSuggestionsContainExactly5Results = async (
+  const thenSuggestionsContainExactly5Results = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       expect(result.value.length).toBe(5);
     }
   };
 
-  const thenAlbumSuggestionsIncludeAlbumName = async (
+  const thenAlbumSuggestionsIncludeAlbumName = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       const albumSuggestions = result.value.filter((s) => s.type === "album");
       const allHaveAlbumName = albumSuggestions.every(
@@ -340,9 +311,9 @@ describe("getAutocompleteSuggestions", () => {
     }
   };
 
-  const thenArtistSuggestionsExcludeAlbumName = async (
+  const thenArtistSuggestionsExcludeAlbumName = (
     result: ReturnType<typeof getAutocompleteSuggestions>,
-  ): Promise<void> => {
+  ): void => {
     if (result.ok) {
       const artistSuggestions = result.value.filter((s) => s.type === "artist");
       const allExcludeAlbumName = artistSuggestions.every(

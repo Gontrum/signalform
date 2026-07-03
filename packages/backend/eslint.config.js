@@ -104,6 +104,24 @@ export default [
     rules: {
       "functional/no-throw-statements": "error",
       "functional/no-try-statements": "error",
+      // Core must not perform I/O — fetch needs no import, so ban the global.
+      "no-restricted-globals": [
+        "error",
+        { name: "fetch", message: "Backend core must not perform I/O (FCIS)." },
+      ],
+      // Core must be synchronous — async signatures mean I/O has leaked in.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "AwaitExpression",
+          message: "Backend core must be synchronous — no await (FCIS).",
+        },
+        {
+          selector: ":function[async=true]",
+          message:
+            "Backend core must not declare async functions — move I/O to shell (FCIS).",
+        },
+      ],
       "no-restricted-imports": [
         "error",
         {

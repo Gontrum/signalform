@@ -127,6 +127,23 @@ export default [
     rules: {
       'functional/no-throw-statements': 'error',
       'functional/no-try-statements': 'error',
+      // Core must not perform I/O — fetch needs no import, so ban the global.
+      'no-restricted-globals': [
+        'error',
+        { name: 'fetch', message: 'Domain core must not perform I/O (FCIS).' },
+      ],
+      // Core must be synchronous — async signatures mean I/O has leaked in.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'AwaitExpression',
+          message: 'Domain core must be synchronous — no await (FCIS).',
+        },
+        {
+          selector: ':function[async=true]',
+          message: 'Domain core must not declare async functions — move I/O to shell (FCIS).',
+        },
+      ],
       'no-restricted-imports': [
         'error',
         {
@@ -141,6 +158,22 @@ export default [
               message: 'Domain core must not depend on platform APIs.',
             },
           ],
+        },
+      ],
+    },
+  },
+
+  // Domain UI components must not fetch directly — data flows through the
+  // domain shell (composables/stores) and platform/api.
+  {
+    name: 'domain-ui-hardening',
+    files: ['src/domains/*/ui/**/*.{vue,ts,tsx}'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'fetch',
+          message: 'Components must not fetch directly — use the domain shell / platform/api.',
         },
       ],
     },
