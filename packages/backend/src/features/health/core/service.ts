@@ -1,9 +1,12 @@
 /**
  * Health check service (functional core)
  *
- * checkLms   — probes LMS via getStatus(); returns 'connected' | 'disconnected'
- * checkLastfm — reads circuit state; returns 'available' | 'circuit open'
- * checkHealth — composes both into HealthResult
+ * toLmsStatus     — maps a probe outcome to 'connected' | 'disconnected'
+ * toLastFmStatus  — maps a circuit state to 'available' | 'circuit open'
+ * evaluateHealth  — composes both statuses into HealthResult
+ *
+ * All functions are pure; probing LMS and reading the circuit state
+ * happen in the shell, which passes the raw results in.
  *
  * Logic:
  *   LMS connected + lastfm available  → healthy 200
@@ -24,35 +27,17 @@ export type HealthResult = {
   };
 };
 
-export type LmsHealthClient = {
-  readonly getStatus: () => Promise<{
-    readonly ok: boolean;
-  }>;
-};
+export const toLmsStatus = (ok: boolean): LmsStatus =>
+  ok ? "connected" : "disconnected";
 
-export type LastFmHealthClient = {
-  readonly getCircuitState: () => "CLOSED" | "OPEN" | "HALF_OPEN";
-};
+export const toLastFmStatus = (
+  state: "CLOSED" | "OPEN" | "HALF_OPEN",
+): LastFmStatus => (state === "OPEN" ? "circuit open" : "available");
 
-export const checkLms = async (
-  lmsClient: LmsHealthClient,
-): Promise<LmsStatus> => {
-  const result = await lmsClient.getStatus();
-  return result.ok ? "connected" : "disconnected";
-};
-
-export const checkLastfm = (lastFmClient: LastFmHealthClient): LastFmStatus => {
-  const state = lastFmClient.getCircuitState();
-  return state === "OPEN" ? "circuit open" : "available";
-};
-
-export const checkHealth = async (
-  lmsClient: LmsHealthClient,
-  lastFmClient: LastFmHealthClient,
-): Promise<HealthResult> => {
-  const lms = await checkLms(lmsClient);
-  const lastfm = checkLastfm(lastFmClient);
-
+export const evaluateHealth = (
+  lms: LmsStatus,
+  lastfm: LastFmStatus,
+): HealthResult => {
   if (lms === "disconnected") {
     return {
       status: "unhealthy",

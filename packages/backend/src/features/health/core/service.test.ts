@@ -1,69 +1,76 @@
 /**
- * Health service acceptance tests (TDD — written before implementation)
+ * Health core tests — pure, synchronous, no mocks.
  *
- * AC1: GET /health returns { status, dependencies: { lms, lastfm } }
- * AC2: LMS reachable + lastfm circuit CLOSED → { status: 'healthy', httpStatus: 200 }
- * AC3: LMS unreachable → { status: 'unhealthy', httpStatus: 503 }
- * AC5: lastfm circuit OPEN (LMS up) → { status: 'degraded', httpStatus: 200, lastfm: 'circuit open' }
+ * toLmsStatus    — both branches
+ * toLastFmStatus — all three circuit states
+ * evaluateHealth — all four status combinations
  */
 
-import { describe, it, expect, vi } from "vitest";
-import {
-  checkHealth,
-  type LmsHealthClient,
-  type LastFmHealthClient,
-} from "./service.js";
+import { describe, it, expect } from "vitest";
+import { toLmsStatus, toLastFmStatus, evaluateHealth } from "./service.js";
 
-const makeLmsClient = (
-  overrides: Partial<LmsHealthClient> = {},
-): LmsHealthClient =>
-  ({
-    getStatus: vi.fn().mockResolvedValue({ ok: true }),
-    ...overrides,
-  }) as LmsHealthClient;
+describe("toLmsStatus()", () => {
+  it("returns 'connected' when ok is true", () => {
+    expect(toLmsStatus(true)).toBe("connected");
+  });
 
-const makeLastFmClient = (
-  circuitState: "CLOSED" | "OPEN" | "HALF_OPEN" = "CLOSED",
-): LastFmHealthClient =>
-  ({
-    getCircuitState: () => circuitState,
-  }) as LastFmHealthClient;
+  it("returns 'disconnected' when ok is false", () => {
+    expect(toLmsStatus(false)).toBe("disconnected");
+  });
+});
 
-describe("checkHealth()", () => {
-  it("AC2: returns healthy 200 when LMS is reachable and lastfm circuit is CLOSED", async () => {
-    const lms = makeLmsClient();
-    const lastfm = makeLastFmClient("CLOSED");
+describe("toLastFmStatus()", () => {
+  it("returns 'available' for CLOSED", () => {
+    expect(toLastFmStatus("CLOSED")).toBe("available");
+  });
 
-    const result = await checkHealth(lms, lastfm);
+  it("returns 'circuit open' for OPEN", () => {
+    expect(toLastFmStatus("OPEN")).toBe("circuit open");
+  });
 
+  it("returns 'available' for HALF_OPEN", () => {
+    expect(toLastFmStatus("HALF_OPEN")).toBe("available");
+  });
+});
+
+describe("evaluateHealth()", () => {
+  it("connected + available → healthy 200", () => {
+    const result = evaluateHealth("connected", "available");
     expect(result.status).toBe("healthy");
     expect(result.httpStatus).toBe(200);
-    expect(result.dependencies.lms).toBe("connected");
-    expect(result.dependencies.lastfm).toBe("available");
-  });
-
-  it("AC3: returns unhealthy 503 when LMS is unreachable", async () => {
-    const lms = makeLmsClient({
-      getStatus: vi.fn().mockResolvedValue({ ok: false }),
+    expect(result.dependencies).toEqual({
+      lms: "connected",
+      lastfm: "available",
     });
-    const lastfm = makeLastFmClient("CLOSED");
-
-    const result = await checkHealth(lms, lastfm);
-
-    expect(result.status).toBe("unhealthy");
-    expect(result.httpStatus).toBe(503);
-    expect(result.dependencies.lms).toBe("disconnected");
   });
 
-  it("AC5: returns degraded 200 when LMS is up but lastfm circuit is OPEN", async () => {
-    const lms = makeLmsClient();
-    const lastfm = makeLastFmClient("OPEN");
-
-    const result = await checkHealth(lms, lastfm);
-
+  it("connected + circuit open → degraded 200", () => {
+    const result = evaluateHealth("connected", "circuit open");
     expect(result.status).toBe("degraded");
     expect(result.httpStatus).toBe(200);
-    expect(result.dependencies.lms).toBe("connected");
-    expect(result.dependencies.lastfm).toBe("circuit open");
+    expect(result.dependencies).toEqual({
+      lms: "connected",
+      lastfm: "circuit open",
+    });
+  });
+
+  it("disconnected + available → unhealthy 503", () => {
+    const result = evaluateHealth("disconnected", "available");
+    expect(result.status).toBe("unhealthy");
+    expect(result.httpStatus).toBe(503);
+    expect(result.dependencies).toEqual({
+      lms: "disconnected",
+      lastfm: "available",
+    });
+  });
+
+  it("disconnected + circuit open → unhealthy 503", () => {
+    const result = evaluateHealth("disconnected", "circuit open");
+    expect(result.status).toBe("unhealthy");
+    expect(result.httpStatus).toBe(503);
+    expect(result.dependencies).toEqual({
+      lms: "disconnected",
+      lastfm: "circuit open",
+    });
   });
 });

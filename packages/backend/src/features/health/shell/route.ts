@@ -1,33 +1,19 @@
 /**
  * Health Route — Imperative Shell
  *
- * Registers GET /health and delegates to health service (functional core).
- * Replaces the inline handler in server.ts.
+ * Registers GET /health. Performs the I/O (probes LMS via getCurrentTime,
+ * reads the Last.fm circuit state) and delegates evaluation to the pure
+ * health core (toLmsStatus / toLastFmStatus / evaluateHealth).
  */
 
 import type { FastifyInstance } from "fastify";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
-import { checkHealth } from "../core/service.js";
-
-import type { LastFmHealthClient, LmsHealthClient } from "../core/service.js";
-
-const createHealthProbeClient = (lmsClient: LmsClient): LmsHealthClient => {
-  return {
-    getStatus: async (): Promise<{ readonly ok: boolean }> => {
-      const result = await lmsClient.getCurrentTime();
-      return { ok: result.ok };
-    },
-  };
-};
-
-const createLastFmHealthClient = (
-  lastFmClient: LastFmClient,
-): LastFmHealthClient => {
-  return {
-    getCircuitState: () => lastFmClient.getCircuitState(),
-  };
-};
+import {
+  evaluateHealth,
+  toLastFmStatus,
+  toLmsStatus,
+} from "../core/service.js";
 
 export const createHealthRoute = (
   fastify: FastifyInstance,
@@ -35,10 +21,9 @@ export const createHealthRoute = (
   lastFmClient: LastFmClient,
 ): void => {
   fastify.get("/health", async (_request, reply) => {
-    const result = await checkHealth(
-      createHealthProbeClient(lmsClient),
-      createLastFmHealthClient(lastFmClient),
-    );
+    const probe = await lmsClient.getCurrentTime();
+    const state = lastFmClient.getCircuitState();
+    const result = evaluateHealth(toLmsStatus(probe.ok), toLastFmStatus(state));
     const { httpStatus, ...body } = result;
     await reply.status(httpStatus).send(body);
   });
