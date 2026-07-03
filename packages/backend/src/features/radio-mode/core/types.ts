@@ -50,3 +50,41 @@ export type DiversityConfig = {
 export const DEFAULT_DIVERSITY_CONFIG: DiversityConfig = {
   windowSize: 10,
 } as const;
+
+// Number of radio tracks to add per queue-end trigger
+export const RADIO_BATCH_SIZE = 5;
+export const RADIO_REMOVAL_REPLENISH_SIZE = 1;
+
+export type ReplenishTrigger = "queue-end" | "queue-remove";
+
+export type ReplenishOutcome =
+  | {
+      readonly status: "success";
+      readonly tracksAdded: number;
+    }
+  | {
+      readonly status: "skipped";
+      readonly reason:
+        | "already-processing"
+        | "disabled"
+        | "lastfm-unavailable"
+        | "no-candidates"
+        | "batch-empty"
+        | "queue-refilled";
+      readonly unavailableEmitted?: boolean;
+    }
+  | {
+      readonly status: "failed";
+      readonly reason: "queue-fetch-failed" | "unexpected-error";
+      readonly error: string;
+    };
+
+/**
+ * Accumulator for the radio batch reduce loop.
+ * Tracks added artist names (intra-batch diversity) and added URLs (URL-level deduplication).
+ */
+export type RadioAcc = {
+  readonly artists: readonly string[];
+  readonly urls: readonly string[];
+  readonly trackKeys: readonly string[];
+};
