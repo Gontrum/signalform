@@ -5,30 +5,25 @@
  * applies functional filters (Stories 6.2 + 6.3), searches LMS, adds to queue.
  *
  * Imperative shell: has IO, state, and side effects.
- * Per-mode candidate sourcing lives here; the shared queue-facing pipeline lives in
+ * Per-mode candidate sourcing lives in replenish-personal.ts and
+ * replenish-genre.ts; the shared queue-facing pipeline lives in
  * replenish-pipeline.ts; all pure logic lives in the core/ modules.
  */
 
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
-import {
-  filterByContext,
-  filterByDiversity,
-  DEFAULT_DIVERSITY_CONFIG,
-} from "../index.js";
+import { filterByContext } from "../core/service.js";
+import { filterByDiversity } from "../core/diversity-service.js";
+import { DEFAULT_DIVERSITY_CONFIG } from "../core/types.js";
 import type {
   CandidateTrack,
   ReplenishOutcome,
   ReplenishTrigger,
 } from "../core/types.js";
 import {
-  buildRecentTrackKey,
   chooseEffectiveCandidates,
   excludeSeedArtist,
-  filterRecentCandidates,
-  pickSpreadSimilarArtists,
-  shuffleWithRandom,
 } from "../core/replenish.js";
 import {
   PLAYER_UPDATES_ROOM,
@@ -36,8 +31,6 @@ import {
   PLAYER_QUEUE_UPDATED,
   PLAYER_RADIO_UNAVAILABLE,
 } from "../../../infrastructure/websocket/index.js";
-import { loadConfig } from "../../../infrastructure/config/index.js";
-import { pickChannel } from "../../personal-radio/index.js";
 import type { RadioUnavailablePayload } from "@signalform/shared";
 import {
   annotateRadioQueueTracks,
@@ -48,13 +41,12 @@ import {
   setRadioModeEnabledState,
   setRadioProcessing,
   setRequestedRadioModeEnabledState,
-  incrementGenreRadioPage,
-  incrementPersonalRadioCycle,
 } from "./radio-state.js";
-import type { PersonalRadioContext } from "./radio-state.js";
 import { getUpcomingRadioRemovalIndexes } from "../core/lifecycle.js";
 import { runReplenishPipeline } from "./replenish-pipeline.js";
 import type { Logger } from "./replenish-pipeline.js";
+import { replenishPersonalRadioQueue } from "./replenish-personal.js";
+import { replenishGenreQueue } from "./replenish-genre.js";
 
 // Number of similar tracks to fetch from last.fm (larger pool = better filtering results)
 const LASTFM_SIMILAR_LIMIT = 50;
@@ -91,6 +83,7 @@ export const createRadioEngine = (
   resetRadioRuntimeState();
 
   const pipelineDeps = { lmsClient, logger, io, playerId } as const;
+  const modeDeps = { ...pipelineDeps, lastFmClient } as const;
 
   const getDisabledReplenishOutcome = (
     trigger: ReplenishTrigger,
@@ -108,237 +101,6 @@ export const createRadioEngine = (
       seedTitle,
     });
     return { status: "skipped", reason: "disabled" };
-  };
-
-  const replenishPersonalRadioQueue = async (
-    context: PersonalRadioContext,
-    trigger: ReplenishTrigger,
-  ): Promise<ReplenishOutcome> => {
-    const { username, seedArtists, neighbours, cycle } = context;
-
-    if (seedArtists.length === 0) {
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    // Load config for discovery ratio
-    const configResult = loadConfig();
-    const discoveryRatio = configResult.ok
-      ? configResult.value.personalRadioDiscovery
-      : 0;
-
-    const channel = pickChannel(cycle, discoveryRatio);
-
-    // Discovery channel: fetch a neighbour's top tracks
-    if (channel === "discovery" && neighbours.length > 0) {
-      const neighbourUsername = neighbours[cycle % neighbours.length]!;
-      const tracksResult = await lastFmClient.getUserTopTracks(
-        neighbourUsername,
-        "overall",
-        15,
-      );
-
-      const discoveryOutcome =
-        tracksResult.ok && tracksResult.value.length > 0
-          ? await (async (): Promise<ReplenishOutcome | null> => {
-              const recentResult = await lastFmClient.getUserRecentTracks(
-                username,
-                30,
-              );
-              const recentKeys = new Set(
-                recentResult.ok
-                  ? recentResult.value.map((t) =>
-                      buildRecentTrackKey(t.artist, t.name),
-                    )
-                  : [],
-              );
-
-              const candidates: readonly CandidateTrack[] =
-                filterRecentCandidates(tracksResult.value, recentKeys).map(
-                  (t) => ({
-                    name: t.name,
-                    artist: t.artist,
-                    match: 1,
-                    url: t.url,
-                  }),
-                );
-
-              if (candidates.length === 0) {
-                return null;
-              }
-
-              const shuffled = shuffleWithRandom(candidates, Math.random);
-
-              const diversityFiltered = filterByDiversity(
-                shuffled,
-                getRadioQueueState().recentArtists,
-                DEFAULT_DIVERSITY_CONFIG,
-              );
-
-              if (diversityFiltered.length === 0) {
-                return null;
-              }
-
-              const outcome = await runReplenishPipeline(pipelineDeps, {
-                candidates: diversityFiltered,
-                trigger,
-                logContext: { username, neighbourUsername, cycle },
-                onCommit: incrementPersonalRadioCycle,
-                refreshFailureError:
-                  "Queue refresh failed after personal radio discovery add",
-              });
-
-              // Empty batch falls through to the comfort channel (current behaviour)
-              return outcome.status === "skipped" &&
-                outcome.reason === "batch-empty"
-                ? null
-                : outcome;
-            })()
-          : null;
-
-      if (discoveryOutcome !== null) {
-        return discoveryOutcome;
-      }
-      // Fall through to comfort channel
-    }
-
-    // Rotate through seed artists by cycle
-    const seedArtist = seedArtists[cycle % seedArtists.length]!;
-
-    // Get similar artists for this seed
-    const similarResult = await lastFmClient.getSimilarArtists(seedArtist, 20);
-    if (!similarResult.ok) {
-      return {
-        status: "failed",
-        reason: "queue-fetch-failed",
-        error: similarResult.error.message,
-      };
-    }
-
-    // Pick up to 4 similar artists (spread across the similar list by index)
-    const pickedSimilar = pickSpreadSimilarArtists(
-      similarResult.value.map((a) => a.name),
-      4,
-    );
-
-    // Fetch top tracks for each picked artist
-    const trackResults = await Promise.all(
-      pickedSimilar.map((name) => lastFmClient.getArtistTopTracks(name, 8)),
-    );
-
-    const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));
-
-    if (allTracks.length === 0) {
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    // Exclude recently played (get recent tracks, build exclusion set)
-    const recentResult = await lastFmClient.getUserRecentTracks(username, 30);
-    const recentKeys = new Set(
-      recentResult.ok
-        ? recentResult.value.map((t) => buildRecentTrackKey(t.artist, t.name))
-        : [],
-    );
-
-    const candidates: readonly CandidateTrack[] = filterRecentCandidates(
-      allTracks,
-      recentKeys,
-    ).map((t) => ({ name: t.name, artist: t.artist, match: 1, url: t.url }));
-
-    if (candidates.length === 0) {
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    const shuffled = shuffleWithRandom(candidates, Math.random);
-
-    const diversityFiltered = filterByDiversity(
-      shuffled,
-      getRadioQueueState().recentArtists,
-      DEFAULT_DIVERSITY_CONFIG,
-    );
-
-    if (diversityFiltered.length === 0) {
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    return runReplenishPipeline(pipelineDeps, {
-      candidates: diversityFiltered,
-      trigger,
-      logContext: { username, seedArtist, cycle },
-      onCommit: incrementPersonalRadioCycle,
-      refreshFailureError: "Queue refresh failed after personal radio add",
-    });
-  };
-
-  const replenishGenreQueue = async (
-    genreContext: { readonly genreName: string; readonly page: number },
-    trigger: ReplenishTrigger,
-  ): Promise<ReplenishOutcome> => {
-    const { genreName, page } = genreContext;
-
-    const tagTracksResult = await lastFmClient.getTagTopTracks(
-      genreName,
-      page,
-      50,
-    );
-    if (!tagTracksResult.ok) {
-      if (tagTracksResult.error.type === "CircuitOpenError") {
-        io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
-          playerId,
-          message: "Radio mode temporarily unavailable",
-          timestamp: Date.now(),
-        } satisfies RadioUnavailablePayload);
-        return {
-          status: "skipped",
-          reason: "lastfm-unavailable",
-          unavailableEmitted: true,
-        };
-      }
-      logger.warn("Genre Radio: tag.getTopTracks failed", {
-        event: "radio.genre_lastfm_failed",
-        trigger,
-        genreName,
-        page,
-        error: tagTracksResult.error,
-      });
-      return { status: "skipped", reason: "lastfm-unavailable" };
-    }
-
-    if (tagTracksResult.value.length === 0) {
-      logger.info("Genre Radio: no more tracks from Last.fm for this genre", {
-        event: "radio.genre_no_more_tracks",
-        trigger,
-        genreName,
-        page,
-      });
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    const shuffled = shuffleWithRandom(tagTracksResult.value, Math.random);
-
-    const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
-      name: t.name,
-      artist: t.artist,
-      match: 1,
-      url: t.url,
-    }));
-
-    const diversityFiltered = filterByDiversity(
-      candidates,
-      getRadioQueueState().recentArtists,
-      DEFAULT_DIVERSITY_CONFIG,
-    );
-
-    if (diversityFiltered.length === 0) {
-      return { status: "skipped", reason: "no-candidates" };
-    }
-
-    return runReplenishPipeline(pipelineDeps, {
-      candidates: diversityFiltered,
-      trigger,
-      logContext: { genreName, page },
-      onCommit: incrementGenreRadioPage,
-      refreshFailureError: "Queue refresh failed after genre radio add",
-    });
   };
 
   const replenishRadioQueue = async (
@@ -371,13 +133,17 @@ export const createRadioEngine = (
         // Dispatch to genre-specific replenish when genre radio mode is active
         const genreContext = getRadioQueueState().genreRadioContext;
         if (genreContext !== undefined) {
-          return replenishGenreQueue(genreContext, trigger);
+          return replenishGenreQueue(modeDeps, genreContext, trigger);
         }
 
         // Dispatch to personal radio replenish when personal radio mode is active
         const personalContext = getRadioQueueState().personalRadioContext;
         if (personalContext !== undefined) {
-          return replenishPersonalRadioQueue(personalContext, trigger);
+          return replenishPersonalRadioQueue(
+            modeDeps,
+            personalContext,
+            trigger,
+          );
         }
 
         logger.info("Radio replenish triggered", {
