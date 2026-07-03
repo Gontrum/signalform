@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.12.1] - 2026-07-03
+
+### Fixed
+
+- personal radio no longer dies silently when Last.fm is unavailable — it now
+  shows the same "radio unavailable" notice as genre radio instead of
+  misreporting a queue error
+- pre-commit hook no longer sweeps unrelated modified files into commits
+- agent zone enforcement repaired: the permission deny rules had blocked the
+  core-dev/shell-dev subagents themselves; replaced with an agent-aware hook
+- two circular imports between feature barrels resolved
+
+### Changed
+
+- radio replenish engine decomposed: the four duplicated pipelines (generic,
+  genre, personal discovery, personal comfort) now share one implementation,
+  decision logic lives in the pure core with direct unit tests, and
+  radio-service.ts shrank from 1904 to 533 lines
+- health check core is fully pure; LMS probing moved to the shell route
+- architecture lint now bans async/await and fetch in all core zones and
+  fetch in domain UI components mechanically
+- discovery→comfort radio fallback is now logged with its reason
+
+### Added
+
+- 16 integration tests covering the previously untested genre and personal
+  radio replenish paths
+- `scripts/release.sh` — one-shot version bump, changelog draft, commit and tag
+
+---
+
 ## [0.12.0] - 2026-06-24
 
 ### Added
