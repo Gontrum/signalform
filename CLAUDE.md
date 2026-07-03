@@ -24,9 +24,7 @@ implementation code directly in the main context.
 
 - `@core-dev` – MUST be used for all pure functions in any `core/` subdirectory
 - `@shell-dev` – MUST be used for all Fastify handlers, Vue components, and composables
-- `@reviewer` – MUST be run before every release commit; architectural checks and full test suite
-
-After any agent writes code, ALWAYS run `@reviewer` before committing.
+- `@reviewer` – MUST be run before every commit that includes agent-written code; architectural checks and full test suite
 
 ### Test coverage in agent prompts
 

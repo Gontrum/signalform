@@ -15,6 +15,10 @@ Before finishing any task, all three must pass.
 
 ## Architecture: Functional Core, Imperative Shell (FCIS)
 
+`docs/architecture.md` is the canonical architecture reference (structure,
+import boundaries, allowed exceptions). This section is the operative summary
+for day-to-day work — if the two ever disagree, `docs/architecture.md` wins.
+
 Every package has two zones. The boundary is strict.
 
 **Functional Core** (in `core/` subdirectories):
@@ -48,11 +52,14 @@ The fastest test for which zone code belongs in:
 Every new feature and every bug fix must include tests. This is not optional and is
 part of the definition of done — not a follow-up step.
 
-- **Backend**: add integration test cases to the relevant `shell/route.integration.test.ts`.
-  Cover: happy path, LMS error (503), validation errors (400), and the 204 fallback when
-  `getQueue` fails after the mutation.
-- **Frontend store**: add cases to `useQueueStore.test.ts` for every new action and computed.
-- **Frontend API**: add cases to `queueApi.test.ts` for every new API function.
+- **Backend shell**: add integration test cases to the feature's
+  `shell/route.integration.test.ts`. Cover: happy path, upstream/LMS error (503),
+  validation errors (400), and any documented fallback behaviour of the route
+  (e.g. the queue routes fall back to 204 when `getQueue` fails after a mutation).
+- **Backend core**: pure unit tests next to the core module — no mocks, no I/O.
+- **Frontend store**: add cases to the domain's store test (e.g. `useQueueStore.test.ts`)
+  for every new action and computed.
+- **Frontend API**: add cases to the matching `*Api.test.ts` for every new API function.
 - **Frontend UI**: add cases to the relevant `*.test.ts` component test for every new
   interactive element.
 
@@ -91,13 +98,19 @@ For any new Tidal endpoint, three files are involved — use the existing
 
 ## Agent Routing
 
-This rule applies to all AI tools, regardless of their specific agent syntax:
+For AI tools with subagent support (Claude Code, OpenCode):
 
 - Files under `*/core/**` must only be modified by the `core-dev` agent.
 - Files under `*/shell/**` must only be modified by the `shell-dev` agent.
 - The orchestrating agent must delegate to the appropriate specialized agent and must **never** edit these files directly.
 
 When a task requires changes in both zones, split the work: delegate the core/ changes to `core-dev` first, then the shell/ changes to `shell-dev`.
+
+Single-agent tools (e.g. Codex) cannot delegate — they may edit zone files
+directly but must apply the zone constraints themselves (core: pure, no
+`await`, no framework imports, `Result<T, E>`; shell: thin handlers, no
+business logic). In Claude Code the routing is additionally enforced by the
+`.claude/hooks/enforce-zones.sh` PreToolUse hook.
 
 ## TODO Tracking
 

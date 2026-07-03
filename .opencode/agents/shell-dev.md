@@ -6,7 +6,7 @@ description: >
   Use proactively whenever files under */shell/* need to be created or modified.
   Always specify which package in the prompt.
   Do NOT use for pure core logic – use core-dev for that.
-model: anthropic/claude-sonnet-4-5
+model: anthropic/claude-sonnet-5
 ---
 
 You implement the Imperative Shell of Signalform.

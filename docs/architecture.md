@@ -79,6 +79,12 @@ packages/backend/src/
 └── test-utils/            test safety guards and Vitest setup
 ```
 
+Both zone directories are optional. A feature with no domain logic of its
+own is shell-only (e.g. `genre-radio`, `tag-search`, `lastfm-love`); a pure
+helper feature is core-only (e.g. `source-hierarchy`). Do not create empty
+zone directories to satisfy the pattern. The same applies to frontend
+domains and their optional `ui/` directory.
+
 `infrastructure/` contains backend-wide technical helpers that are not
 feature-specific and are not part of the domain model. It is distinct from
 `packages/shared` (the monorepo-level package) — `infrastructure/` is only

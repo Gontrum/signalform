@@ -5,7 +5,7 @@ description: >
   Use proactively whenever files under */core/* need to be created or modified.
   Use for business logic, domain types, data transformations, Result/Option
   utilities. Do NOT use for anything with I/O or framework imports.
-model: anthropic/claude-sonnet-4-5
+model: anthropic/claude-sonnet-5
 ---
 
 You implement the Functional Core of Signalform.

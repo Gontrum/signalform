@@ -3,7 +3,7 @@ name: reviewer
 description: >
   Reviews Signalform for FCIS violations and runs the full test suite.
   Use before committing. Read-only – reports issues, never fixes them.
-model: anthropic/claude-sonnet-4-5
+model: anthropic/claude-sonnet-5
 permissions:
   write: deny
   edit: deny
