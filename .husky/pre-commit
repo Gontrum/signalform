@@ -18,12 +18,10 @@ fi
 # Run lint-staged (Prettier + ESLint on staged files only)
 pnpm exec lint-staged
 
-# Sync Prettier formatting across all packages and stage results.
-# Ensures quality-gate runs (pnpm run format) don't leave formatted-but-unstaged
-# files behind in other packages. Uses 'git add -u' (tracked files only).
-# Note: pnpm flags must come BEFORE 'run' to avoid forwarding them as script args.
-pnpm --silent -r run format 2>/dev/null || true
-git add -u packages/ 2>/dev/null || true
+# Deliberately NO repo-wide format + 'git add -u' here: that swept every
+# modified packages/ file into whatever commit came next, breaking grouped
+# commits. Staged files are already formatted by lint-staged; anything that
+# slips through fails 'pnpm lint' in pre-push and CI.
 
 # Type-check all packages (catches TS errors lint-staged misses).
 pnpm -r run type-check
