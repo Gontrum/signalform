@@ -4,6 +4,19 @@ Utility scripts for Signalform development and releases.
 
 ## Version Management
 
+### `release.sh` (preferred)
+
+One-shot release: bumps the version everywhere (via `bump-version.mjs`),
+drafts the CHANGELOG section from conventional commits since the last tag,
+pauses for manual CHANGELOG review, then commits exactly the release files
+and creates the annotated tag.
+
+```bash
+bash scripts/release.sh 0.13.0
+# review CHANGELOG.md, press Enter to commit + tag
+git push origin main && git push origin v0.13.0
+```
+
 ### `bump-version.mjs`
 
 Automatically updates version across all package.json files and README.md.
@@ -44,8 +57,8 @@ pnpm test
 pnpm type-check
 pnpm lint
 
-# 3. Commit the release on main
-git add -A
+# 3. Commit the release on main (only the release files — no blanket add)
+git add package.json packages/*/package.json README.md CHANGELOG.md
 git commit -m "chore: release v0.9.1"
 
 # 4. Push main, then create and push the matching tag
