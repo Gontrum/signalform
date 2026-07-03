@@ -96,6 +96,10 @@ accessible within the backend and may perform I/O.
   - same-feature `core`
   - `packages/shared` (pure types and utilities)
   - `infrastructure/config` and other pure infrastructure helpers
+  - another feature's core through its public index, provided that feature
+    is itself pure (pure-to-pure only, e.g. `source-hierarchy`)
+  - adapter **types** (type-only imports, e.g. `SearchResult`) — never
+    adapter runtime code
 - `features/*/core` may not import:
   - Fastify
   - websocket runtime/server code (`infrastructure/websocket/**`)
