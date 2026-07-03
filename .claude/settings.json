@@ -1,10 +1,15 @@
 {
-  "permissions": {
-    "deny": [
-      "Edit(**/core/**)",
-      "Edit(**/shell/**)",
-      "Write(**/core/**)",
-      "Write(**/shell/**)"
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/enforce-zones.sh"
+          }
+        ]
+      }
     ]
   }
 }
