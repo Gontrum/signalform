@@ -10,6 +10,11 @@
  */
 
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import {
+  PLAYER_UPDATES_ROOM,
+  PLAYER_RADIO_UNAVAILABLE,
+} from "../../../infrastructure/websocket/index.js";
+import type { RadioUnavailablePayload } from "@signalform/shared";
 import type {
   CandidateTrack,
   ReplenishOutcome,
@@ -37,13 +42,32 @@ export type ReplenishPersonalDeps = ReplenishPipelineDeps & {
   readonly lastFmClient: LastFmClient;
 };
 
+/** Reason discovery yielded nothing and the comfort channel runs instead. */
+type DiscoveryFallThrough = {
+  readonly fellBack: "no-candidates" | "batch-empty" | "lastfm-error";
+};
+
 export const replenishPersonalRadioQueue = async (
   deps: ReplenishPersonalDeps,
   context: PersonalRadioContext,
   trigger: ReplenishTrigger,
 ): Promise<ReplenishOutcome> => {
-  const { lastFmClient } = deps;
+  const { lastFmClient, logger, io, playerId } = deps;
   const { username, seedArtists, neighbours, cycle } = context;
+
+  // Mirrors the genre path: circuit open → tell the frontend radio is down.
+  const emitRadioUnavailable = (): ReplenishOutcome => {
+    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
+      playerId,
+      message: "Radio mode temporarily unavailable",
+      timestamp: Date.now(),
+    } satisfies RadioUnavailablePayload);
+    return {
+      status: "skipped",
+      reason: "lastfm-unavailable",
+      unavailableEmitted: true,
+    };
+  };
 
   if (seedArtists.length === 0) {
     return { status: "skipped", reason: "no-candidates" };
@@ -66,67 +90,85 @@ export const replenishPersonalRadioQueue = async (
       15,
     );
 
-    const discoveryOutcome =
-      tracksResult.ok && tracksResult.value.length > 0
-        ? await (async (): Promise<ReplenishOutcome | null> => {
-            const recentResult = await lastFmClient.getUserRecentTracks(
-              username,
-              30,
-            );
-            const recentKeys = new Set(
-              recentResult.ok
-                ? recentResult.value.map((t) =>
-                    buildRecentTrackKey(t.artist, t.name),
-                  )
-                : [],
-            );
-
-            const candidates: readonly CandidateTrack[] =
-              filterRecentCandidates(tracksResult.value, recentKeys).map(
-                (t) => ({
-                  name: t.name,
-                  artist: t.artist,
-                  match: 1,
-                  url: t.url,
-                }),
+    const discoveryOutcome: ReplenishOutcome | DiscoveryFallThrough =
+      !tracksResult.ok
+        ? // A last.fm failure (incl. circuit open) degrades to the comfort
+          // channel; the comfort flow owns the terminal last.fm error handling.
+          { fellBack: "lastfm-error" }
+        : tracksResult.value.length === 0
+          ? { fellBack: "no-candidates" }
+          : await (async (): Promise<
+              ReplenishOutcome | DiscoveryFallThrough
+            > => {
+              const recentResult = await lastFmClient.getUserRecentTracks(
+                username,
+                30,
+              );
+              const recentKeys = new Set(
+                recentResult.ok
+                  ? recentResult.value.map((t) =>
+                      buildRecentTrackKey(t.artist, t.name),
+                    )
+                  : [],
               );
 
-            if (candidates.length === 0) {
-              return null;
-            }
+              const candidates: readonly CandidateTrack[] =
+                filterRecentCandidates(tracksResult.value, recentKeys).map(
+                  (t) => ({
+                    name: t.name,
+                    artist: t.artist,
+                    match: 1,
+                    url: t.url,
+                  }),
+                );
 
-            const shuffled = shuffleWithRandom(candidates, Math.random);
+              if (candidates.length === 0) {
+                return { fellBack: "no-candidates" };
+              }
 
-            const diversityFiltered = filterByDiversity(
-              shuffled,
-              getRadioQueueState().recentArtists,
-              DEFAULT_DIVERSITY_CONFIG,
-            );
+              const shuffled = shuffleWithRandom(candidates, Math.random);
 
-            if (diversityFiltered.length === 0) {
-              return null;
-            }
+              const diversityFiltered = filterByDiversity(
+                shuffled,
+                getRadioQueueState().recentArtists,
+                DEFAULT_DIVERSITY_CONFIG,
+              );
 
-            const outcome = await runReplenishPipeline(deps, {
-              candidates: diversityFiltered,
-              trigger,
-              logContext: { username, neighbourUsername, cycle },
-              onCommit: incrementPersonalRadioCycle,
-              refreshFailureError:
-                "Queue refresh failed after personal radio discovery add",
-            });
+              if (diversityFiltered.length === 0) {
+                return { fellBack: "no-candidates" };
+              }
 
-            // Empty batch falls through to the comfort channel (current behaviour)
-            return outcome.status === "skipped" &&
-              outcome.reason === "batch-empty"
-              ? null
-              : outcome;
-          })()
-        : null;
+              const outcome = await runReplenishPipeline(deps, {
+                candidates: diversityFiltered,
+                trigger,
+                logContext: { username, neighbourUsername, cycle },
+                onCommit: incrementPersonalRadioCycle,
+                refreshFailureError:
+                  "Queue refresh failed after personal radio discovery add",
+              });
 
-    if (discoveryOutcome !== null) {
+              // Empty batch falls through to the comfort channel
+              return outcome.status === "skipped" &&
+                outcome.reason === "batch-empty"
+                ? { fellBack: "batch-empty" }
+                : outcome;
+            })();
+
+    if (!("fellBack" in discoveryOutcome)) {
       return discoveryOutcome;
     }
+
+    // Graceful degradation: discovery yielded nothing → comfort channel runs
+    // in the same call. Logged so the fallback is visible in operations.
+    logger.info("Personal Radio: discovery fell back to comfort", {
+      event: "radio.discovery_fell_back_to_comfort",
+      channel: "discovery",
+      reason: discoveryOutcome.fellBack,
+      trigger,
+      username,
+      neighbourUsername,
+      cycle,
+    });
     // Fall through to comfort channel
   }
 
@@ -136,11 +178,18 @@ export const replenishPersonalRadioQueue = async (
   // Get similar artists for this seed
   const similarResult = await lastFmClient.getSimilarArtists(seedArtist, 20);
   if (!similarResult.ok) {
-    return {
-      status: "failed",
-      reason: "queue-fetch-failed",
-      error: similarResult.error.message,
-    };
+    if (similarResult.error.type === "CircuitOpenError") {
+      return emitRadioUnavailable();
+    }
+    logger.warn("Personal Radio: artist.getSimilar failed", {
+      event: "radio.personal_lastfm_failed",
+      trigger,
+      username,
+      seedArtist,
+      cycle,
+      error: similarResult.error,
+    });
+    return { status: "skipped", reason: "lastfm-unavailable" };
   }
 
   // Pick up to 4 similar artists (spread across the similar list by index)
@@ -153,6 +202,15 @@ export const replenishPersonalRadioQueue = async (
   const trackResults = await Promise.all(
     pickedSimilar.map((name) => lastFmClient.getArtistTopTracks(name, 8)),
   );
+
+  // Partial fetch failures are tolerated — but when every fetch failed with
+  // the circuit open, last.fm is down and the circuit branch applies.
+  if (
+    trackResults.length > 0 &&
+    trackResults.every((r) => !r.ok && r.error.type === "CircuitOpenError")
+  ) {
+    return emitRadioUnavailable();
+  }
 
   const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));
 

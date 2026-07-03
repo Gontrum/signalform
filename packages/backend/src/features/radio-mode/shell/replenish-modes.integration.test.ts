@@ -1,14 +1,15 @@
 /**
- * Radio Mode — Characterization Tests for mode-specific replenish orchestrators
+ * Radio Mode — Specification Tests for mode-specific replenish orchestrators
  *
- * Locks in the CURRENT behaviour of `replenishGenreQueue` and
- * `replenishPersonalRadioQueue` (comfort + discovery sub-flows) in
- * radio-service.ts as a regression net for an upcoming refactoring.
+ * Pins the INTENDED behaviour of `replenishGenreQueue` and
+ * `replenishPersonalRadioQueue` (comfort + discovery sub-flows).
  *
- * These tests assert what the code actually does today — including behaviour
- * that may look unintended (e.g. last.fm failures reported as
- * "queue-fetch-failed", discovery silently falling through to comfort).
- * Do NOT "fix" assertions here without changing production code first.
+ * Error-handling contract (all modes): last.fm failures never surface as
+ * "queue-fetch-failed". A CircuitOpenError emits PLAYER_RADIO_UNAVAILABLE and
+ * skips with "lastfm-unavailable" (unavailableEmitted: true); any other
+ * last.fm error logs a warning and skips with "lastfm-unavailable". The
+ * discovery→comfort fall-through is intended graceful degradation and is
+ * made observable via the "radio.discovery_fell_back_to_comfort" info log.
  *
  * Setup conventions mirror radio-service.integration.test.ts.
  */
@@ -361,7 +362,7 @@ beforeEach(() => {
 // Genre radio: replenishGenreQueue
 // =============================================================================
 
-describe("replenishGenreQueue (characterization)", () => {
+describe("replenishGenreQueue", () => {
   test("happy path: fetches tag top tracks, adds match to queue, emits queue update, increments page", async () => {
     const engine = createEngine();
     setGenreRadioContext({ genreName: "jazz", page: 3 });
@@ -535,7 +536,7 @@ describe("replenishGenreQueue (characterization)", () => {
 // Personal radio: comfort channel (discoveryRatio = 0)
 // =============================================================================
 
-describe("replenishPersonalRadioQueue — comfort channel (characterization)", () => {
+describe("replenishPersonalRadioQueue — comfort channel", () => {
   test("happy path: rotates seed by cycle, fetches similar artists + top tracks, filters by recent, adds and increments cycle", async () => {
     const engine = createEngine();
     setPersonalRadioContext({
@@ -628,7 +629,7 @@ describe("replenishPersonalRadioQueue — comfort channel (characterization)", (
     );
   });
 
-  test("getSimilarArtists failure: CURRENT behaviour reports a last.fm error as queue-fetch-failed", async () => {
+  test("getSimilarArtists non-circuit error: skips with lastfm-unavailable, logs warn, does NOT emit player.radio.unavailable", async () => {
     const engine = createEngine();
     setPersonalRadioContext({
       username: "david",
@@ -644,14 +645,129 @@ describe("replenishPersonalRadioQueue — comfort channel (characterization)", (
 
     const outcome = await engine.replenishAfterRemoval("Seed", "Title");
 
-    // Characterization: the last.fm failure is surfaced with the
-    // "queue-fetch-failed" reason, even though no queue fetch happened.
+    // A last.fm failure must NOT surface as queue-fetch-failed — it mirrors
+    // the genre path: skipped/lastfm-unavailable without an emit.
     expect(outcome).toEqual({
-      status: "failed",
-      reason: "queue-fetch-failed",
-      error: "artist lookup failed",
+      status: "skipped",
+      reason: "lastfm-unavailable",
     });
+    expect(fixtures.mockEmit).not.toHaveBeenCalledWith(
+      PLAYER_RADIO_UNAVAILABLE,
+      expect.anything(),
+    );
+    expect(mockLogger.warn).toHaveBeenCalledWith(
+      "Personal Radio: artist.getSimilar failed",
+      expect.objectContaining({
+        event: "radio.personal_lastfm_failed",
+        seedArtist: "Miles Davis",
+      }),
+    );
     expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+
+  test("getSimilarArtists CircuitOpenError: emits player.radio.unavailable once, skips with lastfm-unavailable", async () => {
+    const engine = createEngine();
+    setPersonalRadioContext({
+      username: "david",
+      seedArtists: ["Miles Davis"],
+      neighbours: [],
+      cycle: 0,
+    });
+
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue({
+      ok: false,
+      error: { type: "CircuitOpenError", message: "circuit open" },
+    });
+
+    const outcome = await engine.replenishAfterRemoval("Seed", "Title");
+
+    expect(outcome).toEqual({
+      status: "skipped",
+      reason: "lastfm-unavailable",
+      unavailableEmitted: true,
+    });
+    const unavailableCalls = fixtures.mockEmit.mock.calls.filter(
+      (call) => call[0] === PLAYER_RADIO_UNAVAILABLE,
+    );
+    expect(unavailableCalls).toHaveLength(1);
+    expect(unavailableCalls[0]?.[1]).toMatchObject({
+      playerId: "player-1",
+      message: "Radio mode temporarily unavailable",
+    });
+    expect(fixtures.mockLmsClient.search).not.toHaveBeenCalled();
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+
+  test("ALL getArtistTopTracks fetches fail with CircuitOpenError: emits player.radio.unavailable, skips with lastfm-unavailable", async () => {
+    const engine = createEngine();
+    setPersonalRadioContext({
+      username: "david",
+      seedArtists: ["Miles Davis"],
+      neighbours: [],
+      cycle: 0,
+    });
+
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([
+        makeSimilarArtist("Kamasi Washington"),
+        makeSimilarArtist("Wayne Shorter"),
+      ]),
+    );
+    fixtures.mockLastFmClient.getArtistTopTracks.mockResolvedValue({
+      ok: false,
+      error: { type: "CircuitOpenError", message: "circuit open" },
+    });
+
+    const outcome = await engine.replenishAfterRemoval("Seed", "Title");
+
+    expect(outcome).toEqual({
+      status: "skipped",
+      reason: "lastfm-unavailable",
+      unavailableEmitted: true,
+    });
+    expect(fixtures.mockEmit).toHaveBeenCalledWith(
+      PLAYER_RADIO_UNAVAILABLE,
+      expect.objectContaining({ playerId: "player-1" }),
+    );
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+
+  test("partial getArtistTopTracks failures stay tolerated: surviving tracks are still added", async () => {
+    const engine = createEngine();
+    setPersonalRadioContext({
+      username: "david",
+      seedArtists: ["Miles Davis"],
+      neighbours: [],
+      cycle: 0,
+    });
+
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([
+        makeSimilarArtist("Kamasi Washington"),
+        makeSimilarArtist("Wayne Shorter"),
+      ]),
+    );
+    fixtures.mockLastFmClient.getArtistTopTracks
+      .mockResolvedValueOnce({
+        ok: false,
+        error: { type: "CircuitOpenError", message: "circuit open" },
+      })
+      .mockResolvedValueOnce(
+        ok([makeArtistTopTrack("Wayne Shorter", "Footprints")]),
+      );
+    fixtures.mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    const searchResult = makeLmsSearchResult("Wayne Shorter", "Footprints");
+    stubSearchResults([searchResult]);
+
+    await engine.handleQueueEnd("Seed", "Title");
+
+    expect(fixtures.mockEmit).not.toHaveBeenCalledWith(
+      PLAYER_RADIO_UNAVAILABLE,
+      expect.anything(),
+    );
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledExactlyOnceWith(
+      searchResult.url,
+    );
   });
 
   test("all top-track fetches empty: skips with no-candidates before the recent-tracks exclusion step", async () => {
@@ -706,7 +822,7 @@ describe("replenishPersonalRadioQueue — comfort channel (characterization)", (
 // Personal radio: discovery channel (discoveryRatio = 100)
 // =============================================================================
 
-describe("replenishPersonalRadioQueue — discovery channel (characterization)", () => {
+describe("replenishPersonalRadioQueue — discovery channel", () => {
   test("happy path: fetches neighbour top tracks, filters by recent, adds and increments cycle", async () => {
     const engine = createEngine();
     setPersonalRadioContext({
@@ -818,7 +934,7 @@ describe("replenishPersonalRadioQueue — discovery channel (characterization)",
     ).not.toHaveBeenCalled();
   });
 
-  test("neighbour top tracks empty: CURRENT behaviour silently falls through to the comfort channel", async () => {
+  test("neighbour top tracks empty: falls through to the comfort channel and logs radio.discovery_fell_back_to_comfort", async () => {
     const engine = createEngine();
     setPersonalRadioContext({
       username: "david",
@@ -833,7 +949,7 @@ describe("replenishPersonalRadioQueue — discovery channel (characterization)",
 
     const outcome = await engine.replenishAfterRemoval("Seed", "Title");
 
-    // Characterization: discovery yields nothing → comfort flow runs next
+    // Intended graceful degradation: discovery yields nothing → comfort runs
     expect(fixtures.mockLastFmClient.getUserTopTracks).toHaveBeenCalledWith(
       "jazzfan42",
       "overall",
@@ -844,6 +960,109 @@ describe("replenishPersonalRadioQueue — discovery channel (characterization)",
       20,
     );
     expect(outcome).toEqual({ status: "skipped", reason: "no-candidates" });
+    // ...and the fall-back is observable in logs
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Personal Radio: discovery fell back to comfort",
+      expect.objectContaining({
+        event: "radio.discovery_fell_back_to_comfort",
+        channel: "discovery",
+        reason: "no-candidates",
+        username: "david",
+        neighbourUsername: "jazzfan42",
+        cycle: 0,
+      }),
+    );
+  });
+
+  test("getUserTopTracks CircuitOpenError: falls through to comfort (logged as lastfm-error); comfort circuit branch emits player.radio.unavailable once", async () => {
+    const engine = createEngine();
+    setPersonalRadioContext({
+      username: "david",
+      seedArtists: ["Miles Davis"],
+      neighbours: ["jazzfan42"],
+      cycle: 0,
+    });
+    stubDiscoveryRatio(100);
+
+    // Circuit is open: both the discovery and the comfort fetch fail fast
+    fixtures.mockLastFmClient.getUserTopTracks.mockResolvedValue({
+      ok: false,
+      error: { type: "CircuitOpenError", message: "circuit open" },
+    });
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue({
+      ok: false,
+      error: { type: "CircuitOpenError", message: "circuit open" },
+    });
+
+    const outcome = await engine.replenishAfterRemoval("Seed", "Title");
+
+    // Implemented semantics: a discovery last.fm failure is never terminal —
+    // it degrades to comfort, which owns the terminal error contract.
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Personal Radio: discovery fell back to comfort",
+      expect.objectContaining({
+        event: "radio.discovery_fell_back_to_comfort",
+        channel: "discovery",
+        reason: "lastfm-error",
+        neighbourUsername: "jazzfan42",
+      }),
+    );
+    expect(outcome).toEqual({
+      status: "skipped",
+      reason: "lastfm-unavailable",
+      unavailableEmitted: true,
+    });
+    const unavailableCalls = fixtures.mockEmit.mock.calls.filter(
+      (call) => call[0] === PLAYER_RADIO_UNAVAILABLE,
+    );
+    expect(unavailableCalls).toHaveLength(1);
+    expect(unavailableCalls[0]?.[1]).toMatchObject({
+      playerId: "player-1",
+      message: "Radio mode temporarily unavailable",
+    });
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+
+  test("getUserTopTracks non-circuit error: falls through to comfort, which can still succeed", async () => {
+    const engine = createEngine();
+    setPersonalRadioContext({
+      username: "david",
+      seedArtists: ["Miles Davis"],
+      neighbours: ["jazzfan42"],
+      cycle: 0,
+    });
+    stubDiscoveryRatio(100);
+
+    fixtures.mockLastFmClient.getUserTopTracks.mockResolvedValue({
+      ok: false,
+      error: { type: "NetworkError", message: "neighbour lookup failed" },
+    });
+    fixtures.mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([makeSimilarArtist("Kamasi Washington")]),
+    );
+    fixtures.mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeArtistTopTrack("Kamasi Washington", "Truth")]),
+    );
+    fixtures.mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    const searchResult = makeLmsSearchResult("Kamasi Washington", "Truth");
+    stubSearchResults([searchResult]);
+
+    await engine.handleQueueEnd("Seed", "Title");
+
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Personal Radio: discovery fell back to comfort",
+      expect.objectContaining({
+        event: "radio.discovery_fell_back_to_comfort",
+        reason: "lastfm-error",
+      }),
+    );
+    expect(fixtures.mockEmit).not.toHaveBeenCalledWith(
+      PLAYER_RADIO_UNAVAILABLE,
+      expect.anything(),
+    );
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledExactlyOnceWith(
+      searchResult.url,
+    );
   });
 
   test("loadConfig ratio drives channel choice: ratio 0 forces comfort even with neighbours available", async () => {
