@@ -309,12 +309,12 @@ const makeFakeResponse = (body: unknown): Response =>
     headers: { "content-type": "application/json" },
   });
 
+// Real Response whose body is not JSON — .json() rejects with SyntaxError natively.
 const makeFailingJsonResponse = (): Response =>
-  ({
-    ...makeFakeResponse({}),
-    json: (): Promise<unknown> =>
-      Promise.reject(new SyntaxError("Unexpected token < in JSON")),
-  }) as Response;
+  new Response("<html>not json</html>", {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 
 describe("getRescanProgress", () => {
   it("returns JsonParseError when response body is not valid JSON", async () => {

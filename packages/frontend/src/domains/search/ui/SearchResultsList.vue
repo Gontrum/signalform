@@ -92,6 +92,14 @@ const handleNavigateTidalAlbum = (album: AlbumResult): void => {
   })
 }
 
+const handleAlbumActivate = (album: AlbumResult): void => {
+  if (album.albumId) {
+    handleNavigateAlbum(album.albumId)
+  } else if (album.source === 'tidal' && album.trackUrls?.length) {
+    handleNavigateTidalAlbum(album)
+  }
+}
+
 const handleArtistClick = (artist: ArtistResult) => {
   emit('navigate-artist', { artistId: artist.artistId, name: artist.name })
 }
@@ -384,27 +392,9 @@ const alsoAvailableTexts = computed(
               ? 'transition-all duration-200 hover:border-accent-300 hover:shadow-md cursor-pointer'
               : 'cursor-default',
           ]"
-          @click="
-            album.albumId
-              ? handleNavigateAlbum(album.albumId)
-              : album.source === 'tidal' && album.trackUrls?.length
-                ? handleNavigateTidalAlbum(album)
-                : undefined
-          "
-          @keydown.enter="
-            album.albumId
-              ? handleNavigateAlbum(album.albumId)
-              : album.source === 'tidal' && album.trackUrls?.length
-                ? handleNavigateTidalAlbum(album)
-                : undefined
-          "
-          @keydown.space.prevent="
-            album.albumId
-              ? handleNavigateAlbum(album.albumId)
-              : album.source === 'tidal' && album.trackUrls?.length
-                ? handleNavigateTidalAlbum(album)
-                : undefined
-          "
+          @click="handleAlbumActivate(album)"
+          @keydown.enter="handleAlbumActivate(album)"
+          @keydown.space.prevent="handleAlbumActivate(album)"
         >
           <!-- Album Cover: actual image when available, ♪ placeholder when not (AC1-AC3) -->
           <!-- Falls back to Tidal artist image when LMS returns its generic placeholder -->
