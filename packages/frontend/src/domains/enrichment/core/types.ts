@@ -28,9 +28,7 @@ import type { BaseApiError, NotFoundError } from '@/domains/shared/core/api-erro
 export type EnrichmentApiError = BaseApiError | NotFoundError
 
 export type EnrichmentErrorState =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'not-found' }
-  | { readonly kind: 'unavailable' }
+  { readonly kind: 'none' } | { readonly kind: 'not-found' } | { readonly kind: 'unavailable' }
 
 export type HeroImageApiError = BaseApiError | NotFoundError
 

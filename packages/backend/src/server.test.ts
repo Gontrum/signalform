@@ -315,13 +315,11 @@ describe("createServer", () => {
     createCircuitBreakerLastFmClientMock.mockImplementation((client) => client);
     createFanartClientMock.mockReturnValue({ getArtistImages: vi.fn() });
 
-    setupWebSocketMock.mockImplementation(
-      (): MockIo => ({
-        close: vi.fn((callback?: () => void) => callback?.()),
-        to: vi.fn(() => ({ emit: vi.fn() })),
-        sockets: { sockets: new Map() },
-      }),
-    );
+    setupWebSocketMock.mockImplementation((): MockIo => ({
+      close: vi.fn((callback?: () => void) => callback?.()),
+      to: vi.fn(() => ({ emit: vi.fn() })),
+      sockets: { sockets: new Map() },
+    }));
 
     startStatusPollingMock.mockImplementation(() => vi.fn());
     createRadioEngineMock.mockReturnValue({

@@ -127,9 +127,8 @@ const getAlsoAvailableOn = (result: TrackResult): string => {
 }
 
 // Pre-compute "also available" text per result to avoid double function call in template (M3 fix)
-const alsoAvailableTexts = computed(
-  (): Readonly<Record<string, string>> =>
-    Object.fromEntries(props.results.map((r) => [r.id, getAlsoAvailableOn(r)])),
+const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
+  Object.fromEntries(props.results.map((r) => [r.id, getAlsoAvailableOn(r)])),
 )
 </script>
 

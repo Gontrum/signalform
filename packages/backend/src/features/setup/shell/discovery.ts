@@ -188,10 +188,9 @@ export const fetchLmsPlayers = async (
         return ok(players);
       },
     )
-    .catch(
-      (error: unknown): Result<readonly LmsPlayer[], DiscoveryError> =>
-        err({
-          type: "NETWORK_ERROR",
-          message: error instanceof Error ? error.message : "Unknown error",
-        }),
+    .catch((error: unknown): Result<readonly LmsPlayer[], DiscoveryError> =>
+      err({
+        type: "NETWORK_ERROR",
+        message: error instanceof Error ? error.message : "Unknown error",
+      }),
     );

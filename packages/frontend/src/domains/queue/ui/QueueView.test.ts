@@ -7,9 +7,7 @@ import { setupTestEnv, createTestRouter } from '@/test-utils'
 import { getQueueEntryKey } from '@/domains/queue/core/service'
 
 type CapturedEventName =
-  | 'player.queue.updated'
-  | 'player.radio.unavailable'
-  | 'player.radio.started'
+  'player.queue.updated' | 'player.radio.unavailable' | 'player.radio.started'
 
 const { websocketOnMock } = vi.hoisted(() => {
   return {

@@ -17,14 +17,7 @@ import type { PlaybackApiError } from '@/platform/api/playbackApi'
 export const mapPlaybackErrorMessage = (
   error: PlaybackApiError,
   operation:
-    | 'play'
-    | 'next'
-    | 'previous'
-    | 'pause'
-    | 'resume'
-    | 'volume'
-    | 'seek'
-    | 'time' = 'play',
+    'play' | 'next' | 'previous' | 'pause' | 'resume' | 'volume' | 'seek' | 'time' = 'play',
 ): string => {
   const operationText =
     operation === 'play'

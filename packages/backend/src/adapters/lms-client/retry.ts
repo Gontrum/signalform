@@ -38,8 +38,7 @@ const withRetryAttempt = async <T>(
   opts: RetryOptions,
   delayFn: (ms: number) => Promise<void>,
   onRetry:
-    | ((attempt: number, error: LmsError, delayMs: number) => void)
-    | undefined,
+    ((attempt: number, error: LmsError, delayMs: number) => void) | undefined,
   attempt: number,
 ): Promise<Result<T, LmsError>> => {
   const result = await fn();

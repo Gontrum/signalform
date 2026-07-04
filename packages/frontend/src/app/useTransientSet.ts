@@ -72,8 +72,7 @@ export const useTransientSet = <K extends string>(durationMs: number): Transient
   // Clean up all pending timers when the component/scope is disposed
   onScopeDispose(() => {
     const activeTimers = Object.values(timers.value) as readonly (
-      | ReturnType<typeof setTimeout>
-      | undefined
+      ReturnType<typeof setTimeout> | undefined
     )[]
 
     activeTimers.forEach((timerId) => {

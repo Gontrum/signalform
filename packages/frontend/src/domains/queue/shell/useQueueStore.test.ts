@@ -4,9 +4,7 @@ import { ok, err } from '@signalform/shared'
 import type { QueueTrack } from '@signalform/shared'
 
 type CapturedEventName =
-  | 'player.queue.updated'
-  | 'player.radio.unavailable'
-  | 'player.radio.started'
+  'player.queue.updated' | 'player.radio.unavailable' | 'player.radio.started'
 
 const { mockSubscribe, websocketOnMock } = vi.hoisted(() => ({
   mockSubscribe: vi.fn(),
