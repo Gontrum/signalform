@@ -1,0 +1,3 @@
+# Machine-generated — pnpm owns the formatting; prettier reformatting it
+# creates permanent churn against pnpm/dependabot rewrites.
+pnpm-lock.yaml
