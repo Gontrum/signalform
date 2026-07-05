@@ -32,9 +32,11 @@ vi.mock('@/app/useWebSocket', () => ({
   useWebSocket: (): {
     readonly on: ReturnType<typeof vi.fn>
     readonly subscribe: ReturnType<typeof vi.fn>
+    readonly onReconnect: ReturnType<typeof vi.fn>
   } => ({
     on: vi.fn(),
     subscribe: vi.fn(),
+    onReconnect: vi.fn(),
   }),
 }))
 

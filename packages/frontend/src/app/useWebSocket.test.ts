@@ -5,14 +5,20 @@
 
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { getApiBaseUrl, getWebSocketUrl } from '@/utils/runtimeUrls'
-import { useWebSocket } from '@/app/useWebSocket'
+import { useWebSocket, __resetWebSocketForTests } from '@/app/useWebSocket'
 
-// Mock Socket.IO client
+// Mock Socket.IO client. Manager events (reconnect_attempt, reconnect, error)
+// fire on socket.io, not on the socket itself (Socket.IO v3+).
+const mockManager = {
+  on: vi.fn(),
+}
+
 const mockSocket = {
   on: vi.fn(),
   off: vi.fn(),
   emit: vi.fn(),
   disconnect: vi.fn(),
+  io: mockManager,
 }
 
 vi.mock('socket.io-client', () => ({
@@ -56,11 +62,13 @@ describe('runtimeUrls', () => {
 
 describe('useWebSocket', () => {
   beforeEach(() => {
+    __resetWebSocketForTests()
     vi.clearAllMocks()
     vi.unstubAllEnvs()
   })
 
   afterEach(() => {
+    __resetWebSocketForTests()
     vi.clearAllMocks()
     vi.unstubAllEnvs()
   })
@@ -160,7 +168,7 @@ describe('useWebSocket', () => {
   test('connectionState updates to reconnecting on reconnect_attempt', () => {
     const { connectionState } = useWebSocket()
 
-    const reconnectAttemptCallback = mockSocket.on.mock.calls.find(
+    const reconnectAttemptCallback = mockManager.on.mock.calls.find(
       (call) => call[0] === 'reconnect_attempt',
     )?.[1]
 
@@ -172,12 +180,12 @@ describe('useWebSocket', () => {
   test('connectionState updates to connected on reconnect', () => {
     const { connectionState } = useWebSocket()
 
-    const reconnectAttemptCallback = mockSocket.on.mock.calls.find(
+    const reconnectAttemptCallback = mockManager.on.mock.calls.find(
       (call) => call[0] === 'reconnect_attempt',
     )?.[1]
     reconnectAttemptCallback?.()
 
-    const reconnectCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
+    const reconnectCallback = mockManager.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
 
     reconnectCallback?.()
 
@@ -189,9 +197,57 @@ describe('useWebSocket', () => {
 
     mockSocket.emit.mockClear()
 
-    const reconnectCallback = mockSocket.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
+    const reconnectCallback = mockManager.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
     reconnectCallback?.()
 
     expect(mockSocket.emit).toHaveBeenCalledWith('player.subscribe')
+  })
+
+  test('registers manager-level connection listeners on the Manager (socket.io)', () => {
+    useWebSocket()
+
+    const managerEvents = mockManager.on.mock.calls.map((call) => call[0])
+
+    expect(managerEvents).toContain('reconnect_attempt')
+    expect(managerEvents).toContain('reconnect')
+    expect(managerEvents).toContain('error')
+  })
+
+  test('multiple useWebSocket() calls share one socket — io is called only once', async () => {
+    const { io } = await import('socket.io-client')
+
+    const first = useWebSocket()
+    const second = useWebSocket()
+
+    expect(io).toHaveBeenCalledTimes(1)
+    expect(first.socket).toBe(second.socket)
+    expect(first.connectionState).toBe(second.connectionState)
+  })
+
+  test('onReconnect callbacks from all consumers fire on reconnect', () => {
+    const firstCallback = vi.fn()
+    const secondCallback = vi.fn()
+
+    useWebSocket().onReconnect(firstCallback)
+    useWebSocket().onReconnect(secondCallback)
+
+    const reconnectCallback = mockManager.on.mock.calls.find((call) => call[0] === 'reconnect')?.[1]
+    reconnectCallback?.()
+
+    expect(firstCallback).toHaveBeenCalledTimes(1)
+    expect(secondCallback).toHaveBeenCalledTimes(1)
+  })
+
+  test('__resetWebSocketForTests disconnects the shared socket and allows a fresh one', async () => {
+    const { io } = await import('socket.io-client')
+    useWebSocket()
+
+    __resetWebSocketForTests()
+
+    expect(mockSocket.disconnect).toHaveBeenCalledTimes(1)
+
+    useWebSocket()
+
+    expect(io).toHaveBeenCalledTimes(2)
   })
 })

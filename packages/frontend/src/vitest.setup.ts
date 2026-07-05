@@ -21,6 +21,8 @@ type SocketMock = {
   readonly emit: ReturnType<typeof vi.fn>
   readonly disconnect: ReturnType<typeof vi.fn>
   readonly connect: ReturnType<typeof vi.fn>
+  // Manager (socket.io) — target for reserved events like 'reconnect'
+  readonly io: { readonly on: ReturnType<typeof vi.fn> }
 }
 
 type AggregateErrorLike = {
@@ -60,6 +62,7 @@ vi.mock('socket.io-client', () => {
     emit: vi.fn(),
     disconnect: vi.fn(),
     connect: vi.fn(),
+    io: { on: vi.fn() },
   })
 
   return {

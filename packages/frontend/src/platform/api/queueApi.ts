@@ -184,7 +184,7 @@ export const jumpToTrack = async (
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trackIndex }),
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(15000),
     },
     'Failed to jump to track',
     'Jump to track request',

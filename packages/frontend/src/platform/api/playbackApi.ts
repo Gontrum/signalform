@@ -149,11 +149,11 @@ export const playTrack = async (trackUrl: string): Promise<Result<void, Playback
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ trackUrl }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Playback failed',
     abortMessage: 'Playback request was aborted',
-    timeoutMessage: 'Playback request timed out (5s)',
+    timeoutMessage: 'Playback request timed out (15s)',
     validationStatuses: [400],
   })
 }
@@ -163,11 +163,11 @@ export const nextTrack = async (): Promise<Result<void, PlaybackApiError>> => {
     url: getApiUrl('/api/playback/next'),
     init: {
       method: 'POST',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Skip to next failed',
     abortMessage: 'Skip request was aborted',
-    timeoutMessage: 'Skip request timed out (5s)',
+    timeoutMessage: 'Skip request timed out (15s)',
   })
 }
 
@@ -176,11 +176,11 @@ export const previousTrack = async (): Promise<Result<void, PlaybackApiError>> =
     url: getApiUrl('/api/playback/previous'),
     init: {
       method: 'POST',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Skip to previous failed',
     abortMessage: 'Skip request was aborted',
-    timeoutMessage: 'Skip request timed out (5s)',
+    timeoutMessage: 'Skip request timed out (15s)',
   })
 }
 
@@ -189,11 +189,11 @@ export const pausePlayback = async (): Promise<Result<void, PlaybackApiError>> =
     url: getApiUrl('/api/playback/pause'),
     init: {
       method: 'POST',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Pause failed',
     abortMessage: 'Pause request was aborted',
-    timeoutMessage: 'Pause request timed out (5s)',
+    timeoutMessage: 'Pause request timed out (15s)',
   })
 }
 
@@ -202,11 +202,11 @@ export const resumePlayback = async (): Promise<Result<void, PlaybackApiError>> 
     url: getApiUrl('/api/playback/resume'),
     init: {
       method: 'POST',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Resume failed',
     abortMessage: 'Resume request was aborted',
-    timeoutMessage: 'Resume request timed out (5s)',
+    timeoutMessage: 'Resume request timed out (15s)',
   })
 }
 
@@ -219,11 +219,11 @@ export const setVolume = async (level: number): Promise<Result<void, PlaybackApi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ level }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Set volume failed',
     abortMessage: 'Set volume request was aborted',
-    timeoutMessage: 'Set volume request timed out (5s)',
+    timeoutMessage: 'Set volume request timed out (15s)',
     validationStatuses: [400],
   })
 }
@@ -252,11 +252,11 @@ export const seek = async (seconds: number): Promise<Result<void, PlaybackApiErr
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ seconds }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15000),
     },
     fallbackMessage: 'Seek failed',
     abortMessage: 'Seek request was aborted',
-    timeoutMessage: 'Seek request timed out (5s)',
+    timeoutMessage: 'Seek request timed out (15s)',
     validationStatuses: [400],
   })
 }

@@ -6,9 +6,10 @@ import type { QueueTrack } from '@signalform/shared'
 type CapturedEventName =
   'player.queue.updated' | 'player.radio.unavailable' | 'player.radio.started'
 
-const { mockSubscribe, websocketOnMock } = vi.hoisted(() => ({
+const { mockSubscribe, websocketOnMock, mockOnReconnect } = vi.hoisted(() => ({
   mockSubscribe: vi.fn(),
   websocketOnMock: vi.fn<(event: CapturedEventName, handler: (payload: unknown) => void) => void>(),
+  mockOnReconnect: vi.fn<(callback: () => void) => void>(),
 }))
 
 const getCapturedHandler = (event: CapturedEventName): ((payload: unknown) => void) | undefined => {
@@ -33,9 +34,11 @@ vi.mock('@/app/useWebSocket', () => ({
   useWebSocket: (): {
     readonly on: typeof websocketOnMock
     readonly subscribe: typeof mockSubscribe
+    readonly onReconnect: typeof mockOnReconnect
   } => ({
     on: websocketOnMock,
     subscribe: mockSubscribe,
+    onReconnect: mockOnReconnect,
   }),
 }))
 
@@ -419,7 +422,7 @@ describe('useQueueStore', () => {
     expect(store.isRadioMode).toBe(true)
   })
 
-  it('ignores a stale queue.updated event that arrives after a radio-mode snapshot commit', async () => {
+  it('ignores a strictly older queue.updated event that arrives after a radio-mode snapshot commit', async () => {
     mockSetRadioMode.mockResolvedValue(
       ok({
         tracks: [makeTrack({ id: 'radio-toggle-track', position: 1, addedBy: 'radio' })],
@@ -434,12 +437,13 @@ describe('useQueueStore', () => {
     const handler = getCapturedHandler('player.queue.updated')
     expect(handler).toBeDefined()
 
+    // local sync timestamp is 1 after the commit — 0 is strictly older
     handler!({
       playerId: 'test',
       tracks: [makeTrack({ id: 'stale-track', position: 1, addedBy: 'user' })],
       radioModeActive: false,
       radioBoundaryIndex: null,
-      timestamp: 1,
+      timestamp: 0,
     })
 
     expect(store.tracks[0]?.id).toBe('radio-toggle-track')
@@ -586,6 +590,82 @@ describe('useQueueStore', () => {
     expect(mockSubscribe).toHaveBeenCalledOnce()
   })
 
+  it('refetches the queue when the websocket reconnects', async () => {
+    mockGetQueue.mockResolvedValue(
+      ok({
+        tracks: [makeTrack({ id: 'resynced-track', title: 'Resynced' })],
+        radioModeActive: false,
+        radioBoundaryIndex: null,
+      }),
+    )
+
+    const store = useQueueStore()
+
+    const reconnectCallback = mockOnReconnect.mock.calls.at(-1)?.[0]
+    expect(reconnectCallback).toBeDefined()
+
+    reconnectCallback!()
+
+    expect(mockGetQueue).toHaveBeenCalledTimes(1)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(store.tracks[0]?.id).toBe('resynced-track')
+  })
+
+  it('refetches the queue when the document becomes visible again', async () => {
+    const addEventListenerSpy = vi.spyOn(document, 'addEventListener')
+    mockGetQueue.mockResolvedValue(
+      ok({
+        tracks: [makeTrack({ id: 'visible-refresh-track', title: 'Refreshed' })],
+        radioModeActive: false,
+        radioBoundaryIndex: null,
+      }),
+    )
+
+    const store = useQueueStore()
+
+    const visibilityHandler = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'visibilitychange',
+    )?.[1]
+    addEventListenerSpy.mockRestore()
+    expect(typeof visibilityHandler).toBe('function')
+    if (typeof visibilityHandler !== 'function') {
+      return
+    }
+
+    // the test DOM reports document.visibilityState as 'visible' by default
+    visibilityHandler(new Event('visibilitychange'))
+
+    expect(mockGetQueue).toHaveBeenCalledTimes(1)
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(store.tracks[0]?.id).toBe('visible-refresh-track')
+  })
+
+  it('does not refetch the queue when the document becomes hidden', () => {
+    const addEventListenerSpy = vi.spyOn(document, 'addEventListener')
+
+    useQueueStore()
+
+    const visibilityHandler = addEventListenerSpy.mock.calls.find(
+      ([eventName]) => eventName === 'visibilitychange',
+    )?.[1]
+    addEventListenerSpy.mockRestore()
+    expect(typeof visibilityHandler).toBe('function')
+    if (typeof visibilityHandler !== 'function') {
+      return
+    }
+
+    const visibilityStateSpy = vi
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden')
+    try {
+      visibilityHandler(new Event('visibilitychange'))
+
+      expect(mockGetQueue).not.toHaveBeenCalled()
+    } finally {
+      visibilityStateSpy.mockRestore()
+    }
+  })
+
   it('radioBoundaryIndex starts as null', () => {
     const store = useQueueStore()
     expect(store.radioBoundaryIndex).toBeNull()
@@ -660,7 +740,7 @@ describe('useQueueStore', () => {
     expect(store.isRadioMode).toBe(true)
   })
 
-  it('ignores a stale queue.updated event that arrives after a local mutation snapshot', async () => {
+  it('ignores a strictly older queue.updated event that arrives after a local mutation snapshot', async () => {
     mockReorderQueue.mockResolvedValue(
       ok({
         tracks: [makeTrack({ id: 'fresh-track', position: 1, addedBy: 'radio' })],
@@ -677,17 +757,50 @@ describe('useQueueStore', () => {
     const handler = getCapturedHandler('player.queue.updated')
     expect(handler).toBeDefined()
 
+    // local sync timestamp is 1 after the commit — 0 is strictly older
     handler!({
       playerId: 'test',
       tracks: [makeTrack({ id: 'stale-track', position: 1 })],
       radioModeActive: false,
       radioBoundaryIndex: null,
-      timestamp: 1,
+      timestamp: 0,
     })
 
     expect(store.tracks[0]?.id).toBe('fresh-track')
     expect(store.isRadioMode).toBe(true)
     expect(store.radioBoundaryIndex).toBe(0)
+  })
+
+  it('applies a queue.updated event whose timestamp equals the local sync timestamp', async () => {
+    mockReorderQueue.mockResolvedValue(
+      ok({
+        tracks: [makeTrack({ id: 'fresh-track', position: 1, addedBy: 'radio' })],
+        radioModeActive: true,
+        radioBoundaryIndex: 0,
+      }),
+    )
+
+    const store = useQueueStore()
+    store.$patch({ tracks: makeTrackListForReorder() })
+
+    await store.reorderTrack('track-1', 0, 2)
+
+    const handler = getCapturedHandler('player.queue.updated')
+    expect(handler).toBeDefined()
+
+    // local sync timestamp is 1 after the commit — an equal timestamp can be
+    // a genuinely newer server event on the same millisecond and must apply
+    handler!({
+      playerId: 'test',
+      tracks: [makeTrack({ id: 'same-millisecond-track', position: 1, addedBy: 'user' })],
+      radioModeActive: false,
+      radioBoundaryIndex: null,
+      timestamp: 1,
+    })
+
+    expect(store.tracks[0]?.id).toBe('same-millisecond-track')
+    expect(store.isRadioMode).toBe(false)
+    expect(store.radioBoundaryIndex).toBeNull()
   })
 
   it('applies a newer queue.updated event after a local mutation snapshot', async () => {

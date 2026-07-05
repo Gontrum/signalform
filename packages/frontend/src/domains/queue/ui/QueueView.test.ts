@@ -32,6 +32,7 @@ vi.mock('@/app/useWebSocket', () => ({
     unsubscribe: vi.fn(),
     on: websocketOnMock,
     off: vi.fn(),
+    onReconnect: vi.fn(),
   })),
 }))
 

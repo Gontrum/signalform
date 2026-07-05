@@ -43,7 +43,6 @@ export const useQueueStore = defineStore('queue', () => {
   const activeQueueFetch = ref<Promise<void> | null>(null)
   const hasPendingQueueMutationSync = ref(false)
   const latestQueueSyncTimestamp = ref(0)
-  const hasLocalQueueSyncBarrier = ref(false)
   const isSelectMode = ref(false)
   const selectedTrackIds = ref<ReadonlySet<string>>(new Set())
   const isClearingQueue = ref(false)
@@ -65,23 +64,21 @@ export const useQueueStore = defineStore('queue', () => {
       isBatchRemoving.value,
   )
 
-  const advanceQueueSyncTimestamp = (): number => {
-    const nextTimestamp = latestQueueSyncTimestamp.value + 1
-    latestQueueSyncTimestamp.value = nextTimestamp
-    hasLocalQueueSyncBarrier.value = true
-    return nextTimestamp
+  // +1 turns "at or before the last applied state" into strictly older, so
+  // in-flight echoes of that state are rejected by the < check below.
+  const advanceQueueSyncTimestamp = (): void => {
+    latestQueueSyncTimestamp.value = latestQueueSyncTimestamp.value + 1
   }
 
   const applyQueueUpdate = (payload: QueueUpdatedPayload): void => {
-    if (
-      payload.timestamp < latestQueueSyncTimestamp.value ||
-      (hasLocalQueueSyncBarrier.value && payload.timestamp === latestQueueSyncTimestamp.value)
-    ) {
+    // Only strictly older events are stale; an equal timestamp can be a
+    // genuinely newer server event on the same millisecond — dropping it
+    // would leave the queue stale until the next event.
+    if (payload.timestamp < latestQueueSyncTimestamp.value) {
       return
     }
 
     latestQueueSyncTimestamp.value = payload.timestamp
-    hasLocalQueueSyncBarrier.value = false
     tracks.value = payload.tracks
     isRadioMode.value = payload.radioModeActive
     radioBoundaryIndex.value = payload.radioBoundaryIndex ?? null
@@ -346,8 +343,23 @@ export const useQueueStore = defineStore('queue', () => {
     isBatchRemoving.value = false
   }
 
-  const { on, subscribe } = useWebSocket()
+  const { on, subscribe, onReconnect } = useWebSocket()
   subscribe()
+
+  // WS events missed while disconnected or backgrounded are gone for good —
+  // resync the full queue. The store lives for the app lifetime, so these
+  // listeners are registered exactly once and need no teardown.
+  onReconnect(() => {
+    void fetchQueue()
+  })
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        void fetchQueue()
+      }
+    })
+  }
 
   const radioUnavailableTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
