@@ -81,24 +81,68 @@ export const isQueueDropTarget = (
   dragFromIndex: number | null,
 ): boolean => dragOverIndex === trackIndex && dragFromIndex !== null && dragFromIndex !== trackIndex
 
-export const getQueueDropPosition = (
-  dragOverIndex: number | null,
-  dragFromIndex: number | null,
-): QueueDropPosition | null => {
-  if (dragOverIndex === null || dragFromIndex === null || dragOverIndex === dragFromIndex) {
+export const getQueueDropHalf = (
+  pointerY: number,
+  rowTop: number,
+  rowBottom: number,
+): QueueDropPosition => {
+  if (rowBottom <= rowTop) {
+    return 'after'
+  }
+
+  const midpoint = (rowTop + rowBottom) / 2
+  return pointerY < midpoint ? 'before' : 'after'
+}
+
+export const getQueueReorderTargetIndex = (
+  fromIndex: number,
+  overIndex: number,
+  half: QueueDropPosition,
+): number | null => {
+  if (fromIndex < 0 || overIndex < 0) {
     return null
   }
 
-  return dragFromIndex < dragOverIndex ? 'after' : 'before'
+  if (
+    overIndex === fromIndex ||
+    (overIndex === fromIndex + 1 && half === 'before') ||
+    (overIndex === fromIndex - 1 && half === 'after')
+  ) {
+    return null
+  }
+
+  if (fromIndex < overIndex) {
+    return half === 'before' ? overIndex - 1 : overIndex
+  }
+
+  return half === 'before' ? overIndex : overIndex + 1
+}
+
+export const getQueueDropPosition = (
+  dragOverIndex: number | null,
+  dragFromIndex: number | null,
+  dragOverHalf: QueueDropPosition | null,
+): QueueDropPosition | null => {
+  if (
+    dragOverIndex === null ||
+    dragFromIndex === null ||
+    dragOverHalf === null ||
+    dragOverIndex === dragFromIndex
+  ) {
+    return null
+  }
+
+  return dragOverHalf
 }
 
 export const getQueueDropIndicatorLabel = (
   trackIndex: number,
   dragOverIndex: number | null,
   dragFromIndex: number | null,
+  dragOverHalf: QueueDropPosition | null,
   messages: { readonly before: string; readonly after: string },
 ): string | null => {
-  const dropPosition = getQueueDropPosition(dragOverIndex, dragFromIndex)
+  const dropPosition = getQueueDropPosition(dragOverIndex, dragFromIndex, dragOverHalf)
   if (!isQueueDropTarget(trackIndex, dragOverIndex, dragFromIndex) || dropPosition === null) {
     return null
   }

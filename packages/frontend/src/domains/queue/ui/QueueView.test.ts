@@ -183,6 +183,28 @@ const dispatchTouchMove = (clientX: number, clientY: number): void => {
   )
 }
 
+const makeRect = (top: number, bottom: number): DOMRect =>
+  ({
+    top,
+    bottom,
+    left: 0,
+    right: 300,
+    width: 300,
+    height: bottom - top,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  }) as DOMRect
+
+// jsdom returns all-zero rects, which would always resolve to the "after" half.
+// Pin a real rect on a queue row so cursor-half drop logic can be exercised.
+const mockRowRect = (trackIndex: number, top: number, bottom: number): void => {
+  const row = document.querySelector(`[data-track-index="${trackIndex}"]`)
+  if (row instanceof HTMLElement) {
+    vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(makeRect(top, bottom))
+  }
+}
+
 describe('QueueView', () => {
   beforeEach(() => {
     setupTestEnv()
@@ -503,6 +525,9 @@ describe('QueueView', () => {
     const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
     await flushPromises()
 
+    // Row 1 sits at 0..100; dropping in its upper half means "before" this row.
+    mockRowRect(1, 0, 100)
+
     const reorderButton = wrapper.findAll('[data-testid="queue-track-reorder"]')[2]
     const touchStartTouches = [createTouch(20, 20)]
     await reorderButton?.trigger('touchstart', {
@@ -601,18 +626,140 @@ describe('QueueView', () => {
     const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
     await flushPromises()
 
+    // Row 0 sits at 100..200; cursor at y=120 lands in its upper half → "before".
+    mockRowRect(0, 100, 200)
+
     await wrapper.findAll('[data-testid="queue-track-reorder"]')[2]?.trigger('mousedown', {
       clientX: 20,
       clientY: 20,
       button: 0,
     })
-    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 5 }))
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 5, clientY: 120 }))
     await nextTick()
 
     expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="queue-drop-indicator"]').text()).toContain(
       'Release to move before this track.',
     )
+
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('shows a before drop line for the upper row half and an after line for the lower half', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="2"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    // Neutral container so cursor position never triggers auto-scroll during the test.
+    vi.spyOn(
+      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      'getBoundingClientRect',
+    ).mockReturnValue(makeRect(0, 1000))
+    // Row 2 spans 100..200 → midpoint 150.
+    mockRowRect(2, 100, 200)
+
+    await wrapper.findAll('[data-testid="queue-track-reorder"]')[0]?.trigger('mousedown', {
+      clientX: 10,
+      clientY: 500,
+      button: 0,
+    })
+
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 120 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(false)
+
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 180 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(false)
+
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('drops in the lower half of the row directly above the dragged one are a no-op', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="0"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    vi.spyOn(
+      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      'getBoundingClientRect',
+    ).mockReturnValue(makeRect(0, 1000))
+    // Row 0 spans 100..200 → midpoint 150; y=180 is the lower half → "after" row 0.
+    mockRowRect(0, 100, 200)
+
+    // Drag row 1 and release just below row 0 — that is the same slot it already occupies.
+    await wrapper.findAll('[data-testid="queue-track-reorder"]')[1]?.trigger('mousedown', {
+      clientX: 10,
+      clientY: 500,
+      button: 0,
+    })
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 180 }))
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
+
+    expect(mockReorderQueue).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="queue-drag-state"]').exists()).toBe(false)
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('auto-scroll interval reads live pointer coordinates on each tick', async () => {
+    vi.useFakeTimers()
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector('[data-track-index="2"]'))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    const scrollContainerElement = wrapper.find('ul[aria-label="Queue tracks"]').element
+    const scrollContainer =
+      scrollContainerElement instanceof HTMLElement ? scrollContainerElement : document.body
+    vi.spyOn(scrollContainer, 'scrollBy').mockImplementation(() => {})
+    vi.spyOn(scrollContainer, 'getBoundingClientRect').mockReturnValue(makeRect(0, 200))
+
+    await wrapper.findAll('[data-testid="queue-track-reorder"]')[0]?.trigger('mousedown', {
+      clientX: 10,
+      clientY: 196,
+      button: 0,
+    })
+
+    // Move to new live coordinates, still inside the bottom auto-scroll zone.
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 50, clientY: 190 }))
+    elementFromPointSpy.mockClear()
+
+    vi.advanceTimersByTime(16)
+
+    expect(elementFromPointSpy).toHaveBeenCalledWith(50, 190)
+    expect(elementFromPointSpy).not.toHaveBeenCalledWith(10, 196)
 
     document.dispatchEvent(new MouseEvent('mouseup'))
     await flushPromises()

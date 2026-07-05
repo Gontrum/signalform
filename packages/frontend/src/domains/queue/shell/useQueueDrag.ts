@@ -3,8 +3,10 @@ import type { Ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import {
   getQueueAutoScrollDelta,
+  getQueueDropHalf,
   getQueueDropIndicatorLabel,
   getQueueDropPosition,
+  getQueueReorderTargetIndex,
   isQueueDropTarget,
   isQueueRowBusy,
   parseQueueTrackIndex,
@@ -52,6 +54,7 @@ export const useQueueDrag = ({
   const touchMoveListenerOptions: AddEventListenerOptions = { passive: false }
   const dragFromIndex = ref<number | null>(null)
   const dragOverIndex = ref<number | null>(null)
+  const dragOverHalf = ref<QueueDropPosition | null>(null)
   const dragTrackId = ref<string | null>(null)
   const isTouchDragging = ref(false)
   const dragPointerX = ref<number | null>(null)
@@ -106,6 +109,7 @@ export const useQueueDrag = ({
     stopAutoScroll()
     dragFromIndex.value = null
     dragOverIndex.value = null
+    dragOverHalf.value = null
     dragTrackId.value = null
     dragPointerX.value = null
     dragPointerY.value = null
@@ -131,11 +135,47 @@ export const useQueueDrag = ({
 
   const updateDragTargetFromPoint = (clientX: number, clientY: number): void => {
     const target = getTrackElementFromPoint(clientX, clientY)
-    const targetIndex = getTrackIndexFromElement(target)
-
-    if (targetIndex !== null) {
-      dragOverIndex.value = targetIndex
+    if (target === null) {
+      return
     }
+
+    const targetIndex = getTrackIndexFromElement(target)
+    if (targetIndex === null) {
+      return
+    }
+
+    const rect = target.getBoundingClientRect()
+    dragOverIndex.value = targetIndex
+    dragOverHalf.value = getQueueDropHalf(clientY, rect.top, rect.bottom)
+  }
+
+  const computeAutoScrollDelta = (container: HTMLElement, pointerY: number): number => {
+    const rect = container.getBoundingClientRect()
+    return getQueueAutoScrollDelta(pointerY, rect.top, rect.bottom, {
+      thresholdPx: 64,
+      maxStepPx: 20,
+    })
+  }
+
+  const runAutoScrollTick = (): void => {
+    const container = scrollContainer.value
+    const pointerX = dragPointerX.value
+    const pointerY = dragPointerY.value
+
+    if (container === null || pointerX === null || pointerY === null) {
+      stopAutoScroll()
+      return
+    }
+
+    const scrollDelta = computeAutoScrollDelta(container, pointerY)
+
+    if (scrollDelta === 0) {
+      stopAutoScroll()
+      return
+    }
+
+    container.scrollBy({ top: scrollDelta })
+    updateDragTargetFromPoint(pointerX, pointerY)
   }
 
   const syncAutoScroll = (): void => {
@@ -148,11 +188,7 @@ export const useQueueDrag = ({
       return
     }
 
-    const rect = container.getBoundingClientRect()
-    const scrollDelta = getQueueAutoScrollDelta(pointerY, rect.top, rect.bottom, {
-      thresholdPx: 64,
-      maxStepPx: 20,
-    })
+    const scrollDelta = computeAutoScrollDelta(container, pointerY)
 
     if (scrollDelta === 0) {
       stopAutoScroll()
@@ -163,10 +199,7 @@ export const useQueueDrag = ({
       return
     }
 
-    autoScrollIntervalId.value = window.setInterval(() => {
-      container.scrollBy({ top: scrollDelta })
-      updateDragTargetFromPoint(pointerX, pointerY)
-    }, 16)
+    autoScrollIntervalId.value = window.setInterval(runAutoScrollTick, 16)
   }
 
   const updatePointer = (clientX: number, clientY: number): void => {
@@ -178,16 +211,24 @@ export const useQueueDrag = ({
 
   const commitReorder = (): void => {
     const fromIndex = dragFromIndex.value
-    const toIndex = dragOverIndex.value
+    const overIndex = dragOverIndex.value
+    const half = dragOverHalf.value
     const trackId = dragTrackId.value
 
-    if (fromIndex === null || toIndex === null || trackId === null || fromIndex === toIndex) {
+    if (fromIndex === null || overIndex === null || half === null || trackId === null) {
+      clearDragState()
+      return
+    }
+
+    const targetIndex = getQueueReorderTargetIndex(fromIndex, overIndex, half)
+
+    if (targetIndex === null) {
       clearDragState()
       return
     }
 
     clearDragState()
-    void reorderTrack(trackId, fromIndex, toIndex)
+    void reorderTrack(trackId, fromIndex, targetIndex)
   }
 
   const handleDocumentMouseMove = (event: MouseEvent): void => {
@@ -237,6 +278,7 @@ export const useQueueDrag = ({
     event.preventDefault()
     dragFromIndex.value = trackIndex
     dragOverIndex.value = trackIndex
+    dragOverHalf.value = 'before'
     dragTrackId.value = trackId
     isTouchDragging.value = false
     updatePointer(event.clientX, event.clientY)
@@ -259,6 +301,7 @@ export const useQueueDrag = ({
 
     dragFromIndex.value = trackIndex
     dragOverIndex.value = trackIndex
+    dragOverHalf.value = 'before'
     dragTrackId.value = trackId
     isTouchDragging.value = true
     updatePointer(touch.clientX, touch.clientY)
@@ -280,11 +323,17 @@ export const useQueueDrag = ({
       return null
     }
 
-    return getQueueDropPosition(dragOverIndex.value, dragFromIndex.value)
+    return getQueueDropPosition(dragOverIndex.value, dragFromIndex.value, dragOverHalf.value)
   }
 
   const getDropIndicatorLabel = (trackIndex: number): string | null =>
-    getQueueDropIndicatorLabel(trackIndex, dragOverIndex.value, dragFromIndex.value, dropMessages)
+    getQueueDropIndicatorLabel(
+      trackIndex,
+      dragOverIndex.value,
+      dragFromIndex.value,
+      dragOverHalf.value,
+      dropMessages,
+    )
 
   const setScrollContainer = (el: Element | ComponentPublicInstance | null): void => {
     scrollContainer.value = el instanceof HTMLElement ? el : null
