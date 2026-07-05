@@ -15,6 +15,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.13.0] - 2026-07-05
+
+### Added
+
+- the queue now auto-scrolls to the currently playing track — centered when
+  the view opens, and it smooth-scrolls to follow track changes while the view
+  stays open (suppressed during a drag or in select mode)
+- drag & drop picks the drop position from where the cursor sits inside the row
+  (upper half drops before it, lower half after it) instead of a bare index
+  comparison; a drop that would not move the track no longer hits the server
+
+### Fixed
+
+- the queue and playback views no longer open a second, redundant WebSocket
+  connection — `useWebSocket` is now a single shared socket
+- the queue re-syncs after a dropped connection. The reconnect handler had been
+  dead since Socket.IO v3 (the manager stopped forwarding reconnect events to
+  the socket), so the UI silently went stale after the device slept or the
+  network changed; reconnecting and bringing the app back to the foreground now
+  both refetch the queue
+- queue and playback actions no longer show a spurious error while the backend
+  is still retrying — the frontend mutation timeouts were shorter than the
+  backend's retry window and have been raised to 15s, which is what caused the
+  "fails once, works on the second click" behaviour
+- the drag auto-scroll followed the frozen start position; it now reads the
+  live pointer on every tick
+
+### Changed
+
+- the queue's realtime timestamp barrier accepts a same-millisecond server
+  event instead of discarding it as stale
+
+---
+
 ## [0.12.1] - 2026-07-03
 
 ### Fixed
