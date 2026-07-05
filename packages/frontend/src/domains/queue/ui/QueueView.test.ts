@@ -865,6 +865,104 @@ describe('QueueView', () => {
     expect(scrollIntoViewMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
   })
 
+  describe('auto-scroll to current track', () => {
+    const makeTracksWithCurrent = (currentId: string): readonly QueueTrack[] =>
+      makeTracks().map((track) => ({ ...track, isCurrent: track.id === currentId }))
+
+    it('scrolls the current track into view instantly after the initial queue load', async () => {
+      const scrollSpy = vi
+        .spyOn(HTMLElement.prototype, 'scrollIntoView')
+        .mockImplementation(() => {})
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracksWithCurrent('2')))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'instant', block: 'center' })
+
+      const currentRow = wrapper.find('[data-testid="queue-track"][data-current="true"]')
+      expect(currentRow.attributes('data-track-id')).toBe('2')
+      expect(scrollSpy.mock.contexts[0]).toBe(currentRow.element)
+
+      scrollSpy.mockRestore()
+      wrapper.unmount()
+    })
+
+    it('smooth-scrolls to the new current track when it changes while the view is open', async () => {
+      const scrollSpy = vi
+        .spyOn(HTMLElement.prototype, 'scrollIntoView')
+        .mockImplementation(() => {})
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracksWithCurrent('1')))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+      scrollSpy.mockClear()
+
+      getCapturedHandler('player.queue.updated')?.({
+        playerId: 'test-player',
+        tracks: makeTracksWithCurrent('3'),
+        timestamp: Date.now(),
+      })
+      await flushPromises()
+
+      expect(scrollSpy).toHaveBeenCalledTimes(1)
+      expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'nearest' })
+
+      const currentRow = wrapper.find('[data-testid="queue-track"][data-current="true"]')
+      expect(currentRow.attributes('data-track-id')).toBe('3')
+      expect(scrollSpy.mock.contexts[0]).toBe(currentRow.element)
+
+      scrollSpy.mockRestore()
+      wrapper.unmount()
+    })
+
+    it('does not scroll on track change while select mode is active', async () => {
+      const scrollSpy = vi
+        .spyOn(HTMLElement.prototype, 'scrollIntoView')
+        .mockImplementation(() => {})
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracksWithCurrent('1')))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
+      await nextTick()
+      scrollSpy.mockClear()
+
+      getCapturedHandler('player.queue.updated')?.({
+        playerId: 'test-player',
+        tracks: makeTracksWithCurrent('3'),
+        timestamp: Date.now(),
+      })
+      await flushPromises()
+
+      expect(scrollSpy).not.toHaveBeenCalled()
+
+      scrollSpy.mockRestore()
+      wrapper.unmount()
+    })
+
+    it('does not scroll when no track is current', async () => {
+      const scrollSpy = vi
+        .spyOn(HTMLElement.prototype, 'scrollIntoView')
+        .mockImplementation(() => {})
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(scrollSpy).not.toHaveBeenCalled()
+
+      scrollSpy.mockRestore()
+      wrapper.unmount()
+    })
+  })
+
   it('keeps current-track highlight ahead of radio tint', async () => {
     const currentTracks = [
       {

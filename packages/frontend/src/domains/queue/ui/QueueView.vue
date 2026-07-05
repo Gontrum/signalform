@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { formatSeconds } from '@signalform/shared'
@@ -164,10 +164,48 @@ const getTrackKey = (track: (typeof tracks.value)[number]): string => getQueueEn
 const draggedTrack = computed(
   () => tracks.value.find((track) => getTrackKey(track) === dragTrackId.value) ?? null,
 )
+
+const viewRoot = ref<HTMLElement | null>(null)
+const hasScrolledToCurrentOnOpen = ref(false)
+
+const currentTrackKey = computed(() => {
+  const currentTrack = tracks.value.find((track) => track.isCurrent)
+  return currentTrack !== undefined ? getTrackKey(currentTrack) : null
+})
+
+const scrollCurrentTrackIntoView = (options: ScrollIntoViewOptions): void => {
+  const element = viewRoot.value?.querySelector('[data-testid="queue-track"][data-current="true"]')
+  if (element instanceof HTMLElement) {
+    element.scrollIntoView?.(options)
+  }
+}
+
+// isLoading is part of the source: fetchQueue applies tracks before it clears
+// isLoading in a later microtask, and the track list only renders once loading
+// is done — the key alone would fire while the list is still hidden.
+watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
+  if (key === null || loading) {
+    return
+  }
+
+  if (!hasScrolledToCurrentOnOpen.value) {
+    hasScrolledToCurrentOnOpen.value = true
+    await nextTick()
+    scrollCurrentTrackIntoView({ behavior: 'instant', block: 'center' })
+    return
+  }
+
+  if (key === previousKey || isDragActive.value || isSelectMode.value) {
+    return
+  }
+
+  await nextTick()
+  scrollCurrentTrackIntoView({ behavior: 'smooth', block: 'nearest' })
+})
 </script>
 
 <template>
-  <div data-testid="queue-view" class="flex h-full min-h-0 flex-col p-6">
+  <div ref="viewRoot" data-testid="queue-view" class="flex h-full min-h-0 flex-col p-6">
     <MainNavBar />
     <button
       type="button"
@@ -355,6 +393,7 @@ const draggedTrack = computed(
             :data-track-index="index"
             :data-track-id="track.id"
             :data-track-key="getTrackKey(track)"
+            :data-current="track.isCurrent ? 'true' : 'false'"
             :data-dragging="dragTrackId === getTrackKey(track) ? 'true' : 'false'"
             :data-drop-target="isDropTarget(index) ? 'true' : 'false'"
             :data-busy="isRowBusy(getTrackKey(track)) ? 'true' : 'false'"
