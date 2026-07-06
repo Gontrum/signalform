@@ -14,9 +14,10 @@ import { flushPromises } from '@vue/test-utils'
 
 // ─── Hoisted mock factories ───────────────────────────────────────────────────
 
-const { mockSubscribe, websocketOnMock } = vi.hoisted(() => ({
+const { mockSubscribe, websocketOnMock, mockOnReconnect } = vi.hoisted(() => ({
   mockSubscribe: vi.fn(),
   websocketOnMock: vi.fn<(event: string, handler: (payload: unknown) => void) => void>(),
+  mockOnReconnect: vi.fn<(callback: () => void) => void>(),
 }))
 
 // ─── Module mocks ─────────────────────────────────────────────────────────────
@@ -38,9 +39,11 @@ vi.mock('@/app/useWebSocket', () => ({
   useWebSocket: (): {
     readonly on: typeof websocketOnMock
     readonly subscribe: typeof mockSubscribe
+    readonly onReconnect: typeof mockOnReconnect
   } => ({
     on: websocketOnMock,
     subscribe: mockSubscribe,
+    onReconnect: mockOnReconnect,
   }),
 }))
 
@@ -429,6 +432,55 @@ describe('initial playback sync', () => {
         artist: 'Artist',
       },
     ])
+    expect(store.isCurrentlyPlaying).toBe(true)
+  })
+
+  it('re-syncs playback status when the websocket reconnects', async () => {
+    mockGetPlaybackStatus
+      .mockResolvedValueOnce(
+        ok({
+          status: 'paused',
+          currentTime: 11,
+          currentTrack: {
+            id: 'track-1',
+            title: 'Before',
+            artist: 'Artist',
+            album: 'Album',
+            url: 'file:///before.flac',
+            source: 'local',
+          },
+          queuePreview: [],
+        }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          status: 'playing',
+          currentTime: 44,
+          currentTrack: {
+            id: 'track-2',
+            title: 'After',
+            artist: 'Artist',
+            album: 'Album',
+            url: 'file:///after.flac',
+            source: 'local',
+          },
+          queuePreview: [],
+        }),
+      )
+
+    const store = usePlaybackStore()
+    await flushPromises()
+    expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(1)
+
+    const reconnectCallback = mockOnReconnect.mock.calls.at(-1)?.[0]
+    expect(reconnectCallback).toBeDefined()
+
+    reconnectCallback!()
+    await flushPromises()
+
+    expect(mockGetPlaybackStatus).toHaveBeenCalledTimes(2)
+    expect(store.currentTrack?.title).toBe('After')
+    expect(store.currentTime).toBe(44)
     expect(store.isCurrentlyPlaying).toBe(true)
   })
 

@@ -272,9 +272,13 @@ export const usePlaybackStore = defineStore('playback', () => {
   // Subscribe and register handlers immediately at store initialization.
   // The store lives for the entire app lifetime (Pinia keeps it alive across navigation),
   // so handlers must be registered once here — not in component lifecycle hooks.
-  const { on, subscribe } = useWebSocket() // singleton socket — lives for app lifetime
+  const { on, subscribe, onReconnect } = useWebSocket() // singleton socket — lives for app lifetime
 
   subscribe()
+
+  // WS events missed while disconnected are gone for good — resync the full
+  // playback state once the socket reconnects.
+  onReconnect(syncPlaybackState)
 
   // Listen to player status changes
   on('player.statusChanged', (payload: PlayerStatusPayload) => {
