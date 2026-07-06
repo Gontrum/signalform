@@ -6,8 +6,6 @@
 import { describe, test, expect } from "vitest";
 import {
   createPlayerStatusPayload,
-  createPlayerTrackChangedPayload,
-  createPlayerVolumeChangedPayload,
   createSystemEventPayload,
   hasQueueContextChanged,
   hasStatusChanged,
@@ -161,115 +159,6 @@ describe("createPlayerStatusPayload", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.queuePreview).toBeUndefined();
-    }
-  });
-});
-
-describe("createPlayerTrackChangedPayload", () => {
-  const testTrack: Track = {
-    id: "track-123",
-    title: "Test Song",
-    artist: "Test Artist",
-    album: "Test Album",
-    duration: 180,
-    sources: [],
-  };
-
-  test("creates valid payload", () => {
-    const result = createPlayerTrackChangedPayload("player-1", testTrack);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.playerId).toBe("player-1");
-      expect(result.value.track).toEqual(testTrack);
-      expect(result.value.timestamp).toBeGreaterThan(0);
-    }
-  });
-
-  test("returns error for missing playerId", () => {
-    const result = createPlayerTrackChangedPayload("", testTrack);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("MISSING_DATA");
-      expect(result.error.message).toBe("Player ID is required");
-    }
-  });
-
-  test("returns validation error for invalid track payload", () => {
-    const result = createPlayerTrackChangedPayload("player-1", {
-      id: "",
-      title: "",
-      artist: "",
-      album: "",
-      duration: -1,
-      sources: [],
-    });
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("VALIDATION_ERROR");
-    }
-  });
-});
-
-describe("createPlayerVolumeChangedPayload", () => {
-  test("creates valid payload with volume 0", () => {
-    const result = createPlayerVolumeChangedPayload("player-1", 0);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.playerId).toBe("player-1");
-      expect(result.value.volume).toBe(0);
-      expect(result.value.timestamp).toBeGreaterThan(0);
-    }
-  });
-
-  test("creates valid payload with volume 100", () => {
-    const result = createPlayerVolumeChangedPayload("player-1", 100);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.volume).toBe(100);
-    }
-  });
-
-  test("creates valid payload with volume 50", () => {
-    const result = createPlayerVolumeChangedPayload("player-1", 50);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.volume).toBe(50);
-    }
-  });
-
-  test("returns error for volume < 0", () => {
-    const result = createPlayerVolumeChangedPayload("player-1", -1);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("INVALID_STATUS");
-      expect(result.error.message).toBe("Volume must be between 0 and 100");
-    }
-  });
-
-  test("returns error for volume > 100", () => {
-    const result = createPlayerVolumeChangedPayload("player-1", 101);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("INVALID_STATUS");
-      expect(result.error.message).toBe("Volume must be between 0 and 100");
-    }
-  });
-
-  test("returns error for missing playerId", () => {
-    const result = createPlayerVolumeChangedPayload("", 50);
-
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.type).toBe("MISSING_DATA");
-      expect(result.error.message).toBe("Player ID is required");
     }
   });
 });

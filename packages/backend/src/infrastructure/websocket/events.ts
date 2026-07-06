@@ -8,8 +8,6 @@
  * Server to Client Events (Backend emits these)
  */
 export const PLAYER_STATUS_CHANGED = "player.statusChanged" as const;
-export const PLAYER_TRACK_CHANGED = "player.trackChanged" as const;
-export const PLAYER_VOLUME_CHANGED = "player.volumeChanged" as const;
 export const SYSTEM_LMS_DISCONNECTED = "system.lmsDisconnected" as const;
 export const SYSTEM_LMS_RECONNECTED = "system.lmsReconnected" as const;
 export const PLAYER_QUEUE_UPDATED = "player.queue.updated" as const;

@@ -16,7 +16,7 @@
 
 export type LmsStatus = "connected" | "disconnected";
 export type LastFmStatus = "available" | "circuit open";
-export type HealthStatus = "healthy" | "degraded" | "unhealthy";
+type HealthStatus = "healthy" | "degraded" | "unhealthy";
 
 export type HealthResult = {
   readonly status: HealthStatus;

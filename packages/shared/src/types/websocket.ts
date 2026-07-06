@@ -9,7 +9,7 @@ import type { QueueTrack } from "./queue.js";
 /**
  * Player status values
  */
-export type PlayerStatus = "playing" | "paused" | "stopped";
+type PlayerStatus = "playing" | "paused" | "stopped";
 
 /**
  * Queue preview item (upcoming track)

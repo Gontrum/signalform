@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { ref } from 'vue'
 import { getArtistHeroImage } from '@/platform/api/heroImageApi'
 
 const imageCache = ref<Readonly<Record<string, string | null>>>({})
@@ -35,18 +35,6 @@ const fetchArtistImage = (artistName: string): Promise<string | null> => {
   }
 
   return fetchPromise
-}
-
-export const useArtistImage = (artistName: string): { readonly imageUrl: Ref<string | null> } => {
-  const imageUrl = ref<string | null>(null)
-
-  if (artistName.trim() !== '') {
-    void fetchArtistImage(artistName).then((url) => {
-      imageUrl.value = url
-    })
-  }
-
-  return { imageUrl }
 }
 
 export const useArtistImages = (

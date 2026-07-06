@@ -43,8 +43,6 @@ export type SearchError =
     }
   | { readonly code: "INTERNAL_ERROR"; readonly message: string };
 
-export type { AudioQuality };
-
 /**
  * Autocomplete suggestion (artist or album only).
  */
@@ -102,7 +100,7 @@ export type DeduplicatedTrackResult = {
  *   play/queue actions in SearchResultsList without a LMS album ID. undefined for local albums.
  * trackTitles: track titles parallel to trackUrls — enables track list display (Story 9.12).
  */
-export type AlbumResult = {
+type AlbumResult = {
   readonly id: string;
   readonly albumId?: string; // undefined for streaming albums — determines navigability
   readonly source?: "local" | "qobuz" | "tidal" | "unknown"; // source of the first track

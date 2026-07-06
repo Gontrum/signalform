@@ -27,28 +27,6 @@ type SharedConnection = {
   readonly reconnectCallbacks: Ref<readonly (() => void)[]>
 }
 
-const addReservedListener = (
-  target: object,
-  event: string,
-  callback: (...args: readonly unknown[]) => void,
-): void => {
-  const onMethod: unknown = Reflect.get(target, 'on')
-  if (typeof onMethod === 'function') {
-    onMethod.call(target, event, callback)
-  }
-}
-
-const addServerListener = <K extends keyof ServerToClientEvents>(
-  socket: TypedSocket,
-  event: K,
-  callback: ServerToClientEvents[K],
-): void => {
-  const onMethod: unknown = Reflect.get(socket, 'on')
-  if (typeof onMethod === 'function') {
-    onMethod.call(socket, event, callback)
-  }
-}
-
 const createSharedConnection = (): SharedConnection => {
   const connectionState = ref<ConnectionState>('connecting')
   const reconnectCallbacks = ref<readonly (() => void)[]>([])
@@ -74,13 +52,11 @@ const createSharedConnection = (): SharedConnection => {
   // Since Socket.IO v3 the Socket no longer forwards Manager events:
   // 'reconnect_attempt', 'reconnect' and 'error' only fire on the Manager
   // (socket.io), so they must be registered there.
-  const manager: object = socket.io
-
-  addReservedListener(manager, 'reconnect_attempt', () => {
+  socket.io.on('reconnect_attempt', () => {
     connectionState.value = 'reconnecting'
   })
 
-  addReservedListener(manager, 'reconnect', () => {
+  socket.io.on('reconnect', () => {
     connectionState.value = 'connected'
     socket.emit('player.subscribe')
     reconnectCallbacks.value.forEach((callback) => {
@@ -88,8 +64,7 @@ const createSharedConnection = (): SharedConnection => {
     })
   })
 
-  // Error event handler
-  addReservedListener(manager, 'error', () => {
+  socket.io.on('error', () => {
     connectionState.value = 'disconnected'
   })
 
@@ -153,7 +128,13 @@ export const useWebSocket = (): {
     event: K,
     callback: ServerToClientEvents[K],
   ): void => {
-    addServerListener(socket, event, callback)
+    // socket.on(event, callback) does not typecheck for a generic K:
+    // Socket.IO's FallbackToUntypedListener conditional type does not
+    // distribute over unions, so the listener type never matches.
+    const onMethod: unknown = Reflect.get(socket, 'on')
+    if (typeof onMethod === 'function') {
+      onMethod.call(socket, event, callback)
+    }
   }
 
   /**

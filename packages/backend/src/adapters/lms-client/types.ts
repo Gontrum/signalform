@@ -45,7 +45,7 @@ export type LmsResponse<T> = {
 /**
  * JSON-RPC 2.0 error object from LMS.
  */
-export type LmsErrorResponse = {
+type LmsErrorResponse = {
   readonly code: number;
   readonly message: string;
 };
@@ -83,8 +83,6 @@ export type SearchResult = {
   readonly artistId?: string; // LMS numeric artist ID converted to string; undefined for streaming tracks
   readonly albumId?: string; // LMS numeric album ID converted to string; undefined for streaming tracks
 };
-
-export type { AudioQuality };
 
 /**
  * Combined search response: tracks + availability flags for degraded-service UX.
@@ -227,8 +225,6 @@ export type PlayerStatus = {
   readonly currentTrack: SearchResult | null;
   readonly queuePreview: readonly QueuePreviewItem[];
 };
-
-export type { QueuePreviewItem };
 
 /**
  * LMS library rescan progress.

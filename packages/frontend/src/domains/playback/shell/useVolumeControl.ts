@@ -1,6 +1,5 @@
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { ComputedRef } from 'vue'
-import { debounce } from 'lodash-es'
 import { usePlaybackStore } from './usePlaybackStore'
 
 const VOLUME_DEBOUNCE_MS = 300
@@ -19,9 +18,14 @@ export const useVolumeControl = (): UseVolumeControlResult => {
   const currentVolume = computed(() => playbackStore.currentVolume)
   const isMuted = computed(() => playbackStore.isMuted)
 
-  const debouncedSetVolume = debounce(async (level: number) => {
-    await playbackStore.setVolume(level)
-  }, VOLUME_DEBOUNCE_MS)
+  const volumeTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelPendingVolume = (): void => {
+    if (volumeTimer.value !== null) {
+      clearTimeout(volumeTimer.value)
+      volumeTimer.value = null
+    }
+  }
 
   const handleVolumeChange = (event: Event): void => {
     if (!(event.target instanceof HTMLInputElement)) {
@@ -30,7 +34,12 @@ export const useVolumeControl = (): UseVolumeControlResult => {
 
     const level = Number(event.target.value)
     playbackStore.setVolumeOptimistic(level)
-    void debouncedSetVolume(level)
+
+    cancelPendingVolume()
+    volumeTimer.value = setTimeout(() => {
+      volumeTimer.value = null
+      void playbackStore.setVolume(level)
+    }, VOLUME_DEBOUNCE_MS)
   }
 
   const handleToggleMute = async (): Promise<void> => {
@@ -42,7 +51,7 @@ export const useVolumeControl = (): UseVolumeControlResult => {
   })
 
   onUnmounted(() => {
-    debouncedSetVolume.cancel()
+    cancelPendingVolume()
   })
 
   return {

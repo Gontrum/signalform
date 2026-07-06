@@ -37,12 +37,6 @@ export type ArtistTopAlbumsResponse = {
   readonly albums: ReadonlyArray<ArtistAlbumPopularity>
 }
 
-export type ArtistDetailResponse = {
-  readonly id: string
-  readonly name: string
-  readonly albums: ReadonlyArray<ArtistAlbum>
-}
-
 import type { BaseApiError, NotFoundError } from '@/domains/shared/core/api-errors'
 
 export type ArtistApiError = BaseApiError | NotFoundError

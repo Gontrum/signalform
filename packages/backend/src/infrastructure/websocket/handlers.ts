@@ -6,15 +6,11 @@
 
 import type {
   PlayerStatusPayload,
-  PlayerTrackChangedPayload,
-  PlayerVolumeChangedPayload,
   SystemEventPayload,
   QueuePreviewItem,
 } from "@signalform/shared";
 import {
   PlayerStatusPayloadSchema,
-  PlayerTrackChangedPayloadSchema,
-  PlayerVolumeChangedPayloadSchema,
   SystemEventPayloadSchema,
 } from "@signalform/shared";
 import type { Track } from "@signalform/shared";
@@ -90,110 +86,6 @@ export const createPlayerStatusPayload = (
       error: {
         type: "VALIDATION_ERROR",
         message: `Invalid player status payload: ${validation.error.message}`,
-      },
-    };
-  }
-
-  // Return original payload (already typed correctly) after validation
-  return {
-    ok: true,
-    value: payload,
-  };
-};
-
-/**
- * Creates PlayerTrackChangedPayload from track and playerId
- */
-export const createPlayerTrackChangedPayload = (
-  playerId: string,
-  track: Track,
-): Result<PlayerTrackChangedPayload, HandlerError> => {
-  if (!playerId || playerId.trim() === "") {
-    return {
-      ok: false,
-      error: {
-        type: "MISSING_DATA",
-        message: "Player ID is required",
-      },
-    };
-  }
-
-  if (!track) {
-    return {
-      ok: false,
-      error: {
-        type: "MISSING_DATA",
-        message: "Track is required",
-      },
-    };
-  }
-
-  const payload: PlayerTrackChangedPayload = {
-    playerId,
-    track,
-    timestamp: Date.now(),
-  };
-
-  // Validate with Zod schema (runtime type safety)
-  const validation = PlayerTrackChangedPayloadSchema.safeParse(payload);
-  if (!validation.success) {
-    return {
-      ok: false,
-      error: {
-        type: "VALIDATION_ERROR",
-        message: `Invalid track changed payload: ${validation.error.message}`,
-      },
-    };
-  }
-
-  // Return original payload (already typed correctly) after validation
-  return {
-    ok: true,
-    value: payload,
-  };
-};
-
-/**
- * Creates PlayerVolumeChangedPayload from playerId and volume
- */
-export const createPlayerVolumeChangedPayload = (
-  playerId: string,
-  volume: number,
-): Result<PlayerVolumeChangedPayload, HandlerError> => {
-  if (!playerId || playerId.trim() === "") {
-    return {
-      ok: false,
-      error: {
-        type: "MISSING_DATA",
-        message: "Player ID is required",
-      },
-    };
-  }
-
-  if (volume < 0 || volume > 100) {
-    return {
-      ok: false,
-      error: {
-        type: "INVALID_STATUS",
-        message: "Volume must be between 0 and 100",
-      },
-    };
-  }
-
-  const payload: PlayerVolumeChangedPayload = {
-    playerId,
-    volume,
-    timestamp: Date.now(),
-  };
-
-  // Validate with Zod schema (runtime type safety)
-  const validation = PlayerVolumeChangedPayloadSchema.safeParse(payload);
-  if (!validation.success) {
-    return {
-      ok: false,
-      error: {
-        type: "VALIDATION_ERROR",
-        message: `Invalid volume changed payload: ${validation.error.message}`,
       },
     };
   }

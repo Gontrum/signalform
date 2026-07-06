@@ -32,18 +32,6 @@ export type EnrichmentErrorState =
 
 export type HeroImageApiError = BaseApiError | NotFoundError
 
-export type TidalArtistAlbum = {
-  readonly id: string
-  readonly title: string
-  readonly coverArtUrl: string
-}
-
-export type TidalArtistAlbumsResponse = {
-  readonly artistId: string
-  readonly albums: ReadonlyArray<TidalArtistAlbum>
-  readonly totalCount: number
-}
-
 export type TidalSearchArtist = {
   readonly artistId: string
   readonly name: string

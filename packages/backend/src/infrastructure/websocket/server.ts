@@ -27,7 +27,7 @@ export type TypedSocketIOServer = Server<
 /**
  * Socket instance with typed events
  */
-export type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
+type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 /**
  * Sets up WebSocket server with Socket.IO

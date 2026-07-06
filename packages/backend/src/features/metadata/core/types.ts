@@ -23,23 +23,6 @@ export type AlbumServiceError =
   | { readonly type: "LmsError"; readonly message: string }
   | { readonly type: "NotFound"; readonly message: string };
 
-export type ArtistAlbum = {
-  readonly id: string; // string album_id (for router navigation)
-  readonly title: string; // album title
-  readonly releaseYear: number | null; // null if LMS has no year tag
-  readonly coverArtUrl: string; // always constructed — never null/undefined
-};
-
-export type ArtistDetail = {
-  readonly id: string; // artistId passed in
-  readonly name: string; // from albums[0].artist (empty string if no albums)
-  readonly albums: ReadonlyArray<ArtistAlbum>; // sorted newest-first
-};
-
-export type ArtistServiceError =
-  | { readonly type: "LmsError"; readonly message: string }
-  | { readonly type: "NotFound"; readonly message: string };
-
 export type ArtistTopTrackInput = {
   readonly name: string;
   readonly artist: string;

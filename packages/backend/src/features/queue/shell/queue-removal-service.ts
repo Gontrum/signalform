@@ -25,14 +25,14 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
-export type RadioRemovalContext = {
+type RadioRemovalContext = {
   readonly removedTrack: {
     readonly artist: string;
     readonly title: string;
   };
 };
 
-export type RadioRemovalOutcome =
+type RadioRemovalOutcome =
   | {
       readonly status: "success";
       readonly tracksAdded: number;

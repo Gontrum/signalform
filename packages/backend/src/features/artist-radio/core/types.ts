@@ -18,9 +18,4 @@ export type ArtistRadioSeed = {
   readonly isFromSeedArtist: boolean;
 };
 
-export type ArtistRadioError =
-  | { readonly type: "NotFound"; readonly message: string }
-  | { readonly type: "LmsError"; readonly message: string }
-  | { readonly type: "LastFmError"; readonly message: string };
-
 export type { LastFmArtistTopTrack, LastFmSimilarArtist };

@@ -2,8 +2,6 @@ import { parseAudioQuality } from "../../../adapters/lms-client/helpers.js";
 import type {
   AlbumDetail,
   AlbumTrack,
-  ArtistAlbum,
-  ArtistDetail,
   ArtistAlbumPopularity,
   ArtistTopTrack,
   ArtistTopTrackInput,
@@ -22,14 +20,6 @@ type AlbumTrackInput = {
   readonly bitrate?: string;
   readonly samplerate?: string;
   readonly samplesize?: number;
-};
-
-type ArtistAlbumInput = {
-  readonly id: number | string;
-  readonly album: string;
-  readonly artist?: string;
-  readonly year?: number | string | null;
-  readonly artwork_track_id?: string;
 };
 
 type ArtistTopTrackCandidate = {
@@ -93,22 +83,6 @@ const buildAlbumCoverArtUrl = (
   baseUrl: string,
 ): string => `${baseUrl}/music/${String(firstTrackId)}/cover.jpg`;
 
-const mapArtistAlbum = (
-  raw: ArtistAlbumInput,
-  baseUrl: string,
-): ArtistAlbum => {
-  const coverArtUrl = raw.artwork_track_id
-    ? `${baseUrl}/music/${raw.artwork_track_id}/cover.jpg`
-    : `${baseUrl}/music/0/cover.jpg?album_id=${raw.id}`;
-
-  return {
-    id: String(raw.id),
-    title: raw.album,
-    releaseYear: parseYear(raw.year),
-    coverArtUrl,
-  };
-};
-
 export const buildAlbumDetail = (
   albumId: string,
   tracks: readonly AlbumTrackInput[],
@@ -129,19 +103,6 @@ export const buildAlbumDetail = (
     tracks: tracks.map((raw, index) => mapAlbumTrack(raw, index + 1)),
   };
 };
-
-export const buildArtistDetail = (
-  artistId: string,
-  artistName: string | null,
-  albums: readonly ArtistAlbumInput[],
-  baseUrl: string,
-): ArtistDetail => ({
-  id: artistId,
-  name: artistName ?? albums[0]?.artist ?? "",
-  albums: [...albums]
-    .sort((a, b) => (parseYear(b.year) ?? 0) - (parseYear(a.year) ?? 0))
-    .map((raw) => mapArtistAlbum(raw, baseUrl)),
-});
 
 const sourceRank = (
   source: "local" | "qobuz" | "tidal" | "unknown",

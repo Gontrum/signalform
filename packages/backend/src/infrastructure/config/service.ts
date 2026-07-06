@@ -33,7 +33,7 @@ export type ConfigError =
   | { readonly type: "PARSE_ERROR"; readonly message: string }
   | { readonly type: "VALIDATION_ERROR"; readonly message: string };
 
-export const DEFAULT_CONFIG_PATH = path.join(process.cwd(), "config.json");
+const DEFAULT_CONFIG_PATH = path.join(process.cwd(), "config.json");
 
 type JsonRecord = { readonly [key: string]: unknown };
 

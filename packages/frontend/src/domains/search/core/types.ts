@@ -87,5 +87,3 @@ export type SearchResultsResponse = {
   readonly totalResults: number
   readonly tidalAvailable?: boolean
 }
-
-export type { AudioQuality }

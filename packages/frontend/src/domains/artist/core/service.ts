@@ -1,15 +1,7 @@
-import type {
-  ArtistAlbumPopularity,
-  ArtistAlbumSortOption,
-  ArtistApiError,
-  ArtistByNameAlbum,
-} from './types'
+import type { ArtistAlbumPopularity, ArtistAlbumSortOption, ArtistByNameAlbum } from './types'
 
 export const getArtistNameQuery = (value: unknown): string =>
   typeof value === 'string' ? value : ''
-
-export const getArtistErrorStatus = (error: ArtistApiError): 'error-not-found' | 'error-server' =>
-  error.type === 'NOT_FOUND' ? 'error-not-found' : 'error-server'
 
 export const getAlbumDetailId = (album: ArtistByNameAlbum): string => album.albumId ?? album.id
 
