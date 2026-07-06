@@ -115,7 +115,13 @@ export const useQueueStore = defineStore('queue', () => {
       return
     }
 
-    isLoading.value = true
+    // Only the initial load (empty store) shows the loading state. Background
+    // resyncs (reconnect, visibilitychange) with a populated queue swap data
+    // silently so QueueView keeps its list mounted and its scroll position.
+    if (tracks.value.length === 0) {
+      isLoading.value = true
+    }
+
     const fetchUntilSettled = async (): Promise<void> => {
       pendingQueueRefresh.value = false
       jumpError.value = null

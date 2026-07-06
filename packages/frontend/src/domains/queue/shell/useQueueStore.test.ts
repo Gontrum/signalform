@@ -164,6 +164,90 @@ describe('useQueueStore', () => {
     expect(store.isLoading).toBe(false)
   })
 
+  it('fetchQueue() initial load (empty store): toggles isLoading true while the fetch is in flight', async () => {
+    let releaseFetch: () => void = () => undefined
+    mockGetQueue.mockImplementation(
+      () =>
+        new Promise((resolve): void => {
+          releaseFetch = (): void =>
+            resolve(
+              ok({
+                tracks: [makeTrack({ id: 'first-load-track' })],
+                radioModeActive: false,
+                radioBoundaryIndex: null,
+              }),
+            )
+        }),
+    )
+
+    const store = useQueueStore()
+    const fetchPromise = store.fetchQueue()
+
+    expect(store.isLoading).toBe(true)
+
+    releaseFetch()
+    await fetchPromise
+
+    expect(store.isLoading).toBe(false)
+    expect(store.tracks[0]?.id).toBe('first-load-track')
+  })
+
+  it('fetchQueue() background resync (populated queue): keeps isLoading false throughout', async () => {
+    let releaseFetch: () => void = () => undefined
+    mockGetQueue.mockImplementation(
+      () =>
+        new Promise((resolve): void => {
+          releaseFetch = (): void =>
+            resolve(
+              ok({
+                tracks: [makeTrack({ id: 'resynced-track' })],
+                radioModeActive: false,
+                radioBoundaryIndex: null,
+              }),
+            )
+        }),
+    )
+
+    const store = useQueueStore()
+    store.$patch({ tracks: [makeTrack({ id: 'existing-track' })] })
+
+    const fetchPromise = store.fetchQueue()
+
+    // silent refresh: the fetch is in flight, but the list must stay mounted
+    expect(store.isLoading).toBe(false)
+
+    releaseFetch()
+    await fetchPromise
+
+    expect(store.isLoading).toBe(false)
+    expect(store.tracks[0]?.id).toBe('resynced-track')
+  })
+
+  it('fetchQueue() background resync (populated queue): still surfaces and clears error', async () => {
+    mockGetQueue
+      .mockResolvedValueOnce(
+        err({ type: 'SERVER_ERROR', status: 503, message: 'LMS not reachable' }),
+      )
+      .mockResolvedValueOnce(
+        ok({
+          tracks: [makeTrack({ id: 'recovered-track' })],
+          radioModeActive: false,
+          radioBoundaryIndex: null,
+        }),
+      )
+
+    const store = useQueueStore()
+    store.$patch({ tracks: [makeTrack({ id: 'existing-track' })] })
+
+    await store.fetchQueue()
+    expect(store.error).toBe('LMS not reachable')
+    expect(store.isLoading).toBe(false)
+
+    await store.fetchQueue()
+    expect(store.error).toBeNull()
+    expect(store.tracks[0]?.id).toBe('recovered-track')
+  })
+
   it('jumpToTrack() success: clears jumpError and isJumping after', async () => {
     mockJumpToTrack.mockResolvedValue(
       ok({
