@@ -123,16 +123,13 @@ export const getQueueDropPosition = (
   dragFromIndex: number | null,
   dragOverHalf: QueueDropPosition | null,
 ): QueueDropPosition | null => {
-  if (
-    dragOverIndex === null ||
-    dragFromIndex === null ||
-    dragOverHalf === null ||
-    dragOverIndex === dragFromIndex
-  ) {
+  if (dragOverIndex === null || dragFromIndex === null || dragOverHalf === null) {
     return null
   }
 
-  return dragOverHalf
+  return getQueueReorderTargetIndex(dragFromIndex, dragOverIndex, dragOverHalf) === null
+    ? null
+    : dragOverHalf
 }
 
 export const getQueueDropIndicatorLabel = (

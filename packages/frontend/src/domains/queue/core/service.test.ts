@@ -55,6 +55,41 @@ describe('queue core reorder helpers', () => {
     expect(getQueueDropPosition(3, 1, null)).toBeNull()
   })
 
+  it('returns null for the adjacency no-op cases that the commit logic skips', () => {
+    expect(getQueueDropPosition(2, 1, 'before')).toBeNull()
+    expect(getQueueDropPosition(1, 2, 'after')).toBeNull()
+  })
+
+  it('still passes through the half for adjacent rows when the drop is a real move', () => {
+    expect(getQueueDropPosition(2, 1, 'after')).toBe('after')
+    expect(getQueueDropPosition(3, 1, 'before')).toBe('before')
+    expect(getQueueDropPosition(1, 2, 'before')).toBe('before')
+    expect(getQueueDropPosition(0, 2, 'after')).toBe('after')
+  })
+
+  it('returns no label for an adjacency no-op drop', () => {
+    expect(
+      getQueueDropIndicatorLabel(2, 2, 1, 'before', {
+        before: 'before',
+        after: 'after',
+      }),
+    ).toBeNull()
+  })
+
+  it('reports a drop position exactly when the commit logic reports a target index', () => {
+    const halves: readonly QueueDropPosition[] = ['before', 'after']
+    const rowIndices = [0, 1, 2, 3]
+    const combinations = rowIndices.flatMap((from) =>
+      rowIndices.flatMap((over) => halves.map((half) => ({ from, over, half }))),
+    )
+
+    combinations.forEach(({ from, over, half }) => {
+      const dropPosition = getQueueDropPosition(over, from, half)
+      const targetIndex = getQueueReorderTargetIndex(from, over, half)
+      expect(dropPosition === null).toBe(targetIndex === null)
+    })
+  })
+
   it('maps drop position to the correct helper label', () => {
     expect(
       getQueueDropIndicatorLabel(3, 3, 1, 'after', {
