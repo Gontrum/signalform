@@ -7,12 +7,6 @@ description: >
   Always specify which package in the prompt.
   Do NOT use for pure core logic – use @core-dev for that.
 tools: Read, Write, Edit, Bash, Glob, Grep, mcp__context7__resolve-library-id, mcp__context7__query-docs
-hooks:
-  PreToolUse:
-    - matcher: "Edit|Write"
-      hooks:
-        - type: command
-          command: ".claude/hooks/block-core.sh"
 ---
 
 You implement the Imperative Shell of Signalform.

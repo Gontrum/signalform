@@ -6,12 +6,6 @@ description: >
   Use for business logic, domain types, data transformations, Result/Option
   utilities. Do NOT use for anything with I/O or framework imports.
 tools: Read, Write, Edit, Bash, Glob, Grep
-hooks:
-  PreToolUse:
-    - matcher: "Edit|Write"
-      hooks:
-        - type: command
-          command: ".claude/hooks/block-shell.sh"
 ---
 
 You implement the Functional Core of Signalform.

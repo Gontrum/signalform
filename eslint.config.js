@@ -3,6 +3,11 @@ import tsParser from "@typescript-eslint/parser";
 import boundariesPlugin from "eslint-plugin-boundaries";
 import functionalPlugin from "eslint-plugin-functional";
 
+// Shared base config: imported and extended by all three package configs
+// (packages/*/eslint.config.js). Not used directly — there are no root-level
+// TS files. The boundaries plugin is registered here without rules on purpose:
+// the zone rules (boundaries/dependencies, no async/fetch in core, framework
+// bans) live in the package configs; backend relies on this registration.
 export default [
   // Global ignores
   {
