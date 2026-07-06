@@ -1,9 +1,4 @@
-import type {
-  PlayerStatusPayload,
-  PlayerTrackChangedPayload,
-  QueuePreviewItem,
-  QueueTrack,
-} from '@signalform/shared'
+import type { PlayerStatusPayload, QueuePreviewItem, QueueTrack } from '@signalform/shared'
 import { SOURCE_LABELS } from '@/utils/sourceInfo'
 import type { PlaybackStatus, TrackInfo } from './types'
 
@@ -29,22 +24,6 @@ export const normalizeCurrentTime = (status: PlaybackStatus, currentTime: number
 
 export const mapStatusTrackToTrackInfo = (
   track: NonNullable<PlayerStatusPayload['currentTrack']>,
-): TrackInfo => ({
-  id: track.id,
-  title: track.title,
-  artist: track.artist,
-  album: track.album,
-  url: track.sources[0]?.url ?? '',
-  duration: track.duration,
-  source: track.sources[0]?.source,
-  audioQuality: track.sources[0]?.quality,
-  coverArtUrl: track.coverArtUrl,
-  artistId: track.artistId,
-  albumId: track.albumId,
-})
-
-export const mapTrackChangedToTrackInfo = (
-  track: PlayerTrackChangedPayload['track'],
 ): TrackInfo => ({
   id: track.id,
   title: track.title,

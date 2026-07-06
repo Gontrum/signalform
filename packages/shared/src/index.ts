@@ -41,8 +41,6 @@ export { formatSeconds, formatProgress } from "./formatting/index.js";
 // WebSocket types and validation
 export type {
   PlayerStatusPayload,
-  PlayerTrackChangedPayload,
-  PlayerVolumeChangedPayload,
   SystemEventPayload,
   ServerToClientEvents,
   ClientToServerEvents,
@@ -57,8 +55,6 @@ export { WebSocketErrorCode } from "./types/websocket.js";
 
 export {
   PlayerStatusPayloadSchema,
-  PlayerTrackChangedPayloadSchema,
-  PlayerVolumeChangedPayloadSchema,
   SystemEventPayloadSchema,
   QueueUpdatedPayloadSchema,
   TrackSchema,

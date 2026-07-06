@@ -83,24 +83,6 @@ export const PlayerStatusPayloadSchema = z.object({
 });
 
 /**
- * Player Track Changed Payload Validation
- */
-export const PlayerTrackChangedPayloadSchema = z.object({
-  playerId: z.string().min(1),
-  track: TrackSchema,
-  timestamp: z.number().positive(),
-});
-
-/**
- * Player Volume Changed Payload Validation
- */
-export const PlayerVolumeChangedPayloadSchema = z.object({
-  playerId: z.string().min(1),
-  volume: z.number().min(0).max(100),
-  timestamp: z.number().positive(),
-});
-
-/**
  * System Event Payload Validation
  */
 export const SystemEventPayloadSchema = z.object({

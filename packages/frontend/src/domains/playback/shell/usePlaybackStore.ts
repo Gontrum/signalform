@@ -17,8 +17,6 @@ import { useWebSocket } from '@/app/useWebSocket'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import type {
   PlayerStatusPayload,
-  PlayerTrackChangedPayload,
-  PlayerVolumeChangedPayload,
   QueueUpdatedPayload,
   SystemEventPayload,
   QueuePreviewItem,
@@ -27,7 +25,6 @@ import {
   calculateProgressPercent,
   getPlaybackState,
   mapStatusTrackToTrackInfo,
-  mapTrackChangedToTrackInfo,
   mapQueueTracksToQueuePreview,
   normalizeCurrentTime,
   validateSeekPosition,
@@ -291,23 +288,9 @@ export const usePlaybackStore = defineStore('playback', () => {
     )
   })
 
-  // Listen to track changes
-  on('player.trackChanged', (payload: PlayerTrackChangedPayload) => {
-    advancePlaybackSnapshotRevision()
-    currentTrack.value = mapTrackChangedToTrackInfo(payload.track)
-    trackDuration.value = payload.track.duration
-    currentTime.value = 0
-  })
-
   on('player.queue.updated', (payload: QueueUpdatedPayload) => {
     advancePlaybackSnapshotRevision()
     queuePreview.value = mapQueueTracksToQueuePreview(payload.tracks)
-  })
-
-  // Listen to volume changes
-  on('player.volumeChanged', (payload: PlayerVolumeChangedPayload) => {
-    currentVolume.value = payload.volume
-    isMuted.value = payload.volume === 0
   })
 
   // Listen to system events

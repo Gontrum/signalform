@@ -6,8 +6,6 @@
 import { describe, test, expect } from "vitest";
 import {
   PlayerStatusPayloadSchema,
-  PlayerTrackChangedPayloadSchema,
-  PlayerVolumeChangedPayloadSchema,
   QueueUpdatedPayloadSchema,
   RadioStartedPayloadSchema,
   RadioUnavailablePayloadSchema,
@@ -215,93 +213,6 @@ describe("PlayerStatusPayloadSchema", () => {
     };
 
     const result = PlayerStatusPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("PlayerTrackChangedPayloadSchema", () => {
-  test("validates valid payload", () => {
-    const payload = {
-      playerId: "player-1",
-      track: {
-        id: "track-123",
-        title: "Test Song",
-        artist: "Test Artist",
-        album: "Test Album",
-        duration: 180,
-        sources: [],
-      },
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerTrackChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(true);
-  });
-
-  test("rejects payload without track", () => {
-    const payload = {
-      playerId: "player-1",
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerTrackChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("PlayerVolumeChangedPayloadSchema", () => {
-  test("validates valid volume at minimum (0)", () => {
-    const payload = {
-      playerId: "player-1",
-      volume: 0,
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerVolumeChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(true);
-  });
-
-  test("validates valid volume at maximum (100)", () => {
-    const payload = {
-      playerId: "player-1",
-      volume: 100,
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerVolumeChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(true);
-  });
-
-  test("validates valid volume in middle (50)", () => {
-    const payload = {
-      playerId: "player-1",
-      volume: 50,
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerVolumeChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(true);
-  });
-
-  test("rejects volume below 0", () => {
-    const payload = {
-      playerId: "player-1",
-      volume: -1,
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerVolumeChangedPayloadSchema.safeParse(payload);
-    expect(result.success).toBe(false);
-  });
-
-  test("rejects volume above 100", () => {
-    const payload = {
-      playerId: "player-1",
-      volume: 101,
-      timestamp: Date.now(),
-    };
-
-    const result = PlayerVolumeChangedPayloadSchema.safeParse(payload);
     expect(result.success).toBe(false);
   });
 });

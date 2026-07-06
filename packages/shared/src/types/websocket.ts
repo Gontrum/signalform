@@ -33,24 +33,6 @@ export type PlayerStatusPayload = {
 };
 
 /**
- * Payload for player.trackChanged event
- */
-export type PlayerTrackChangedPayload = {
-  readonly playerId: string;
-  readonly track: Track;
-  readonly timestamp: number;
-};
-
-/**
- * Payload for player.volumeChanged event
- */
-export type PlayerVolumeChangedPayload = {
-  readonly playerId: string;
-  readonly volume: number; // 0-100
-  readonly timestamp: number;
-};
-
-/**
  * System event payloads
  */
 export type SystemEventPayload = {
@@ -98,10 +80,6 @@ export type RadioUnavailablePayload = {
  */
 export interface ServerToClientEvents {
   readonly "player.statusChanged": (payload: PlayerStatusPayload) => void;
-  readonly "player.trackChanged": (payload: PlayerTrackChangedPayload) => void;
-  readonly "player.volumeChanged": (
-    payload: PlayerVolumeChangedPayload,
-  ) => void;
   readonly "player.queue.updated": (payload: QueueUpdatedPayload) => void;
   readonly "system.lmsDisconnected": (payload: SystemEventPayload) => void;
   readonly "system.lmsReconnected": (payload: SystemEventPayload) => void;
