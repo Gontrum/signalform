@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.13.1] - 2026-07-06
+
+### Fixed
+
+- background queue resyncs (reconnect, app returning to the foreground) no
+  longer unmount the track list — previously they flashed the loading state
+  and threw the scroll position back to the top, which on a phone hit on
+  every unlock
+- playback state now also resyncs after a socket reconnect, not just on
+  visibility/focus, so a network blip while the app stays visible no longer
+  leaves the transport controls stale
+- the drag & drop indicator line no longer renders for positions where the
+  drop would be a no-op — the indicator and the commit logic now share one
+  source of truth
+
+---
+
 ## [0.13.0] - 2026-07-05
 
 ### Added
