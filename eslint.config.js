@@ -21,8 +21,6 @@ export default [
       "*.config.cjs",
       "*.config.mjs",
       ".husky/",
-      "_bmad/",
-      "_bmad-output/",
     ],
   },
 

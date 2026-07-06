@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreBinaries": ["lsof", "ps"],
   "workspaces": {
     ".": {
       "entry": ["scripts/*.{ts,mjs,sh}"]
@@ -9,21 +10,27 @@
     },
     "packages/backend": {
       "entry": [
+        "src/index.ts",
         "src/features/*/index.ts",
-        "src/adapters/*/index.ts",
-        "src/shared/websocket/index.ts",
-        "src/shared/config/index.ts"
+        "src/adapters/*/index.ts"
       ],
       "project": ["src/**/*.ts"],
       "ignoreDependencies": [
         "@typescript-eslint/eslint-plugin",
         "@typescript-eslint/parser",
-        "eslint-plugin-functional"
+        "eslint-plugin-functional",
+        "tsx"
       ]
     },
     "packages/frontend": {
       "entry": ["src/platform/api/*.ts", "src/test-utils/index.ts"],
-      "project": ["src/**/*.{ts,vue}"]
+      "project": ["src/**/*.{ts,vue}"],
+      "vitest": {
+        "config": ["vitest.config.ts", "vitest.setup.config.ts"]
+      },
+      "eslint": {
+        "config": ["eslint.config.js"]
+      }
     }
   }
 }
