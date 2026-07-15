@@ -15,6 +15,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.14.0] - 2026-07-15
+
+### Added
+
+- multi-user support: several people can use Signalform with their own
+  Last.fm profiles, so loves and scrobbles no longer mix between accounts.
+  There is no login — each device picks its user once from a full-screen
+  dialog and remembers the choice; with a single configured user nothing
+  changes and no dialog ever appears
+- loves and personal radio always act as the user selected on the
+  requesting device
+- scrobbles follow whoever starts playback: pressing play, jumping in the
+  queue or starting a radio claims the scrobble target for that device's
+  user; the settings show who is currently being scrobbled to
+- the settings gained a users section: add, rename and delete users,
+  connect each one to their own Last.fm account, and mark "this is me"
+  for the current device
+
+### Changed
+
+- `config.json` now stores a `users` array instead of a single global
+  Last.fm session; existing configs migrate automatically on first load,
+  nothing to do by hand
+- the Last.fm auth endpoints operate per user
+  (`POST /api/lastfm/auth/complete` takes a `userId`, disconnect is
+  `DELETE /api/lastfm/auth/:userId`), and `GET /api/config` no longer
+  exposes the Last.fm username/session — user data lives at
+  `GET /api/users`
+
+---
+
 ## [0.13.1] - 2026-07-06
 
 ### Fixed
