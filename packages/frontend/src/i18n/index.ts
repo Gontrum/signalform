@@ -148,11 +148,21 @@ export type MessageKey =
   | 'settings.lastFmConnect'
   | 'settings.lastFmConnected'
   | 'settings.lastFmDisconnect'
-  | 'settings.lastFmConnecting'
   | 'settings.lastFmConfirm'
   | 'settings.lastFmOpenPrompt'
   | 'settings.lastFmAuthError'
-  | 'settings.lastFmUsername'
+  | 'settings.usersSection'
+  | 'settings.userNotConnected'
+  | 'settings.userRename'
+  | 'settings.userRenameSave'
+  | 'settings.userRenameCancel'
+  | 'settings.userDelete'
+  | 'settings.userAddLabel'
+  | 'settings.userAddButton'
+  | 'settings.userActionError'
+  | 'settings.userThisIsMe'
+  | 'settings.scrobbleTarget'
+  | 'user.selectTitle'
   | 'settings.personalRadio'
   | 'settings.personalRadioHint'
   | 'settings.scrobbling'
@@ -313,11 +323,21 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastFmConnect': 'Connect with Last.fm',
     'settings.lastFmConnected': 'Connected as {username}',
     'settings.lastFmDisconnect': 'Disconnect',
-    'settings.lastFmConnecting': 'Connecting…',
     'settings.lastFmConfirm': 'Confirm connection',
     'settings.lastFmOpenPrompt': 'Authorise Signalform on Last.fm, then click confirm.',
     'settings.lastFmAuthError': 'Could not connect. Please try again.',
-    'settings.lastFmUsername': 'Last.fm username (read-only APIs)',
+    'settings.usersSection': 'Users',
+    'settings.userNotConnected': 'Not connected to Last.fm',
+    'settings.userRename': 'Rename',
+    'settings.userRenameSave': 'Save',
+    'settings.userRenameCancel': 'Cancel',
+    'settings.userDelete': 'Delete',
+    'settings.userAddLabel': 'New user',
+    'settings.userAddButton': 'Add user',
+    'settings.userActionError': 'Could not update users. Please try again.',
+    'settings.userThisIsMe': 'This is me',
+    'settings.scrobbleTarget': 'Currently scrobbling to',
+    'user.selectTitle': 'Who are you?',
     'settings.personalRadio': 'Personal Radio',
     'settings.personalRadioHint': 'Plays music based on your Last.fm listening history.',
     'settings.scrobbling': 'Scrobbling',
@@ -480,12 +500,23 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastFmConnect': 'Mit Last.fm verbinden',
     'settings.lastFmConnected': 'Verbunden als {username}',
     'settings.lastFmDisconnect': 'Verbindung trennen',
-    'settings.lastFmConnecting': 'Verbinde…',
     'settings.lastFmConfirm': 'Verbindung bestätigen',
     'settings.lastFmOpenPrompt':
       'Autorisiere Signalform auf Last.fm und klicke danach auf Bestätigen.',
     'settings.lastFmAuthError': 'Verbindung fehlgeschlagen. Bitte erneut versuchen.',
-    'settings.lastFmUsername': 'Last.fm-Benutzername (nur lesen)',
+    'settings.usersSection': 'Benutzer',
+    'settings.userNotConnected': 'Nicht mit Last.fm verbunden',
+    'settings.userRename': 'Umbenennen',
+    'settings.userRenameSave': 'Speichern',
+    'settings.userRenameCancel': 'Abbrechen',
+    'settings.userDelete': 'Löschen',
+    'settings.userAddLabel': 'Neuer Benutzer',
+    'settings.userAddButton': 'Benutzer hinzufügen',
+    'settings.userActionError':
+      'Benutzer konnten nicht aktualisiert werden. Bitte erneut versuchen.',
+    'settings.userThisIsMe': 'Das bin ich',
+    'settings.scrobbleTarget': 'Scrobbelt gerade auf',
+    'user.selectTitle': 'Wer bist du?',
     'settings.personalRadio': 'Persönliches Radio',
     'settings.personalRadioHint': 'Spielt Musik basierend auf deiner Last.fm-Hörhistorie.',
     'settings.scrobbling': 'Scrobbling',

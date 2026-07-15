@@ -30,12 +30,27 @@ const makeConfig = (
     language: "en" as const,
     personalRadioEnabled: false,
     scrobblingEnabled: true,
-    lastFmSessionKey: "session-key",
+    users: [
+      {
+        id: "u1",
+        name: "One",
+        lastFmUsername: "one",
+        lastFmSessionKey: "session-key",
+      },
+      {
+        id: "u2",
+        name: "Two",
+        lastFmUsername: "two",
+        lastFmSessionKey: "session-key-2",
+      },
+    ],
     lastFmSharedSecret: "shared-secret",
     personalRadioDiscovery: 50,
     ...overrides,
   },
 });
+
+const noActiveListener = (): string | undefined => undefined;
 
 const makeTrack = (id = "1"): Track => ({
   id,
@@ -95,7 +110,7 @@ describe("createScrobbler", () => {
         ok: false,
         error: { type: "PARSE_ERROR", message: "bad" },
       });
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus());
       expect(client.nowPlaying).not.toHaveBeenCalled();
     });
@@ -104,16 +119,23 @@ describe("createScrobbler", () => {
       vi.mocked(loadConfig).mockReturnValue(
         makeConfig({ scrobblingEnabled: false }),
       );
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus());
       expect(client.nowPlaying).not.toHaveBeenCalled();
     });
 
-    it("does nothing when lastFmSessionKey is missing", async () => {
+    it("does nothing when there are no users", async () => {
+      vi.mocked(loadConfig).mockReturnValue(makeConfig({ users: [] }));
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
+      await onStatusUpdate(null, makeStatus());
+      expect(client.nowPlaying).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when the resolved user has no session key", async () => {
       vi.mocked(loadConfig).mockReturnValue(
-        makeConfig({ lastFmSessionKey: undefined }),
+        makeConfig({ users: [{ id: "u1", name: "One" }] }),
       );
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus());
       expect(client.nowPlaying).not.toHaveBeenCalled();
     });
@@ -122,8 +144,64 @@ describe("createScrobbler", () => {
       vi.mocked(loadConfig).mockReturnValue(
         makeConfig({ lastFmSharedSecret: undefined }),
       );
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus());
+      expect(client.nowPlaying).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("active listener resolution", () => {
+    it("scrobbles with the active listener's sessionKey", async () => {
+      vi.mocked(loadConfig).mockReturnValue(makeConfig());
+      vi.mocked(shouldScrobble).mockReturnValue(true);
+      const { onStatusUpdate } = createScrobbler(client, () => "u2");
+      await onStatusUpdate(null, makeStatus({ time: 200 }));
+      await Promise.resolve();
+      expect(client.nowPlaying).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionKey: "session-key-2" }),
+      );
+      expect(client.scrobble).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionKey: "session-key-2" }),
+      );
+    });
+
+    it("falls back to the first user's sessionKey when no active listener", async () => {
+      vi.mocked(loadConfig).mockReturnValue(makeConfig());
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
+      await onStatusUpdate(null, makeStatus());
+      await Promise.resolve();
+      expect(client.nowPlaying).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionKey: "session-key" }),
+      );
+    });
+
+    it("falls back to the first user when the active listener id is unknown", async () => {
+      vi.mocked(loadConfig).mockReturnValue(makeConfig());
+      const { onStatusUpdate } = createScrobbler(client, () => "ghost");
+      await onStatusUpdate(null, makeStatus());
+      await Promise.resolve();
+      expect(client.nowPlaying).toHaveBeenCalledWith(
+        expect.objectContaining({ sessionKey: "session-key" }),
+      );
+    });
+
+    it("skips when the active listener's user has no session key", async () => {
+      vi.mocked(loadConfig).mockReturnValue(
+        makeConfig({
+          users: [
+            {
+              id: "u1",
+              name: "One",
+              lastFmUsername: "one",
+              lastFmSessionKey: "session-key",
+            },
+            { id: "u2", name: "Two" },
+          ],
+        }),
+      );
+      const { onStatusUpdate } = createScrobbler(client, () => "u2");
+      await onStatusUpdate(null, makeStatus());
+      await Promise.resolve();
       expect(client.nowPlaying).not.toHaveBeenCalled();
     });
   });
@@ -131,14 +209,14 @@ describe("createScrobbler", () => {
   describe("mode guard", () => {
     it("does nothing when mode is not play", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus({ mode: "stop" }));
       expect(client.nowPlaying).not.toHaveBeenCalled();
     });
 
     it("does nothing when currentTrack is undefined", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(
         null,
         makeStatus({ mode: "play", currentTrack: undefined }),
@@ -150,7 +228,7 @@ describe("createScrobbler", () => {
   describe("nowPlaying", () => {
     it("sends nowPlaying on first tick for a track", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus());
       // nowPlaying is fire-and-forget, wait for microtasks
       await Promise.resolve();
@@ -167,7 +245,7 @@ describe("createScrobbler", () => {
 
     it("sends nowPlaying with duration when track has duration > 0", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const status = makeStatus();
       await onStatusUpdate(null, status);
       await Promise.resolve();
@@ -178,7 +256,7 @@ describe("createScrobbler", () => {
 
     it("omits duration when track.duration is 0", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const track: Track = { ...makeTrack(), duration: 0 };
       await onStatusUpdate(null, makeStatus({ currentTrack: track }));
       await Promise.resolve();
@@ -189,7 +267,7 @@ describe("createScrobbler", () => {
 
     it("does not send nowPlaying again on subsequent ticks for same track", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const status = makeStatus();
       await onStatusUpdate(null, status);
       await onStatusUpdate(status, makeStatus({ time: 20 }));
@@ -199,7 +277,7 @@ describe("createScrobbler", () => {
 
     it("sends nowPlaying again when track changes", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const status1 = makeStatus({ currentTrack: makeTrack("1") });
       const status2 = makeStatus({ currentTrack: makeTrack("2") });
       await onStatusUpdate(null, status1);
@@ -211,7 +289,7 @@ describe("createScrobbler", () => {
     it("does not throw when nowPlaying rejects", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(client.nowPlaying).mockRejectedValue(new Error("network"));
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await expect(onStatusUpdate(null, makeStatus())).resolves.toBeUndefined();
     });
   });
@@ -220,7 +298,7 @@ describe("createScrobbler", () => {
     it("scrobbles when shouldScrobble returns true", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(true);
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const status = makeStatus({ time: 200 });
       await onStatusUpdate(null, status);
       await Promise.resolve();
@@ -238,7 +316,7 @@ describe("createScrobbler", () => {
     it("does not scrobble when shouldScrobble returns false", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(false);
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus({ time: 10 }));
       await Promise.resolve();
       expect(client.scrobble).not.toHaveBeenCalled();
@@ -247,7 +325,7 @@ describe("createScrobbler", () => {
     it("scrobbles at most once per track", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(true);
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const status = makeStatus({ time: 200 });
       await onStatusUpdate(null, status);
       await onStatusUpdate(status, makeStatus({ time: 201 }));
@@ -258,7 +336,7 @@ describe("createScrobbler", () => {
     it("scrobbles again after track changes", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(true);
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       const s1 = makeStatus({ currentTrack: makeTrack("1"), time: 200 });
       const s2 = makeStatus({ currentTrack: makeTrack("2"), time: 200 });
       await onStatusUpdate(null, s1);
@@ -270,7 +348,7 @@ describe("createScrobbler", () => {
     it("passes elapsed time to shouldScrobble", async () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(false);
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await onStatusUpdate(null, makeStatus({ time: 150 }));
       expect(shouldScrobble).toHaveBeenCalledWith(
         expect.objectContaining({ elapsedSeconds: 150 }),
@@ -281,7 +359,7 @@ describe("createScrobbler", () => {
       vi.mocked(loadConfig).mockReturnValue(makeConfig());
       vi.mocked(shouldScrobble).mockReturnValue(true);
       vi.mocked(client.scrobble).mockRejectedValue(new Error("network"));
-      const { onStatusUpdate } = createScrobbler(client);
+      const { onStatusUpdate } = createScrobbler(client, noActiveListener);
       await expect(
         onStatusUpdate(null, makeStatus({ time: 200 })),
       ).resolves.toBeUndefined();

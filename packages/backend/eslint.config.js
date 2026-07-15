@@ -171,6 +171,7 @@ export default [
       "src/features/scrobbling/shell/scrobbler.ts",
       "src/features/search/shell/cache.ts",
       "src/features/setup/shell/discovery.ts",
+      "src/features/users/shell/active-listener.ts",
       "src/infrastructure/lms-registry.ts",
     ],
     rules: {

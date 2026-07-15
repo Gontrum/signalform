@@ -5,10 +5,12 @@ import {
   saveConfig,
 } from "../../../infrastructure/config/index.js";
 import type { AppConfig } from "../../../infrastructure/config/index.js";
+import { hasAnySession, updateUserSession } from "../../users/index.js";
 import { buildAuthUrl, buildSignature } from "../index.js";
 
 const CompleteBodySchema = z.object({
   token: z.string().min(1),
+  userId: z.string().min(1),
 });
 
 type LastFmTokenResponse = {
@@ -126,7 +128,7 @@ export const createLastFmAuthRoute = (
           .send({ error: "Last.fm API key and shared secret are required" });
       }
 
-      const { token } = validation.data;
+      const { token, userId } = validation.data;
       const params = { method: "auth.getSession", api_key: apiKey, token };
       const sig = buildSignature(params, sharedSecret);
 
@@ -152,10 +154,17 @@ export const createLastFmAuthRoute = (
 
         const { key: sessionKey, name: username } = raw.session;
 
+        const usersResult = updateUserSession(config.users, userId, {
+          lastFmUsername: username,
+          lastFmSessionKey: sessionKey,
+        });
+        if (!usersResult.ok) {
+          return reply.code(404).send({ error: usersResult.error.message });
+        }
+
         const updatedConfig: AppConfig = {
           ...config,
-          lastFmSessionKey: sessionKey,
-          lastFmUsername: username,
+          users: usersResult.value,
         };
 
         const saveResult = saveConfig(updatedConfig);
@@ -176,9 +185,14 @@ export const createLastFmAuthRoute = (
     },
   );
 
-  server.delete(
-    "/api/lastfm/auth",
-    async (_request: FastifyRequest, reply: FastifyReply) => {
+  server.delete<{ readonly Params: { readonly userId: string } }>(
+    "/api/lastfm/auth/:userId",
+    async (
+      request: FastifyRequest<{
+        readonly Params: { readonly userId: string };
+      }>,
+      reply: FastifyReply,
+    ) => {
       const configResult = loadConfig();
       if (!configResult.ok) {
         return reply.code(500).send({ error: "Failed to load configuration" });
@@ -186,10 +200,21 @@ export const createLastFmAuthRoute = (
 
       const config = configResult.value;
 
+      const usersResult = updateUserSession(
+        config.users,
+        request.params.userId,
+        undefined,
+      );
+      if (!usersResult.ok) {
+        return reply.code(404).send({ error: usersResult.error.message });
+      }
+
       const updatedConfig: AppConfig = {
         ...config,
-        lastFmSessionKey: undefined,
-        scrobblingEnabled: false,
+        users: usersResult.value,
+        scrobblingEnabled: hasAnySession(usersResult.value)
+          ? config.scrobblingEnabled
+          : false,
       };
 
       const saveResult = saveConfig(updatedConfig);

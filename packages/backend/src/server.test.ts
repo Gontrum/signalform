@@ -103,6 +103,7 @@ const DEFAULT_APP_CONFIG: AppConfig = {
   lastFmApiKey: "lastfm-key",
   fanartApiKey: "fanart-key",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,

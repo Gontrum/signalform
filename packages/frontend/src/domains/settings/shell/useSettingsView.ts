@@ -1,6 +1,7 @@
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import type { Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useI18nStore } from '@/app/i18nStore'
 import {
   getConfig,
@@ -19,6 +20,8 @@ import {
   completeLastFmAuth,
   disconnectLastFm,
 } from '@/platform/api/lastFmAuthApi'
+import { createUser, renameUser, deleteUser, type ApiUser } from '@/platform/api/usersApi'
+import { useUserStore } from '@/domains/user/shell/useUserStore'
 import type { Language } from '@/types/i18n'
 import {
   createSettingsConfigUpdate,
@@ -49,10 +52,17 @@ type UseSettingsViewResult = {
   readonly saveError: Ref<string>
   readonly loading: Ref<boolean>
   readonly loadError: Ref<string>
-  readonly lastFmAuthStep: Ref<'idle' | 'pending-user' | 'done'>
+  readonly users: Ref<readonly ApiUser[]>
+  readonly selectedUserId: Ref<string | undefined>
+  readonly scrobbleTargetName: Ref<string | undefined>
+  readonly newUserName: Ref<string>
+  readonly userActionError: Ref<boolean>
+  readonly renamingUserId: Ref<string | undefined>
+  readonly renameValue: Ref<string>
+  readonly lastFmAuthStep: Ref<'idle' | 'pending-user'>
+  readonly lastFmAuthUserId: Ref<string | undefined>
   readonly lastFmToken: Ref<string>
   readonly lastFmAuthError: Ref<boolean>
-  readonly lastFmUsername: Ref<string>
   readonly hasLastFmSession: Ref<boolean>
   readonly personalRadioEnabled: Ref<boolean>
   readonly scrobblingEnabled: Ref<boolean>
@@ -65,9 +75,15 @@ type UseSettingsViewResult = {
   readonly selectPlayer: (player: LmsPlayer) => void
   readonly save: () => Promise<void>
   readonly runSetupWizard: () => void
-  readonly handleLastFmConnect: () => Promise<void>
+  readonly addUser: () => Promise<void>
+  readonly startRename: (userId: string, currentName: string) => void
+  readonly cancelRename: () => void
+  readonly confirmRename: () => Promise<void>
+  readonly removeUser: (userId: string) => Promise<void>
+  readonly selectUser: (userId: string) => void
+  readonly handleLastFmConnect: (userId: string) => Promise<void>
   readonly handleLastFmConfirm: () => Promise<void>
-  readonly handleLastFmDisconnect: () => Promise<void>
+  readonly handleLastFmDisconnect: (userId: string) => Promise<void>
   readonly handleDiscoveryChange: (value: number) => Promise<void>
   readonly handlePersonalRadioToggle: (value: boolean) => Promise<void>
   readonly handleScrobblingToggle: (value: boolean) => Promise<void>
@@ -94,8 +110,6 @@ const applyLoadedConfig = (
     readonly hasLastFmKey: Ref<boolean>
     readonly hasFanartKey: Ref<boolean>
     readonly language: Ref<Language>
-    readonly lastFmUsername: Ref<string>
-    readonly hasLastFmSession: Ref<boolean>
     readonly personalRadioEnabled: Ref<boolean>
     readonly scrobblingEnabled: Ref<boolean>
     readonly personalRadioDiscovery: Ref<number>
@@ -108,8 +122,6 @@ const applyLoadedConfig = (
   state.hasLastFmKey.value = config.hasLastFmKey
   state.hasFanartKey.value = config.hasFanartKey
   state.language.value = resolvedLanguage
-  state.lastFmUsername.value = config.lastFmUsername ?? ''
-  state.hasLastFmSession.value = config.hasLastFmSession ?? false
   state.personalRadioEnabled.value = config.personalRadioEnabled ?? false
   state.scrobblingEnabled.value = config.scrobblingEnabled ?? false
   state.personalRadioDiscovery.value = config.personalRadioDiscovery ?? 50
@@ -119,6 +131,8 @@ const applyLoadedConfig = (
 export const useSettingsView = (): UseSettingsViewResult => {
   const router = useRouter()
   const i18nStore = useI18nStore()
+  const userStore = useUserStore()
+  const { users, selectedUserId, activeListenerId } = storeToRefs(userStore)
   const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
   const lmsHost = ref('')
@@ -149,12 +163,29 @@ export const useSettingsView = (): UseSettingsViewResult => {
   const loading = ref(true)
   const loadError = ref('')
 
-  // Last.fm auth flow
-  const lastFmAuthStep = ref<'idle' | 'pending-user' | 'done'>('idle')
+  // User management
+  const newUserName = ref('')
+  const userActionError = ref(false)
+  const renamingUserId = ref<string | undefined>(undefined)
+  const renameValue = ref('')
+
+  // Last.fm auth flow (per user)
+  const lastFmAuthStep = ref<'idle' | 'pending-user'>('idle')
+  const lastFmAuthUserId = ref<string | undefined>(undefined)
   const lastFmToken = ref('')
   const lastFmAuthError = ref(false)
-  const lastFmUsername = ref('')
-  const hasLastFmSession = ref(false)
+  const hasLastFmSession = computed(() => userStore.hasLastFmSession)
+
+  // Read-only scrobble target: the active listener, mirroring the backend
+  // fallback (resolveActiveUser → users[0]). Only shown with multiple users.
+  const scrobbleTargetName = computed<string | undefined>(() => {
+    if (users.value.length < 2) {
+      return undefined
+    }
+
+    const target = users.value.find((user) => user.id === activeListenerId.value) ?? users.value[0]
+    return target?.name
+  })
 
   // Personal Radio settings
   const personalRadioEnabled = ref(false)
@@ -165,7 +196,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
     loading.value = true
     loadError.value = ''
 
-    const result = await getConfig()
+    const [result] = await Promise.all([getConfig(), userStore.load()])
     loading.value = false
 
     if (!result.ok) {
@@ -180,16 +211,10 @@ export const useSettingsView = (): UseSettingsViewResult => {
       hasLastFmKey,
       hasFanartKey,
       language,
-      lastFmUsername,
-      hasLastFmSession,
       personalRadioEnabled,
       scrobblingEnabled,
       personalRadioDiscovery,
     })
-
-    if (hasLastFmSession.value) {
-      lastFmAuthStep.value = 'done'
-    }
 
     i18nStore.initLanguageFromConfig(loadedLanguage)
   })
@@ -296,7 +321,67 @@ export const useSettingsView = (): UseSettingsViewResult => {
     void router.push({ name: 'setup' })
   }
 
-  const handleLastFmConnect = async (): Promise<void> => {
+  const addUser = async (): Promise<void> => {
+    const name = newUserName.value.trim()
+    if (name === '') {
+      return
+    }
+
+    userActionError.value = false
+    const result = await createUser(name)
+    if (!result.ok) {
+      userActionError.value = true
+      return
+    }
+
+    newUserName.value = ''
+    await userStore.load()
+  }
+
+  const startRename = (userId: string, currentName: string): void => {
+    renamingUserId.value = userId
+    renameValue.value = currentName
+  }
+
+  const cancelRename = (): void => {
+    renamingUserId.value = undefined
+    renameValue.value = ''
+  }
+
+  const confirmRename = async (): Promise<void> => {
+    const userId = renamingUserId.value
+    const name = renameValue.value.trim()
+    if (userId === undefined || name === '') {
+      return
+    }
+
+    userActionError.value = false
+    const result = await renameUser(userId, name)
+    if (!result.ok) {
+      userActionError.value = true
+      return
+    }
+
+    cancelRename()
+    await userStore.load()
+  }
+
+  const removeUser = async (userId: string): Promise<void> => {
+    userActionError.value = false
+    const result = await deleteUser(userId)
+    if (!result.ok) {
+      userActionError.value = true
+      return
+    }
+
+    await userStore.load()
+  }
+
+  const selectUser = (userId: string): void => {
+    userStore.selectUser(userId)
+  }
+
+  const handleLastFmConnect = async (userId: string): Promise<void> => {
     lastFmAuthError.value = false
     const result = await requestLastFmAuth()
     if (!result) {
@@ -304,32 +389,37 @@ export const useSettingsView = (): UseSettingsViewResult => {
       return
     }
     lastFmToken.value = result.token
+    lastFmAuthUserId.value = userId
     window.open(result.authUrl, '_blank')
     lastFmAuthStep.value = 'pending-user'
   }
 
   const handleLastFmConfirm = async (): Promise<void> => {
+    const userId = lastFmAuthUserId.value
+    if (userId === undefined) {
+      return
+    }
+
     lastFmAuthError.value = false
-    const result = await completeLastFmAuth(lastFmToken.value)
+    const result = await completeLastFmAuth(lastFmToken.value, userId)
     if (!result) {
       lastFmAuthError.value = true
       return
     }
-    lastFmUsername.value = result.username
-    hasLastFmSession.value = true
+
     lastFmToken.value = ''
-    lastFmAuthStep.value = 'done'
+    lastFmAuthUserId.value = undefined
+    lastFmAuthStep.value = 'idle'
+    await userStore.load()
   }
 
-  const handleLastFmDisconnect = async (): Promise<void> => {
-    const success = await disconnectLastFm()
+  const handleLastFmDisconnect = async (userId: string): Promise<void> => {
+    const success = await disconnectLastFm(userId)
     if (!success) {
       return
     }
-    hasLastFmSession.value = false
-    lastFmUsername.value = ''
-    scrobblingEnabled.value = false
-    lastFmAuthStep.value = 'idle'
+
+    await userStore.load()
   }
 
   const handlePersonalRadioToggle = async (value: boolean): Promise<void> => {
@@ -370,10 +460,17 @@ export const useSettingsView = (): UseSettingsViewResult => {
     saveError,
     loading,
     loadError,
+    users,
+    selectedUserId,
+    scrobbleTargetName,
+    newUserName,
+    userActionError,
+    renamingUserId,
+    renameValue,
     lastFmAuthStep,
+    lastFmAuthUserId,
     lastFmToken,
     lastFmAuthError,
-    lastFmUsername,
     hasLastFmSession,
     personalRadioEnabled,
     scrobblingEnabled,
@@ -386,6 +483,12 @@ export const useSettingsView = (): UseSettingsViewResult => {
     selectPlayer,
     save,
     runSetupWizard,
+    addUser,
+    startRename,
+    cancelRename,
+    confirmRename,
+    removeUser,
+    selectUser,
     handleLastFmConnect,
     handleLastFmConfirm,
     handleLastFmDisconnect,

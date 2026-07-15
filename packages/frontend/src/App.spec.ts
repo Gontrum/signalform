@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { ok } from '@signalform/shared'
 import App from './App.vue'
 import HomeView from './app/HomeView.vue'
@@ -34,6 +34,10 @@ vi.mock('@/platform/api/configApi', () => ({
   ),
 }))
 
+vi.mock('@/platform/api/usersApi', () => ({
+  getUsers: vi.fn().mockResolvedValue(ok({ users: [] })),
+}))
+
 const createMountedApp = async (): Promise<VueWrapper> => {
   const router = await createTestRouter([{ path: '/', name: 'home', component: HomeView }])
   return mount(App, { global: { plugins: [router] } })
@@ -42,6 +46,7 @@ const createMountedApp = async (): Promise<VueWrapper> => {
 describe('App.vue', () => {
   beforeEach(() => {
     setupTestEnv()
+    localStorage.clear()
     vi.clearAllMocks()
   })
 
@@ -58,5 +63,29 @@ describe('App.vue', () => {
   it('applies neutral background color', async () => {
     const wrapper = await createMountedApp()
     expect(wrapper.find('.bg-neutral-50').exists()).toBe(true)
+  })
+
+  it('does not show the user select dialog when no selection is needed', async () => {
+    const wrapper = await createMountedApp()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="user-select-dialog"]').exists()).toBe(false)
+  })
+
+  it('shows the user select dialog when multiple users exist without a selection', async () => {
+    const { getUsers } = await import('@/platform/api/usersApi')
+    vi.mocked(getUsers).mockResolvedValueOnce(
+      ok({
+        users: [
+          { id: 'u1', name: 'Ada', hasLastFmSession: false },
+          { id: 'u2', name: 'Ben', hasLastFmSession: false },
+        ],
+      }),
+    )
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="user-select-dialog"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="user-select-option"]')).toHaveLength(2)
   })
 })

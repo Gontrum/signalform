@@ -1,8 +1,8 @@
-import { ref, watch, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { usePlaybackStore } from './usePlaybackStore'
+import { useUserStore } from '@/domains/user/shell/useUserStore'
 import { loveTrack, unloveTrack } from '@/platform/api/lastFmLoveApi'
-import { getConfig } from '@/platform/api/configApi'
 
 type UseLoveTrackResult = {
   readonly hasLastFmSession: Ref<boolean>
@@ -13,16 +13,10 @@ type UseLoveTrackResult = {
 
 export const useLoveTrack = (): UseLoveTrackResult => {
   const playbackStore = usePlaybackStore()
+  const userStore = useUserStore()
   const isLoved = ref(false)
   const isLoving = ref(false)
-  const hasLastFmSession = ref(false)
-
-  onMounted(async () => {
-    const result = await getConfig()
-    if (result.ok) {
-      hasLastFmSession.value = result.value.hasLastFmSession ?? false
-    }
-  })
+  const hasLastFmSession = computed(() => userStore.hasLastFmSession)
 
   watch(
     () => playbackStore.currentTrack?.id,

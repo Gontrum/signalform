@@ -1,6 +1,7 @@
 import { err, ok, type Result } from '@signalform/shared'
 import type { ZodType } from 'zod'
 import { parseResponse } from '@/utils/parseResponse'
+import { withUserHeader } from '@/platform/api/userHeader'
 
 type HttpErrorMapper<E> = (response: Response) => Promise<E> | E
 type ThrownErrorMapper<E> = (error: unknown) => E
@@ -26,7 +27,7 @@ const fetchResponse = async <E>(
   init: RequestInit | undefined,
   mapThrownError: ThrownErrorMapper<E>,
 ): Promise<Result<Response, E>> => {
-  return await fetch(input, init)
+  return await fetch(input, withUserHeader(init))
     .then<Result<Response, E>>((response) => ok(response))
     .catch<Result<Response, E>>((error: unknown) => err(mapThrownError(error)))
 }

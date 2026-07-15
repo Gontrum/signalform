@@ -12,8 +12,6 @@ const MaskedConfigSchema = z.object({
   isConfigured: z.boolean(),
   configuredAt: z.string().optional(),
   language: z.enum(['en', 'de']),
-  lastFmUsername: z.string().optional(),
-  hasLastFmSession: z.boolean().optional(),
   personalRadioEnabled: z.boolean().optional(),
   scrobblingEnabled: z.boolean().optional(),
   personalRadioDiscovery: z.number().optional(),

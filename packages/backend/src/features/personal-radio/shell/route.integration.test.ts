@@ -146,7 +146,7 @@ const makeEnabledConfig = (): {
     fanartApiKey: "",
     language: "en" as const,
     personalRadioEnabled: true,
-    lastFmUsername: "testuser",
+    users: [{ id: "u1", name: "Tester", lastFmUsername: "testuser" }],
     scrobblingEnabled: false,
     personalRadioDiscovery: 50,
   },
@@ -225,12 +225,12 @@ describe("POST /api/personal-radio/start", () => {
     expect(isRecord(parsed) && typeof parsed["error"] === "string").toBe(true);
   });
 
-  it("returns 400 when no lastFmUsername in config", async () => {
+  it("returns 400 when the resolved user has no lastFmUsername", async () => {
     vi.mocked(loadConfig).mockReturnValue({
       ok: true,
       value: {
         ...makeEnabledConfig().value,
-        lastFmUsername: undefined,
+        users: [{ id: "u1", name: "Tester" }],
       },
     });
 
@@ -242,6 +242,48 @@ describe("POST /api/personal-radio/start", () => {
     expect(response.statusCode).toBe(400);
     const parsed = parseJson(response.body);
     expect(isRecord(parsed) && typeof parsed["error"] === "string").toBe(true);
+  });
+
+  it("uses the header user's username when two users exist", async () => {
+    vi.mocked(loadConfig).mockReturnValue({
+      ok: true,
+      value: {
+        ...makeEnabledConfig().value,
+        users: [
+          { id: "u1", name: "Tester", lastFmUsername: "testuser" },
+          { id: "u2", name: "Other", lastFmUsername: "otheruser" },
+        ],
+      },
+    });
+    mockLastFmClient.getUserLovedTracks.mockResolvedValue(
+      ok([makeLovedTrack("Creep", "Radiohead")]),
+    );
+    mockLastFmClient.getUserTopArtists.mockResolvedValue(ok([]));
+    mockLastFmClient.getSimilarArtists.mockResolvedValue(
+      ok([makeSimilarArtist("Portishead")]),
+    );
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeArtistTopTrack("Roads", "Portishead")]),
+    );
+    mockLastFmClient.getUserRecentTracks.mockResolvedValue(ok([]));
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeSearchResult("file:///roads.flac", "Portishead")],
+        tidalAvailable: true,
+      }),
+    );
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/personal-radio/start",
+      headers: { "x-signalform-user": "u2" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(mockLastFmClient.getUserLovedTracks).toHaveBeenCalledWith(
+      "otheruser",
+      expect.any(Number),
+    );
   });
 
   it("returns 404 when no listening history (empty loved and top artists)", async () => {
@@ -523,7 +565,14 @@ describe("POST /api/personal-radio/start", () => {
       ok: true,
       value: {
         ...makeEnabledConfig().value,
-        lastFmSessionKey: "session-abc",
+        users: [
+          {
+            id: "u1",
+            name: "Tester",
+            lastFmUsername: "testuser",
+            lastFmSessionKey: "session-abc",
+          },
+        ],
         lastFmSharedSecret: "secret-xyz",
       },
     });

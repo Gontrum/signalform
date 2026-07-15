@@ -1,6 +1,7 @@
 import { loadConfig } from "../../../infrastructure/config/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import type { LmsPlayerStatus } from "../../../infrastructure/websocket/handlers.js";
+import { resolveActiveUser } from "../../users/index.js";
 import { shouldScrobble } from "../core/scrobble-decider.js";
 
 type ScrobbleState = {
@@ -15,6 +16,7 @@ type ScrobbleState = {
 
 export const createScrobbler = (
   lastFmClient: LastFmClient,
+  getActiveListenerId: () => string | undefined,
 ): {
   readonly onStatusUpdate: (
     previousStatus: LmsPlayerStatus | null,
@@ -33,14 +35,15 @@ export const createScrobbler = (
       return;
     }
     const config = configResult.value;
+    const user = resolveActiveUser(config.users, getActiveListenerId());
     if (
       !config.scrobblingEnabled ||
-      config.lastFmSessionKey === undefined ||
+      user?.lastFmSessionKey === undefined ||
       config.lastFmSharedSecret === undefined
     ) {
       return;
     }
-    const sessionKey = config.lastFmSessionKey;
+    const sessionKey = user.lastFmSessionKey;
     const sharedSecret = config.lastFmSharedSecret;
 
     const track = currentStatus.currentTrack;

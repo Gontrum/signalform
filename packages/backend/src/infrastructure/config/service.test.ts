@@ -21,6 +21,7 @@ const makeTestConfig = (overrides: Partial<AppConfig> = {}): AppConfig => ({
   lastFmApiKey: "test-lastfm-key",
   fanartApiKey: "test-fanart-key",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
@@ -181,6 +182,184 @@ describe("ConfigService", () => {
       expect(result.value.configuredAt).toBe("2026-01-01T00:00:00.000Z");
     });
 
+    it("migrates legacy lastFmUsername and lastFmSessionKey to a single user", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          lmsHost: "192.168.1.100",
+          lmsPort: 9000,
+          playerId: "aa:bb:cc:dd:ee:ff",
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([
+        {
+          id: "u1",
+          name: "legacy-user",
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        },
+      ]);
+    });
+
+    it("falls back to 'User 1' when legacy config has only lastFmSessionKey", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          lmsHost: "192.168.1.100",
+          lmsPort: 9000,
+          playerId: "aa:bb:cc:dd:ee:ff",
+          lastFmSessionKey: "legacy-session-key",
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([
+        {
+          id: "u1",
+          name: "User 1",
+          lastFmUsername: undefined,
+          lastFmSessionKey: "legacy-session-key",
+        },
+      ]);
+    });
+
+    it("prefers the users array over legacy lastFm keys", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          ...makeTestConfig(),
+          users: [{ id: "u7", name: "Modern User" }],
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([
+        {
+          id: "u7",
+          name: "Modern User",
+          lastFmUsername: undefined,
+          lastFmSessionKey: undefined,
+        },
+      ]);
+    });
+
+    it("prefers an empty users array over legacy lastFm keys", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          ...makeTestConfig(),
+          users: [],
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([]);
+    });
+
+    it("skips malformed entries in the users array", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          ...makeTestConfig(),
+          users: [
+            { id: "u1", name: "Valid User" },
+            { id: "u2" },
+            { name: "No Id" },
+            { id: "", name: "Empty Id" },
+            { id: "u3", name: 42 },
+            "not an object",
+            null,
+          ],
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([
+        {
+          id: "u1",
+          name: "Valid User",
+          lastFmUsername: undefined,
+          lastFmSessionKey: undefined,
+        },
+      ]);
+    });
+
+    it("returns empty users when neither users array nor legacy keys exist", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          lmsHost: "192.168.1.100",
+          lmsPort: 9000,
+          playerId: "aa:bb:cc:dd:ee:ff",
+        }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([]);
+    });
+
+    it("returns empty users when config.json does not exist", () => {
+      const testPaths = paths.current();
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.users).toEqual([]);
+    });
+
     it("falls back to env default language when file has invalid language", () => {
       const testPaths = paths.current();
       const config = makeTestConfig();
@@ -220,6 +399,67 @@ describe("ConfigService", () => {
       expect(loadResult.value.lmsPort).toBe(config.lmsPort);
       expect(loadResult.value.playerId).toBe(config.playerId);
       expect(loadResult.value.language).toBe("de");
+    });
+
+    it("round-trips the users array through saveConfig and loadConfig", () => {
+      const testPaths = paths.current();
+      const config = makeTestConfig({
+        users: [
+          {
+            id: "u1",
+            name: "Alice",
+            lastFmUsername: "alice-fm",
+            lastFmSessionKey: "alice-session-key",
+          },
+          { id: "u2", name: "Bob" },
+        ],
+      });
+
+      const saveResult = saveConfig(config, testPaths.configPath);
+      expect(saveResult.ok).toBe(true);
+
+      const loadResult = loadConfig(testPaths.configPath);
+      expect(loadResult.ok).toBe(true);
+      if (!loadResult.ok) {
+        return;
+      }
+      expect(loadResult.value.users).toEqual(config.users);
+    });
+
+    it("drops legacy lastFm keys on the next save", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({
+          lmsHost: "192.168.1.100",
+          lmsPort: 9000,
+          playerId: "aa:bb:cc:dd:ee:ff",
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        }),
+        "utf-8",
+      );
+
+      const loadResult = loadConfig(testPaths.configPath);
+      expect(loadResult.ok).toBe(true);
+      if (!loadResult.ok) {
+        return;
+      }
+
+      const saveResult = saveConfig(loadResult.value, testPaths.configPath);
+      expect(saveResult.ok).toBe(true);
+
+      const raw = readJsonRecord(testPaths.configPath);
+      expect(raw["lastFmUsername"]).toBeUndefined();
+      expect(raw["lastFmSessionKey"]).toBeUndefined();
+      expect(raw["users"]).toEqual([
+        {
+          id: "u1",
+          name: "legacy-user",
+          lastFmUsername: "legacy-user",
+          lastFmSessionKey: "legacy-session-key",
+        },
+      ]);
     });
 
     it("writes configuredAt timestamp on save", () => {

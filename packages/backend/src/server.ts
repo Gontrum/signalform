@@ -28,6 +28,11 @@ import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
 import { createLastFmLoveRoute } from "./features/lastfm-love/index.js";
 import { createScrobbler } from "./features/scrobbling/index.js";
+import {
+  createUsersRoute,
+  getActiveListenerId,
+  registerActiveListenerClaim,
+} from "./features/users/index.js";
 import { loadConfig } from "./infrastructure/config/index.js";
 import type { AppConfig } from "./infrastructure/config/index.js";
 import { getLmsRegistry } from "./infrastructure/lms-registry.js";
@@ -198,6 +203,7 @@ const fallbackConfigFromEnv = (): AppConfig => ({
   lastFmApiKey: process.env["LASTFM_API_KEY"] ?? "",
   fanartApiKey: process.env["FANART_API_KEY"] ?? "",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
@@ -253,7 +259,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
     logger,
   );
 
-  const scrobbler = createScrobbler(lastFmClient);
+  const scrobbler = createScrobbler(lastFmClient, getActiveListenerId);
 
   const registry = getLmsRegistry();
   registry.init(
@@ -307,6 +313,9 @@ export const createServer = async (): Promise<FastifyInstance> => {
   });
 
   createLastFmLoveRoute(server, lastFmClient);
+
+  createUsersRoute(server);
+  registerActiveListenerClaim(server);
 
   void server.addHook("onClose", async () => {
     registry.stopAll();

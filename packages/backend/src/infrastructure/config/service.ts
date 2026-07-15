@@ -11,6 +11,13 @@ import { err, fromThrowable, ok, type Result } from "@signalform/shared";
 
 export type Language = "en" | "de";
 
+export type UserProfile = {
+  readonly id: string;
+  readonly name: string;
+  readonly lastFmUsername?: string;
+  readonly lastFmSessionKey?: string;
+};
+
 export type AppConfig = {
   readonly lmsHost: string;
   readonly lmsPort: number;
@@ -19,9 +26,8 @@ export type AppConfig = {
   readonly fanartApiKey: string;
   readonly language: Language;
   readonly configuredAt?: string;
-  readonly lastFmUsername?: string;
   readonly lastFmSharedSecret?: string;
-  readonly lastFmSessionKey?: string;
+  readonly users: readonly UserProfile[];
   readonly personalRadioEnabled: boolean;
   readonly scrobblingEnabled: boolean;
   readonly personalRadioDiscovery: number;
@@ -52,6 +58,7 @@ const getEnvDefaults = (): AppConfig => ({
   lastFmApiKey: process.env["LASTFM_API_KEY"] ?? "",
   fanartApiKey: process.env["FANART_API_KEY"] ?? "",
   language: getEnvLanguage(),
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
@@ -137,6 +144,53 @@ const readLanguage = (record: JsonRecord): Language | undefined => {
   return undefined;
 };
 
+const toUserProfile = (value: unknown): UserProfile | undefined => {
+  if (!isJsonRecord(value)) {
+    return undefined;
+  }
+
+  const id = readNonEmptyString(value, "id");
+  const name = readNonEmptyString(value, "name");
+  if (id === undefined || name === undefined) {
+    return undefined;
+  }
+
+  return {
+    id,
+    name,
+    lastFmUsername: readNonEmptyString(value, "lastFmUsername"),
+    lastFmSessionKey: readNonEmptyString(value, "lastFmSessionKey"),
+  };
+};
+
+const migrateLegacyUser = (record: JsonRecord): readonly UserProfile[] => {
+  const lastFmUsername = readNonEmptyString(record, "lastFmUsername");
+  const lastFmSessionKey = readNonEmptyString(record, "lastFmSessionKey");
+  if (lastFmUsername === undefined && lastFmSessionKey === undefined) {
+    return [];
+  }
+
+  return [
+    {
+      id: "u1",
+      name: lastFmUsername ?? "User 1",
+      lastFmUsername,
+      lastFmSessionKey,
+    },
+  ];
+};
+
+const readUsers = (record: JsonRecord): readonly UserProfile[] => {
+  const value = record["users"];
+  if (Array.isArray(value)) {
+    return value
+      .map(toUserProfile)
+      .filter((user): user is UserProfile => user !== undefined);
+  }
+
+  return migrateLegacyUser(record);
+};
+
 const toConfig = (record: JsonRecord, envDefaults: AppConfig): AppConfig => ({
   lmsHost: readNonEmptyString(record, "lmsHost") ?? envDefaults.lmsHost,
   lmsPort: readPositiveNumber(record, "lmsPort") ?? envDefaults.lmsPort,
@@ -147,9 +201,8 @@ const toConfig = (record: JsonRecord, envDefaults: AppConfig): AppConfig => ({
     readNonEmptyString(record, "fanartApiKey") ?? envDefaults.fanartApiKey,
   language: readLanguage(record) ?? envDefaults.language,
   configuredAt: readOptionalString(record, "configuredAt"),
-  lastFmUsername: readNonEmptyString(record, "lastFmUsername"),
   lastFmSharedSecret: readNonEmptyString(record, "lastFmSharedSecret"),
-  lastFmSessionKey: readNonEmptyString(record, "lastFmSessionKey"),
+  users: readUsers(record),
   personalRadioEnabled: readBoolean(record, "personalRadioEnabled", false),
   scrobblingEnabled: readBoolean(record, "scrobblingEnabled", false),
   personalRadioDiscovery: readNumberInRange(

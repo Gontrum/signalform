@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { getApiUrl } from '@/utils/runtimeUrls'
+import { withUserHeader } from '@/platform/api/userHeader'
 
 const PersonalRadioResultSchema = z.object({
   tracksAdded: z.number(),
@@ -10,10 +11,13 @@ export const startPersonalRadio = async (): Promise<{
   readonly tracksAdded: number
   readonly seedArtists: readonly string[]
 } | null> => {
-  const response = await fetch(getApiUrl('/api/personal-radio/start'), {
-    method: 'POST',
-    signal: AbortSignal.timeout(30000),
-  })
+  const response = await fetch(
+    getApiUrl('/api/personal-radio/start'),
+    withUserHeader({
+      method: 'POST',
+      signal: AbortSignal.timeout(30000),
+    }),
+  )
   if (!response.ok) {
     return null
   }

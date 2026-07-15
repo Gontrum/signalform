@@ -25,9 +25,15 @@ const {
   saveError,
   loading,
   loadError,
+  users,
+  selectedUserId,
+  scrobbleTargetName,
+  newUserName,
+  userActionError,
+  renamingUserId,
+  renameValue,
   lastFmAuthStep,
   lastFmAuthError,
-  lastFmUsername,
   hasLastFmSession,
   personalRadioEnabled,
   scrobblingEnabled,
@@ -39,6 +45,12 @@ const {
   selectPlayer,
   save,
   runSetupWizard,
+  addUser,
+  startRename,
+  cancelRename,
+  confirmRename,
+  removeUser,
+  selectUser,
   handleLastFmConnect,
   handleLastFmConfirm,
   handleLastFmDisconnect,
@@ -292,72 +304,133 @@ const {
           </div>
         </section>
 
-        <!-- Last.fm section -->
-        <section data-testid="lastfm-section">
+        <!-- Users section -->
+        <section data-testid="users-section">
           <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
-            {{ t('settings.lastFm') }}
+            {{ t('settings.usersSection') }}
           </h2>
 
           <div class="space-y-4">
-            <!-- Username display (read-only) -->
-            <div v-if="lastFmUsername">
-              <label class="mb-1.5 block text-xs font-medium text-neutral-700">
-                {{ t('settings.lastFmUsername') }}
-              </label>
-              <p data-testid="lastfm-username-display" class="text-sm text-neutral-900">
-                {{ lastFmUsername }}
-              </p>
-            </div>
-
-            <!-- Connection status row -->
-            <div class="flex flex-col gap-2">
-              <!-- Idle: show Connect button -->
-              <div v-if="lastFmAuthStep === 'idle'" class="flex items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="lastfm-connect-button"
-                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                  @click="handleLastFmConnect"
-                >
-                  {{ t('settings.lastFmConnect') }}
-                </button>
-              </div>
-
-              <!-- Pending user confirmation -->
-              <div
-                v-else-if="lastFmAuthStep === 'pending-user'"
-                class="flex flex-col gap-2"
-                data-testid="lastfm-pending-prompt"
+            <!-- User list -->
+            <ul class="divide-y divide-neutral-100 rounded-lg border border-neutral-200 bg-white">
+              <li
+                v-for="user in users"
+                :key="user.id"
+                class="flex items-center gap-2 px-3 py-2"
+                data-testid="user-row"
               >
-                <p class="text-sm text-neutral-700">{{ t('settings.lastFmOpenPrompt') }}</p>
-                <button
-                  type="button"
-                  data-testid="lastfm-confirm-button"
-                  class="w-fit rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-                  @click="handleLastFmConfirm"
-                >
-                  {{ t('settings.lastFmConfirm') }}
-                </button>
-              </div>
+                <template v-if="renamingUserId === user.id">
+                  <input
+                    v-model="renameValue"
+                    type="text"
+                    data-testid="user-rename-input"
+                    class="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    data-testid="user-rename-save"
+                    class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                    @click="confirmRename"
+                  >
+                    {{ t('settings.userRenameSave') }}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="user-rename-cancel"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    @click="cancelRename"
+                  >
+                    {{ t('settings.userRenameCancel') }}
+                  </button>
+                </template>
+                <template v-else>
+                  <div class="min-w-0 flex-1">
+                    <p
+                      class="truncate text-sm font-medium text-neutral-900"
+                      data-testid="user-name"
+                    >
+                      {{ user.name }}
+                    </p>
+                    <p class="truncate text-xs text-neutral-500" data-testid="user-lastfm-status">
+                      {{
+                        user.hasLastFmSession
+                          ? t('settings.lastFmConnected').replace(
+                              '{username}',
+                              user.lastFmUsername ?? '',
+                            )
+                          : t('settings.userNotConnected')
+                      }}
+                    </p>
+                  </div>
+                  <span
+                    v-if="selectedUserId === user.id"
+                    data-testid="this-is-me-marker"
+                    class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+                  >
+                    ✓ {{ t('settings.userThisIsMe') }}
+                  </span>
+                  <button
+                    v-else
+                    type="button"
+                    data-testid="this-is-me-button"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    @click="selectUser(user.id)"
+                  >
+                    {{ t('settings.userThisIsMe') }}
+                  </button>
+                  <button
+                    v-if="user.hasLastFmSession"
+                    type="button"
+                    data-testid="lastfm-disconnect-button"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                    @click="handleLastFmDisconnect(user.id)"
+                  >
+                    {{ t('settings.lastFmDisconnect') }}
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    data-testid="lastfm-connect-button"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    @click="handleLastFmConnect(user.id)"
+                  >
+                    {{ t('settings.lastFmConnect') }}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="user-rename-button"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    @click="startRename(user.id, user.name)"
+                  >
+                    {{ t('settings.userRename') }}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="user-delete-button"
+                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                    @click="removeUser(user.id)"
+                  >
+                    {{ t('settings.userDelete') }}
+                  </button>
+                </template>
+              </li>
+            </ul>
 
-              <!-- Connected -->
-              <div
-                v-else-if="lastFmAuthStep === 'done' && hasLastFmSession"
-                class="flex items-center gap-3"
-                data-testid="lastfm-connected-row"
+            <!-- Pending Last.fm confirmation -->
+            <div
+              v-if="lastFmAuthStep === 'pending-user'"
+              class="flex flex-col gap-2"
+              data-testid="lastfm-pending-prompt"
+            >
+              <p class="text-sm text-neutral-700">{{ t('settings.lastFmOpenPrompt') }}</p>
+              <button
+                type="button"
+                data-testid="lastfm-confirm-button"
+                class="w-fit rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                @click="handleLastFmConfirm"
               >
-                <span class="text-sm text-neutral-900" data-testid="lastfm-connected-label">
-                  {{ t('settings.lastFmConnected').replace('{username}', lastFmUsername) }}
-                </span>
-                <button
-                  type="button"
-                  data-testid="lastfm-disconnect-button"
-                  class="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                  @click="handleLastFmDisconnect"
-                >
-                  {{ t('settings.lastFmDisconnect') }}
-                </button>
-              </div>
+                {{ t('settings.lastFmConfirm') }}
+              </button>
             </div>
 
             <!-- Auth error -->
@@ -365,6 +438,57 @@ const {
               {{ t('settings.lastFmAuthError') }}
             </p>
 
+            <!-- User action error -->
+            <p v-if="userActionError" data-testid="user-action-error" class="text-sm text-red-600">
+              {{ t('settings.userActionError') }}
+            </p>
+
+            <!-- Add user -->
+            <div class="flex items-end gap-2">
+              <div class="flex-1">
+                <label
+                  class="mb-1.5 block text-xs font-medium text-neutral-700"
+                  for="new-user-name"
+                >
+                  {{ t('settings.userAddLabel') }}
+                </label>
+                <input
+                  id="new-user-name"
+                  v-model="newUserName"
+                  type="text"
+                  data-testid="new-user-input"
+                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                data-testid="add-user-button"
+                class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                @click="addUser"
+              >
+                {{ t('settings.userAddButton') }}
+              </button>
+            </div>
+
+            <!-- Scrobble target (read-only) -->
+            <p
+              v-if="scrobbleTargetName !== undefined"
+              data-testid="scrobble-target"
+              class="text-xs text-neutral-500"
+            >
+              {{ t('settings.scrobbleTarget') }}:
+              <span class="font-medium text-neutral-700">{{ scrobbleTargetName }}</span>
+            </p>
+          </div>
+        </section>
+
+        <!-- Last.fm section -->
+        <section data-testid="lastfm-section">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+            {{ t('settings.lastFm') }}
+          </h2>
+
+          <div class="space-y-4">
             <!-- Personal Radio toggle -->
             <div class="flex items-start justify-between gap-4" data-testid="personal-radio-row">
               <div>

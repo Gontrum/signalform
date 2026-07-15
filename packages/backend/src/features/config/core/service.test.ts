@@ -9,6 +9,7 @@ const makeConfig = (): AppConfig => ({
   lastFmApiKey: "test-lastfm",
   fanartApiKey: "test-fanart",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
@@ -48,52 +49,25 @@ describe("maskConfig", () => {
     expect(result.personalRadioDiscovery).toBe(75);
   });
 
-  it("exposes lastFmUsername when set", () => {
+  it("does NOT expose lastFmSharedSecret or per-user fields", () => {
     const result = maskConfig({
       ...makeConfig(),
-      lastFmUsername: "testuser",
-    });
-
-    expect(result.lastFmUsername).toBe("testuser");
-  });
-
-  it("exposes lastFmUsername as undefined when not set", () => {
-    const result = maskConfig(makeConfig());
-    expect(result.lastFmUsername).toBeUndefined();
-  });
-
-  it("hasLastFmSession is true when lastFmSessionKey is a non-empty string", () => {
-    const result = maskConfig({
-      ...makeConfig(),
-      lastFmSessionKey: "abc123",
-    });
-
-    expect(result.hasLastFmSession).toBe(true);
-  });
-
-  it("hasLastFmSession is false when lastFmSessionKey is undefined", () => {
-    const result = maskConfig(makeConfig());
-    expect(result.hasLastFmSession).toBe(false);
-  });
-
-  it("hasLastFmSession is false when lastFmSessionKey is whitespace", () => {
-    const result = maskConfig({
-      ...makeConfig(),
-      lastFmSessionKey: "   ",
-    });
-
-    expect(result.hasLastFmSession).toBe(false);
-  });
-
-  it("does NOT expose lastFmSessionKey or lastFmSharedSecret directly", () => {
-    const result = maskConfig({
-      ...makeConfig(),
-      lastFmSessionKey: "secret-session",
       lastFmSharedSecret: "super-secret",
+      users: [
+        {
+          id: "user-1",
+          name: "Alice",
+          lastFmUsername: "alice_fm",
+          lastFmSessionKey: "secret-session",
+        },
+      ],
     });
 
-    expect("lastFmSessionKey" in result).toBe(false);
     expect("lastFmSharedSecret" in result).toBe(false);
+    expect("lastFmUsername" in result).toBe(false);
+    expect("lastFmSessionKey" in result).toBe(false);
+    expect("hasLastFmSession" in result).toBe(false);
+    expect("users" in result).toBe(false);
   });
 });
 
@@ -119,36 +93,6 @@ describe("mergeConfigUpdate", () => {
     expect(result.fanartApiKey).toBe("");
   });
 
-  it("clears lastFmSessionKey when update passes null", () => {
-    const existing: AppConfig = {
-      ...makeConfig(),
-      lastFmSessionKey: "existing-session",
-    };
-
-    const result = mergeConfigUpdate(existing, { lastFmSessionKey: null });
-
-    expect(result.lastFmSessionKey).toBeUndefined();
-  });
-
-  it("keeps lastFmSessionKey when update does not include it", () => {
-    const existing: AppConfig = {
-      ...makeConfig(),
-      lastFmSessionKey: "existing-session",
-    };
-
-    const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
-
-    expect(result.lastFmSessionKey).toBe("existing-session");
-  });
-
-  it("sets lastFmSessionKey when update passes a string", () => {
-    const result = mergeConfigUpdate(makeConfig(), {
-      lastFmSessionKey: "new-session",
-    });
-
-    expect(result.lastFmSessionKey).toBe("new-session");
-  });
-
   it("updates personalRadioDiscovery to 75", () => {
     const result = mergeConfigUpdate(makeConfig(), {
       personalRadioDiscovery: 75,
@@ -167,24 +111,44 @@ describe("mergeConfigUpdate", () => {
     expect(result.scrobblingEnabled).toBe(true);
   });
 
-  it("updates lastFmUsername and lastFmSharedSecret", () => {
+  it("updates lastFmSharedSecret", () => {
     const result = mergeConfigUpdate(makeConfig(), {
-      lastFmUsername: "newuser",
       lastFmSharedSecret: "newsecret",
     });
 
-    expect(result.lastFmUsername).toBe("newuser");
     expect(result.lastFmSharedSecret).toBe("newsecret");
   });
 
-  it("preserves existing lastFmUsername when not in update", () => {
+  it("preserves existing lastFmSharedSecret when not in update", () => {
     const existing: AppConfig = {
       ...makeConfig(),
-      lastFmUsername: "existinguser",
+      lastFmSharedSecret: "existing-secret",
     };
 
     const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
 
-    expect(result.lastFmUsername).toBe("existinguser");
+    expect(result.lastFmSharedSecret).toBe("existing-secret");
+  });
+
+  it("carries over users unchanged — updates never touch users", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      users: [
+        {
+          id: "user-1",
+          name: "Alice",
+          lastFmUsername: "alice_fm",
+          lastFmSessionKey: "session-key",
+        },
+        { id: "user-2", name: "Bob" },
+      ],
+    };
+
+    const result = mergeConfigUpdate(existing, {
+      lmsHost: "10.0.0.1",
+      lastFmApiKey: "new-key",
+    });
+
+    expect(result.users).toBe(existing.users);
   });
 });

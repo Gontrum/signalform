@@ -142,7 +142,7 @@ const TEST_APP_CONFIG: AppConfig = {
   language: "en",
   personalRadioEnabled: true,
   scrobblingEnabled: false,
-  lastFmUsername: "david",
+  users: [{ id: "u1", name: "David", lastFmUsername: "david" }],
   personalRadioDiscovery: 0,
 };
 

@@ -21,7 +21,6 @@ vi.mock('@/platform/api/configApi', async () => {
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
-        hasLastFmSession: false,
         personalRadioEnabled: false,
         scrobblingEnabled: false,
         personalRadioDiscovery: 50,
@@ -36,7 +35,6 @@ vi.mock('@/platform/api/configApi', async () => {
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
-        hasLastFmSession: false,
         personalRadioEnabled: false,
         scrobblingEnabled: false,
         personalRadioDiscovery: 50,
@@ -58,6 +56,24 @@ vi.mock('@/platform/api/lastFmAuthApi', () => ({
   completeLastFmAuth: vi.fn().mockResolvedValue(null),
   disconnectLastFm: vi.fn().mockResolvedValue(false),
 }))
+
+vi.mock('@/platform/api/usersApi', async () => {
+  const { ok } = await import('@signalform/shared')
+  return {
+    getUsers: vi.fn().mockResolvedValue(
+      ok({
+        users: [
+          { id: 'u1', name: 'Ada', lastFmUsername: 'ada_fm', hasLastFmSession: true },
+          { id: 'u2', name: 'Ben', hasLastFmSession: false },
+        ],
+        activeListenerId: 'u1',
+      }),
+    ),
+    createUser: vi.fn().mockResolvedValue(ok({ id: 'u3', name: 'Cleo' })),
+    renameUser: vi.fn().mockResolvedValue(ok(undefined)),
+    deleteUser: vi.fn().mockResolvedValue(ok(undefined)),
+  }
+})
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -90,6 +106,7 @@ const expectSelectValue = (wrapper: VueWrapper, selector: string, expected: stri
 describe('SettingsView', () => {
   beforeEach(() => {
     setupTestEnv()
+    localStorage.clear()
     vi.clearAllMocks()
   })
 
@@ -103,6 +120,7 @@ describe('SettingsView', () => {
     })
     // drain onMounted async
     await vi.dynamicImportSettled()
+    await flushPromises()
     return wrapper
   }
 
@@ -179,7 +197,6 @@ describe('SettingsView', () => {
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
         language: 'de',
-        hasLastFmSession: false,
         personalRadioEnabled: false,
         scrobblingEnabled: false,
         personalRadioDiscovery: 50,
@@ -326,17 +343,181 @@ describe('SettingsView', () => {
   })
 
   // ---------------------------------------------------------------------------
-  // Last.fm section
+  // Users section
   // ---------------------------------------------------------------------------
 
-  it('renders the Last.fm section', async () => {
+  it('renders the users section with one row per user and Last.fm status', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
-    expect(wrapper.find('[data-testid="lastfm-section"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(true)
+
+    expect(wrapper.find('[data-testid="users-section"]').exists()).toBe(true)
+    const rows = wrapper.findAll('[data-testid="user-row"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.find('[data-testid="user-name"]').text()).toBe('Ada')
+    expect(rows[0]!.find('[data-testid="user-lastfm-status"]').text()).toContain('ada_fm')
+    expect(rows[0]!.find('[data-testid="lastfm-disconnect-button"]').exists()).toBe(true)
+    expect(rows[1]!.find('[data-testid="user-name"]').text()).toBe('Ben')
+    expect(rows[1]!.find('[data-testid="user-lastfm-status"]').text()).toContain(
+      'Not connected to Last.fm',
+    )
+    expect(rows[1]!.find('[data-testid="lastfm-connect-button"]').exists()).toBe(true)
   })
 
-  it('connect button triggers auth flow and shows pending prompt', async () => {
+  it('adds a user and reloads the user list', async () => {
+    const { createUser, getUsers } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+    const loadsBeforeAdd = vi.mocked(getUsers).mock.calls.length
+
+    await wrapper.find('[data-testid="new-user-input"]').setValue('Cleo')
+    await wrapper.find('[data-testid="add-user-button"]').trigger('click')
+    await flushPromises()
+
+    expect(createUser).toHaveBeenCalledWith('Cleo')
+    expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeAdd + 1)
+    expectInputValue(wrapper, '[data-testid="new-user-input"]', '')
+  })
+
+  it('does not call createUser for a blank name', async () => {
+    const { createUser } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="new-user-input"]').setValue('   ')
+    await wrapper.find('[data-testid="add-user-button"]').trigger('click')
+    await flushPromises()
+
+    expect(createUser).not.toHaveBeenCalled()
+  })
+
+  it('renames a user through the inline rename flow', async () => {
+    const { renameUser } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper
+      .findAll('[data-testid="user-row"]')[1]!
+      .find('[data-testid="user-rename-button"]')
+      .trigger('click')
+    await wrapper.find('[data-testid="user-rename-input"]').setValue('Benjamin')
+    await wrapper.find('[data-testid="user-rename-save"]').trigger('click')
+    await flushPromises()
+
+    expect(renameUser).toHaveBeenCalledWith('u2', 'Benjamin')
+    expect(wrapper.find('[data-testid="user-rename-input"]').exists()).toBe(false)
+  })
+
+  it('deletes a user and reloads the user list', async () => {
+    const { deleteUser, getUsers } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+    const loadsBeforeDelete = vi.mocked(getUsers).mock.calls.length
+
+    await wrapper
+      .findAll('[data-testid="user-row"]')[1]!
+      .find('[data-testid="user-delete-button"]')
+      .trigger('click')
+    await flushPromises()
+
+    expect(deleteUser).toHaveBeenCalledWith('u2')
+    expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeDelete + 1)
+  })
+
+  it('shows an error when a user action fails', async () => {
+    const { createUser } = await import('@/platform/api/usersApi')
+    const { err } = await import('@signalform/shared')
+    vi.mocked(createUser).mockResolvedValueOnce(
+      err({ type: 'SERVER_ERROR', status: 500, message: 'boom' }),
+    )
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="new-user-input"]').setValue('Cleo')
+    await wrapper.find('[data-testid="add-user-button"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="user-action-error"]').exists()).toBe(true)
+  })
+
+  // ---------------------------------------------------------------------------
+  // "This is me" selection + scrobble target display
+  // ---------------------------------------------------------------------------
+
+  it('selects and persists the user when "This is me" is clicked', async () => {
+    const { useUserStore } = await import('@/domains/user/shell/useUserStore')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper
+      .findAll('[data-testid="user-row"]')[1]!
+      .find('[data-testid="this-is-me-button"]')
+      .trigger('click')
+    await flushPromises()
+
+    const userStore = useUserStore()
+    expect(userStore.selectedUserId).toBe('u2')
+    const { SELECTED_USER_KEY } = await import('@/platform/api/userHeader')
+    expect(localStorage.getItem(SELECTED_USER_KEY)).toBe('u2')
+  })
+
+  it('shows the marker on the selected row and buttons on the others', async () => {
+    localStorage.setItem('selected-user-id', 'u1')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const rows = wrapper.findAll('[data-testid="user-row"]')
+    expect(rows[0]!.find('[data-testid="this-is-me-marker"]').exists()).toBe(true)
+    expect(rows[0]!.find('[data-testid="this-is-me-button"]').exists()).toBe(false)
+    expect(rows[1]!.find('[data-testid="this-is-me-marker"]').exists()).toBe(false)
+    expect(rows[1]!.find('[data-testid="this-is-me-button"]').exists()).toBe(true)
+  })
+
+  it('shows the scrobble target line with the active listener name', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const target = wrapper.find('[data-testid="scrobble-target"]')
+    expect(target.exists()).toBe(true)
+    expect(target.text()).toContain('Ada')
+  })
+
+  it('falls back to the first user when no active listener is set', async () => {
+    const { getUsers } = await import('@/platform/api/usersApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getUsers).mockResolvedValueOnce(
+      ok({
+        users: [
+          { id: 'u1', name: 'Ada', lastFmUsername: 'ada_fm', hasLastFmSession: true },
+          { id: 'u2', name: 'Ben', hasLastFmSession: false },
+        ],
+      }),
+    )
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('[data-testid="scrobble-target"]').text()).toContain('Ada')
+  })
+
+  it('hides the scrobble target line when only one user exists', async () => {
+    const { getUsers } = await import('@/platform/api/usersApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getUsers).mockResolvedValueOnce(
+      ok({
+        users: [{ id: 'u1', name: 'Ada', lastFmUsername: 'ada_fm', hasLastFmSession: true }],
+        activeListenerId: 'u1',
+      }),
+    )
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('[data-testid="scrobble-target"]').exists()).toBe(false)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Per-user Last.fm connect flow
+  // ---------------------------------------------------------------------------
+
+  it('connect button triggers auth flow for the target user and shows pending prompt', async () => {
     const { requestLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
     vi.mocked(requestLastFmAuth).mockResolvedValueOnce({
       token: 'tok123',
@@ -359,98 +540,54 @@ describe('SettingsView', () => {
       '_blank',
     )
     expect(wrapper.find('[data-testid="lastfm-confirm-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(false)
 
     vi.unstubAllGlobals()
   })
 
-  it('confirm button shown after connect, completes auth and shows connected state', async () => {
+  it('confirm completes auth with the target userId and reloads users', async () => {
     const { requestLastFmAuth, completeLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
+    const { getUsers } = await import('@/platform/api/usersApi')
     vi.mocked(requestLastFmAuth).mockResolvedValueOnce({
       token: 'tok123',
       authUrl: 'https://www.last.fm/api/auth/?api_key=key&token=tok123',
     })
-    vi.mocked(completeLastFmAuth).mockResolvedValueOnce({ username: 'radiohead_fan' })
+    vi.mocked(completeLastFmAuth).mockResolvedValueOnce({ username: 'ben_fm' })
 
     vi.stubGlobal('open', vi.fn())
 
     const router = await createRouter()
     const wrapper = await mountView(router)
+    const loadsBeforeConfirm = vi.mocked(getUsers).mock.calls.length
 
+    // Only Ben (u2) has no session — his row shows the connect button
     await wrapper.find('[data-testid="lastfm-connect-button"]').trigger('click')
     await flushPromises()
-
-    expect(wrapper.find('[data-testid="lastfm-confirm-button"]').exists()).toBe(true)
 
     await wrapper.find('[data-testid="lastfm-confirm-button"]').trigger('click')
     await flushPromises()
 
-    expect(completeLastFmAuth).toHaveBeenCalledWith('tok123')
-    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').exists()).toBe(true)
+    expect(completeLastFmAuth).toHaveBeenCalledWith('tok123', 'u2')
+    expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeConfirm + 1)
+    expect(wrapper.find('[data-testid="lastfm-pending-prompt"]').exists()).toBe(false)
 
     vi.unstubAllGlobals()
   })
 
-  it('connected state shows username and disconnect button', async () => {
-    const { getConfig } = await import('@/platform/api/configApi')
-    const { ok } = await import('@signalform/shared')
-    vi.mocked(getConfig).mockResolvedValueOnce(
-      ok({
-        lmsHost: '192.168.1.100',
-        lmsPort: 9000,
-        playerId: 'aa:bb:cc:dd:ee:ff',
-        hasLastFmKey: true,
-        hasFanartKey: false,
-        isConfigured: true,
-        language: 'en' as const,
-        lastFmUsername: 'radiohead_fan',
-        hasLastFmSession: true,
-        personalRadioEnabled: false,
-        scrobblingEnabled: false,
-        personalRadioDiscovery: 50,
-      }),
-    )
-
-    const router = await createRouter()
-    const wrapper = await mountView(router)
-
-    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-connected-row"]').text()).toContain('radiohead_fan')
-  })
-
-  it('disconnect button calls disconnectLastFm and resets to idle', async () => {
-    const { getConfig } = await import('@/platform/api/configApi')
+  it('disconnect calls disconnectLastFm with the userId and reloads users', async () => {
     const { disconnectLastFm } = await import('@/platform/api/lastFmAuthApi')
-    const { ok } = await import('@signalform/shared')
-    vi.mocked(getConfig).mockResolvedValueOnce(
-      ok({
-        lmsHost: '192.168.1.100',
-        lmsPort: 9000,
-        playerId: 'aa:bb:cc:dd:ee:ff',
-        hasLastFmKey: true,
-        hasFanartKey: false,
-        isConfigured: true,
-        language: 'en' as const,
-        lastFmUsername: 'radiohead_fan',
-        hasLastFmSession: true,
-        personalRadioEnabled: false,
-        scrobblingEnabled: false,
-        personalRadioDiscovery: 50,
-      }),
-    )
+    const { getUsers } = await import('@/platform/api/usersApi')
     vi.mocked(disconnectLastFm).mockResolvedValueOnce(true)
 
     const router = await createRouter()
     const wrapper = await mountView(router)
+    const loadsBeforeDisconnect = vi.mocked(getUsers).mock.calls.length
 
+    // Only Ada (u1) has a session — her row shows the disconnect button
     await wrapper.find('[data-testid="lastfm-disconnect-button"]').trigger('click')
     await flushPromises()
 
-    expect(disconnectLastFm).toHaveBeenCalledOnce()
-    expect(wrapper.find('[data-testid="lastfm-connect-button"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="lastfm-connected-row"]').exists()).toBe(false)
+    expect(disconnectLastFm).toHaveBeenCalledWith('u1')
+    expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeDisconnect + 1)
   })
 
   it('shows auth error when connect fails', async () => {
@@ -465,6 +602,10 @@ describe('SettingsView', () => {
 
     expect(wrapper.find('[data-testid="lastfm-auth-error"]').exists()).toBe(true)
   })
+
+  // ---------------------------------------------------------------------------
+  // Global toggles (Personal Radio, Scrobbling)
+  // ---------------------------------------------------------------------------
 
   it('Personal Radio toggle calls updateConfig with personalRadioEnabled', async () => {
     const { updateConfig } = await import('@/platform/api/configApi')
@@ -494,7 +635,8 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="discovery-slider-section"]').exists()).toBe(true)
   })
 
-  it('scrobbling toggle is disabled when no session key', async () => {
+  it('scrobbling toggle is disabled when the selected user has no session', async () => {
+    localStorage.setItem('selected-user-id', 'u2')
     const router = await createRouter()
     const wrapper = await mountView(router)
 
@@ -503,26 +645,8 @@ describe('SettingsView', () => {
     expect(scrobblingToggle.attributes('disabled')).toBeDefined()
   })
 
-  it('scrobbling toggle is enabled when session key exists', async () => {
-    const { getConfig } = await import('@/platform/api/configApi')
-    const { ok } = await import('@signalform/shared')
-    vi.mocked(getConfig).mockResolvedValueOnce(
-      ok({
-        lmsHost: '192.168.1.100',
-        lmsPort: 9000,
-        playerId: 'aa:bb:cc:dd:ee:ff',
-        hasLastFmKey: true,
-        hasFanartKey: false,
-        isConfigured: true,
-        language: 'en' as const,
-        lastFmUsername: 'testuser',
-        hasLastFmSession: true,
-        personalRadioEnabled: false,
-        scrobblingEnabled: false,
-        personalRadioDiscovery: 50,
-      }),
-    )
-
+  it('scrobbling toggle is enabled when the selected user has a session', async () => {
+    localStorage.setItem('selected-user-id', 'u1')
     const router = await createRouter()
     const wrapper = await mountView(router)
 

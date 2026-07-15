@@ -1,16 +1,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { getConfig, updateConfig } from './configApi'
+import { SELECTED_USER_KEY, USER_HEADER_NAME } from './userHeader'
 
-const fetchMock = vi.fn()
+const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<unknown>>()
 
 describe('configApi', () => {
   beforeEach(() => {
+    localStorage.clear()
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    localStorage.clear()
   })
 
   describe('getConfig', () => {
@@ -59,6 +62,74 @@ describe('configApi', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.error.type).toBe('NETWORK_ERROR')
+    })
+
+    it('strips per-user Last.fm fields that are no longer part of the config', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          lmsHost: '192.168.1.100',
+          lmsPort: 9000,
+          playerId: 'aa:bb:cc:dd:ee:ff',
+          hasLastFmKey: true,
+          hasFanartKey: false,
+          isConfigured: true,
+          language: 'en',
+          lastFmUsername: 'legacy_user',
+          hasLastFmSession: true,
+        }),
+      })
+
+      const result = await getConfig()
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect('lastFmUsername' in result.value).toBe(false)
+      expect('hasLastFmSession' in result.value).toBe(false)
+    })
+
+    it('injects the selected-user header when a user is selected', async () => {
+      localStorage.setItem(SELECTED_USER_KEY, 'u1')
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          lmsHost: '192.168.1.100',
+          lmsPort: 9000,
+          playerId: 'aa:bb:cc:dd:ee:ff',
+          hasLastFmKey: true,
+          hasFanartKey: false,
+          isConfigured: true,
+          language: 'en',
+        }),
+      })
+
+      await getConfig()
+
+      const init = fetchMock.mock.calls[0]?.[1]
+      expect(new Headers(init?.headers).get(USER_HEADER_NAME)).toBe('u1')
+    })
+
+    it('does not add a user header when no user is selected', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          lmsHost: '192.168.1.100',
+          lmsPort: 9000,
+          playerId: 'aa:bb:cc:dd:ee:ff',
+          hasLastFmKey: true,
+          hasFanartKey: false,
+          isConfigured: true,
+          language: 'en',
+        }),
+      })
+
+      await getConfig()
+
+      const init = fetchMock.mock.calls[0]?.[1]
+      expect(new Headers(init?.headers).get(USER_HEADER_NAME)).toBeNull()
     })
   })
 

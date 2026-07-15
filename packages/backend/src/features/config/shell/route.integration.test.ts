@@ -75,6 +75,7 @@ const makeConfig = (): AppConfig => ({
   lastFmApiKey: "test-lastfm",
   fanartApiKey: "test-fanart",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,

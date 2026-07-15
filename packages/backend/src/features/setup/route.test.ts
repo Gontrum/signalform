@@ -11,6 +11,7 @@ type MockConfigValue = {
   readonly lastFmApiKey: string;
   readonly fanartApiKey: string;
   readonly language: import("../../infrastructure/config/service.js").Language;
+  readonly users: import("../../infrastructure/config/service.js").AppConfig["users"];
   readonly personalRadioEnabled: boolean;
   readonly scrobblingEnabled: boolean;
   readonly personalRadioDiscovery: number;
@@ -41,6 +42,7 @@ const DEFAULT_CONFIG: MockConfigValue = {
   lastFmApiKey: "",
   fanartApiKey: "",
   language: "en",
+  users: [],
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
@@ -97,6 +99,7 @@ vi.mock("../../infrastructure/config", () => ({
       lastFmApiKey: "",
       fanartApiKey: "",
       language: "en",
+      users: [],
     },
   }),
 }));

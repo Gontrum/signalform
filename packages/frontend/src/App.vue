@@ -3,9 +3,16 @@ import { onMounted, onBeforeUnmount } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { getConfig } from '@/platform/api/configApi'
 import { useI18nStore } from '@/app/i18nStore'
+import { useUserStore } from '@/domains/user/shell/useUserStore'
+import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 
 const router = useRouter()
 const i18nStore = useI18nStore()
+const userStore = useUserStore()
+
+onMounted(() => {
+  void userStore.load()
+})
 
 // Redirect to setup wizard if app has never been configured
 onMounted(async () => {
@@ -58,5 +65,6 @@ onBeforeUnmount(() => {
 <template>
   <div class="h-dvh min-h-0 w-full overflow-hidden bg-neutral-50">
     <RouterView />
+    <UserSelectDialog v-if="userStore.needsSelection" />
   </div>
 </template>

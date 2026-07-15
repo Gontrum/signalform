@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
+import { resolveRequestUser } from "../../users/index.js";
 import {
   mergeTrackPools,
   spreadSample,
@@ -22,7 +23,7 @@ export const createPersonalRadioRoute = (
   lmsClient: LmsClient,
   lastFmClient: LastFmClient,
 ): void => {
-  server.post("/api/personal-radio/start", async (_request, reply) => {
+  server.post("/api/personal-radio/start", async (request, reply) => {
     const configResult = loadConfig();
     if (!configResult.ok) {
       return reply.status(400).send({ error: "Configuration unavailable" });
@@ -33,8 +34,19 @@ export const createPersonalRadioRoute = (
       return reply.status(400).send({ error: "Personal Radio is not enabled" });
     }
 
-    const username = config.lastFmUsername;
-    if (!username) {
+    const headerValue = request.headers["x-signalform-user"];
+    const user = resolveRequestUser(
+      config.users,
+      typeof headerValue === "string" ? headerValue : undefined,
+    );
+    if (user === undefined) {
+      return reply
+        .status(400)
+        .send({ error: "No user resolvable for request" });
+    }
+
+    const username = user.lastFmUsername;
+    if (username === undefined) {
       return reply
         .status(400)
         .send({ error: "No Last.fm username configured" });
@@ -97,10 +109,10 @@ export const createPersonalRadioRoute = (
           lastFmClient.getUserTopTracks(n, "overall", 10),
         ),
       ),
-      config.lastFmSessionKey !== undefined &&
+      user.lastFmSessionKey !== undefined &&
       config.lastFmSharedSecret !== undefined
         ? lastFmClient.getRecommendedTracks(
-            config.lastFmSessionKey,
+            user.lastFmSessionKey,
             config.lastFmSharedSecret,
             15,
           )

@@ -61,8 +61,28 @@ const makeBaseConfig = (): AppConfig => ({
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
-  lastFmSessionKey: "sk",
+  users: [
+    {
+      id: "u1",
+      name: "Alice",
+      lastFmUsername: "alice",
+      lastFmSessionKey: "sk",
+    },
+  ],
   lastFmSharedSecret: "sec",
+});
+
+const makeTwoUserConfig = (): AppConfig => ({
+  ...makeBaseConfig(),
+  users: [
+    {
+      id: "u1",
+      name: "Alice",
+      lastFmUsername: "alice",
+      lastFmSessionKey: "sk",
+    },
+    { id: "u2", name: "Bob", lastFmUsername: "bob", lastFmSessionKey: "sk2" },
+  ],
 });
 
 const makeMockClient = (): MockLastFmClient => ({
@@ -131,11 +151,11 @@ describe("POST /api/lastfm/love", () => {
     });
   });
 
-  it("returns 400 when no session configured", async () => {
+  it("returns 400 when the resolved user has no session", async () => {
     const configModule = await getConfigModule();
     configModule.loadConfig.mockReturnValue({
       ok: true,
-      value: { ...makeBaseConfig(), lastFmSessionKey: undefined },
+      value: { ...makeBaseConfig(), users: [{ id: "u1", name: "Alice" }] },
     });
     const client = makeMockClient();
     const server = makeServer(client);
@@ -147,6 +167,73 @@ describe("POST /api/lastfm/love", () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(client.love).not.toHaveBeenCalled();
+  });
+
+  it("uses the header user's sessionKey when two users exist", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeTwoUserConfig(),
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/love",
+      headers: { "x-signalform-user": "u2" },
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(client.love).toHaveBeenCalledWith({
+      artist: "Madonna",
+      track: "Like a Prayer",
+      sessionKey: "sk2",
+      sharedSecret: "sec",
+    });
+  });
+
+  it("falls back to the only user when no header is sent", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/love",
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(client.love).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionKey: "sk" }),
+    );
+  });
+
+  it("returns 400 for an unknown header user when two users exist", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeTwoUserConfig(),
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/love",
+      headers: { "x-signalform-user": "ghost" },
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(client.love).not.toHaveBeenCalled();
   });
 
   it("returns 400 when artist is missing", async () => {
@@ -240,11 +327,11 @@ describe("DELETE /api/lastfm/love", () => {
     expect(response.statusCode).toBe(400);
   });
 
-  it("returns 400 when no session configured", async () => {
+  it("returns 400 when the resolved user has no session", async () => {
     const configModule = await getConfigModule();
     configModule.loadConfig.mockReturnValue({
       ok: true,
-      value: { ...makeBaseConfig(), lastFmSessionKey: undefined },
+      value: { ...makeBaseConfig(), users: [{ id: "u1", name: "Alice" }] },
     });
     const client = makeMockClient();
     const server = makeServer(client);
@@ -256,6 +343,29 @@ describe("DELETE /api/lastfm/love", () => {
     });
 
     expect(response.statusCode).toBe(400);
+    expect(client.unlove).not.toHaveBeenCalled();
+  });
+
+  it("uses the header user's sessionKey when two users exist", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeTwoUserConfig(),
+    });
+    const client = makeMockClient();
+    const server = makeServer(client);
+
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/love",
+      headers: { "x-signalform-user": "u2" },
+      payload: { artist: "Madonna", track: "Like a Prayer" },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(client.unlove).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionKey: "sk2" }),
+    );
   });
 
   it("returns 502 when unlove fails", async () => {

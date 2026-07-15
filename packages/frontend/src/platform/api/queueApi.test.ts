@@ -9,6 +9,7 @@ import {
   clearQueue,
   removeMultipleFromQueue,
 } from './queueApi'
+import { SELECTED_USER_KEY, USER_HEADER_NAME } from './userHeader'
 
 const fetchMock = vi.fn()
 
@@ -42,12 +43,14 @@ const parseJsonBody = (body: unknown): unknown => {
 
 describe('queueApi', () => {
   beforeEach(() => {
+    localStorage.clear()
     fetchMock.mockReset()
     vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    localStorage.clear()
   })
 
   describe('getQueue', () => {
@@ -411,6 +414,36 @@ describe('queueApi', () => {
           radioBoundaryIndex: null,
         })
       }
+    })
+
+    it('injects the selected-user header when a user is selected', async () => {
+      localStorage.setItem(SELECTED_USER_KEY, 'u1')
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 204,
+      })
+
+      const { jumpToTrack } = await import('./queueApi')
+      await jumpToTrack(2)
+
+      const { url, options } = getFetchCall(0)
+      expect(url).toContain('/api/queue/jump')
+      const headers = new Headers(options.headers)
+      expect(headers.get(USER_HEADER_NAME)).toBe('u1')
+      expect(headers.get('Content-Type')).toBe('application/json')
+    })
+
+    it('sends no user header when no user is selected', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 204,
+      })
+
+      const { jumpToTrack } = await import('./queueApi')
+      await jumpToTrack(2)
+
+      const { options } = getFetchCall(0)
+      expect(new Headers(options.headers).get(USER_HEADER_NAME)).toBeNull()
     })
   })
 

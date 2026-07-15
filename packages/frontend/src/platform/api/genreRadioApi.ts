@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { getApiUrl } from '@/utils/runtimeUrls'
+import { withUserHeader } from '@/platform/api/userHeader'
 
 const GenreRadioResultSchema = z.object({
   genreName: z.string(),
@@ -19,12 +20,15 @@ const TagsResponseSchema = z.object({
 export const startGenreRadio = async (
   genreName: string,
 ): Promise<{ readonly genreName: string; readonly tracksAdded: number } | null> => {
-  const response = await fetch(getApiUrl('/api/genre-radio/start'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ genreName }),
-    signal: AbortSignal.timeout(30000),
-  })
+  const response = await fetch(
+    getApiUrl('/api/genre-radio/start'),
+    withUserHeader({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ genreName }),
+      signal: AbortSignal.timeout(30000),
+    }),
+  )
   if (!response.ok) {
     return null
   }

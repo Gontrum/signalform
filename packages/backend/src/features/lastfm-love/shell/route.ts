@@ -1,12 +1,28 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { loadConfig } from "../../../infrastructure/config/index.js";
+import type {
+  AppConfig,
+  UserProfile,
+} from "../../../infrastructure/config/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import { resolveRequestUser } from "../../users/index.js";
 
 const LoveBodySchema = z.object({
   artist: z.string().min(1),
   track: z.string().min(1),
 });
+
+const resolveHeaderUser = (
+  config: AppConfig,
+  request: FastifyRequest,
+): UserProfile | undefined => {
+  const headerValue = request.headers["x-signalform-user"];
+  return resolveRequestUser(
+    config.users,
+    typeof headerValue === "string" ? headerValue : undefined,
+  );
+};
 
 export const createLastFmLoveRoute = (
   server: FastifyInstance,
@@ -28,16 +44,27 @@ export const createLastFmLoveRoute = (
         return reply.code(500).send({ error: "Failed to load configuration" });
       }
 
-      const { lastFmSessionKey, lastFmSharedSecret } = configResult.value;
-      if (!lastFmSessionKey || !lastFmSharedSecret) {
-        return reply.code(400).send({ error: "No Last.fm session configured" });
+      const config = configResult.value;
+      const user = resolveHeaderUser(config, request);
+      if (user === undefined) {
+        return reply
+          .code(400)
+          .send({ error: "No user resolvable for request" });
+      }
+      if (
+        user.lastFmSessionKey === undefined ||
+        config.lastFmSharedSecret === undefined
+      ) {
+        return reply
+          .code(400)
+          .send({ error: "No Last.fm session configured for user" });
       }
 
       const result = await lastFmClient.love({
         artist: validation.data.artist,
         track: validation.data.track,
-        sessionKey: lastFmSessionKey,
-        sharedSecret: lastFmSharedSecret,
+        sessionKey: user.lastFmSessionKey,
+        sharedSecret: config.lastFmSharedSecret,
       });
 
       if (!result.ok) {
@@ -66,16 +93,27 @@ export const createLastFmLoveRoute = (
         return reply.code(500).send({ error: "Failed to load configuration" });
       }
 
-      const { lastFmSessionKey, lastFmSharedSecret } = configResult.value;
-      if (!lastFmSessionKey || !lastFmSharedSecret) {
-        return reply.code(400).send({ error: "No Last.fm session configured" });
+      const config = configResult.value;
+      const user = resolveHeaderUser(config, request);
+      if (user === undefined) {
+        return reply
+          .code(400)
+          .send({ error: "No user resolvable for request" });
+      }
+      if (
+        user.lastFmSessionKey === undefined ||
+        config.lastFmSharedSecret === undefined
+      ) {
+        return reply
+          .code(400)
+          .send({ error: "No Last.fm session configured for user" });
       }
 
       const result = await lastFmClient.unlove({
         artist: validation.data.artist,
         track: validation.data.track,
-        sessionKey: lastFmSessionKey,
-        sharedSecret: lastFmSharedSecret,
+        sessionKey: user.lastFmSessionKey,
+        sharedSecret: config.lastFmSharedSecret,
       });
 
       if (!result.ok) {

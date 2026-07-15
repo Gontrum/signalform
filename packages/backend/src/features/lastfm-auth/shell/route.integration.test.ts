@@ -81,6 +81,15 @@ const makeBaseConfig = (): AppConfig => ({
   personalRadioEnabled: false,
   scrobblingEnabled: false,
   personalRadioDiscovery: 50,
+  users: [
+    { id: "u1", name: "Alice" },
+    {
+      id: "u2",
+      name: "Bob",
+      lastFmUsername: "bob",
+      lastFmSessionKey: "sk-bob",
+    },
+  ],
   lastFmSharedSecret: "test-secret",
 });
 
@@ -235,7 +244,7 @@ describe("POST /api/lastfm/auth/complete", () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/lastfm/auth/complete",
-      payload: { token: "sometoken" },
+      payload: { token: "sometoken", userId: "u1" },
     });
 
     expect(response.statusCode).toBe(400);
@@ -243,7 +252,7 @@ describe("POST /api/lastfm/auth/complete", () => {
     expect(typeof body["error"]).toBe("string");
   });
 
-  it("saves session key and returns { username } on success", async () => {
+  it("writes the session into the matching user and returns { username }", async () => {
     const configModule = await getConfigModule();
     configModule.loadConfig.mockReturnValue({
       ok: true,
@@ -267,25 +276,63 @@ describe("POST /api/lastfm/auth/complete", () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/lastfm/auth/complete",
-      payload: { token: "mytoken" },
+      payload: { token: "mytoken", userId: "u1" },
     });
 
     expect(response.statusCode).toBe(200);
     const body = readJsonRecord(response.body);
     expect(body["username"]).toBe("testuser");
 
-    expect(configModule.saveConfig).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lastFmSessionKey: "session-key-123",
+    const expectedUsers = [
+      {
+        id: "u1",
+        name: "Alice",
         lastFmUsername: "testuser",
-      }),
+        lastFmSessionKey: "session-key-123",
+      },
+      {
+        id: "u2",
+        name: "Bob",
+        lastFmUsername: "bob",
+        lastFmSessionKey: "sk-bob",
+      },
+    ];
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ users: expectedUsers }),
     );
     expect(onConfigChange).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lastFmSessionKey: "session-key-123",
-        lastFmUsername: "testuser",
+      expect.objectContaining({ users: expectedUsers }),
+    );
+  });
+
+  it("returns 404 for an unknown userId", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            session: { key: "session-key-123", name: "testuser" },
+          }),
       }),
     );
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/lastfm/auth/complete",
+      payload: { token: "mytoken", userId: "ghost" },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(configModule.saveConfig).not.toHaveBeenCalled();
   });
 
   it("returns 502 when Last.fm session request fails", async () => {
@@ -307,7 +354,7 @@ describe("POST /api/lastfm/auth/complete", () => {
     const response = await server.inject({
       method: "POST",
       url: "/api/lastfm/auth/complete",
-      payload: { token: "mytoken" },
+      payload: { token: "mytoken", userId: "u1" },
     });
 
     expect(response.statusCode).toBe(502);
@@ -316,7 +363,7 @@ describe("POST /api/lastfm/auth/complete", () => {
   });
 });
 
-describe("DELETE /api/lastfm/auth", () => {
+describe("DELETE /api/lastfm/auth/:userId", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -325,15 +372,11 @@ describe("DELETE /api/lastfm/auth", () => {
     vi.restoreAllMocks();
   });
 
-  it("clears session key and disables scrobbling, returns 204", async () => {
+  it("clears the user's session and disables scrobbling when it was the last session", async () => {
     const configModule = await getConfigModule();
     configModule.loadConfig.mockReturnValue({
       ok: true,
-      value: {
-        ...makeBaseConfig(),
-        lastFmSessionKey: "existing-key",
-        scrobblingEnabled: true,
-      },
+      value: { ...makeBaseConfig(), scrobblingEnabled: true },
     });
     configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
 
@@ -341,23 +384,82 @@ describe("DELETE /api/lastfm/auth", () => {
     const server = makeServer(onConfigChange);
     const response = await server.inject({
       method: "DELETE",
-      url: "/api/lastfm/auth",
+      url: "/api/lastfm/auth/u2",
     });
 
     expect(response.statusCode).toBe(204);
 
+    const expectedUsers = [
+      { id: "u1", name: "Alice" },
+      { id: "u2", name: "Bob" },
+    ];
     expect(configModule.saveConfig).toHaveBeenCalledWith(
       expect.objectContaining({
-        lastFmSessionKey: undefined,
+        users: expectedUsers,
         scrobblingEnabled: false,
       }),
     );
     expect(onConfigChange).toHaveBeenCalledWith(
       expect.objectContaining({
-        lastFmSessionKey: undefined,
+        users: expectedUsers,
         scrobblingEnabled: false,
       }),
     );
+  });
+
+  it("keeps scrobbling enabled when another user still has a session", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: {
+        ...makeBaseConfig(),
+        scrobblingEnabled: true,
+        users: [
+          {
+            id: "u1",
+            name: "Alice",
+            lastFmUsername: "alice",
+            lastFmSessionKey: "sk-alice",
+          },
+          {
+            id: "u2",
+            name: "Bob",
+            lastFmUsername: "bob",
+            lastFmSessionKey: "sk-bob",
+          },
+        ],
+      },
+    });
+    configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/auth/u2",
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ scrobblingEnabled: true }),
+    );
+  });
+
+  it("returns 404 for an unknown userId", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeBaseConfig(),
+    });
+    configModule.saveConfig.mockReturnValue({ ok: true, value: undefined });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "DELETE",
+      url: "/api/lastfm/auth/ghost",
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(configModule.saveConfig).not.toHaveBeenCalled();
   });
 
   it("returns 500 when save fails", async () => {
@@ -374,7 +476,7 @@ describe("DELETE /api/lastfm/auth", () => {
     const server = makeServer();
     const response = await server.inject({
       method: "DELETE",
-      url: "/api/lastfm/auth",
+      url: "/api/lastfm/auth/u2",
     });
 
     expect(response.statusCode).toBe(500);

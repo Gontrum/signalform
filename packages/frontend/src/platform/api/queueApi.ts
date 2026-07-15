@@ -5,6 +5,7 @@ import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult, fetchVoidResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
 import { AudioQualitySchema } from '@/platform/api/commonSchemas'
+import { withUserHeader } from '@/platform/api/userHeader'
 import type { QueueMutationError } from '@/domains/queue/core/types'
 
 const QueueTrackSchema = z.object({
@@ -64,7 +65,7 @@ const runOptionalQueueSnapshotRequest = async (
   requestLabel: string,
 ): Promise<Result<QueueSnapshot | undefined, QueueApiError>> => {
   try {
-    const response = await fetch(url, init)
+    const response = await fetch(url, withUserHeader(init))
 
     if (!response.ok) {
       return {

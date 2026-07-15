@@ -35,12 +35,13 @@ export const requestLastFmAuth = async (): Promise<LastFmAuthRequestResult | nul
 
 export const completeLastFmAuth = async (
   token: string,
+  userId: string,
 ): Promise<LastFmAuthCompleteResult | null> => {
   try {
     const response = await fetch(getApiUrl('/api/lastfm/auth/complete'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, userId }),
       signal: AbortSignal.timeout(15000),
     })
     if (!response.ok) {
@@ -59,9 +60,9 @@ export const completeLastFmAuth = async (
   }
 }
 
-export const disconnectLastFm = async (): Promise<boolean> => {
+export const disconnectLastFm = async (userId: string): Promise<boolean> => {
   try {
-    const response = await fetch(getApiUrl('/api/lastfm/auth'), {
+    const response = await fetch(getApiUrl(`/api/lastfm/auth/${encodeURIComponent(userId)}`), {
       method: 'DELETE',
       signal: AbortSignal.timeout(5000),
     })
