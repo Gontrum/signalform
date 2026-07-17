@@ -26,6 +26,8 @@ export type MessageKey =
   | 'settings.hostLabel'
   | 'settings.portLabel'
   | 'settings.playerIdLabel'
+  | 'settings.lmsMacAddress'
+  | 'settings.lmsMacAddressHint'
   | 'nav.settings'
   | 'nav.brandTagline'
   | 'nav.brandMotto'
@@ -201,6 +203,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.hostLabel': 'LMS Host',
     'settings.portLabel': 'Port',
     'settings.playerIdLabel': 'Player ID',
+    'settings.lmsMacAddress': 'LMS MAC address (wake-on-LAN)',
+    'settings.lmsMacAddressHint':
+      'Sent as a wake-up packet when you open the app, so a sleeping server starts up.',
     'nav.settings': 'Settings',
     'nav.brandTagline': 'Signalform · Focus on the music',
     'nav.brandMotto': 'Focus on the music',
@@ -375,6 +380,9 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.hostLabel': 'LMS Host',
     'settings.portLabel': 'Port',
     'settings.playerIdLabel': 'Player ID',
+    'settings.lmsMacAddress': 'LMS MAC-Adresse (Wake-on-LAN)',
+    'settings.lmsMacAddressHint':
+      'Wird beim Öffnen der App als Wecksignal geschickt, damit ein schlafender Server hochfährt.',
     'nav.settings': 'Einstellungen',
     'nav.brandTagline': 'Signalform · Fokus auf die Musik',
     'nav.brandMotto': 'Fokus auf die Musik',

@@ -18,6 +18,7 @@ vi.mock('@/platform/api/configApi', async () => {
         lmsPort: 9000,
         playerId: 'aa:bb:cc:dd:ee:ff',
         hasLastFmKey: false,
+        hasLastFmSharedSecret: false,
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
@@ -32,6 +33,7 @@ vi.mock('@/platform/api/configApi', async () => {
         lmsPort: 9000,
         playerId: 'aa:bb:cc:dd:ee:ff',
         hasLastFmKey: false,
+        hasLastFmSharedSecret: false,
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
@@ -140,6 +142,32 @@ describe('SettingsView', () => {
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'aa:bb:cc:dd:ee:ff')
   })
 
+  it('populates the MAC address field from the loaded config', async () => {
+    const { getConfig } = await import('@/platform/api/configApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getConfig).mockResolvedValueOnce(
+      ok({
+        lmsHost: '192.168.1.100',
+        lmsPort: 9000,
+        lmsMacAddress: '00:11:22:33:44:55',
+        playerId: 'aa:bb:cc:dd:ee:ff',
+        hasLastFmKey: false,
+        hasLastFmSharedSecret: false,
+        hasFanartKey: false,
+        isConfigured: true,
+        configuredAt: '2024-01-01T00:00:00Z',
+        language: 'en',
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
+      }),
+    )
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+    expectInputValue(wrapper, '[data-testid="lms-mac-input"]', '00:11:22:33:44:55')
+  })
+
   it('shows load error when getConfig fails', async () => {
     const { getConfig } = await import('@/platform/api/configApi')
     const { err } = await import('@signalform/shared')
@@ -175,6 +203,32 @@ describe('SettingsView', () => {
     )
   })
 
+  it('sends the entered MAC address on save', async () => {
+    const { updateConfig } = await import('@/platform/api/configApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lms-mac-input"]').setValue('00:11:22:33:44:55')
+    await wrapper.find('[data-testid="settings-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(updateConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ lmsMacAddress: '00:11:22:33:44:55' }),
+    )
+  })
+
+  it('clears the MAC address with null when the field is empty on save', async () => {
+    const { updateConfig } = await import('@/platform/api/configApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    await wrapper.find('[data-testid="lms-mac-input"]').setValue('')
+    await wrapper.find('[data-testid="settings-form"]').trigger('submit')
+    await flushPromises()
+
+    expect(updateConfig).toHaveBeenCalledWith(expect.objectContaining({ lmsMacAddress: null }))
+  })
+
   it('shows success message after successful save', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
@@ -193,6 +247,7 @@ describe('SettingsView', () => {
         lmsPort: 9000,
         playerId: 'aa:bb:cc:dd:ee:ff',
         hasLastFmKey: false,
+        hasLastFmSharedSecret: false,
         hasFanartKey: false,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
@@ -343,8 +398,67 @@ describe('SettingsView', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // API key configured indicators
+  // ---------------------------------------------------------------------------
+
+  it('shows the shared-secret configured badge and placeholder when a secret is stored', async () => {
+    const { getConfig } = await import('@/platform/api/configApi')
+    const { ok } = await import('@signalform/shared')
+    vi.mocked(getConfig).mockResolvedValueOnce(
+      ok({
+        lmsHost: '192.168.1.100',
+        lmsPort: 9000,
+        playerId: 'aa:bb:cc:dd:ee:ff',
+        hasLastFmKey: false,
+        hasLastFmSharedSecret: true,
+        hasFanartKey: false,
+        isConfigured: true,
+        configuredAt: '2024-01-01T00:00:00Z',
+        language: 'en',
+        personalRadioEnabled: false,
+        scrobblingEnabled: false,
+        personalRadioDiscovery: 50,
+      }),
+    )
+
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('label[for="lastfm-secret"]').text()).toContain('✓ configured')
+    expect(wrapper.find('[data-testid="lastfm-secret-input"]').attributes('placeholder')).toBe(
+      'Enter new key to replace',
+    )
+    // hasLastFmKey stays false — the secret badge must not leak onto the key field
+    expect(wrapper.find('label[for="lastfm-key"]').text()).not.toContain('configured')
+  })
+
+  it('hides the shared-secret badge and shows the empty placeholder when no secret is stored', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('label[for="lastfm-secret"]').text()).not.toContain('configured')
+    expect(wrapper.find('[data-testid="lastfm-secret-input"]').attributes('placeholder')).toBe(
+      'Optional — enables artist enrichment',
+    )
+  })
+
+  // ---------------------------------------------------------------------------
   // Users section
   // ---------------------------------------------------------------------------
+
+  it('stacks user rows on mobile and wraps the action buttons', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const row = wrapper.findAll('[data-testid="user-row"]')[0]!
+    // Column layout on mobile, single line from sm: upward
+    expect(row.classes()).toContain('flex-col')
+    expect(row.classes()).toContain('sm:flex-row')
+    // Action buttons live in a wrapping container so they never force overflow
+    const buttonGroup = row.find('div.flex-wrap')
+    expect(buttonGroup.exists()).toBe(true)
+    expect(buttonGroup.find('[data-testid="user-delete-button"]').exists()).toBe(true)
+  })
 
   it('renders the users section with one row per user and Last.fm status', async () => {
     const router = await createRouter()

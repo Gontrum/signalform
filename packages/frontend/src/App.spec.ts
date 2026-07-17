@@ -38,6 +38,10 @@ vi.mock('@/platform/api/usersApi', () => ({
   getUsers: vi.fn().mockResolvedValue(ok({ users: [] })),
 }))
 
+vi.mock('@/platform/api/lmsWakeApi', () => ({
+  wakeLms: vi.fn().mockResolvedValue(undefined),
+}))
+
 const createMountedApp = async (): Promise<VueWrapper> => {
   const router = await createTestRouter([{ path: '/', name: 'home', component: HomeView }])
   return mount(App, { global: { plugins: [router] } })
@@ -69,6 +73,33 @@ describe('App.vue', () => {
     const wrapper = await createMountedApp()
     await flushPromises()
     expect(wrapper.find('[data-testid="user-select-dialog"]').exists()).toBe(false)
+  })
+
+  it('sends a wake-on-LAN call on mount', async () => {
+    const { wakeLms } = await import('@/platform/api/lmsWakeApi')
+    await createMountedApp()
+    await flushPromises()
+    expect(wakeLms).toHaveBeenCalledOnce()
+  })
+
+  it('throttles wake calls on visibility changes to once per minute', async () => {
+    const { wakeLms } = await import('@/platform/api/lmsWakeApi')
+    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000_000)
+
+    await createMountedApp()
+    await flushPromises()
+    expect(wakeLms).toHaveBeenCalledTimes(1)
+
+    // Becoming visible again within the throttle window: no new call
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(wakeLms).toHaveBeenCalledTimes(1)
+
+    // After the 60s window: wake again
+    nowSpy.mockReturnValue(1_000_000 + 60_000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(wakeLms).toHaveBeenCalledTimes(2)
+
+    nowSpy.mockRestore()
   })
 
   it('shows the user select dialog when multiple users exist without a selection', async () => {

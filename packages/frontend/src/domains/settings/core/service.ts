@@ -21,15 +21,20 @@ export const resolveSettingsLanguage = (
 export const createSettingsConfigUpdate = (input: {
   readonly lmsHost: string
   readonly lmsPort: string
+  readonly lmsMacAddress: string
   readonly playerId: string
   readonly language: Language
   readonly lastFmApiKey: string
   readonly lastFmSharedSecret: string
   readonly fanartApiKey: string
 }): ConfigUpdate => {
+  // An empty (or whitespace-only) MAC input clears the stored value via `null`.
+  const trimmedMacAddress = input.lmsMacAddress.trim()
+
   return {
     lmsHost: input.lmsHost.trim(),
     lmsPort: parseSettingsPort(input.lmsPort),
+    lmsMacAddress: trimmedMacAddress === '' ? null : trimmedMacAddress,
     playerId: input.playerId.trim(),
     language: input.language,
     ...(input.lastFmApiKey ? { lastFmApiKey: input.lastFmApiKey } : {}),

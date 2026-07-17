@@ -5,12 +5,14 @@ import { useSettingsView } from '../shell/useSettingsView'
 const {
   lmsHost,
   lmsPort,
+  lmsMacAddress,
   playerId,
   lastFmApiKey,
   lastFmSharedSecret,
   fanartApiKey,
   language,
   hasLastFmKey,
+  hasLastFmSharedSecret,
   hasFanartKey,
   discovering,
   discoveredServers,
@@ -85,7 +87,7 @@ const {
 
           <div class="space-y-3">
             <div class="flex items-end gap-2">
-              <div class="flex-1">
+              <div class="min-w-0 flex-1">
                 <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lms-host">
                   {{ t('settings.hostLabel') }}
                 </label>
@@ -143,12 +145,27 @@ const {
                 :key="`${server.host}:${server.port}`"
                 type="button"
                 data-testid="server-option"
-                class="flex w-full items-start px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                class="flex w-full flex-wrap items-start px-3 py-2 text-left text-sm hover:bg-neutral-50"
                 @click="selectServer(server)"
               >
                 <span class="font-medium text-neutral-900">{{ server.name }}</span>
                 <span class="ml-2 text-neutral-500">{{ server.host }}:{{ server.port }}</span>
               </button>
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lms-mac">
+                {{ t('settings.lmsMacAddress') }}
+              </label>
+              <input
+                id="lms-mac"
+                v-model="lmsMacAddress"
+                type="text"
+                data-testid="lms-mac-input"
+                placeholder="aa:bb:cc:dd:ee:ff"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm focus:border-neutral-900 focus:outline-none"
+              />
+              <p class="mt-1 text-xs text-neutral-500">{{ t('settings.lmsMacAddressHint') }}</p>
             </div>
           </div>
         </section>
@@ -160,7 +177,7 @@ const {
 
           <div class="space-y-3">
             <div class="flex items-end gap-2">
-              <div class="flex-1">
+              <div class="min-w-0 flex-1">
                 <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="player-id">
                   {{ t('settings.playerIdLabel') }}
                 </label>
@@ -207,7 +224,7 @@ const {
                 :key="player.id"
                 type="button"
                 data-testid="player-option"
-                class="flex w-full items-start px-3 py-2 text-left text-sm hover:bg-neutral-50"
+                class="flex w-full flex-wrap items-start px-3 py-2 text-left text-sm hover:bg-neutral-50"
                 @click="selectPlayer(player)"
               >
                 <span class="font-medium text-neutral-900">{{ player.name }}</span>
@@ -268,6 +285,7 @@ const {
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-secret">
                 Last.fm Shared Secret
+                <span v-if="hasLastFmSharedSecret" class="ml-1 text-green-600">✓ configured</span>
               </label>
               <input
                 id="lastfm-secret"
@@ -275,7 +293,7 @@ const {
                 type="password"
                 data-testid="lastfm-secret-input"
                 :placeholder="
-                  hasLastFmKey
+                  hasLastFmSharedSecret
                     ? t('settings.lastfmPlaceholderConfigured')
                     : t('settings.lastfmPlaceholderEmpty')
                 "
@@ -316,7 +334,7 @@ const {
               <li
                 v-for="user in users"
                 :key="user.id"
-                class="flex items-center gap-2 px-3 py-2"
+                class="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
                 data-testid="user-row"
               >
                 <template v-if="renamingUserId === user.id">
@@ -324,27 +342,29 @@ const {
                     v-model="renameValue"
                     type="text"
                     data-testid="user-rename-input"
-                    class="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                    class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none sm:flex-1"
                   />
-                  <button
-                    type="button"
-                    data-testid="user-rename-save"
-                    class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
-                    @click="confirmRename"
-                  >
-                    {{ t('settings.userRenameSave') }}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="user-rename-cancel"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                    @click="cancelRename"
-                  >
-                    {{ t('settings.userRenameCancel') }}
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      data-testid="user-rename-save"
+                      class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+                      @click="confirmRename"
+                    >
+                      {{ t('settings.userRenameSave') }}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="user-rename-cancel"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                      @click="cancelRename"
+                    >
+                      {{ t('settings.userRenameCancel') }}
+                    </button>
+                  </div>
                 </template>
                 <template v-else>
-                  <div class="min-w-0 flex-1">
+                  <div class="min-w-0 sm:flex-1">
                     <p
                       class="truncate text-sm font-medium text-neutral-900"
                       data-testid="user-name"
@@ -362,56 +382,58 @@ const {
                       }}
                     </p>
                   </div>
-                  <span
-                    v-if="selectedUserId === user.id"
-                    data-testid="this-is-me-marker"
-                    class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
-                  >
-                    ✓ {{ t('settings.userThisIsMe') }}
-                  </span>
-                  <button
-                    v-else
-                    type="button"
-                    data-testid="this-is-me-button"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                    @click="selectUser(user.id)"
-                  >
-                    {{ t('settings.userThisIsMe') }}
-                  </button>
-                  <button
-                    v-if="user.hasLastFmSession"
-                    type="button"
-                    data-testid="lastfm-disconnect-button"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                    @click="handleLastFmDisconnect(user.id)"
-                  >
-                    {{ t('settings.lastFmDisconnect') }}
-                  </button>
-                  <button
-                    v-else
-                    type="button"
-                    data-testid="lastfm-connect-button"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                    @click="handleLastFmConnect(user.id)"
-                  >
-                    {{ t('settings.lastFmConnect') }}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="user-rename-button"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-                    @click="startRename(user.id, user.name)"
-                  >
-                    {{ t('settings.userRename') }}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="user-delete-button"
-                    class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                    @click="removeUser(user.id)"
-                  >
-                    {{ t('settings.userDelete') }}
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-if="selectedUserId === user.id"
+                      data-testid="this-is-me-marker"
+                      class="shrink-0 rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white"
+                    >
+                      ✓ {{ t('settings.userThisIsMe') }}
+                    </span>
+                    <button
+                      v-else
+                      type="button"
+                      data-testid="this-is-me-button"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                      @click="selectUser(user.id)"
+                    >
+                      {{ t('settings.userThisIsMe') }}
+                    </button>
+                    <button
+                      v-if="user.hasLastFmSession"
+                      type="button"
+                      data-testid="lastfm-disconnect-button"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                      @click="handleLastFmDisconnect(user.id)"
+                    >
+                      {{ t('settings.lastFmDisconnect') }}
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      data-testid="lastfm-connect-button"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                      @click="handleLastFmConnect(user.id)"
+                    >
+                      {{ t('settings.lastFmConnect') }}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="user-rename-button"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                      @click="startRename(user.id, user.name)"
+                    >
+                      {{ t('settings.userRename') }}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="user-delete-button"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                      @click="removeUser(user.id)"
+                    >
+                      {{ t('settings.userDelete') }}
+                    </button>
+                  </div>
                 </template>
               </li>
             </ul>
@@ -445,7 +467,7 @@ const {
 
             <!-- Add user -->
             <div class="flex items-end gap-2">
-              <div class="flex-1">
+              <div class="min-w-0 flex-1">
                 <label
                   class="mb-1.5 block text-xs font-medium text-neutral-700"
                   for="new-user-name"

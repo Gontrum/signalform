@@ -66,6 +66,7 @@ describe('SetupWizard', () => {
         lmsPort: 9000,
         playerId: 'aa:bb:cc:dd:ee:ff',
         hasLastFmKey: false,
+        hasLastFmSharedSecret: false,
         hasFanartKey: false,
         isConfigured: true,
         language: 'en',

@@ -32,12 +32,14 @@ import {
 type UseSettingsViewResult = {
   readonly lmsHost: Ref<string>
   readonly lmsPort: Ref<string>
+  readonly lmsMacAddress: Ref<string>
   readonly playerId: Ref<string>
   readonly lastFmApiKey: Ref<string>
   readonly lastFmSharedSecret: Ref<string>
   readonly fanartApiKey: Ref<string>
   readonly language: Ref<Language>
   readonly hasLastFmKey: Ref<boolean>
+  readonly hasLastFmSharedSecret: Ref<boolean>
   readonly hasFanartKey: Ref<boolean>
   readonly discovering: Ref<boolean>
   readonly discoveredServers: Ref<readonly DiscoveredServer[]>
@@ -106,8 +108,10 @@ const applyLoadedConfig = (
   state: {
     readonly lmsHost: Ref<string>
     readonly lmsPort: Ref<string>
+    readonly lmsMacAddress: Ref<string>
     readonly playerId: Ref<string>
     readonly hasLastFmKey: Ref<boolean>
+    readonly hasLastFmSharedSecret: Ref<boolean>
     readonly hasFanartKey: Ref<boolean>
     readonly language: Ref<Language>
     readonly personalRadioEnabled: Ref<boolean>
@@ -118,8 +122,10 @@ const applyLoadedConfig = (
   const resolvedLanguage = resolveSettingsLanguage(config.language, fallbackLanguage)
   state.lmsHost.value = config.lmsHost
   state.lmsPort.value = String(config.lmsPort)
+  state.lmsMacAddress.value = config.lmsMacAddress ?? ''
   state.playerId.value = config.playerId
   state.hasLastFmKey.value = config.hasLastFmKey
+  state.hasLastFmSharedSecret.value = config.hasLastFmSharedSecret
   state.hasFanartKey.value = config.hasFanartKey
   state.language.value = resolvedLanguage
   state.personalRadioEnabled.value = config.personalRadioEnabled ?? false
@@ -137,6 +143,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
 
   const lmsHost = ref('')
   const lmsPort = ref('9000')
+  const lmsMacAddress = ref('')
   const playerId = ref('')
   const lastFmApiKey = ref('')
   const lastFmSharedSecret = ref('')
@@ -144,6 +151,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
   const language = ref<Language>('en')
 
   const hasLastFmKey = ref(false)
+  const hasLastFmSharedSecret = ref(false)
   const hasFanartKey = ref(false)
 
   const discovering = ref(false)
@@ -207,8 +215,10 @@ export const useSettingsView = (): UseSettingsViewResult => {
     const loadedLanguage = applyLoadedConfig(result.value, i18nStore.currentLanguage, {
       lmsHost,
       lmsPort,
+      lmsMacAddress,
       playerId,
       hasLastFmKey,
+      hasLastFmSharedSecret,
       hasFanartKey,
       language,
       personalRadioEnabled,
@@ -293,6 +303,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
       createSettingsConfigUpdate({
         lmsHost: lmsHost.value,
         lmsPort: lmsPort.value,
+        lmsMacAddress: lmsMacAddress.value,
         playerId: playerId.value,
         language: language.value,
         lastFmApiKey: lastFmApiKey.value,
@@ -310,6 +321,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
 
     saveSuccess.value = true
     hasLastFmKey.value = result.value.hasLastFmKey
+    hasLastFmSharedSecret.value = result.value.hasLastFmSharedSecret
     hasFanartKey.value = result.value.hasFanartKey
     i18nStore.setLanguage(language.value)
     lastFmApiKey.value = ''
@@ -440,12 +452,14 @@ export const useSettingsView = (): UseSettingsViewResult => {
   return {
     lmsHost,
     lmsPort,
+    lmsMacAddress,
     playerId,
     lastFmApiKey,
     lastFmSharedSecret,
     fanartApiKey,
     language,
     hasLastFmKey,
+    hasLastFmSharedSecret,
     hasFanartKey,
     discovering,
     discoveredServers,

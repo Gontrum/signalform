@@ -2,6 +2,8 @@
 import { onMounted, onBeforeUnmount } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { getConfig } from '@/platform/api/configApi'
+import { wakeLms } from '@/platform/api/lmsWakeApi'
+import { shouldTriggerWake } from '@/domains/lms/core/service'
 import { useI18nStore } from '@/app/i18nStore'
 import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
@@ -12,6 +14,31 @@ const userStore = useUserStore()
 
 onMounted(() => {
   void userStore.load()
+})
+
+// Wake-on-LAN: nudge a sleeping LMS server when the app is opened or comes
+// back into view, throttled so tab switching does not spam wake packets.
+let lastWakeAt = 0
+const triggerLmsWake = (): void => {
+  const now = Date.now()
+  if (!shouldTriggerWake(lastWakeAt, now)) return
+  lastWakeAt = now
+  void wakeLms()
+}
+
+const handleVisibilityChange = (): void => {
+  if (document.visibilityState === 'visible') {
+    triggerLmsWake()
+  }
+}
+
+onMounted(() => {
+  triggerLmsWake()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
 })
 
 // Redirect to setup wizard if app has never been configured

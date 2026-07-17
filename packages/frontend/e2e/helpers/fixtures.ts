@@ -206,6 +206,7 @@ export const defaultConfigResponse = {
   lmsPort: 9000,
   playerId: '00:00:00:00:00:00',
   hasLastFmKey: false,
+  hasLastFmSharedSecret: false,
   hasFanartKey: false,
   isConfigured: true,
   language: 'en' as const,

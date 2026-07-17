@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { maskConfig, mergeConfigUpdate } from "./service.js";
+import {
+  maskConfig,
+  mergeConfigUpdate,
+  normalizeLmsMacAddress,
+} from "./service.js";
 import type { AppConfig } from "../../../infrastructure/config/index.js";
 
 const makeConfig = (): AppConfig => ({
@@ -49,6 +53,45 @@ describe("maskConfig", () => {
     expect(result.personalRadioDiscovery).toBe(75);
   });
 
+  it("exposes lmsMacAddress as-is — a MAC is not a secret", () => {
+    const result = maskConfig({
+      ...makeConfig(),
+      lmsMacAddress: "00:11:22:33:44:55",
+    });
+
+    expect(result.lmsMacAddress).toBe("00:11:22:33:44:55");
+  });
+
+  it("omits lmsMacAddress when not configured", () => {
+    const result = maskConfig(makeConfig());
+
+    expect("lmsMacAddress" in result).toBe(false);
+  });
+
+  it("reports hasLastFmSharedSecret true when the secret is set", () => {
+    const result = maskConfig({
+      ...makeConfig(),
+      lastFmSharedSecret: "super-secret",
+    });
+
+    expect(result.hasLastFmSharedSecret).toBe(true);
+  });
+
+  it("reports hasLastFmSharedSecret false when the secret is unset", () => {
+    const result = maskConfig(makeConfig());
+
+    expect(result.hasLastFmSharedSecret).toBe(false);
+  });
+
+  it("reports hasLastFmSharedSecret false when the secret is whitespace-only", () => {
+    const result = maskConfig({
+      ...makeConfig(),
+      lastFmSharedSecret: "   ",
+    });
+
+    expect(result.hasLastFmSharedSecret).toBe(false);
+  });
+
   it("does NOT expose lastFmSharedSecret or per-user fields", () => {
     const result = maskConfig({
       ...makeConfig(),
@@ -68,6 +111,30 @@ describe("maskConfig", () => {
     expect("lastFmSessionKey" in result).toBe(false);
     expect("hasLastFmSession" in result).toBe(false);
     expect("users" in result).toBe(false);
+  });
+});
+
+describe("normalizeLmsMacAddress", () => {
+  it("normalizes an empty string to null — a clear request", () => {
+    expect(normalizeLmsMacAddress("")).toBeNull();
+  });
+
+  it("normalizes a whitespace-only string to null", () => {
+    expect(normalizeLmsMacAddress("   ")).toBeNull();
+  });
+
+  it("passes a MAC address through unchanged", () => {
+    expect(normalizeLmsMacAddress("00:11:22:33:44:55")).toBe(
+      "00:11:22:33:44:55",
+    );
+  });
+
+  it("passes null through unchanged", () => {
+    expect(normalizeLmsMacAddress(null)).toBeNull();
+  });
+
+  it("passes undefined through unchanged", () => {
+    expect(normalizeLmsMacAddress(undefined)).toBeUndefined();
   });
 });
 
@@ -128,6 +195,36 @@ describe("mergeConfigUpdate", () => {
     const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
 
     expect(result.lastFmSharedSecret).toBe("existing-secret");
+  });
+
+  it("sets lmsMacAddress", () => {
+    const result = mergeConfigUpdate(makeConfig(), {
+      lmsMacAddress: "00:11:22:33:44:55",
+    });
+
+    expect(result.lmsMacAddress).toBe("00:11:22:33:44:55");
+  });
+
+  it("clears lmsMacAddress with null", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      lmsMacAddress: "00:11:22:33:44:55",
+    };
+
+    const result = mergeConfigUpdate(existing, { lmsMacAddress: null });
+
+    expect(result.lmsMacAddress).toBeUndefined();
+  });
+
+  it("preserves existing lmsMacAddress when absent from the update", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      lmsMacAddress: "00:11:22:33:44:55",
+    };
+
+    const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
+
+    expect(result.lmsMacAddress).toBe("00:11:22:33:44:55");
   });
 
   it("carries over users unchanged — updates never touch users", () => {

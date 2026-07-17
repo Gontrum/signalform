@@ -22,6 +22,7 @@ const demoConfig = {
   lmsPort: 9000,
   playerId: 'player-living-room',
   hasLastFmKey: true,
+  hasLastFmSharedSecret: true,
   hasFanartKey: true,
   isConfigured: true,
   language: 'en' as const,

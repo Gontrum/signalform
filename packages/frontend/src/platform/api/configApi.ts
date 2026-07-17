@@ -6,8 +6,12 @@ import { fetchJsonResult } from '@/platform/api/requestResult'
 const MaskedConfigSchema = z.object({
   lmsHost: z.string(),
   lmsPort: z.number(),
+  lmsMacAddress: z.string().optional(),
   playerId: z.string(),
   hasLastFmKey: z.boolean(),
+  // Tolerate a backend that predates this field (rollback + cached frontend
+  // bundle): a missing flag degrades to `false` instead of failing the parse.
+  hasLastFmSharedSecret: z.boolean().optional().default(false),
   hasFanartKey: z.boolean(),
   isConfigured: z.boolean(),
   configuredAt: z.string().optional(),

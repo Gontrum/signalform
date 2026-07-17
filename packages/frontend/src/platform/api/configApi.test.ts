@@ -26,6 +26,7 @@ describe('configApi', () => {
           lmsPort: 9000,
           playerId: 'aa:bb:cc:dd:ee:ff',
           hasLastFmKey: true,
+          hasLastFmSharedSecret: true,
           hasFanartKey: false,
           isConfigured: true,
           language: 'en',
@@ -38,6 +39,7 @@ describe('configApi', () => {
       if (!result.ok) return
       expect(result.value.lmsHost).toBe('192.168.1.100')
       expect(result.value.isConfigured).toBe(true)
+      expect(result.value.hasLastFmSharedSecret).toBe(true)
     })
 
     it('returns SERVER_ERROR on non-200', async () => {
@@ -64,6 +66,52 @@ describe('configApi', () => {
       expect(result.error.type).toBe('NETWORK_ERROR')
     })
 
+    it('passes an optional lmsMacAddress through the masked-config schema', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          lmsHost: '192.168.1.100',
+          lmsPort: 9000,
+          lmsMacAddress: '00:11:22:33:44:55',
+          playerId: 'aa:bb:cc:dd:ee:ff',
+          hasLastFmKey: true,
+          hasLastFmSharedSecret: true,
+          hasFanartKey: false,
+          isConfigured: true,
+          language: 'en',
+        }),
+      })
+
+      const result = await getConfig()
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.lmsMacAddress).toBe('00:11:22:33:44:55')
+    })
+
+    it('defaults hasLastFmSharedSecret to false when the backend omits it', async () => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          lmsHost: '192.168.1.100',
+          lmsPort: 9000,
+          playerId: 'aa:bb:cc:dd:ee:ff',
+          hasLastFmKey: true,
+          hasFanartKey: false,
+          isConfigured: true,
+          language: 'en',
+        }),
+      })
+
+      const result = await getConfig()
+
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.value.hasLastFmSharedSecret).toBe(false)
+    })
+
     it('strips per-user Last.fm fields that are no longer part of the config', async () => {
       fetchMock.mockResolvedValue({
         ok: true,
@@ -73,6 +121,7 @@ describe('configApi', () => {
           lmsPort: 9000,
           playerId: 'aa:bb:cc:dd:ee:ff',
           hasLastFmKey: true,
+          hasLastFmSharedSecret: true,
           hasFanartKey: false,
           isConfigured: true,
           language: 'en',
@@ -99,6 +148,7 @@ describe('configApi', () => {
           lmsPort: 9000,
           playerId: 'aa:bb:cc:dd:ee:ff',
           hasLastFmKey: true,
+          hasLastFmSharedSecret: true,
           hasFanartKey: false,
           isConfigured: true,
           language: 'en',
@@ -120,6 +170,7 @@ describe('configApi', () => {
           lmsPort: 9000,
           playerId: 'aa:bb:cc:dd:ee:ff',
           hasLastFmKey: true,
+          hasLastFmSharedSecret: true,
           hasFanartKey: false,
           isConfigured: true,
           language: 'en',
@@ -143,6 +194,7 @@ describe('configApi', () => {
           lmsPort: 9000,
           playerId: 'ff:ee:dd:cc:bb:aa',
           hasLastFmKey: false,
+          hasLastFmSharedSecret: false,
           hasFanartKey: false,
           isConfigured: true,
           language: 'de',

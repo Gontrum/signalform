@@ -360,6 +360,40 @@ describe("ConfigService", () => {
       expect(result.value.users).toEqual([]);
     });
 
+    it("reads lmsMacAddress as undefined when absent from the file", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify(makeTestConfig()),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.lmsMacAddress).toBeUndefined();
+    });
+
+    it("reads an empty lmsMacAddress string as undefined", () => {
+      const testPaths = paths.current();
+      fs.writeFileSync(
+        testPaths.configPath,
+        JSON.stringify({ ...makeTestConfig(), lmsMacAddress: "" }),
+        "utf-8",
+      );
+
+      const result = loadConfig(testPaths.configPath);
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) {
+        return;
+      }
+      expect(result.value.lmsMacAddress).toBeUndefined();
+    });
+
     it("falls back to env default language when file has invalid language", () => {
       const testPaths = paths.current();
       const config = makeTestConfig();
@@ -424,6 +458,35 @@ describe("ConfigService", () => {
         return;
       }
       expect(loadResult.value.users).toEqual(config.users);
+    });
+
+    it("round-trips lmsMacAddress through saveConfig and loadConfig", () => {
+      const testPaths = paths.current();
+      const config = makeTestConfig({ lmsMacAddress: "00:11:22:33:44:55" });
+
+      const saveResult = saveConfig(config, testPaths.configPath);
+      expect(saveResult.ok).toBe(true);
+
+      const loadResult = loadConfig(testPaths.configPath);
+      expect(loadResult.ok).toBe(true);
+      if (!loadResult.ok) {
+        return;
+      }
+      expect(loadResult.value.lmsMacAddress).toBe("00:11:22:33:44:55");
+    });
+
+    it("keeps lmsMacAddress undefined through save and load when not set", () => {
+      const testPaths = paths.current();
+
+      const saveResult = saveConfig(makeTestConfig(), testPaths.configPath);
+      expect(saveResult.ok).toBe(true);
+
+      const loadResult = loadConfig(testPaths.configPath);
+      expect(loadResult.ok).toBe(true);
+      if (!loadResult.ok) {
+        return;
+      }
+      expect(loadResult.value.lmsMacAddress).toBeUndefined();
     });
 
     it("drops legacy lastFm keys on the next save", () => {

@@ -5,11 +5,17 @@ import {
   saveConfig,
 } from "../../../infrastructure/config/index.js";
 import type { AppConfig } from "../../../infrastructure/config/index.js";
-import { maskConfig, mergeConfigUpdate } from "../core/service.js";
+import {
+  maskConfig,
+  mergeConfigUpdate,
+  normalizeLmsMacAddress,
+} from "../core/service.js";
+import { buildMagicPacket } from "../../lms-wake/index.js";
 
 const ConfigUpdateSchema = z.object({
   lmsHost: z.string().min(1).optional(),
   lmsPort: z.coerce.number().int().min(1).max(65535).optional(),
+  lmsMacAddress: z.string().nullable().optional(),
   playerId: z.string().min(1).optional(),
   lastFmApiKey: z.string().optional(),
   lastFmSharedSecret: z.string().optional(),
@@ -59,6 +65,21 @@ export const createConfigRoute = (
         });
       }
 
+      // An empty MAC clears the stored value like `null`, matching the
+      // clearable API-key fields (empty string means "remove").
+      const lmsMacAddress = normalizeLmsMacAddress(
+        validation.data.lmsMacAddress,
+      );
+      if (typeof lmsMacAddress === "string") {
+        const packetResult = buildMagicPacket(lmsMacAddress);
+        if (!packetResult.ok) {
+          return reply.code(400).send({
+            message: packetResult.error.message,
+            code: "VALIDATION_ERROR",
+          });
+        }
+      }
+
       const existing = loadConfig();
       if (!existing.ok) {
         return reply.code(500).send({
@@ -67,7 +88,10 @@ export const createConfigRoute = (
         });
       }
 
-      const merged = mergeConfigUpdate(existing.value, validation.data);
+      const merged = mergeConfigUpdate(existing.value, {
+        ...validation.data,
+        ...(lmsMacAddress !== undefined ? { lmsMacAddress } : {}),
+      });
 
       const saveResult = saveConfig(merged);
       if (!saveResult.ok) {

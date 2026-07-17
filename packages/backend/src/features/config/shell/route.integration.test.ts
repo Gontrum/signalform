@@ -245,6 +245,101 @@ describe("PUT /api/config", () => {
     expect(body["language"]).toBe("de");
   });
 
+  it("accepts and persists a valid lmsMacAddress", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeConfig(),
+    });
+    configModule.saveConfig.mockReturnValue({
+      ok: true,
+      value: undefined,
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { lmsMacAddress: "00:11:22:33:44:55" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = readJsonRecord(response.body);
+    expect(body["lmsMacAddress"]).toBe("00:11:22:33:44:55");
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ lmsMacAddress: "00:11:22:33:44:55" }),
+    );
+  });
+
+  it("clears the lmsMacAddress when null is sent", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: { ...makeConfig(), lmsMacAddress: "00:11:22:33:44:55" },
+    });
+    configModule.saveConfig.mockReturnValue({
+      ok: true,
+      value: undefined,
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { lmsMacAddress: null },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = readJsonRecord(response.body);
+    expect(body["lmsMacAddress"]).toBeUndefined();
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ lmsMacAddress: undefined }),
+    );
+  });
+
+  it("clears the lmsMacAddress when an empty string is sent", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: { ...makeConfig(), lmsMacAddress: "00:11:22:33:44:55" },
+    });
+    configModule.saveConfig.mockReturnValue({
+      ok: true,
+      value: undefined,
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { lmsMacAddress: "" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = readJsonRecord(response.body);
+    expect(body["lmsMacAddress"]).toBeUndefined();
+  });
+
+  it("rejects an invalid lmsMacAddress format", async () => {
+    const configModule = await getConfigModule();
+    configModule.loadConfig.mockReturnValue({
+      ok: true,
+      value: makeConfig(),
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { lmsMacAddress: "not-a-mac" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const body = readJsonRecord(response.body);
+    expect(body["message"]).toContain("Not a valid MAC address");
+    expect(configModule.saveConfig).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid language values", async () => {
     const configModule = await getConfigModule();
     configModule.loadConfig.mockReturnValue({

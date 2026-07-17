@@ -21,6 +21,7 @@ export type UserProfile = {
 export type AppConfig = {
   readonly lmsHost: string;
   readonly lmsPort: number;
+  readonly lmsMacAddress?: string;
   readonly playerId: string;
   readonly lastFmApiKey: string;
   readonly fanartApiKey: string;
@@ -194,6 +195,7 @@ const readUsers = (record: JsonRecord): readonly UserProfile[] => {
 const toConfig = (record: JsonRecord, envDefaults: AppConfig): AppConfig => ({
   lmsHost: readNonEmptyString(record, "lmsHost") ?? envDefaults.lmsHost,
   lmsPort: readPositiveNumber(record, "lmsPort") ?? envDefaults.lmsPort,
+  lmsMacAddress: readNonEmptyString(record, "lmsMacAddress"),
   playerId: readNonEmptyString(record, "playerId") ?? envDefaults.playerId,
   lastFmApiKey:
     readNonEmptyString(record, "lastFmApiKey") ?? envDefaults.lastFmApiKey,

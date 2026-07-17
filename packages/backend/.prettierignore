@@ -8,3 +8,7 @@ build/
 
 # Dependencies
 node_modules/
+
+# Machine-generated runtime config — saveConfig rewrites it at runtime, so
+# prettier reformatting only creates churn (git-ignored anyway).
+config.json

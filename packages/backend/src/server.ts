@@ -27,6 +27,7 @@ import { createSetupRoute } from "./features/setup/index.js";
 import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
 import { createLastFmLoveRoute } from "./features/lastfm-love/index.js";
+import { createLmsWakeRoute } from "./features/lms-wake/index.js";
 import { createScrobbler } from "./features/scrobbling/index.js";
 import {
   createUsersRoute,
@@ -313,6 +314,8 @@ export const createServer = async (): Promise<FastifyInstance> => {
   });
 
   createLastFmLoveRoute(server, lastFmClient);
+
+  createLmsWakeRoute(server);
 
   createUsersRoute(server);
   registerActiveListenerClaim(server);
