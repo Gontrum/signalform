@@ -1,7 +1,10 @@
 #!/usr/bin/env sh
-# Run unit tests, type-check, and lint before pushing.
-# E2E tests (pnpm test:e2e:ci) require a production build and are left to CI.
-# Run them manually before pushing if you changed E2E-relevant code:
-#   pnpm test:e2e:ci
+# Run unit tests, type-check, lint, and the mocked E2E suite before pushing.
+# The E2E suite runs against a production build (vite preview + mocked APIs,
+# no LMS required). Chromium must be installed once:
+#   pnpm --filter frontend exec playwright install chromium
 
-pnpm test && pnpm type-check && pnpm lint
+pnpm test && pnpm type-check && pnpm lint \
+  && pnpm --filter @signalform/shared build \
+  && pnpm --filter frontend build-only \
+  && pnpm --filter frontend test:e2e:ci

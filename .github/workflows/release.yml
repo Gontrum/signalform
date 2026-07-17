@@ -59,10 +59,55 @@ jobs:
         run: shellcheck install.sh scripts/build-release.sh
 
   # ---------------------------------------------------------------------------
+  # Job 1b: E2E tests (mocked, no LMS required) — releases must not build
+  # from a commit whose E2E suite is red.
+  # ---------------------------------------------------------------------------
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 9.15.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter @signalform/shared build
+
+      - name: Build frontend
+        run: pnpm --filter frontend build-only
+
+      - name: Install Playwright browsers (Chromium only)
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      - name: Run E2E tests (mocked, no LMS required)
+        run: pnpm --filter frontend test:e2e:ci
+
+      - name: Upload Playwright report on failure
+        uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: packages/frontend/playwright-report/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
   # Job 2: Build per-platform release tarballs
   # ---------------------------------------------------------------------------
   build-assets:
-    needs: quality-check
+    needs: [quality-check, e2e]
 
     strategy:
       matrix:
@@ -139,7 +184,7 @@ jobs:
           generate_release_notes: true
 
   docker-image:
-    needs: quality-check
+    needs: [quality-check, e2e]
     runs-on: ubuntu-latest
 
     steps:
