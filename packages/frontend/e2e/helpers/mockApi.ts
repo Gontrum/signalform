@@ -24,6 +24,14 @@ const fulfill200 = async (route: Route, body: JsonValue): Promise<void> => {
   })
 }
 
+/**
+ * Mirror the backend's config semantics: a `null` in an update clears the
+ * field, and masked config responses omit unset fields entirely
+ * (see backend config core `mergeConfigUpdate`/`maskConfig`).
+ */
+const omitNullValues = (obj: JsonObject): JsonObject =>
+  Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== null))
+
 // ── Mock setup types ─────────────────────────────────────────────────────────
 
 export interface ApiMocks {
@@ -118,7 +126,7 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       // GETs (including after page.reload()) return the updated language/settings.
       if (pathname === '/api/config' && method === 'PUT') {
         const body = route.request().postDataJSON() as JsonObject
-        currentConfig = { ...currentConfig, ...body }
+        currentConfig = omitNullValues({ ...currentConfig, ...body })
         await fulfill200(route, currentConfig)
         return
       }
