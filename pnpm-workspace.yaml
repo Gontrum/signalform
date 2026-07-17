@@ -1,6 +1,14 @@
 packages:
   - "packages/*"
 
+# Workspace deps are injected (hard-linked copies instead of symlinks) — the
+# pnpm >=10 default expected by `pnpm deploy` in the Dockerfile. The sync
+# setting re-copies @signalform/shared into its dependents whenever its
+# build script runs, so the dev loop keeps seeing fresh dist output.
+injectWorkspacePackages: true
+syncInjectedDepsAfterScripts:
+  - build
+
 # pnpm 11 blocks dependency build scripts by default; esbuild needs its
 # postinstall to fetch the platform binary (required by vite).
 allowBuilds:

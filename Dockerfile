@@ -18,9 +18,7 @@ COPY . .
 
 RUN find . -name '*.tsbuildinfo' -delete
 RUN pnpm run build
-# --legacy: pnpm >=10 requires inject-workspace-packages for deploy by default;
-# legacy mode keeps the pre-v10 symlink-free copy behavior we rely on here.
-RUN pnpm --filter @signalform/backend deploy --legacy --prod /app
+RUN pnpm --filter @signalform/backend deploy --prod /app
 RUN mkdir -p /app/frontend && cp -r packages/frontend/dist /app/frontend/dist
 
 FROM node:26-bookworm-slim AS runtime
