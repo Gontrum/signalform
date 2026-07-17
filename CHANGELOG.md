@@ -15,6 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.15.1] - 2026-07-17
+
+### Fixed
+
+- the E2E test suite was red on main while the v0.15.0 release still went
+  through: the release pipeline never ran it. The suite is fixed (the API
+  mock now mirrors the backend's "null clears a config field" behavior)
+  and both the release workflow and the pre-push hook now require a green
+  E2E run — a release can no longer be built from a broken suite
+
+### Changed
+
+- dependency updates: @fastify/static 10 (backend), eslint-plugin-boundaries 7
+  (tooling); TypeScript stays on 6.x until vue-tsc and typescript-eslint
+  support the TS 7 package layout
+- toolchain: pnpm 9.15.2 → 11.13.1 across local dev, CI, and the Docker
+  image (build-script allowlist for esbuild, workspace package injection
+  for `pnpm deploy` — no more legacy flags)
+
+---
+
 ## [0.15.0] - 2026-07-17
 
 ### Added
