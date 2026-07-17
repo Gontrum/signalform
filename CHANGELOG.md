@@ -15,6 +15,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.15.0] - 2026-07-17
+
+### Added
+
+- wake-on-LAN for a sleeping LMS server: configure the server's MAC address
+  in the settings and Signalform sends a magic packet whenever the app is
+  opened or comes back into the foreground (throttled to once per minute) —
+  no more switching to a separate WOL app before listening. The packet goes
+  out as unicast to the LMS host and as broadcast, so it works from inside
+  a Docker bridge network (a static ARP entry for the LMS on the Docker
+  host is recommended so the packet still reaches the sleeping machine)
+
+### Fixed
+
+- the settings page no longer scrolls horizontally on phones — the user
+  rows now stack their action buttons below the name on narrow screens,
+  and several inputs could previously force the page beyond the viewport
+- user names in the settings are visible on phones again (they were
+  squeezed to zero width by the row buttons)
+- the Last.fm shared secret field now shows a "configured" badge and the
+  correct placeholder when a secret is stored; before, the field looked
+  empty and borrowed the API key's state
+
+---
+
 ## [0.14.0] - 2026-07-15
 
 ### Added
