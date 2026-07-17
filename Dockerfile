@@ -3,7 +3,7 @@ FROM node:26-bookworm-slim AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
 
-RUN npm install -g --force corepack@latest && corepack enable && corepack prepare pnpm@9.15.2 --activate
+RUN npm install -g --force corepack@latest && corepack enable && corepack prepare pnpm@11.13.1 --activate
 
 WORKDIR /workspace
 
@@ -18,7 +18,9 @@ COPY . .
 
 RUN find . -name '*.tsbuildinfo' -delete
 RUN pnpm run build
-RUN pnpm --filter @signalform/backend deploy --prod /app
+# --legacy: pnpm >=10 requires inject-workspace-packages for deploy by default;
+# legacy mode keeps the pre-v10 symlink-free copy behavior we rely on here.
+RUN pnpm --filter @signalform/backend deploy --legacy --prod /app
 RUN mkdir -p /app/frontend && cp -r packages/frontend/dist /app/frontend/dist
 
 FROM node:26-bookworm-slim AS runtime
