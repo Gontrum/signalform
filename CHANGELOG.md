@@ -11,7 +11,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Mobile app improvements
 - Additional streaming service integrations
-- Enhanced playlist management
+- Enhanced playlist management (rename, delete, edit tracks)
+
+---
+
+## [0.16.0] - 2026-07-19
+
+### Added
+
+- playlists: save the current queue as an LMS playlist, list your saved
+  playlists, and load one back into the queue — from a panel in the queue
+  view. First slice; renaming, deleting, and editing tracks come later
+- sleep timer: stop playback after 15/30/45/60 minutes, backed by the LMS
+  `sleep` command so the timer survives closing the browser or locking the
+  device; the player shows the remaining time
+- Loved Tracks Radio: a continuous radio channel drawn from the tracks
+  you've loved on Last.fm, alongside the existing artist and Personal Radio
+  modes
+- a global "LMS unreachable" banner: when health probes to the server fail
+  repeatedly, a banner appears and the wake-on-LAN packet is sent, instead
+  of scattered per-view errors
+- the queue is now reachable from every screen — a Queue entry in the main
+  nav bar and a dedicated queue button on the phone mini player
+
+### Changed
+
+- reordering the queue by drag-and-drop no longer shifts the list under
+  your finger: the drop target used to displace the whole list on every
+  move, making it hard to aim. The insertion point is now shown on the
+  drag overlay, and a small hysteresis band stops the before/after target
+  flickering at row midlines
 
 ---
 
