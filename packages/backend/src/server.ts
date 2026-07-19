@@ -14,6 +14,7 @@ import { createTidalArtistsRoute } from "./features/tidal-artists/index.js";
 import { createArtistRadioRoute } from "./features/artist-radio/index.js";
 import { createGenreRadioRoute } from "./features/genre-radio/index.js";
 import { createPersonalRadioRoute } from "./features/personal-radio/index.js";
+import { createLovedRadioRoute } from "./features/loved-radio/index.js";
 import { createTagSearchRoute } from "./features/tag-search/index.js";
 import { createQueueRoute } from "./features/queue/index.js";
 import {
@@ -28,6 +29,8 @@ import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
 import { createLastFmLoveRoute } from "./features/lastfm-love/index.js";
 import { createLmsWakeRoute } from "./features/lms-wake/index.js";
+import { createSleepTimerRoute } from "./features/sleep-timer/index.js";
+import { createPlaylistsRoute } from "./features/playlists/index.js";
 import { createScrobbler } from "./features/scrobbling/index.js";
 import {
   createUsersRoute,
@@ -61,6 +64,8 @@ const createLmsProxy = (): LmsClient => {
     getVolume: forwardLmsCall((client) => client.getVolume),
     seek: forwardLmsCall((client) => client.seek),
     getCurrentTime: forwardLmsCall((client) => client.getCurrentTime),
+    setSleep: forwardLmsCall((client) => client.setSleep),
+    getSleep: forwardLmsCall((client) => client.getSleep),
     playAlbum: forwardLmsCall((client) => client.playAlbum),
     playTidalAlbum: forwardLmsCall((client) => client.playTidalAlbum),
     disableRepeat: forwardLmsCall((client) => client.disableRepeat),
@@ -92,6 +97,9 @@ const createLmsProxy = (): LmsClient => {
     rescanLibrary: forwardLmsCall((client) => client.rescanLibrary),
     getRescanProgress: forwardLmsCall((client) => client.getRescanProgress),
     clearQueue: forwardLmsCall((client) => client.clearQueue),
+    savePlaylist: forwardLmsCall((client) => client.savePlaylist),
+    listSavedPlaylists: forwardLmsCall((client) => client.listSavedPlaylists),
+    loadSavedPlaylist: forwardLmsCall((client) => client.loadSavedPlaylist),
   };
 };
 
@@ -294,6 +302,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createArtistRadioRoute(server, lmsProxy, lastFmClient);
   createGenreRadioRoute(server, lmsProxy, lastFmClient);
   createPersonalRadioRoute(server, lmsProxy, lastFmClient);
+  createLovedRadioRoute(server, lmsProxy, lastFmClient);
   createTagSearchRoute(server, lastFmClient);
   createPlaybackRoute(server, lmsProxy, lmsConfigProxy, io, appConfig.playerId);
   createQueueRoute(server, lmsProxy, io, appConfig.playerId, {
@@ -316,6 +325,10 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createLastFmLoveRoute(server, lastFmClient);
 
   createLmsWakeRoute(server);
+
+  createSleepTimerRoute(server, lmsProxy);
+
+  createPlaylistsRoute(server, lmsProxy);
 
   createUsersRoute(server);
   registerActiveListenerClaim(server);

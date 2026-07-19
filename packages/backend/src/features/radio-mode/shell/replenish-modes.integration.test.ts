@@ -29,6 +29,7 @@ import type {
   ArtistTopTrack,
   UserTopTrack,
   UserRecentTrack,
+  UserLovedTrack,
 } from "../../../adapters/lastfm-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import {
@@ -47,6 +48,7 @@ import {
   resetRadioRuntimeState,
   setGenreRadioContext,
   setPersonalRadioContext,
+  setLovedRadioContext,
 } from "./radio-state.js";
 import type { AppConfig } from "../../../infrastructure/config/service.js";
 
@@ -92,6 +94,12 @@ const makeUserRecentTrack = (
   artist: string,
   name: string,
 ): UserRecentTrack => ({
+  name,
+  artist,
+  url: `https://www.last.fm/music/${encodeURIComponent(artist)}/_/${encodeURIComponent(name)}`,
+});
+
+const makeUserLovedTrack = (artist: string, name: string): UserLovedTrack => ({
   name,
   artist,
   url: `https://www.last.fm/music/${encodeURIComponent(artist)}/_/${encodeURIComponent(name)}`,
@@ -185,6 +193,9 @@ type MockLastFmClient = LastFmClient & {
   >;
   readonly getUserRecentTracks: ReturnType<
     typeof vi.fn<LastFmClient["getUserRecentTracks"]>
+  >;
+  readonly getUserLovedTracks: ReturnType<
+    typeof vi.fn<LastFmClient["getUserLovedTracks"]>
   >;
 };
 
@@ -296,6 +307,7 @@ const resetMockLastFmClient = (mockLastFmClient: MockLastFmClient): void => {
   mockLastFmClient.getArtistTopTracks.mockReset();
   mockLastFmClient.getUserTopTracks.mockReset();
   mockLastFmClient.getUserRecentTracks.mockReset();
+  mockLastFmClient.getUserLovedTracks.mockReset();
 };
 
 const resetMockIo = (mockIo: MockIo): void => {
@@ -1084,5 +1096,92 @@ describe("replenishPersonalRadioQueue — discovery channel", () => {
       fixtures.mockLastFmClient.getSimilarArtists,
     ).toHaveBeenCalledExactlyOnceWith("Miles Davis", 20);
     expect(outcome).toEqual({ status: "skipped", reason: "no-candidates" });
+  });
+});
+
+// =============================================================================
+// Loved radio: replenishLovedRadioQueue
+// =============================================================================
+
+describe("replenishLovedRadioQueue", () => {
+  test("happy path: fetches user loved tracks, adds match to queue, emits queue update", async () => {
+    const engine = createEngine();
+    setLovedRadioContext({ username: "david" });
+
+    fixtures.mockLastFmClient.getUserLovedTracks.mockResolvedValue(
+      ok([makeUserLovedTrack("Radiohead", "Creep")]),
+    );
+    const searchResult = makeLmsSearchResult("Radiohead", "Creep");
+    stubSearchResults([searchResult]);
+    fixtures.mockLmsClient.getQueue
+      .mockResolvedValueOnce(ok([]))
+      .mockResolvedValueOnce(ok([makeQueueTrack("Radiohead", "Creep", 1)]));
+
+    await engine.handleQueueEnd("Seed Artist", "Seed Title");
+
+    expect(fixtures.mockLastFmClient.getUserLovedTracks).toHaveBeenCalledWith(
+      "david",
+      200,
+    );
+    expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledExactlyOnceWith(
+      searchResult.url,
+    );
+
+    expect(fixtures.mockIo.to).toHaveBeenCalledWith(PLAYER_UPDATES_ROOM);
+    const queueUpdatedCall =
+      fixtures.mockEmit.mock.calls.find(isQueueUpdatedCall);
+    expect(queueUpdatedCall).toBeDefined();
+    expect(queueUpdatedCall?.[1]).toMatchObject({
+      playerId: "player-1",
+      radioModeActive: true,
+      radioBoundaryIndex: 0,
+    });
+    expect(queueUpdatedCall?.[1].tracks).toEqual([
+      expect.objectContaining({
+        artist: "Radiohead",
+        title: "Creep",
+        addedBy: "radio",
+      }),
+    ]);
+  });
+
+  test("last.fm CircuitOpenError: emits player.radio.unavailable, skips with lastfm-unavailable, no LMS search", async () => {
+    const engine = createEngine();
+    setLovedRadioContext({ username: "david" });
+
+    fixtures.mockLastFmClient.getUserLovedTracks.mockResolvedValue({
+      ok: false,
+      error: { type: "CircuitOpenError", message: "circuit open" },
+    });
+
+    const outcome = await engine.replenishAfterRemoval("Seed", "Title");
+
+    expect(outcome).toEqual({
+      status: "skipped",
+      reason: "lastfm-unavailable",
+      unavailableEmitted: true,
+    });
+    expect(fixtures.mockEmit).toHaveBeenCalledWith(
+      PLAYER_RADIO_UNAVAILABLE,
+      expect.objectContaining({
+        playerId: "player-1",
+        message: "Radio mode temporarily unavailable",
+      }),
+    );
+    expect(fixtures.mockLmsClient.search).not.toHaveBeenCalled();
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
+  });
+
+  test("empty loved-tracks result: skips with no-candidates, nothing added", async () => {
+    const engine = createEngine();
+    setLovedRadioContext({ username: "david" });
+
+    fixtures.mockLastFmClient.getUserLovedTracks.mockResolvedValue(ok([]));
+
+    const outcome = await engine.replenishAfterRemoval("Seed", "Title");
+
+    expect(outcome).toEqual({ status: "skipped", reason: "no-candidates" });
+    expect(fixtures.mockLmsClient.getQueue).not.toHaveBeenCalled();
+    expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
   });
 });

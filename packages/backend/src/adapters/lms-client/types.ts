@@ -215,6 +215,15 @@ export type QueueTrackRaw = {
 };
 
 /**
+ * A saved LMS playlist as surfaced by the `playlists` command.
+ * `id` is coerced to string (LMS returns it as a number at runtime).
+ */
+export type SavedPlaylist = {
+  readonly id: string;
+  readonly name: string;
+};
+
+/**
  * Player status from LMS.
  */
 export type PlayerStatus = {

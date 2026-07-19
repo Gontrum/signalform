@@ -362,6 +362,142 @@ describe("addToQueue", () => {
   });
 });
 
+// ─── savePlaylist ─────────────────────────────────────────────────────────────
+
+describe("savePlaylist", () => {
+  it("sends the playlist save command with the given name", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
+    const { savePlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await savePlaylist("My Mix");
+
+    expect(result.ok).toBe(true);
+    expect(executeCommand).toHaveBeenCalledWith(["playlist", "save", "My Mix"]);
+  });
+
+  it("propagates NetworkError from executeCommand", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { savePlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await savePlaylist("My Mix");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});
+
+// ─── listSavedPlaylists ───────────────────────────────────────────────────────
+
+describe("listSavedPlaylists", () => {
+  it("sends the playlists list command", async () => {
+    const executeCommand = vi
+      .fn()
+      .mockResolvedValue(ok({ playlists_loop: [] }));
+    const { listSavedPlaylists } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    await listSavedPlaylists();
+
+    expect(executeCommand).toHaveBeenCalledWith(
+      ["playlists", "0", 200],
+      expect.any(Function),
+    );
+  });
+
+  it("maps playlists_loop and coerces numeric ids to strings", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(
+      ok({
+        playlists_loop: [
+          { id: 12, playlist: "Morning" },
+          { id: "34", playlist: "Evening" },
+        ],
+      }),
+    );
+    const { listSavedPlaylists } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await listSavedPlaylists();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([
+        { id: "12", name: "Morning" },
+        { id: "34", name: "Evening" },
+      ]);
+    }
+  });
+
+  it("returns an empty array when playlists_loop is absent", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok({}));
+    const { listSavedPlaylists } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await listSavedPlaylists();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toHaveLength(0);
+    }
+  });
+
+  it("propagates NetworkError from executeCommand", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { listSavedPlaylists } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await listSavedPlaylists();
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});
+
+// ─── loadSavedPlaylist ────────────────────────────────────────────────────────
+
+describe("loadSavedPlaylist", () => {
+  it("sends the playlistcontrol load command with the playlist_id", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
+    const { loadSavedPlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await loadSavedPlaylist("42");
+
+    expect(result.ok).toBe(true);
+    expect(executeCommand).toHaveBeenCalledWith([
+      "playlistcontrol",
+      "cmd:load",
+      "playlist_id:42",
+    ]);
+  });
+
+  it("propagates NetworkError from executeCommand", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { loadSavedPlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await loadSavedPlaylist("42");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});
+
 // ─── getQueue index parsing ───────────────────────────────────────────────────
 
 describe("getQueue", () => {

@@ -82,6 +82,8 @@ const createMockLmsClient = (): MockLmsClient => ({
   getVolume: vi.fn<LmsClient["getVolume"]>(),
   seek: vi.fn<LmsClient["seek"]>().mockResolvedValue(ok(undefined)),
   getCurrentTime: vi.fn<LmsClient["getCurrentTime"]>(),
+  setSleep: vi.fn<LmsClient["setSleep"]>().mockResolvedValue(ok(undefined)),
+  getSleep: vi.fn<LmsClient["getSleep"]>().mockResolvedValue(ok(0)),
   playAlbum: vi.fn<LmsClient["playAlbum"]>().mockResolvedValue(ok(undefined)),
   disableRepeat: vi
     .fn<LmsClient["disableRepeat"]>()

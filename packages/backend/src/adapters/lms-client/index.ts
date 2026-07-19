@@ -24,4 +24,5 @@ export type {
   TidalSearchArtistRaw,
   QueueTrackRaw,
   RescanProgress,
+  SavedPlaylist,
 } from "./types.js";

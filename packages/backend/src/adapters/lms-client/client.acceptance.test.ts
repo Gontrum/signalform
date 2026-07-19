@@ -2332,6 +2332,66 @@ describe("LMS Client - Acceptance Tests", () => {
     }
   };
 
+  // Sleep Timer helpers
+  const givenLmsWillAcceptSleepCommand = async (): Promise<void> => {
+    const mockResponse = {
+      result: {},
+      id: 1,
+      error: null,
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    });
+  };
+
+  const givenLmsWillReturnSleep = async (
+    sleep: number | string | undefined,
+  ): Promise<void> => {
+    const mockResponse = {
+      result: sleep === undefined ? {} : { _sleep: sleep },
+      id: 1,
+      error: null,
+    };
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    });
+  };
+
+  const whenSettingSleep = async (
+    seconds: number,
+  ): Promise<Result<void, LmsError>> => {
+    const client = createLmsClient(defaultConfig);
+    return await client.setSleep(seconds);
+  };
+
+  const whenGettingSleep = async (): Promise<Result<number, LmsError>> => {
+    const client = createLmsClient(defaultConfig);
+    return await client.getSleep();
+  };
+
+  const thenSleepCommandWasSentWithSeconds = async (
+    seconds: string,
+  ): Promise<void> => {
+    const body = getJsonRpcRequestBodyAt(0);
+    expect(body.params[1]).toEqual(["sleep", seconds]);
+  };
+
+  const thenSleepQueryCommandWasSent = async (): Promise<void> => {
+    const body = getJsonRpcRequestBodyAt(0);
+    expect(body.params[1]).toEqual(["sleep", "?"]);
+  };
+
+  const thenSleepIs = async (
+    result: Result<number, LmsError>,
+    expectedSeconds: number,
+  ): Promise<void> => {
+    if (result.ok) {
+      expect(result.value).toBe(expectedSeconds);
+    }
+  };
+
   // Seek and Time Tests (Story 2.9)
   describe("Seek and Current Time", () => {
     describe("seek", () => {
@@ -2541,6 +2601,113 @@ describe("LMS Client - Acceptance Tests", () => {
         await givenLmsConnectionWillFail("ECONNREFUSED");
 
         const result = await whenGettingVolume();
+
+        await thenResultIsError(result);
+        await thenErrorTypeIs(result, "NetworkError");
+      });
+    });
+  });
+
+  // Sleep Timer Tests
+  describe("Sleep Timer", () => {
+    describe("setSleep", () => {
+      it("sends sleep command with the duration in seconds", async () => {
+        await givenLmsWillAcceptSleepCommand();
+
+        const result = await whenSettingSleep(900);
+
+        await thenResultIsSuccess(result);
+        await thenSleepCommandWasSentWithSeconds("900");
+      });
+
+      it("sends sleep 0 to cancel a pending timer", async () => {
+        await givenLmsWillAcceptSleepCommand();
+
+        const result = await whenSettingSleep(0);
+
+        await thenResultIsSuccess(result);
+        await thenSleepCommandWasSentWithSeconds("0");
+      });
+
+      it("propagates LMS connection error", async () => {
+        await givenLmsConnectionWillFail("ECONNREFUSED");
+
+        const result = await whenSettingSleep(900);
+
+        await thenResultIsError(result);
+        await thenErrorTypeIs(result, "NetworkError");
+      });
+
+      it("propagates LMS API error", async () => {
+        await givenLmsWillReturnApiError(-32600, "Player not available");
+
+        const result = await whenSettingSleep(900);
+
+        await thenResultIsError(result);
+        await thenErrorTypeIs(result, "LmsApiError");
+      });
+    });
+
+    describe("getSleep", () => {
+      it("queries the remaining sleep timer duration", async () => {
+        await givenLmsWillReturnSleep(1800);
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 1800);
+        await thenSleepQueryCommandWasSent();
+      });
+
+      it("parses _sleep provided as a number", async () => {
+        await givenLmsWillReturnSleep(1800);
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 1800);
+      });
+
+      it("parses _sleep provided as a string", async () => {
+        await givenLmsWillReturnSleep("1800");
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 1800);
+      });
+
+      it("returns 0 when _sleep is missing", async () => {
+        await givenLmsWillReturnSleep(undefined);
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 0);
+      });
+
+      it("returns 0 when _sleep is 0 (no timer active)", async () => {
+        await givenLmsWillReturnSleep(0);
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 0);
+      });
+
+      it("fails safe to 0 for a non-numeric _sleep value", async () => {
+        await givenLmsWillReturnSleep("not-a-number");
+
+        const result = await whenGettingSleep();
+
+        await thenResultIsSuccess(result);
+        await thenSleepIs(result, 0);
+      });
+
+      it("propagates LMS connection error", async () => {
+        await givenLmsConnectionWillFail("ECONNREFUSED");
+
+        const result = await whenGettingSleep();
 
         await thenResultIsError(result);
         await thenErrorTypeIs(result, "NetworkError");

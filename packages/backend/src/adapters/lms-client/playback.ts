@@ -36,6 +36,8 @@ export type PlaybackMethods = {
   readonly getVolume: () => Promise<Result<number, LmsError>>;
   readonly seek: (seconds: number) => Promise<Result<void, LmsError>>;
   readonly getCurrentTime: () => Promise<Result<number, LmsError>>;
+  readonly setSleep: (seconds: number) => Promise<Result<void, LmsError>>;
+  readonly getSleep: () => Promise<Result<number, LmsError>>;
 };
 
 const isPlayerMode = (value: string): value is PlayerStatus["mode"] => {
@@ -67,6 +69,12 @@ const statusPayloadParser = createLmsResultParser(
 const volumePayloadParser = createLmsResultParser(
   z.object({
     _volume: z.union([z.number(), z.string()]).optional(),
+  }),
+);
+
+const sleepPayloadParser = createLmsResultParser(
+  z.object({
+    _sleep: z.union([z.number(), z.string()]).optional(),
   }),
 );
 
@@ -386,6 +394,51 @@ const createPlaybackMethodsImplementation = (
 
       // Round to integer seconds
       return ok(Math.floor(time));
+    },
+
+    /**
+     * Set the sleep timer.
+     *
+     * Uses LMS command: ['sleep', seconds]
+     * LMS stops playback on this player after the given number of seconds.
+     * 0 cancels a pending timer.
+     *
+     * @param seconds - Sleep duration in seconds (0 = cancel timer)
+     * @returns Result with void or error
+     */
+    setSleep: async (seconds: number): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = ["sleep", String(seconds)];
+      const result = await executeCommand(command);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(undefined);
+    },
+
+    /**
+     * Get the remaining sleep timer duration.
+     *
+     * Uses LMS command: ['sleep', '?']
+     * Returns remaining seconds (0 = no timer active).
+     * LMS may report `_sleep` as number or string — both are accepted.
+     *
+     * @returns Result with remaining seconds (integer) or error
+     */
+    getSleep: async (): Promise<Result<number, LmsError>> => {
+      const command: LmsCommand = ["sleep", "?"];
+      const result = await executeCommand(command, sleepPayloadParser);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      // Parse remaining seconds: LMS returns number or string (e.g. "1800")
+      const remaining = Number(result.value._sleep ?? 0);
+
+      // Round to integer seconds, fail safe to 0 on non-numeric values
+      return ok(Number.isFinite(remaining) ? Math.round(remaining) : 0);
     },
   };
 };

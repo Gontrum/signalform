@@ -48,6 +48,10 @@ export type PersonalRadioContext = {
   readonly cycle: number;
 };
 
+export type LovedRadioContext = {
+  readonly username: string;
+};
+
 type RadioQueueState = {
   readonly isEnabled: boolean;
   readonly requestedEnabledState?: boolean | undefined;
@@ -58,6 +62,7 @@ type RadioQueueState = {
   readonly suppressedQueueEnd?: SuppressedQueueEnd | undefined;
   readonly genreRadioContext: GenreRadioContext | undefined;
   readonly personalRadioContext: PersonalRadioContext | undefined;
+  readonly lovedRadioContext: LovedRadioContext | undefined;
 };
 
 const INITIAL_STATE: RadioQueueState = {
@@ -70,6 +75,7 @@ const INITIAL_STATE: RadioQueueState = {
   suppressedQueueEnd: undefined,
   genreRadioContext: undefined,
   personalRadioContext: undefined,
+  lovedRadioContext: undefined,
 };
 
 type RadioState = {
@@ -87,6 +93,7 @@ type RadioState = {
   readonly setPersonalRadioContext: (
     ctx: PersonalRadioContext | undefined,
   ) => void;
+  readonly setLovedRadioContext: (ctx: LovedRadioContext | undefined) => void;
   readonly reset: () => void;
 };
 
@@ -128,6 +135,11 @@ const createRadioState = (): RadioState => {
       personalRadioContext: PersonalRadioContext | undefined,
     ): void => {
       ref.current = { ...ref.current, personalRadioContext };
+    },
+    setLovedRadioContext: (
+      lovedRadioContext: LovedRadioContext | undefined,
+    ): void => {
+      ref.current = { ...ref.current, lovedRadioContext };
     },
     reset: (): void => {
       ref.current = INITIAL_STATE;
@@ -174,6 +186,7 @@ export const clearRadioQueueRuntimeState = (): void => {
   radioState.setRequestedEnabledState(undefined);
   radioState.setGenreRadioContext(undefined);
   radioState.setPersonalRadioContext(undefined);
+  radioState.setLovedRadioContext(undefined);
 };
 
 export const setGenreRadioContext = (
@@ -197,6 +210,10 @@ export const incrementPersonalRadioCycle = (): void => {
     radioState.setPersonalRadioContext({ ...ctx, cycle: ctx.cycle + 1 });
   }
 };
+
+export const setLovedRadioContext = (
+  ctx: LovedRadioContext | undefined,
+): void => radioState.setLovedRadioContext(ctx);
 
 export type { GenreRadioContext };
 

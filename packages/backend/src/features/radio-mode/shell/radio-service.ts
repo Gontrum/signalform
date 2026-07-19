@@ -47,6 +47,7 @@ import { runReplenishPipeline } from "./replenish-pipeline.js";
 import type { Logger } from "./replenish-pipeline.js";
 import { replenishPersonalRadioQueue } from "./replenish-personal.js";
 import { replenishGenreQueue } from "./replenish-genre.js";
+import { replenishLovedRadioQueue } from "./replenish-loved.js";
 
 // Number of similar tracks to fetch from last.fm (larger pool = better filtering results)
 const LASTFM_SIMILAR_LIMIT = 50;
@@ -144,6 +145,12 @@ export const createRadioEngine = (
             personalContext,
             trigger,
           );
+        }
+
+        // Dispatch to loved radio replenish when loved radio mode is active
+        const lovedContext = getRadioQueueState().lovedRadioContext;
+        if (lovedContext !== undefined) {
+          return replenishLovedRadioQueue(modeDeps, lovedContext, trigger);
         }
 
         logger.info("Radio replenish triggered", {

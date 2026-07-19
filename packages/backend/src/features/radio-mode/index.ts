@@ -46,3 +46,6 @@ export {
   setPersonalRadioContext,
   incrementPersonalRadioCycle,
 } from "./shell/radio-state.js";
+// Loved Radio context
+export type { LovedRadioContext } from "./shell/radio-state.js";
+export { setLovedRadioContext } from "./shell/radio-state.js";

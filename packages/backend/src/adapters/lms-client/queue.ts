@@ -11,7 +11,12 @@
 import { ok, err, type Result } from "@signalform/shared";
 import type { QueueTrack } from "@signalform/shared";
 import { z } from "zod";
-import type { LmsCommand, LmsError, TidalTrackRaw } from "./types.js";
+import type {
+  LmsCommand,
+  LmsError,
+  SavedPlaylist,
+  TidalTrackRaw,
+} from "./types.js";
 import {
   MAX_TRACK_URL_LENGTH,
   VALID_TRACK_PROTOCOLS,
@@ -39,6 +44,11 @@ export type QueueMethods = {
     albumId: string,
   ) => Promise<Result<void, LmsError>>;
   readonly clearQueue: () => Promise<Result<void, LmsError>>;
+  readonly savePlaylist: (name: string) => Promise<Result<void, LmsError>>;
+  readonly listSavedPlaylists: () => Promise<
+    Result<readonly SavedPlaylist[], LmsError>
+  >;
+  readonly loadSavedPlaylist: (id: string) => Promise<Result<void, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -58,6 +68,17 @@ const queuePayloadParser = createLmsResultParser(
   z.object({
     playlist_cur_index: z.union([z.number(), z.string()]).optional(),
     playlist_loop: z.array(queueTrackRawSchema).optional(),
+  }),
+);
+
+const savedPlaylistRawSchema = z.object({
+  id: z.union([z.number(), z.string()]),
+  playlist: z.string(),
+});
+
+const savedPlaylistsPayloadParser = createLmsResultParser(
+  z.object({
+    playlists_loop: z.array(savedPlaylistRawSchema).optional(),
   }),
 );
 
@@ -288,6 +309,71 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
 
     clearQueue: async (): Promise<Result<void, LmsError>> => {
       const command: LmsCommand = ["playlist", "clear"];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
+    },
+
+    /**
+     * Save the current now-playing queue as a named LMS playlist.
+     *
+     * Command: ["playlist", "save", name]
+     *
+     * @param name - Playlist name (validation happens in the core layer)
+     * @returns Result with void or error
+     */
+    savePlaylist: async (name: string): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = ["playlist", "save", name];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
+    },
+
+    /**
+     * List all saved LMS playlists.
+     *
+     * Command: ["playlists", "0", 200] → playlists_loop with { id, playlist }.
+     * A missing or empty loop is a valid empty result.
+     *
+     * @returns Result with saved playlists (id coerced to string) or error
+     */
+    listSavedPlaylists: async (): Promise<
+      Result<readonly SavedPlaylist[], LmsError>
+    > => {
+      const command: LmsCommand = ["playlists", "0", 200];
+      const result = await executeCommand(command, savedPlaylistsPayloadParser);
+      if (!result.ok) {
+        return result;
+      }
+
+      const playlists: readonly SavedPlaylist[] = (
+        result.value.playlists_loop ?? []
+      ).map((item) => ({
+        id: String(item.id),
+        name: item.playlist,
+      }));
+
+      return ok(playlists);
+    },
+
+    /**
+     * Load a saved playlist into the queue, replacing the current queue.
+     *
+     * Command: ["playlistcontrol", "cmd:load", "playlist_id:{id}"]
+     *
+     * @param id - Saved playlist ID
+     * @returns Result with void or error
+     */
+    loadSavedPlaylist: async (id: string): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = [
+        "playlistcontrol",
+        "cmd:load",
+        `playlist_id:${id}`,
+      ];
       const result = await executeCommand(command);
       if (!result.ok) {
         return result;
