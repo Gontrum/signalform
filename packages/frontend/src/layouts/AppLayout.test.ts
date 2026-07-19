@@ -88,6 +88,7 @@ describe('AppLayout', () => {
     return createTestRouter([
       { path: '/', component: { template: '<div />' } },
       { path: '/now-playing', name: 'now-playing', component: { template: '<div />' } },
+      { path: '/queue', name: 'queue', component: { template: '<div />' } },
     ])
   }
 
@@ -206,6 +207,30 @@ describe('AppLayout', () => {
     await thenRouteIs(context.router, '/now-playing')
   })
 
+  it('shows the queue shortcut button when the mini-player is visible', async () => {
+    await givenTrackIsPlaying()
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    await thenMiniPlayerIsVisible(context.wrapper)
+    const queueButton = context.wrapper.find('[data-testid="mini-player-queue"]')
+    expect(queueButton.exists()).toBe(true)
+    expect(queueButton.attributes('aria-label')).toBe('View Full Queue')
+    expect(queueButton.classes()).toContain('min-h-11')
+    expect(queueButton.classes()).toContain('min-w-11')
+  })
+
+  it('navigates to /queue when the queue shortcut button is clicked', async () => {
+    await givenTrackIsPlaying()
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+    await whenMiniPlayerQueueButtonIsClicked(context.wrapper)
+
+    await thenRouteIs(context.router, '/queue')
+  })
+
   // AC6: Mini-player hidden on tablet/desktop
   it('does not show mini-player on tablet (AC6)', async () => {
     await givenTrackIsPlaying()
@@ -312,6 +337,12 @@ describe('AppLayout', () => {
     await flushPromises()
   }
 
+  const whenMiniPlayerQueueButtonIsClicked = async (wrapper: VueWrapper): Promise<void> => {
+    const queueButton = wrapper.find('[data-testid="mini-player-queue"]')
+    await queueButton.trigger('click')
+    await flushPromises()
+  }
+
   // === THEN ===
 
   const thenLeftPanelIsVisible = async (wrapper: VueWrapper): Promise<void> => {
@@ -380,12 +411,12 @@ describe('AppLayout', () => {
   }
 
   const thenMiniPlayerReservesSafeAreaSpace = async (wrapper: VueWrapper): Promise<void> => {
-    const miniPlayer = wrapper.find('[data-testid="mini-player"]')
+    const miniPlayerBar = wrapper.find('[data-testid="mini-player-bar"]')
     const leftPanel = wrapper.find('[data-testid="left-panel"]')
 
-    expect(miniPlayer.classes()).toContain('bottom-[max(env(safe-area-inset-bottom),0.75rem)]')
-    expect(miniPlayer.classes()).toContain('min-h-[56px]')
-    expect(miniPlayer.classes()).toContain('rounded-2xl')
+    expect(miniPlayerBar.classes()).toContain('bottom-[max(env(safe-area-inset-bottom),0.75rem)]')
+    expect(miniPlayerBar.classes()).toContain('min-h-[56px]')
+    expect(miniPlayerBar.classes()).toContain('rounded-2xl')
     expect(leftPanel.classes()).toContain('pb-[calc(7rem+env(safe-area-inset-bottom))]')
   }
 

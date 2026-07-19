@@ -20,7 +20,7 @@ async function openHome(page: import('@playwright/test').Page) {
 }
 
 async function openQueue(page: import('@playwright/test').Page) {
-  // There is no nav-queue link in the navbar — navigate directly.
+  // Navigate directly; the nav-queue navbar link is covered by unit tests.
   await page.goto('/queue')
   await expect(page.getByTestId('queue-view')).toBeVisible()
 }

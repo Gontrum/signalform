@@ -8,6 +8,7 @@ const createRouter = async (): Promise<Router> => {
   return createTestRouter([
     { path: '/', component: { template: '<div />' } },
     { path: '/library', component: { template: '<div />' } },
+    { path: '/queue', component: { template: '<div />' } },
     { path: '/settings', component: { template: '<div />' } },
     { path: '/settings/profile', component: { template: '<div />' } },
   ])
@@ -79,6 +80,36 @@ describe('MainNavBar', () => {
     expect(libraryLink.classes()).toContain('bg-neutral-950')
     expect(searchLink.attributes('aria-current')).toBeUndefined()
     expect(searchLink.classes()).toContain('text-neutral-600')
+  })
+
+  it('renders a link to /queue with correct href', async () => {
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    const link = wrapper.find('[data-testid="nav-queue"]')
+    expect(link.exists()).toBe(true)
+    expect(link.attributes('href')).toBe('/queue')
+    expect(link.attributes('aria-label')).toBe('Queue')
+  })
+
+  it('marks Queue as active (aria-current=page, active class) when on /queue', async () => {
+    const router = await createRouter()
+    await router.push('/queue')
+    await router.isReady()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    const queueLink = wrapper.find('[data-testid="nav-queue"]')
+    const searchLink = wrapper.find('[data-testid="nav-search"]')
+    expect(queueLink.attributes('aria-current')).toBe('page')
+    expect(queueLink.classes()).toContain('bg-neutral-950')
+    expect(searchLink.attributes('aria-current')).toBeUndefined()
+    expect(searchLink.classes()).toContain('text-neutral-600')
+  })
+
+  it('does not mark Queue as active on other routes', async () => {
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    const queueLink = wrapper.find('[data-testid="nav-queue"]')
+    expect(queueLink.attributes('aria-current')).toBeUndefined()
+    expect(queueLink.classes()).toContain('text-neutral-600')
   })
 
   it('renders nav links as anchor elements (keyboard accessible)', async () => {

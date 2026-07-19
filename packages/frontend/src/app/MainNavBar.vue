@@ -6,8 +6,9 @@ import { useI18nStore } from '@/app/i18nStore'
 
 const route = useRoute()
 const isLibrary = computed(() => route.path.startsWith('/library'))
+const isQueue = computed(() => route.path.startsWith('/queue'))
 const isSettings = computed(() => route.path.startsWith('/settings'))
-const isSearch = computed(() => !isLibrary.value && !isSettings.value)
+const isSearch = computed(() => !isLibrary.value && !isQueue.value && !isSettings.value)
 
 const i18nStore = useI18nStore()
 const { t } = storeToRefs(i18nStore)
@@ -70,6 +71,15 @@ const navLinkClasses = (isActive: boolean): readonly string[] => [
           :class="navLinkClasses(isLibrary)"
         >
           {{ t('nav.library') }}
+        </RouterLink>
+        <RouterLink
+          to="/queue"
+          data-testid="nav-queue"
+          :aria-current="isQueue ? 'page' : undefined"
+          :aria-label="t('nav.queue')"
+          :class="navLinkClasses(isQueue)"
+        >
+          {{ t('nav.queue') }}
         </RouterLink>
         <RouterLink
           to="/settings"
