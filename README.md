@@ -17,10 +17,15 @@ Signalform sits in front of your existing LMS installation and gives it a modern
 - **Artist enrichment** — biographies, similar artists, and top tracks via Last.fm
 - **Artist hero images** via Fanart.tv
 - **Queue management** and playback control
+- **Playlists** — save the current queue as an LMS playlist and load it back later
+- **Sleep timer** — stop playback after a set duration (15/30/45/60 minutes)
 - **Radio mode** — continuous playback based on artist similarity
 - **Personal Radio** — dynamic queue built from your Last.fm listening history, with a configurable comfort/discovery blend
+- **Loved Tracks Radio** — continuous playback drawn from the tracks you've loved on Last.fm
 - **Scrobbling** — automatically reports played tracks to your Last.fm profile
 - **Love tracks** — mark tracks as loved on Last.fm directly from the player
+- **Multi-user** — per-user Last.fm profiles, so scrobbling, loves, and Personal Radio follow whoever is listening
+- **Wake-on-LAN** — wakes a sleeping LMS server automatically when you open the app
 - **PWA support** — installable on desktop and mobile via browser
 
 ## Interface
