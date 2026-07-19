@@ -46,6 +46,15 @@ vi.mock('@/platform/api/queueApi', () => ({
   removeMultipleFromQueue: vi.fn(),
 }))
 
+// PlaylistsPanel owns its own data fetching (usePlaylists → playlistsApi). Stub it
+// so QueueView tests stay focused on queue behaviour and make no playlist requests.
+vi.mock('@/domains/playlists/ui/PlaylistsPanel.vue', () => ({
+  default: {
+    name: 'PlaylistsPanel',
+    template: '<div data-testid="playlists-panel-stub" />',
+  },
+}))
+
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
 import {
   getQueue,
@@ -238,6 +247,16 @@ describe('QueueView', () => {
     expect(wrapper.find('[data-testid="queue-loading"]').exists()).toBe(true)
 
     await flushPromises()
+  })
+
+  it('renders the playlists panel', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
   })
 
   it('shows empty state when queue is empty', async () => {

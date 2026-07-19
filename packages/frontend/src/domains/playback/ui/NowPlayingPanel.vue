@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { formatSeconds } from '@signalform/shared'
 import AlbumCover from '@/ui/AlbumCover.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
@@ -8,6 +10,7 @@ import VolumeControl from './VolumeControl.vue'
 import ProgressBar from './ProgressBar.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useLoveTrack } from '@/domains/playback/shell/useLoveTrack'
+import { useSleepTimer } from '@/domains/playback/shell/useSleepTimer'
 
 const {
   playbackStore,
@@ -23,6 +26,30 @@ const i18nStore = useI18nStore()
 const { isPhone } = useResponsiveLayout()
 const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 const { hasLastFmSession, isLoved, isLoving, toggleLove } = useLoveTrack()
+
+const { remainingSeconds, isActive: isSleepTimerActive, setTimer, cancel } = useSleepTimer()
+const isSleepMenuOpen = ref(false)
+
+const sleepPresets: ReadonlyArray<{ minutes: number; key: import('@/i18n').MessageKey }> = [
+  { minutes: 15, key: 'sleepTimer.min15' },
+  { minutes: 30, key: 'sleepTimer.min30' },
+  { minutes: 45, key: 'sleepTimer.min45' },
+  { minutes: 60, key: 'sleepTimer.min60' },
+]
+
+const toggleSleepMenu = (): void => {
+  isSleepMenuOpen.value = !isSleepMenuOpen.value
+}
+
+const selectSleepPreset = async (minutes: number): Promise<void> => {
+  isSleepMenuOpen.value = false
+  await setTimer(minutes)
+}
+
+const selectSleepOff = async (): Promise<void> => {
+  isSleepMenuOpen.value = false
+  await cancel()
+}
 </script>
 
 <template>
@@ -163,6 +190,80 @@ const { hasLastFmSession, isLoved, isLoving, toggleLove } = useLoveTrack()
           <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
         </svg>
         {{ t('nowPlaying.pausedBadge') }}
+      </div>
+
+      <!-- Sleep Timer -->
+      <div class="relative mt-4 flex items-center justify-center">
+        <button
+          type="button"
+          data-testid="sleep-timer-button"
+          :aria-label="t('sleepTimer.label')"
+          :aria-expanded="isSleepMenuOpen"
+          aria-haspopup="menu"
+          class="flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 focus:text-neutral-900 focus:outline-none transition-colors"
+          :class="{ 'bg-accent-100 text-accent-700 hover:text-accent-700': isSleepTimerActive }"
+          @click="toggleSleepMenu"
+        >
+          <svg
+            class="h-5 w-5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+            />
+          </svg>
+          <span v-if="isSleepTimerActive" data-testid="sleep-timer-remaining">
+            {{ formatSeconds(remainingSeconds) }}
+          </span>
+          <span v-else>{{ t('sleepTimer.label') }}</span>
+        </button>
+
+        <!-- Backdrop closes the menu on outside click -->
+        <button
+          v-if="isSleepMenuOpen"
+          type="button"
+          aria-hidden="true"
+          tabindex="-1"
+          class="fixed inset-0 z-10 cursor-default"
+          @click="isSleepMenuOpen = false"
+        />
+
+        <div
+          v-if="isSleepMenuOpen"
+          data-testid="sleep-timer-menu"
+          role="menu"
+          :aria-label="t('sleepTimer.label')"
+          class="absolute bottom-full left-1/2 z-20 mb-2 flex w-40 -translate-x-1/2 flex-col rounded-xl border border-neutral-200 bg-white p-1 shadow-lg"
+        >
+          <button
+            v-for="preset in sleepPresets"
+            :key="preset.minutes"
+            type="button"
+            role="menuitem"
+            :data-testid="`sleep-timer-preset-${preset.minutes}`"
+            class="flex min-h-[44px] items-center rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
+            @click="selectSleepPreset(preset.minutes)"
+          >
+            {{ t(preset.key) }}
+          </button>
+          <button
+            v-if="isSleepTimerActive"
+            type="button"
+            role="menuitem"
+            data-testid="sleep-timer-off"
+            class="mt-1 flex min-h-[44px] items-center rounded-lg border-t border-neutral-100 px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
+            @click="selectSleepOff"
+          >
+            {{ t('sleepTimer.off') }}
+          </button>
+        </div>
       </div>
 
       <!-- Playback Controls -->

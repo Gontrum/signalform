@@ -76,6 +76,24 @@ vi.mock('@/platform/api/queueApi', async () => {
   }
 })
 
+const { mockGetConfig, mockStartLovedRadio, mockStartPersonalRadio } = vi.hoisted(() => ({
+  mockGetConfig: vi.fn(),
+  mockStartLovedRadio: vi.fn(),
+  mockStartPersonalRadio: vi.fn(),
+}))
+
+vi.mock('@/platform/api/configApi', () => ({
+  getConfig: mockGetConfig,
+}))
+
+vi.mock('@/platform/api/lovedRadioApi', () => ({
+  startLovedRadio: mockStartLovedRadio,
+}))
+
+vi.mock('@/platform/api/personalRadioApi', () => ({
+  startPersonalRadio: mockStartPersonalRadio,
+}))
+
 import * as queueApi from '@/platform/api/queueApi'
 
 const isTrackArray = (value: unknown): value is readonly TrackResult[] => Array.isArray(value)
@@ -134,6 +152,10 @@ describe('SearchPanel', () => {
   beforeEach(() => {
     setupTestEnv()
     vi.clearAllMocks()
+    // Default: personal/loved radio buttons hidden (feature disabled).
+    mockGetConfig.mockResolvedValue(ok({ personalRadioEnabled: false }))
+    mockStartLovedRadio.mockResolvedValue({ tracksAdded: 1 })
+    mockStartPersonalRadio.mockResolvedValue({ tracksAdded: 1, seedArtists: [] })
   })
 
   it('renders search input with placeholder', async (): Promise<void> => {
@@ -1591,6 +1613,50 @@ describe('SearchPanel', () => {
         name: 'unified-artist',
         query: { name: 'Radiohead' },
       })
+    })
+  })
+
+  describe('Loved Tracks Radio button', () => {
+    const mountWithRadioEnabled = async (): Promise<VueWrapper> => {
+      mockGetConfig.mockResolvedValue(ok({ personalRadioEnabled: true }))
+      const router = await createRouter()
+      const wrapper = mount(SearchPanel, { global: { plugins: [router] } })
+      await flushPromises()
+      return wrapper
+    }
+
+    it('shows the loved-radio button when personalRadioEnabled is true', async (): Promise<void> => {
+      const wrapper = await mountWithRadioEnabled()
+
+      const button = wrapper.find('[data-testid="loved-radio-button"]')
+      expect(button.exists()).toBe(true)
+      expect(button.text()).toContain('Loved Tracks Radio')
+    })
+
+    it('hides the loved-radio button when personalRadioEnabled is false', async (): Promise<void> => {
+      const context = await createMountedContext()
+      await flushPromises()
+
+      expect(context.wrapper.find('[data-testid="loved-radio-button"]').exists()).toBe(false)
+    })
+
+    it('triggers startLovedRadio when clicked', async (): Promise<void> => {
+      const wrapper = await mountWithRadioEnabled()
+
+      await wrapper.find('[data-testid="loved-radio-button"]').trigger('click')
+      await flushPromises()
+
+      expect(mockStartLovedRadio).toHaveBeenCalledOnce()
+    })
+
+    it('shows the loved-radio error indicator when the API returns null', async (): Promise<void> => {
+      mockStartLovedRadio.mockResolvedValue(null)
+      const wrapper = await mountWithRadioEnabled()
+
+      await wrapper.find('[data-testid="loved-radio-button"]').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="loved-radio-error"]').exists()).toBe(true)
     })
   })
 })

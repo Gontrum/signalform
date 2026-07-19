@@ -15,6 +15,12 @@ const mockHasLastFmSession = ref(false)
 const mockIsLoved = ref(false)
 const mockToggleLove = vi.fn().mockResolvedValue(undefined)
 
+const mockSleepRemaining = ref(0)
+const mockSleepIsActive = ref(false)
+const mockSleepSetTimer = vi.fn().mockResolvedValue(undefined)
+const mockSleepCancel = vi.fn().mockResolvedValue(undefined)
+const mockSleepRefresh = vi.fn().mockResolvedValue(undefined)
+
 // Mock the playback API
 vi.mock('@/platform/api/playbackApi', async () => {
   const { ok } = await import('@signalform/shared')
@@ -56,6 +62,22 @@ vi.mock('@/domains/playback/shell/useLoveTrack', () => ({
   }),
 }))
 
+vi.mock('@/domains/playback/shell/useSleepTimer', () => ({
+  useSleepTimer: (): {
+    readonly remainingSeconds: typeof mockSleepRemaining
+    readonly isActive: typeof mockSleepIsActive
+    readonly refresh: typeof mockSleepRefresh
+    readonly setTimer: typeof mockSleepSetTimer
+    readonly cancel: typeof mockSleepCancel
+  } => ({
+    remainingSeconds: mockSleepRemaining,
+    isActive: mockSleepIsActive,
+    refresh: mockSleepRefresh,
+    setTimer: mockSleepSetTimer,
+    cancel: mockSleepCancel,
+  }),
+}))
+
 describe('NowPlayingPanel', () => {
   type TestContext = {
     readonly router: Router
@@ -68,6 +90,8 @@ describe('NowPlayingPanel', () => {
     isPhone.value = false
     mockHasLastFmSession.value = false
     mockIsLoved.value = false
+    mockSleepRemaining.value = 0
+    mockSleepIsActive.value = false
   })
 
   const createRouter = async (): Promise<Router> => {
@@ -863,6 +887,74 @@ describe('NowPlayingPanel', () => {
       await flushPromises()
 
       expect(mockToggleLove).toHaveBeenCalledOnce()
+    })
+  })
+
+  // === Sleep Timer ===
+
+  describe('Sleep Timer', () => {
+    it('shows the sleep timer button when a track is playing', async () => {
+      const context = await givenTrackIsPlaying()
+
+      expect(context.wrapper.find('[data-testid="sleep-timer-button"]').exists()).toBe(true)
+    })
+
+    it('does not show the sleep timer menu until the button is clicked', async () => {
+      const context = await givenTrackIsPlaying()
+
+      expect(context.wrapper.find('[data-testid="sleep-timer-menu"]').exists()).toBe(false)
+
+      await context.wrapper.find('[data-testid="sleep-timer-button"]').trigger('click')
+      await nextTick()
+
+      expect(context.wrapper.find('[data-testid="sleep-timer-menu"]').exists()).toBe(true)
+    })
+
+    it('calls setTimer with the preset minutes when a preset is clicked', async () => {
+      const context = await givenTrackIsPlaying()
+
+      await context.wrapper.find('[data-testid="sleep-timer-button"]').trigger('click')
+      await nextTick()
+      await context.wrapper.find('[data-testid="sleep-timer-preset-30"]').trigger('click')
+      await flushPromises()
+
+      expect(mockSleepSetTimer).toHaveBeenCalledWith(30)
+    })
+
+    it('displays the remaining time when the timer is active', async () => {
+      mockSleepIsActive.value = true
+      mockSleepRemaining.value = 1800
+      const context = await givenTrackIsPlaying()
+
+      const remaining = context.wrapper.find('[data-testid="sleep-timer-remaining"]')
+      expect(remaining.exists()).toBe(true)
+      expect(remaining.text()).toBe('30:00')
+    })
+
+    it('offers the Off entry and calls cancel when the timer is active', async () => {
+      mockSleepIsActive.value = true
+      mockSleepRemaining.value = 600
+      const context = await givenTrackIsPlaying()
+
+      await context.wrapper.find('[data-testid="sleep-timer-button"]').trigger('click')
+      await nextTick()
+
+      const off = context.wrapper.find('[data-testid="sleep-timer-off"]')
+      expect(off.exists()).toBe(true)
+
+      await off.trigger('click')
+      await flushPromises()
+
+      expect(mockSleepCancel).toHaveBeenCalledOnce()
+    })
+
+    it('hides the Off entry when the timer is not active', async () => {
+      const context = await givenTrackIsPlaying()
+
+      await context.wrapper.find('[data-testid="sleep-timer-button"]').trigger('click')
+      await nextTick()
+
+      expect(context.wrapper.find('[data-testid="sleep-timer-off"]').exists()).toBe(false)
     })
   })
 })

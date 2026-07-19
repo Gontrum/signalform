@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { formatSeconds } from '@signalform/shared'
 import MainNavBar from '@/app/MainNavBar.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import PlaylistsPanel from '@/domains/playlists/ui/PlaylistsPanel.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { getQueueEntryKey, isRadioTrack as isQueueRadioTrack } from '../core/service'
 import { useQueueDrag } from '../shell/useQueueDrag'
@@ -223,6 +224,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
     <h1 class="mb-4 text-2xl font-semibold text-neutral-900">
       {{ t('queue.title') }}
     </h1>
+    <PlaylistsPanel />
     <div
       v-if="tracks.length > 0 || isSelectMode"
       class="mb-4 flex items-center justify-between gap-2"

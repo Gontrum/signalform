@@ -7,6 +7,7 @@ import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { playAlbum } from '@/platform/api/playbackApi'
 import { startGenreRadio } from '@/platform/api/genreRadioApi'
 import { startPersonalRadio } from '@/platform/api/personalRadioApi'
+import { startLovedRadio } from '@/platform/api/lovedRadioApi'
 import { useSearchStore } from './useSearchStore'
 import {
   getDisplayedAlbumResults,
@@ -55,6 +56,9 @@ type UseSearchPanelResult = {
   readonly personalRadioLoading: Ref<boolean>
   readonly personalRadioError: Ref<boolean>
   readonly handlePersonalRadioStart: () => Promise<void>
+  readonly lovedRadioLoading: Ref<boolean>
+  readonly lovedRadioError: Ref<boolean>
+  readonly startLovedRadioMode: () => Promise<void>
 }
 
 export const useSearchPanel = (): UseSearchPanelResult => {
@@ -75,6 +79,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const personalRadioEnabled = ref(false)
   const personalRadioLoading = ref(false)
   const personalRadioError = ref(false)
+  const lovedRadioLoading = ref(false)
+  const lovedRadioError = ref(false)
 
   const showFullResults = computed(
     () => route.query.full === 'true' && typeof route.query.q === 'string' && route.query.q !== '',
@@ -302,6 +308,16 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     personalRadioLoading.value = false
   }
 
+  const startLovedRadioMode = async (): Promise<void> => {
+    lovedRadioLoading.value = true
+    lovedRadioError.value = false
+    const result = await startLovedRadio()
+    if (result === null) {
+      lovedRadioError.value = true
+    }
+    lovedRadioLoading.value = false
+  }
+
   onMounted(async (): Promise<void> => {
     const configResult = await getConfig()
     if (configResult.ok) {
@@ -358,5 +374,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     personalRadioLoading,
     personalRadioError,
     handlePersonalRadioStart,
+    lovedRadioLoading,
+    lovedRadioError,
+    startLovedRadioMode,
   }
 }

@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount } from 'vue'
+import { onMounted, onBeforeUnmount, watch } from 'vue'
 import { RouterView, useRouter } from 'vue-router'
 import { getConfig } from '@/platform/api/configApi'
 import { wakeLms } from '@/platform/api/lmsWakeApi'
 import { shouldTriggerWake } from '@/domains/lms/core/service'
+import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { useI18nStore } from '@/app/i18nStore'
 import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
+import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
 
 const router = useRouter()
 const i18nStore = useI18nStore()
 const userStore = useUserStore()
+
+const { isLmsDown } = useLmsHealth()
 
 onMounted(() => {
   void userStore.load()
@@ -31,6 +35,14 @@ const handleVisibilityChange = (): void => {
     triggerLmsWake()
   }
 }
+
+// When the LMS transitions from reachable to down, nudge it awake once so the
+// banner's "trying to wake it…" message actually reflects an attempt.
+watch(isLmsDown, (down, wasDown) => {
+  if (down && !wasDown) {
+    triggerLmsWake()
+  }
+})
 
 onMounted(() => {
   triggerLmsWake()
@@ -91,6 +103,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="h-dvh min-h-0 w-full overflow-hidden bg-neutral-50">
+    <LmsDownBanner v-if="isLmsDown" />
     <RouterView />
     <UserSelectDialog v-if="userStore.needsSelection" />
   </div>

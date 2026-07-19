@@ -39,6 +39,9 @@ const {
   personalRadioLoading,
   personalRadioError,
   handlePersonalRadioStart,
+  lovedRadioLoading,
+  lovedRadioError,
+  startLovedRadioMode,
 } = useSearchPanel()
 </script>
 
@@ -124,6 +127,18 @@ const {
             data-testid="personal-radio-error"
           >
             {{ t('home.personalRadioError') }}
+          </span>
+          <button
+            type="button"
+            data-testid="loved-radio-button"
+            :disabled="lovedRadioLoading"
+            class="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+            @click="startLovedRadioMode"
+          >
+            {{ lovedRadioLoading ? t('home.lovedRadioStarting') : t('home.lovedRadio') }}
+          </button>
+          <span v-if="lovedRadioError" class="text-xs text-red-500" data-testid="loved-radio-error">
+            {{ t('home.lovedRadioError') }}
           </span>
         </div>
       </div>

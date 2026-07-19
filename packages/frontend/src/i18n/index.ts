@@ -34,6 +34,7 @@ export type MessageKey =
   | 'nav.search'
   | 'nav.library'
   | 'nav.queue'
+  | 'lms.downBanner'
   | 'home.title'
   | 'home.searchPlaceholder'
   | 'home.searchPlaceholderHero'
@@ -175,6 +176,20 @@ export type MessageKey =
   | 'home.personalRadio'
   | 'home.personalRadioStarting'
   | 'home.personalRadioError'
+  | 'home.lovedRadio'
+  | 'home.lovedRadioStarting'
+  | 'home.lovedRadioError'
+  | 'sleepTimer.label'
+  | 'sleepTimer.off'
+  | 'sleepTimer.min15'
+  | 'sleepTimer.min30'
+  | 'sleepTimer.min45'
+  | 'sleepTimer.min60'
+  | 'playlists.title'
+  | 'playlists.namePlaceholder'
+  | 'playlists.save'
+  | 'playlists.load'
+  | 'playlists.empty'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -212,6 +227,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.search': 'Search',
     'nav.library': 'Library',
     'nav.queue': 'Queue',
+    'lms.downBanner': 'LMS server unreachable — trying to wake it…',
     'home.title': 'Start',
     'home.searchPlaceholder': 'Search albums, artists or tracks…',
     'home.searchPlaceholderHero': 'Search for music',
@@ -353,6 +369,20 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.personalRadio': 'Personal Radio',
     'home.personalRadioStarting': 'Starting…',
     'home.personalRadioError': 'Could not start Personal Radio.',
+    'home.lovedRadio': 'Loved Tracks Radio',
+    'home.lovedRadioStarting': 'Starting…',
+    'home.lovedRadioError': 'Could not start Loved Tracks Radio.',
+    'sleepTimer.label': 'Sleep timer',
+    'sleepTimer.off': 'Off',
+    'sleepTimer.min15': '15 min',
+    'sleepTimer.min30': '30 min',
+    'sleepTimer.min45': '45 min',
+    'sleepTimer.min60': '60 min',
+    'playlists.title': 'Playlists',
+    'playlists.namePlaceholder': 'Playlist name',
+    'playlists.save': 'Save queue',
+    'playlists.load': 'Load',
+    'playlists.empty': 'No saved playlists yet',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -389,6 +419,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.search': 'Suche',
     'nav.library': 'Bibliothek',
     'nav.queue': 'Warteschlange',
+    'lms.downBanner': 'LMS-Server nicht erreichbar — Weckversuch läuft…',
     'home.title': 'Startseite',
     'home.searchPlaceholder': 'Alben, Künstler oder Titel suchen…',
     'home.searchPlaceholderHero': 'Nach Musik suchen',
@@ -536,6 +567,20 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.personalRadio': 'Persönliches Radio',
     'home.personalRadioStarting': 'Wird gestartet…',
     'home.personalRadioError': 'Persönliches Radio konnte nicht gestartet werden.',
+    'home.lovedRadio': 'Loved-Tracks-Radio',
+    'home.lovedRadioStarting': 'Wird gestartet…',
+    'home.lovedRadioError': 'Loved-Tracks-Radio konnte nicht gestartet werden.',
+    'sleepTimer.label': 'Sleep-Timer',
+    'sleepTimer.off': 'Aus',
+    'sleepTimer.min15': '15 Min',
+    'sleepTimer.min30': '30 Min',
+    'sleepTimer.min45': '45 Min',
+    'sleepTimer.min60': '60 Min',
+    'playlists.title': 'Playlists',
+    'playlists.namePlaceholder': 'Playlist-Name',
+    'playlists.save': 'Queue speichern',
+    'playlists.load': 'Laden',
+    'playlists.empty': 'Noch keine gespeicherten Playlists',
   },
 }
 

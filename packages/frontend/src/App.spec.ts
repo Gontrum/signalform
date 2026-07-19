@@ -1,9 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { computed, ref } from 'vue'
 import { ok } from '@signalform/shared'
 import App from './App.vue'
 import HomeView from './app/HomeView.vue'
+import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
+
+// Control the global "LMS down" banner via a stubbed composable, so the App
+// tests do not depend on the polling/health mechanics (covered separately).
+vi.mock('@/domains/lms/shell/useLmsHealth', () => ({
+  useLmsHealth: vi.fn(),
+}))
+
+const mockUseLmsHealth = vi.mocked(useLmsHealth)
+
+const stubLmsHealth = (isDown: boolean): void => {
+  mockUseLmsHealth.mockReturnValue({
+    isLmsDown: computed(() => isDown),
+    consecutiveFailures: ref(isDown ? 2 : 0),
+  })
+}
 
 // App renders HomeView which embeds NowPlayingPanel + VolumeControl (playback API on mount)
 vi.mock('@/platform/api/playbackApi', async () => {
@@ -52,6 +69,7 @@ describe('App.vue', () => {
     setupTestEnv()
     localStorage.clear()
     vi.clearAllMocks()
+    stubLmsHealth(false)
   })
 
   it('renders fullscreen layout container', async () => {
@@ -100,6 +118,24 @@ describe('App.vue', () => {
     expect(wakeLms).toHaveBeenCalledTimes(2)
 
     nowSpy.mockRestore()
+  })
+
+  it('shows the LMS down banner when the LMS is down', async () => {
+    stubLmsHealth(true)
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="lms-down-banner"]').exists()).toBe(true)
+  })
+
+  it('hides the LMS down banner when the LMS is reachable', async () => {
+    stubLmsHealth(false)
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="lms-down-banner"]').exists()).toBe(false)
   })
 
   it('shows the user select dialog when multiple users exist without a selection', async () => {
