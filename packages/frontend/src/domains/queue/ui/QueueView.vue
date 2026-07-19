@@ -45,6 +45,7 @@ const {
 
 const {
   dragTrackId,
+  dragOverIndex,
   isTouchDragging,
   isDragActive,
   dragOverlayStyle,
@@ -163,6 +164,10 @@ const getTrackKey = (track: (typeof tracks.value)[number]): string => getQueueEn
 
 const draggedTrack = computed(
   () => tracks.value.find((track) => getTrackKey(track) === dragTrackId.value) ?? null,
+)
+
+const dragOverlayLabel = computed<string | null>(() =>
+  dragOverIndex.value !== null ? getDropIndicatorLabel(dragOverIndex.value) : null,
 )
 
 const viewRoot = ref<HTMLElement | null>(null)
@@ -419,14 +424,6 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
               class="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
             />
 
-            <div
-              v-if="isDropTarget(index)"
-              data-testid="queue-drop-indicator"
-              class="mb-3 rounded-md border border-sky-300 bg-sky-100 px-3 py-2 text-xs font-medium text-sky-800 shadow-sm"
-            >
-              {{ getDropIndicatorLabel(index) }}
-            </div>
-
             <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
               <span
                 v-if="!isSelectMode"
@@ -582,6 +579,17 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
         {{ draggedTrack.title }}
       </p>
       <p class="truncate text-xs text-neutral-500">{{ draggedTrack.artist }}</p>
+      <p
+        v-if="dragOverlayLabel"
+        data-testid="queue-drag-overlay-label"
+        class="mt-1 truncate text-xs font-medium text-sky-700"
+      >
+        {{ dragOverlayLabel }}
+      </p>
+    </div>
+
+    <div data-testid="queue-drop-live-region" aria-live="polite" class="sr-only">
+      {{ dragOverlayLabel ?? '' }}
     </div>
 
     <div

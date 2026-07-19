@@ -145,8 +145,15 @@ export const useQueueDrag = ({
     }
 
     const rect = target.getBoundingClientRect()
+    // Hysteresis only applies while the pointer stays over the same row, so
+    // compare against the previous index before reassigning it.
+    dragOverHalf.value = getQueueDropHalf(
+      clientY,
+      rect.top,
+      rect.bottom,
+      dragOverIndex.value === targetIndex ? dragOverHalf.value : null,
+    )
     dragOverIndex.value = targetIndex
-    dragOverHalf.value = getQueueDropHalf(clientY, rect.top, rect.bottom)
   }
 
   const computeAutoScrollDelta = (container: HTMLElement, pointerY: number): number => {

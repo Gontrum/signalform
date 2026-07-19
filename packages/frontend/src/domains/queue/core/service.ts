@@ -85,12 +85,23 @@ export const getQueueDropHalf = (
   pointerY: number,
   rowTop: number,
   rowBottom: number,
+  previousHalf: QueueDropPosition | null = null,
+  hysteresisPx = 8,
 ): QueueDropPosition => {
   if (rowBottom <= rowTop) {
     return 'after'
   }
 
   const midpoint = (rowTop + rowBottom) / 2
+
+  if (previousHalf === 'before') {
+    return pointerY > midpoint + hysteresisPx ? 'after' : 'before'
+  }
+
+  if (previousHalf === 'after') {
+    return pointerY < midpoint - hysteresisPx ? 'before' : 'after'
+  }
+
   return pointerY < midpoint ? 'before' : 'after'
 }
 

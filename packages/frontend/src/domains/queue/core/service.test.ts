@@ -41,6 +41,36 @@ describe('queue core reorder helpers', () => {
     expect(getQueueDropHalf(120, 140, 100)).toBe('after')
   })
 
+  it('keeps the plain midpoint behaviour without a previous half', () => {
+    expect(getQueueDropHalf(119, 100, 140, null)).toBe('before')
+    expect(getQueueDropHalf(121, 100, 140, null)).toBe('after')
+  })
+
+  it('keeps before when the pointer sits within the hysteresis band below the midpoint', () => {
+    expect(getQueueDropHalf(125, 100, 140, 'before')).toBe('before')
+  })
+
+  it('flips to after once the pointer leaves the hysteresis band below the midpoint', () => {
+    expect(getQueueDropHalf(129, 100, 140, 'before')).toBe('after')
+  })
+
+  it('keeps before at exactly midpoint plus hysteresis', () => {
+    expect(getQueueDropHalf(128, 100, 140, 'before')).toBe('before')
+  })
+
+  it('keeps after when the pointer sits within the hysteresis band above the midpoint', () => {
+    expect(getQueueDropHalf(115, 100, 140, 'after')).toBe('after')
+  })
+
+  it('flips to before once the pointer leaves the hysteresis band above the midpoint', () => {
+    expect(getQueueDropHalf(111, 100, 140, 'after')).toBe('before')
+  })
+
+  it('resolves degenerate row rects to after regardless of the previous half', () => {
+    expect(getQueueDropHalf(120, 140, 140, 'before')).toBe('after')
+    expect(getQueueDropHalf(120, 140, 100, 'before')).toBe('after')
+  })
+
   it('passes through the cursor half as the drop position', () => {
     expect(getQueueDropPosition(3, 1, 'after')).toBe('after')
     expect(getQueueDropPosition(3, 1, 'before')).toBe('before')

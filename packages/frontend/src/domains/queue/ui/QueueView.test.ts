@@ -448,9 +448,13 @@ describe('QueueView', () => {
     document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 30 }))
     await nextTick()
 
-    expect(wrapper.find('[data-testid="queue-drop-indicator"]').exists()).toBe(true)
+    // The in-row indicator box is gone: it caused layout shift while dragging.
+    expect(wrapper.find('[data-testid="queue-drop-indicator"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="queue-drop-indicator"]').text()).toContain(
+    expect(wrapper.find('[data-testid="queue-drag-overlay-label"]').text()).toContain(
+      'Release to move after this track.',
+    )
+    expect(wrapper.find('[data-testid="queue-drop-live-region"]').text()).toContain(
       'Release to move after this track.',
     )
 
@@ -638,7 +642,8 @@ describe('QueueView', () => {
     await nextTick()
 
     expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="queue-drop-indicator"]').text()).toContain(
+    expect(wrapper.find('[data-testid="queue-drop-indicator"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="queue-drag-overlay-label"]').text()).toContain(
       'Release to move before this track.',
     )
 
@@ -685,6 +690,70 @@ describe('QueueView', () => {
 
     expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(false)
+
+    document.dispatchEvent(new MouseEvent('mouseup'))
+    await flushPromises()
+
+    elementFromPointSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('keeps the drop half stable within the hysteresis band and resets it on row change', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    let pointedRowSelector = '[data-track-index="0"]'
+    const elementFromPointSpy = vi
+      .spyOn(document, 'elementFromPoint')
+      .mockImplementation(() => document.querySelector(pointedRowSelector))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
+    await flushPromises()
+
+    // Neutral container so cursor position never triggers auto-scroll during the test.
+    vi.spyOn(
+      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      'getBoundingClientRect',
+    ).mockReturnValue(makeRect(0, 1000))
+    // Row 0 spans 100..200 → midpoint 150; row 1 spans 300..400 → midpoint 350.
+    mockRowRect(0, 100, 200)
+    mockRowRect(1, 300, 400)
+
+    // Drag row 2 over row 0's upper half.
+    await wrapper.findAll('[data-testid="queue-track-reorder"]')[2]?.trigger('mousedown', {
+      clientX: 10,
+      clientY: 500,
+      button: 0,
+    })
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 120 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
+
+    // Wobble just past the midpoint (150 + 5) but inside the ±8px hysteresis
+    // band → the half must stay "before" instead of flipping.
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 155 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(false)
+
+    // Beyond the band (150 + 8) the half flips to "after".
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 165 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(false)
+
+    // Moving to a different row resets the hysteresis: y=345 is inside row 1's
+    // band (midpoint 350) and a stale "after" would stick there, but a fresh
+    // midpoint comparison yields "before".
+    pointedRowSelector = '[data-track-index="1"]'
+    document.dispatchEvent(new MouseEvent('mousemove', { clientX: 30, clientY: 345 }))
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="queue-drop-line-before"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="queue-drop-line-after"]').exists()).toBe(false)
 
     document.dispatchEvent(new MouseEvent('mouseup'))
     await flushPromises()
