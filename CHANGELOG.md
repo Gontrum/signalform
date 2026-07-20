@@ -15,6 +15,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.2] - 2026-07-20
+
+### Fixed
+
+- current playback is now reachable from anywhere on the phone: the mini
+  player is a persistent bar above the bottom nav on every screen (except
+  Now Playing and Setup) whenever something is loaded — previously it only
+  appeared on the home screen. "Back to now playing" in the queue now goes
+  to Now Playing instead of the previous page (with the global nav, that
+  back step could land anywhere)
+- iOS safe areas are now respected: the viewport uses `viewport-fit=cover`
+  (without it `env(safe-area-inset-*)` is always 0 on iPhone), and the
+  bottom nav and mini player get left/right/bottom insets — so they clear
+  the rounded corners and sit out of the home-indicator swipe zone instead
+  of looking clipped
+- the "LMS unreachable" banner now appears within seconds instead of never:
+  it still needs two consecutive failed health probes, but the poll no
+  longer waits 30s between them (the LMS usually woke via wake-on-LAN
+  before the second failure) — failing probes now retry every 4s
+
+---
+
 ## [0.16.1] - 2026-07-20
 
 ### Fixed
