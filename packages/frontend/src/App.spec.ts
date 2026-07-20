@@ -136,7 +136,7 @@ describe('App.vue', () => {
 
   it('renders fullscreen layout container', async () => {
     const wrapper = await createMountedApp()
-    expect(wrapper.find('.h-dvh').exists()).toBe(true)
+    expect(wrapper.find('.h-full').exists()).toBe(true)
   })
 
   it('has RouterView for page content', async () => {
@@ -147,6 +147,15 @@ describe('App.vue', () => {
   it('applies neutral background color', async () => {
     const wrapper = await createMountedApp()
     expect(wrapper.find('.bg-neutral-50').exists()).toBe(true)
+  })
+
+  it('applies the top safe-area inset to the content wrapper so it clears the status bar/notch', async () => {
+    const wrapper = await createMountedApp()
+
+    const content = wrapper.find('[data-testid="app-content"]')
+    expect(content.exists()).toBe(true)
+    // jsdom cannot evaluate env(); assert the utility class is present instead.
+    expect(content.classes()).toContain('pt-[env(safe-area-inset-top)]')
   })
 
   it('does not show the user select dialog when no selection is needed', async () => {

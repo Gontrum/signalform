@@ -7,7 +7,7 @@ const { isPhone, isTablet, isDesktop } = useResponsiveLayout()
 <template>
   <div
     data-testid="layout-container"
-    class="flex h-dvh min-h-0 w-full transition-all duration-300 ease-out"
+    class="flex h-full min-h-0 w-full transition-all duration-300 ease-out"
     :class="{
       'flex-row gap-6': isTablet || isDesktop,
       'flex-col': isPhone,

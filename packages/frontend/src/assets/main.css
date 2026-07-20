@@ -9,6 +9,14 @@
 html,
 body {
   overflow: hidden;
+  height: 100%;
+}
+
+/* Full-height chain: let #app fill the viewport so height:100% descendants
+   (App root h-full → app-content flex-1) measure against a real height.
+   Avoids iOS-standalone 100dvh miscalculation. */
+#app {
+  height: 100%;
 }
 
 @theme {

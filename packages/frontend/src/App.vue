@@ -114,9 +114,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
+  <div class="flex h-full min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
-    <div class="min-h-0 flex-1 overflow-hidden">
+    <div
+      data-testid="app-content"
+      class="min-h-0 flex-1 overflow-hidden pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] pt-[env(safe-area-inset-top)]"
+    >
       <RouterView />
     </div>
     <MiniPlayer v-if="isMiniPlayerRouteAllowed" />

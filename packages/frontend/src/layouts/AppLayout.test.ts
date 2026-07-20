@@ -89,12 +89,12 @@ describe('AppLayout', () => {
     await thenLayoutTransitionsWithAnimation(context.wrapper)
   })
 
-  it('uses dynamic viewport height on phone and tablet layouts', async () => {
+  it('fills its container height on phone and tablet layouts', async () => {
     const context = await givenViewportIsPhone()
 
     await whenLayoutIsMounted(context.wrapper)
 
-    await thenLayoutUsesDynamicViewportHeight(context.wrapper)
+    await thenLayoutFillsContainerHeight(context.wrapper)
   })
 
   // AC1–AC3: Scroll containment — right panel must be height-bounded and overflow-clipped
@@ -215,9 +215,9 @@ describe('AppLayout', () => {
     )
   }
 
-  const thenLayoutUsesDynamicViewportHeight = async (wrapper: VueWrapper): Promise<void> => {
+  const thenLayoutFillsContainerHeight = async (wrapper: VueWrapper): Promise<void> => {
     const container = wrapper.find('[data-testid="layout-container"]')
-    expect(container.classes()).toContain('h-dvh')
+    expect(container.classes()).toContain('h-full')
   }
 
   const thenRightPanelHasScrollContainment = async (wrapper: VueWrapper): Promise<void> => {
