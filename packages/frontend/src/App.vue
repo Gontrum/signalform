@@ -7,7 +7,6 @@ import { shouldTriggerWake } from '@/domains/lms/core/service'
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
-import { useViewportHeight } from '@/app/useViewportHeight'
 import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
@@ -28,10 +27,6 @@ const userStore = useUserStore()
 
 const { isLmsDown } = useLmsHealth()
 const { isPhone } = useResponsiveLayout()
-
-// iOS standalone PWAs report a too-short height to CSS units, leaving a gap
-// below the bottom nav. Size the shell against the JS-measured viewport height.
-useViewportHeight()
 
 onMounted(() => {
   void userStore.load()
@@ -119,10 +114,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-neutral-50"
-    :style="{ height: 'var(--app-height, 100dvh)' }"
-  >
+  <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
     <div
       data-testid="app-content"
