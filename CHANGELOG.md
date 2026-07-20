@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.3] - 2026-07-20
+
+### Fixed
+
+- iPhone layout: the app now fills the screen correctly. The 0.16.2
+  safe-area work exposed two issues — the header overlapped the status bar
+  (with `viewport-fit=cover` the web view extends under it, but the content
+  had no top safe inset), and a large empty gap sat below the bottom nav
+  (routed views still used `h-dvh`/full viewport while the global nav and
+  mini player had shortened the content area, and iOS standalone
+  miscomputes `100dvh`). The content area now gets top/left/right safe
+  insets, and the height model uses a reliable `height:100%` chain so
+  views fill their container and the nav sits flush at the bottom
+
+---
+
 ## [0.16.2] - 2026-07-20
 
 ### Fixed
