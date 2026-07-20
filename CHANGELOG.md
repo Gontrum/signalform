@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.9] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA: the bottom tab bar's icons were clipped on the
+  first paint and only snapped into place after the first navigation
+  (measured: the nav settled ~9px). The app now nudges a reflow once the
+  content has painted (only in standalone display-mode), so the tab bar is
+  placed correctly from the start
+
+---
+
 ## [0.16.8] - 2026-07-20
 
 ### Fixed
