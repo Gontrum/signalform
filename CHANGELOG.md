@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.8] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA (root cause): on-device measurement showed that in
+  standalone display-mode iOS reports `100dvh` as the screen height minus
+  the top safe area (dvh 812 vs screen 874), so the shell was too short and
+  left a gap under the tab bar, while `100vh` reports the full screen. The
+  app shell now uses `100dvh` in the browser (where it correctly excludes
+  the address bar) and `100vh` under `@media (display-mode: standalone)`
+
+---
+
 ## [0.16.7] - 2026-07-20
 
 ### Fixed
