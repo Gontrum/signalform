@@ -2,10 +2,17 @@ import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
 import { fetchLmsHealth } from '@/platform/api/healthApi'
 import { shouldShowLmsDownBanner } from '@/domains/lms/core/service'
 
-/** Poll interval while the LMS is reachable. */
+/** Poll interval while the LMS is reachable (no consecutive failures yet). */
 const HEALTHY_POLL_INTERVAL_MS = 30_000
 /** Faster poll interval while the LMS is down, so recovery is noticed quickly. */
 const DOWN_POLL_INTERVAL_MS = 15_000
+/**
+ * Short retry interval while failures have started accumulating but the banner
+ * threshold is not yet met. Ensures the next failed probe arrives quickly, so
+ * the "LMS down" banner can actually appear even when the LMS is only briefly
+ * unreachable (e.g. between app-start Wake-on-LAN and the LMS waking up).
+ */
+const FAILING_RETRY_INTERVAL_MS = 4_000
 
 type UseLmsHealthResult = {
   /** True once the LMS has failed enough consecutive probes (see core). */
@@ -23,10 +30,12 @@ type UseLmsHealthResult = {
  * itself lives in the functional core (`shouldShowLmsDownBanner`).
  *
  * Polling runs immediately on activation, then on a self-rescheduling timer:
- * every 30s while healthy, every 15s while down. Overlapping requests are
- * skipped via an in-flight guard, and a probe fires immediately whenever the
- * document becomes visible again. All timers and listeners are torn down when
- * the owning scope is disposed (component unmount).
+ * every 30s while healthy (no failures), every 4s once failures have started
+ * but the banner is not yet on (so the next failure lands fast), and every 15s
+ * while down (to notice recovery). Overlapping requests are skipped via an
+ * in-flight guard, and a probe fires immediately whenever the document becomes
+ * visible again. All timers and listeners are torn down when the owning scope
+ * is disposed (component unmount).
  */
 export const useLmsHealth = (): UseLmsHealthResult => {
   const consecutiveFailures = ref(0)
@@ -65,7 +74,12 @@ export const useLmsHealth = (): UseLmsHealthResult => {
     if (disposed.value) {
       return
     }
-    const delay = isLmsDown.value ? DOWN_POLL_INTERVAL_MS : HEALTHY_POLL_INTERVAL_MS
+    const delay =
+      consecutiveFailures.value === 0
+        ? HEALTHY_POLL_INTERVAL_MS
+        : isLmsDown.value
+          ? DOWN_POLL_INTERVAL_MS
+          : FAILING_RETRY_INTERVAL_MS
     timeoutId.value = setTimeout(() => void tick(), delay)
   }
 
