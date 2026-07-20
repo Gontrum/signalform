@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.7] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA (take 2): the previous release measured the height
+  with `window.innerHeight`, but iOS reports that too short in standalone
+  too, so the gap under the tab bar stayed. Reverted to the pure-CSS
+  approach: a `100dvh` shell (which reflects the real usable height on iOS,
+  unlike `vh`) with `viewport-fit=cover` and `env(safe-area-inset-bottom)`
+  on the nav — self-calibrating between browser and standalone
+
+---
+
 ## [0.16.6] - 2026-07-20
 
 ### Fixed
