@@ -12,26 +12,8 @@ body {
   height: 100%;
 }
 
-/* Full-height chain: let #app fill the viewport so height:100% descendants
-   (App root h-full → app-content flex-1) measure against a real height.
-   Avoids iOS-standalone 100dvh miscalculation. */
 #app {
   height: 100%;
-}
-
-/* App shell height. Normally 100dvh (in the browser this correctly excludes
-   the address bar). But an iOS standalone PWA — with the black-translucent
-   status bar + viewport-fit=cover — reports 100dvh as the screen height MINUS
-   the top safe area (measured on-device: dvh 812 vs screen 874, safe-top 62),
-   which leaves a gap at the bottom, while 100vh reports the full physical
-   screen (874). So use 100vh in standalone display-mode only. */
-.app-shell {
-  height: 100dvh;
-}
-@media (display-mode: standalone) {
-  .app-shell {
-    height: 100vh;
-  }
 }
 
 @theme {

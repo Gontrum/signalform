@@ -136,12 +136,11 @@ describe('App.vue', () => {
 
   it('renders fullscreen layout container', async () => {
     const wrapper = await createMountedApp()
-    // The shell height comes from the `.app-shell` rule (100dvh in the
-    // browser, 100vh in standalone display-mode — see main.css), so iOS
-    // standalone PWAs fill the physical screen instead of the short 100dvh.
+    // The shell fills the usable viewport (`h-dvh` = 100dvh, which on an iOS
+    // standalone PWA is the real window height).
     const root = wrapper.find('.bg-neutral-50')
     expect(root.exists()).toBe(true)
-    expect(root.classes()).toContain('app-shell')
+    expect(root.classes()).toContain('h-dvh')
   })
 
   it('has RouterView for page content', async () => {
