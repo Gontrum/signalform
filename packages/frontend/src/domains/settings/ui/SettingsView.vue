@@ -60,6 +60,9 @@ const {
   handlePersonalRadioToggle,
   handleScrobblingToggle,
 } = useSettingsView()
+
+// Injected at build time via Vite `define` (see vite.config.ts).
+const appVersion = __APP_VERSION__
 </script>
 
 <template>
@@ -626,6 +629,10 @@ const {
           </button>
         </div>
       </form>
+
+      <p data-testid="app-version" class="mt-8 text-center text-xs text-neutral-400">
+        Signalform v{{ appVersion }}
+      </p>
     </div>
   </div>
 </template>

@@ -398,6 +398,19 @@ describe('SettingsView', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // App version footer
+  // ---------------------------------------------------------------------------
+
+  it('renders the app version footer', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const footer = wrapper.find('[data-testid="app-version"]')
+    expect(footer.exists()).toBe(true)
+    expect(footer.text()).toContain('Signalform v')
+  })
+
+  // ---------------------------------------------------------------------------
   // API key configured indicators
   // ---------------------------------------------------------------------------
 

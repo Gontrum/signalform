@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig, loadEnv, type UserConfig } from 'vite'
@@ -28,6 +29,21 @@ self.addEventListener('activate', (event) => {
 })
 `.trim()
 
+// Read the app version from package.json at config-evaluation time so it stays
+// in sync with `pnpm version:bump` and is embedded into the (aggressively cached)
+// PWA build via `define` below.
+const packageVersion = (): string => {
+  const packageJsonUrl = new URL('./package.json', import.meta.url)
+  const raw = readFileSync(fileURLToPath(packageJsonUrl), 'utf-8')
+  const parsed: unknown = JSON.parse(raw)
+  return typeof parsed === 'object' &&
+    parsed !== null &&
+    'version' in parsed &&
+    typeof parsed.version === 'string'
+    ? parsed.version
+    : '0.0.0'
+}
+
 const createDevServiceWorkerRecoveryPlugin = () => ({
   name: 'signalform-dev-service-worker-recovery',
   apply: 'serve' as const,
@@ -51,6 +67,9 @@ export const createViteConfig = (mode: string): UserConfig => {
     : []
 
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(packageVersion()),
+    },
     plugins: [
       vue(),
       vueDevTools(),
