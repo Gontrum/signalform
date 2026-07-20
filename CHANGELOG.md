@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.11] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA: the tab bar labels render again. On-device the
+  standalone window is only 812px tall (62px shorter than the physical
+  screen), and the previous `100vh` shell was taller than that window, so
+  the labels landed in the unpaintable bottom zone and vanished. The shell
+  now uses plain `100dvh`, matching the real window
+
+---
+
 ## [0.16.10] - 2026-07-20
 
 ### Fixed
