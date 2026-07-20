@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
+  <div class="app-shell flex min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
     <div
       data-testid="app-content"
