@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.6] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA: the app now reaches the bottom of the screen. In
+  standalone mode iOS reported the available height too short, so the shell
+  ended above the bottom edge and left a gap under the tab bar (in the
+  browser Safari's toolbar hid it). The shell height is now measured from
+  `window.innerHeight` — which iOS reports correctly in standalone — via an
+  `--app-height` variable updated on resize/rotation, so the tab bar sits
+  flush at the bottom
+
+---
+
 ## [0.16.5] - 2026-07-20
 
 ### Added
