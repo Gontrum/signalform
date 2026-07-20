@@ -15,6 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.1] - 2026-07-20
+
+### Fixed
+
+- mobile navigation no longer overflows the viewport: the four-item link
+  row (with long German labels) forced an ugly horizontal scroll on
+  phones. Primary navigation now lives in a bottom tab bar (icons + short
+  labels) on every screen, in the thumb-reachable zone, with the mini
+  player stacked above it. Tablet and desktop keep the top nav. An e2e
+  test now guards against horizontal overflow and against a route losing
+  its navigation on phone
+- the queue view reclaims its vertical space on phones: the playlists
+  panel added in 0.16.0 was always expanded and pushed the track list
+  down to ~2 visible rows. It is now collapsed by default and expands on
+  tap, so the queue list — the point of the view — gets the full height
+
+---
+
 ## [0.16.0] - 2026-07-19
 
 ### Added
