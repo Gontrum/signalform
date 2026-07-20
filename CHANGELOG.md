@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.4] - 2026-07-20
+
+### Fixed
+
+- iPhone: removed the large empty gap under the bottom nav. iOS standalone
+  PWAs resolve `height:100%`/`100dvh` shorter than the physical screen, so
+  the app shell ended above the bottom edge and the nav's safe-area padding
+  stacked on top of it. The shell is now pinned with `position:fixed;
+inset:0`, covering the full screen regardless of that iOS quirk, so the
+  bottom nav sits flush at the bottom
+
+---
+
 ## [0.16.3] - 2026-07-20
 
 ### Fixed
