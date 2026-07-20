@@ -29,6 +29,7 @@ export type MessageKey =
   | 'settings.lmsMacAddress'
   | 'settings.lmsMacAddressHint'
   | 'nav.settings'
+  | 'nav.primary'
   | 'nav.brandTagline'
   | 'nav.brandMotto'
   | 'nav.search'
@@ -222,6 +223,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lmsMacAddressHint':
       'Sent as a wake-up packet when you open the app, so a sleeping server starts up.',
     'nav.settings': 'Settings',
+    'nav.primary': 'Primary',
     'nav.brandTagline': 'Signalform · Focus on the music',
     'nav.brandMotto': 'Focus on the music',
     'nav.search': 'Search',
@@ -414,6 +416,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lmsMacAddressHint':
       'Wird beim Öffnen der App als Wecksignal geschickt, damit ein schlafender Server hochfährt.',
     'nav.settings': 'Einstellungen',
+    'nav.primary': 'Hauptnavigation',
     'nav.brandTagline': 'Signalform · Fokus auf die Musik',
     'nav.brandMotto': 'Fokus auf die Musik',
     'nav.search': 'Suche',

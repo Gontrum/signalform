@@ -33,13 +33,17 @@ test.describe('Phone Layout (375px)', () => {
   test('nav links are accessible on phone', async ({ page }) => {
     await setupApiMocks(page, {})
     await page.goto('/')
-    await page.waitForSelector('[data-testid="main-nav"]')
+    await page.waitForSelector('[data-testid="bottom-nav"]')
 
-    const nav = page.locator('[data-testid="main-nav"]')
-    await expect(nav).toBeVisible()
+    // On phone, primary navigation lives in the bottom tab bar, not the top nav.
+    const bottomNav = page.locator('[data-testid="bottom-nav"]')
+    await expect(bottomNav).toBeVisible()
 
-    const searchLink = page.locator('[data-testid="nav-search"]')
+    const searchLink = page.locator('[data-testid="bottom-nav-search"]')
     await expect(searchLink).toBeVisible()
+
+    // The top-nav link row is not rendered on phone.
+    await expect(page.locator('[data-testid="nav-links"]')).toHaveCount(0)
   })
 
   test('search input is visible and usable on phone', async ({ page }) => {
@@ -54,4 +58,18 @@ test.describe('Phone Layout (375px)', () => {
     // Input should span most of phone width
     expect(box?.width).toBeGreaterThan(300)
   })
+
+  // Regression guard: the wide four-item top nav used to overflow the viewport
+  // on phones (long German labels), producing an ugly horizontal scroll.
+  for (const path of ['/', '/queue', '/library', '/settings']) {
+    test(`no horizontal overflow on phone at ${path}`, async ({ page }) => {
+      await setupApiMocks(page, {})
+      await page.goto(path)
+      await page.waitForSelector('[data-testid="left-panel"]')
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      )
+      expect(overflow).toBeLessThanOrEqual(1)
+    })
+  }
 })

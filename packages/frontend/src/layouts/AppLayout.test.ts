@@ -231,6 +231,22 @@ describe('AppLayout', () => {
     await thenRouteIs(context.router, '/queue')
   })
 
+  it('renders the bottom tab bar on phone', async () => {
+    const context = await givenViewportIsPhone()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    expect(context.wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true)
+  })
+
+  it('does not render the bottom tab bar on tablet', async () => {
+    const context = await givenViewportIsTablet()
+
+    await whenLayoutIsMounted(context.wrapper)
+
+    expect(context.wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
+  })
+
   // AC6: Mini-player hidden on tablet/desktop
   it('does not show mini-player on tablet (AC6)', async () => {
     await givenTrackIsPlaying()
@@ -414,10 +430,10 @@ describe('AppLayout', () => {
     const miniPlayerBar = wrapper.find('[data-testid="mini-player-bar"]')
     const leftPanel = wrapper.find('[data-testid="left-panel"]')
 
-    expect(miniPlayerBar.classes()).toContain('bottom-[max(env(safe-area-inset-bottom),0.75rem)]')
+    expect(miniPlayerBar.classes()).toContain('bottom-[calc(4rem+env(safe-area-inset-bottom))]')
     expect(miniPlayerBar.classes()).toContain('min-h-[56px]')
     expect(miniPlayerBar.classes()).toContain('rounded-2xl')
-    expect(leftPanel.classes()).toContain('pb-[calc(7rem+env(safe-area-inset-bottom))]')
+    expect(leftPanel.classes()).toContain('pb-[calc(8rem+env(safe-area-inset-bottom))]')
   }
 
   const thenMiniPlayerIsHidden = async (wrapper: VueWrapper): Promise<void> => {

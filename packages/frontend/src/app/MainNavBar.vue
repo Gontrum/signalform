@@ -1,14 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
+import { useActiveNav } from '@/app/useActiveNav'
 
-const route = useRoute()
-const isLibrary = computed(() => route.path.startsWith('/library'))
-const isQueue = computed(() => route.path.startsWith('/queue'))
-const isSettings = computed(() => route.path.startsWith('/settings'))
-const isSearch = computed(() => !isLibrary.value && !isQueue.value && !isSettings.value)
+const { isPhone } = useResponsiveLayout()
+
+const { isSearch, isLibrary, isQueue, isSettings } = useActiveNav()
 
 const i18nStore = useI18nStore()
 const { t } = storeToRefs(i18nStore)
@@ -51,6 +50,7 @@ const navLinkClasses = (isActive: boolean): readonly string[] => [
       </div>
 
       <div
+        v-if="!isPhone"
         data-testid="nav-links"
         class="flex w-full items-center gap-1 rounded-2xl bg-neutral-100/80 p-1 sm:ml-auto sm:w-auto"
       >

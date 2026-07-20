@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { Router } from 'vue-router'
 import { createTestRouter, setupTestEnv } from '@/test-utils'
@@ -14,8 +14,42 @@ const createRouter = async (): Promise<Router> => {
   ])
 }
 
+const setViewportWidth = (width: number): void => {
+  vi.stubGlobal('innerWidth', width)
+}
+
+const createMatchMediaMock = (): ((query: string) => MediaQueryList) => {
+  return (query: string): MediaQueryList => {
+    const minWidthMatch = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query)
+    const maxWidthMatch = /max-width:\s*(\d+(?:\.\d+)?)px/.exec(query)
+    const matches = minWidthMatch
+      ? globalThis.innerWidth >= parseFloat(minWidthMatch[1] ?? '0')
+      : maxWidthMatch
+        ? globalThis.innerWidth <= parseFloat(maxWidthMatch[1] ?? '0')
+        : false
+
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }
+  }
+}
+
 beforeEach(() => {
   setupTestEnv()
+  // Default to a desktop viewport so the top-nav link row renders.
+  setViewportWidth(1280)
+  vi.stubGlobal('matchMedia', vi.fn(createMatchMediaMock()))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
 
 describe('MainNavBar', () => {
@@ -127,6 +161,26 @@ describe('MainNavBar', () => {
     expect(linkGroup.exists()).toBe(true)
     expect(linkGroup.classes()).toContain('rounded-2xl')
     expect(linkGroup.classes()).toContain('bg-neutral-100/80')
+  })
+
+  it('renders the top-nav link row on desktop', async () => {
+    setViewportWidth(1280)
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+
+    expect(wrapper.find('[data-testid="nav-links"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="nav-search"]').exists()).toBe(true)
+  })
+
+  it('does not render the top-nav link row on phone', async () => {
+    setViewportWidth(375)
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+
+    expect(wrapper.find('[data-testid="nav-links"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="nav-search"]').exists()).toBe(false)
+    // Brand badge stays visible in the top bar.
+    expect(wrapper.find('[data-testid="brand-badge"]').exists()).toBe(true)
   })
 
   it('keeps Settings active on nested settings routes', async () => {
