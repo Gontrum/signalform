@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, watch } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { RouterView, useRouter, useRoute } from 'vue-router'
 import { getConfig } from '@/platform/api/configApi'
 import { wakeLms } from '@/platform/api/lmsWakeApi'
 import { shouldTriggerWake } from '@/domains/lms/core/service'
@@ -11,8 +11,17 @@ import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
 import BottomNavBar from '@/app/BottomNavBar.vue'
+import MiniPlayer from '@/domains/playback/ui/MiniPlayer.vue'
 
 const router = useRouter()
+const route = useRoute()
+
+// The global mini-player sits above the bottom nav on every page, except where
+// it would be redundant (Now Playing) or out of place (the setup wizard). Its
+// track/phone visibility is owned by the MiniPlayer component itself.
+const isMiniPlayerRouteAllowed = computed(
+  () => route.name !== 'now-playing' && route.name !== 'setup',
+)
 const i18nStore = useI18nStore()
 const userStore = useUserStore()
 
@@ -110,6 +119,7 @@ onBeforeUnmount(() => {
     <div class="min-h-0 flex-1 overflow-hidden">
       <RouterView />
     </div>
+    <MiniPlayer v-if="isMiniPlayerRouteAllowed" />
     <BottomNavBar v-if="isPhone" />
     <UserSelectDialog v-if="userStore.needsSelection" />
   </div>

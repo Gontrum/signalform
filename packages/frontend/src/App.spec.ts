@@ -91,6 +91,33 @@ const createMountedApp = async (): Promise<VueWrapper> => {
   return mount(App, { global: { plugins: [router] } })
 }
 
+const createMountedAppAt = async (initialPath: string): Promise<VueWrapper> => {
+  const router = await createTestRouter(
+    [
+      { path: '/', name: 'home', component: HomeView },
+      { path: '/now-playing', name: 'now-playing', component: { template: '<div />' } },
+      { path: '/setup', name: 'setup', component: { template: '<div />' } },
+    ],
+    initialPath,
+  )
+  return mount(App, { global: { plugins: [router] } })
+}
+
+// The global mini-player only shows when a track is loaded; seed the playback
+// store so shouldShowPhonePlaybackShortcut becomes true on a phone viewport.
+const givenTrackIsPlaying = async (): Promise<void> => {
+  const { usePlaybackStore } = await import('@/domains/playback/shell/usePlaybackStore')
+  usePlaybackStore().$patch({
+    currentTrack: {
+      id: '1',
+      title: 'Test Track',
+      artist: 'Test Artist',
+      album: 'Test Album',
+      url: 'track://1',
+    },
+  })
+}
+
 describe('App.vue', () => {
   beforeEach(() => {
     setupTestEnv()
@@ -198,6 +225,46 @@ describe('App.vue', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
+  })
+
+  it('shows the global mini-player on a phone viewport while a track is loaded', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedApp()
+    await givenTrackIsPlaying()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="mini-player-bar"]').exists()).toBe(true)
+  })
+
+  it('hides the mini-player on the now-playing route even with a track loaded', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedAppAt('/now-playing')
+    await givenTrackIsPlaying()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="mini-player-bar"]').exists()).toBe(false)
+  })
+
+  it('hides the mini-player on the setup route even with a track loaded', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedAppAt('/setup')
+    await givenTrackIsPlaying()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="mini-player-bar"]').exists()).toBe(false)
+  })
+
+  it('does not show the mini-player on a desktop viewport', async () => {
+    setViewportWidth(1024)
+
+    const wrapper = await createMountedApp()
+    await givenTrackIsPlaying()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="mini-player-bar"]').exists()).toBe(false)
   })
 
   it('shows the user select dialog when multiple users exist without a selection', async () => {

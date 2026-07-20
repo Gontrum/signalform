@@ -178,6 +178,7 @@ const makeQueueRouter = (): ReturnType<typeof createTestRouter> =>
     [
       { path: '/', component: { template: '<div />' } },
       { path: '/queue', name: 'queue', component: { template: '<div />' } },
+      { path: '/now-playing', name: 'now-playing', component: { template: '<div />' } },
     ],
     '/queue',
   )
@@ -1502,16 +1503,18 @@ describe('QueueView', () => {
     wrapper.unmount()
   })
 
-  it('calls router.back() when back button is clicked', async () => {
+  it('navigates to Now Playing when the back button is clicked', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
-    const backSpy = vi.spyOn(router, 'back')
+    const pushSpy = vi.spyOn(router, 'push')
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
 
     await wrapper.find('[data-testid="back-button"]').trigger('click')
+    await flushPromises()
 
-    expect(backSpy).toHaveBeenCalled()
+    expect(pushSpy).toHaveBeenCalledWith({ name: 'now-playing' })
+    expect(router.currentRoute.value.name).toBe('now-playing')
   })
 
   describe('select mode', () => {

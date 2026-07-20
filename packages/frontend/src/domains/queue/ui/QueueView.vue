@@ -12,8 +12,8 @@ import { useQueueDrag } from '../shell/useQueueDrag'
 import { useQueueStore } from '../shell/useQueueStore'
 
 const router = useRouter()
-const goBack = (): void => {
-  void router.back()
+const goToNowPlaying = (): void => {
+  void router.push({ name: 'now-playing' })
 }
 
 const i18nStore = useI18nStore()
@@ -223,7 +223,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
       type="button"
       data-testid="back-button"
       class="mb-6 flex items-center gap-2 text-sm text-neutral-500 hover:text-neutral-900"
-      @click="goBack"
+      @click="goToNowPlaying"
     >
       ← {{ t('queue.backToNowPlaying') }}
     </button>
