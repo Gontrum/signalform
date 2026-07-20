@@ -136,7 +136,12 @@ describe('App.vue', () => {
 
   it('renders fullscreen layout container', async () => {
     const wrapper = await createMountedApp()
-    expect(wrapper.find('.h-full').exists()).toBe(true)
+    // The shell is pinned to the full layout viewport via `fixed inset-0` so
+    // iOS standalone PWAs fill the physical screen (h-full/dvh resolve short).
+    const root = wrapper.find('.bg-neutral-50')
+    expect(root.exists()).toBe(true)
+    expect(root.classes()).toContain('fixed')
+    expect(root.classes()).toContain('inset-0')
   })
 
   it('has RouterView for page content', async () => {
