@@ -249,14 +249,55 @@ describe('QueueView', () => {
     await flushPromises()
   })
 
-  it('renders the playlists panel', async () => {
+  it('keeps the playlists panel collapsed by default and exposes a toggle', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
 
+    const toggle = wrapper.find('[data-testid="playlists-toggle"]')
+    expect(toggle.exists()).toBe(true)
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(toggle.attributes('aria-controls')).toBeUndefined()
+    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(false)
+  })
+
+  it('reveals the playlists panel and marks the toggle expanded on click', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
+    await nextTick()
+
     expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
+    const toggle = wrapper.find('[data-testid="playlists-toggle"]')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(toggle.attributes('aria-controls')).toBe('playlists-panel-region')
+  })
+
+  it('collapses the playlists panel again on a second toggle click', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const toggle = wrapper.find('[data-testid="playlists-toggle"]')
+    await toggle.trigger('click')
+    await nextTick()
+    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
+
+    await toggle.trigger('click')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="playlists-toggle"]').attributes('aria-expanded')).toBe(
+      'false',
+    )
   })
 
   it('shows empty state when queue is empty', async () => {

@@ -74,6 +74,12 @@ const {
 const clearConfirmPending = ref(false)
 const clearConfirmTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
+const isPlaylistsOpen = ref(false)
+
+const togglePlaylists = (): void => {
+  isPlaylistsOpen.value = !isPlaylistsOpen.value
+}
+
 onMounted(async () => {
   await queueStore.fetchQueue()
 })
@@ -224,7 +230,30 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
     <h1 class="mb-4 text-2xl font-semibold text-neutral-900">
       {{ t('queue.title') }}
     </h1>
-    <PlaylistsPanel />
+    <button
+      type="button"
+      data-testid="playlists-toggle"
+      class="mb-4 flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+      :aria-expanded="isPlaylistsOpen ? 'true' : 'false'"
+      :aria-controls="isPlaylistsOpen ? 'playlists-panel-region' : undefined"
+      @click="togglePlaylists"
+    >
+      <span>{{ t('playlists.title') }}</span>
+      <svg
+        class="h-4 w-4 flex-shrink-0 text-neutral-400 transition-transform"
+        :class="{ 'rotate-180': isPlaylistsOpen }"
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.75"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        aria-hidden="true"
+      >
+        <path d="m6 8 4 4 4-4" />
+      </svg>
+    </button>
+    <PlaylistsPanel v-if="isPlaylistsOpen" id="playlists-panel-region" />
     <div
       v-if="tracks.length > 0 || isSelectMode"
       class="mb-4 flex items-center justify-between gap-2"
