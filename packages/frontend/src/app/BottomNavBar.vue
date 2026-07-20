@@ -24,7 +24,7 @@ const labelClasses = (isActive: boolean): readonly string[] => [
   <nav
     :aria-label="t('nav.primary')"
     data-testid="bottom-nav"
-    class="fixed inset-x-0 bottom-0 z-40 flex overflow-hidden border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]"
+    class="flex w-full shrink-0 overflow-hidden border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]"
   >
     <RouterLink
       to="/"

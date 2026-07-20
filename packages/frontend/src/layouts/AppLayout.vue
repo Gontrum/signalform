@@ -3,7 +3,6 @@ import { useRouter } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { usePhonePlaybackShortcut } from '@/domains/playback/shell/usePhonePlaybackShortcut'
-import BottomNavBar from '@/app/BottomNavBar.vue'
 
 const router = useRouter()
 const { isPhone, isTablet, isDesktop } = useResponsiveLayout()
@@ -41,8 +40,7 @@ const navigateToQueue = (): void => {
       :class="{
         'w-full md:w-[60%]': isTablet || isDesktop,
         'w-full': isPhone,
-        'pb-[calc(8rem+env(safe-area-inset-bottom))]': isPhone && shouldShowPhonePlaybackShortcut,
-        'pb-[calc(4rem+env(safe-area-inset-bottom))]': isPhone && !shouldShowPhonePlaybackShortcut,
+        'pb-20': isPhone && shouldShowPhonePlaybackShortcut,
       }"
     >
       <slot name="left" />
@@ -62,7 +60,7 @@ const navigateToQueue = (): void => {
     <div
       v-if="shouldShowPhonePlaybackShortcut"
       data-testid="mini-player-bar"
-      class="fixed inset-x-3 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-50 flex min-h-[56px] items-stretch rounded-2xl border border-neutral-200 bg-white shadow-xl"
+      class="fixed inset-x-3 bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)] z-50 flex min-h-[56px] items-stretch rounded-2xl border border-neutral-200 bg-white shadow-xl"
     >
       <button
         data-testid="mini-player"
@@ -131,8 +129,5 @@ const navigateToQueue = (): void => {
         </svg>
       </button>
     </div>
-
-    <!-- Bottom Tab Bar: primary navigation on phone -->
-    <BottomNavBar v-if="isPhone" />
   </div>
 </template>

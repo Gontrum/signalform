@@ -6,15 +6,18 @@ import { wakeLms } from '@/platform/api/lmsWakeApi'
 import { shouldTriggerWake } from '@/domains/lms/core/service'
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { useI18nStore } from '@/app/i18nStore'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
+import BottomNavBar from '@/app/BottomNavBar.vue'
 
 const router = useRouter()
 const i18nStore = useI18nStore()
 const userStore = useUserStore()
 
 const { isLmsDown } = useLmsHealth()
+const { isPhone } = useResponsiveLayout()
 
 onMounted(() => {
   void userStore.load()
@@ -102,9 +105,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="h-dvh min-h-0 w-full overflow-hidden bg-neutral-50">
+  <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
-    <RouterView />
+    <div class="min-h-0 flex-1 overflow-hidden">
+      <RouterView />
+    </div>
+    <BottomNavBar v-if="isPhone" />
     <UserSelectDialog v-if="userStore.needsSelection" />
   </div>
 </template>

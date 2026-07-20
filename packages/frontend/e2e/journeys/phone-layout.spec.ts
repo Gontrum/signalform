@@ -59,13 +59,22 @@ test.describe('Phone Layout (375px)', () => {
     expect(box?.width).toBeGreaterThan(300)
   })
 
-  // Regression guard: the wide four-item top nav used to overflow the viewport
-  // on phones (long German labels), producing an ugly horizontal scroll.
+  // Regression guard: the global bottom nav must be present on every route (it
+  // used to live only in the Home layout, leaving other routes without phone
+  // navigation), and the wide four-item nav must not overflow the viewport on
+  // phones (long German labels once produced an ugly horizontal scroll).
   for (const path of ['/', '/queue', '/library', '/settings']) {
-    test(`no horizontal overflow on phone at ${path}`, async ({ page }) => {
+    test(`bottom nav is visible with no horizontal overflow on phone at ${path}`, async ({
+      page,
+    }) => {
       await setupApiMocks(page, {})
       await page.goto(path)
-      await page.waitForSelector('[data-testid="left-panel"]')
+
+      // The bottom nav is global, so it renders on every route — waiting on it
+      // (instead of the Home-only left panel) also asserts the regression fix.
+      await page.waitForSelector('[data-testid="bottom-nav"]')
+      await expect(page.locator('[data-testid="bottom-nav"]')).toBeVisible()
+
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       )

@@ -231,16 +231,10 @@ describe('AppLayout', () => {
     await thenRouteIs(context.router, '/queue')
   })
 
-  it('renders the bottom tab bar on phone', async () => {
+  // The bottom tab bar is rendered globally by App.vue (not by AppLayout), so
+  // it must NOT appear inside AppLayout on any breakpoint.
+  it('does not render the bottom tab bar (it is owned globally by App.vue)', async () => {
     const context = await givenViewportIsPhone()
-
-    await whenLayoutIsMounted(context.wrapper)
-
-    expect(context.wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true)
-  })
-
-  it('does not render the bottom tab bar on tablet', async () => {
-    const context = await givenViewportIsTablet()
 
     await whenLayoutIsMounted(context.wrapper)
 
@@ -430,10 +424,15 @@ describe('AppLayout', () => {
     const miniPlayerBar = wrapper.find('[data-testid="mini-player-bar"]')
     const leftPanel = wrapper.find('[data-testid="left-panel"]')
 
-    expect(miniPlayerBar.classes()).toContain('bottom-[calc(4rem+env(safe-area-inset-bottom))]')
+    // Floats above the global bottom nav (56px + safe-area + a small gap).
+    expect(miniPlayerBar.classes()).toContain(
+      'bottom-[calc(3.5rem+env(safe-area-inset-bottom)+0.5rem)]',
+    )
     expect(miniPlayerBar.classes()).toContain('min-h-[56px]')
     expect(miniPlayerBar.classes()).toContain('rounded-2xl')
-    expect(leftPanel.classes()).toContain('pb-[calc(8rem+env(safe-area-inset-bottom))]')
+    // On phone the left panel only reserves space for the mini-player itself;
+    // the global nav lives outside the RouterView area.
+    expect(leftPanel.classes()).toContain('pb-20')
   }
 
   const thenMiniPlayerIsHidden = async (wrapper: VueWrapper): Promise<void> => {

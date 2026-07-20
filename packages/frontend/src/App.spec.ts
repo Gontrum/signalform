@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { computed, ref } from 'vue'
 import { ok } from '@signalform/shared'
@@ -59,6 +59,33 @@ vi.mock('@/platform/api/lmsWakeApi', () => ({
   wakeLms: vi.fn().mockResolvedValue(undefined),
 }))
 
+const setViewportWidth = (width: number): void => {
+  vi.stubGlobal('innerWidth', width)
+}
+
+const createMatchMediaMock = (): ((query: string) => MediaQueryList) => {
+  return (query: string): MediaQueryList => {
+    const minWidthMatch = /min-width:\s*(\d+(?:\.\d+)?)px/.exec(query)
+    const maxWidthMatch = /max-width:\s*(\d+(?:\.\d+)?)px/.exec(query)
+    const matches = minWidthMatch
+      ? globalThis.innerWidth >= parseFloat(minWidthMatch[1] ?? '0')
+      : maxWidthMatch
+        ? globalThis.innerWidth <= parseFloat(maxWidthMatch[1] ?? '0')
+        : false
+
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }
+  }
+}
+
 const createMountedApp = async (): Promise<VueWrapper> => {
   const router = await createTestRouter([{ path: '/', name: 'home', component: HomeView }])
   return mount(App, { global: { plugins: [router] } })
@@ -70,6 +97,14 @@ describe('App.vue', () => {
     localStorage.clear()
     vi.clearAllMocks()
     stubLmsHealth(false)
+    // Default to a desktop viewport so the bottom nav stays hidden unless a
+    // test explicitly switches to a phone width.
+    setViewportWidth(1024)
+    vi.stubGlobal('matchMedia', vi.fn(createMatchMediaMock()))
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('renders fullscreen layout container', async () => {
@@ -136,6 +171,33 @@ describe('App.vue', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="lms-down-banner"]').exists()).toBe(false)
+  })
+
+  it('renders the global bottom nav on a phone viewport', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true)
+  })
+
+  it('does not render the bottom nav on a desktop viewport', async () => {
+    setViewportWidth(1024)
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
+  })
+
+  it('does not render the bottom nav on a tablet viewport', async () => {
+    setViewportWidth(900)
+
+    const wrapper = await createMountedApp()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
   })
 
   it('shows the user select dialog when multiple users exist without a selection', async () => {

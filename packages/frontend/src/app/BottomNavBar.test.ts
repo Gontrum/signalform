@@ -19,15 +19,17 @@ beforeEach(() => {
 })
 
 describe('BottomNavBar', () => {
-  it('renders a fixed bottom nav container', async () => {
+  it('renders a full-width, non-shrinking bottom nav container', async () => {
     const router = await createRouter()
     const wrapper = mount(BottomNavBar, { global: { plugins: [router] } })
 
     const nav = wrapper.find('[data-testid="bottom-nav"]')
     expect(nav.exists()).toBe(true)
     expect(nav.element.tagName).toBe('NAV')
-    expect(nav.classes()).toContain('fixed')
-    expect(nav.classes()).toContain('bottom-0')
+    // The nav is a normal flex child of App.vue's column layout, not fixed.
+    expect(nav.classes()).not.toContain('fixed')
+    expect(nav.classes()).toContain('w-full')
+    expect(nav.classes()).toContain('shrink-0')
     expect(nav.classes()).toContain('overflow-hidden')
   })
 
