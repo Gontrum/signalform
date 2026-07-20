@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.10] - 2026-07-20
+
+### Fixed
+
+- installed iPhone PWA: switched the iOS status bar style from
+  `black-translucent` to `default`. On-device measurement showed the
+  standalone layout viewport was 62px shorter than the physical screen (the
+  size of the top safe area), leaving a dead zone at the bottom where the
+  tab bar labels fell and disappeared; `default` gives the app the full
+  usable height
+
+---
+
 ## [0.16.9] - 2026-07-20
 
 ### Fixed
