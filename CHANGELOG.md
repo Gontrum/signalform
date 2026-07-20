@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.5] - 2026-07-20
+
+### Added
+
+- the running app version is now shown at the bottom of Settings
+  ("Signalform vX.Y.Z"), so you can tell which build the (aggressively
+  caching) PWA is actually running after an update
+
+---
+
 ## [0.16.4] - 2026-07-20
 
 ### Fixed
