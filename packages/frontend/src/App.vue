@@ -16,12 +16,12 @@ import MiniPlayer from '@/domains/playback/ui/MiniPlayer.vue'
 const router = useRouter()
 const route = useRoute()
 
-// The global mini-player sits above the bottom nav on every page, except where
-// it would be redundant (Now Playing) or out of place (the setup wizard). Its
-// track/phone visibility is owned by the MiniPlayer component itself.
-const isMiniPlayerRouteAllowed = computed(
-  () => route.name !== 'now-playing' && route.name !== 'setup',
-)
+// Now Playing and the setup wizard are immersive, full-screen views: they hide
+// both the global mini-player (redundant/out of place there) and the bottom tab
+// bar, so their own chrome (back button, floating queue toggle) can own the
+// screen — like Apple Music / Spotify's now-playing screen. The mini-player's
+// track/phone visibility is still owned by the MiniPlayer component itself.
+const isImmersiveRoute = computed(() => route.name === 'now-playing' || route.name === 'setup')
 const i18nStore = useI18nStore()
 const userStore = useUserStore()
 
@@ -119,8 +119,8 @@ onBeforeUnmount(() => {
     <div data-testid="app-content" class="min-h-0 flex-1 overflow-hidden">
       <RouterView />
     </div>
-    <MiniPlayer v-if="isMiniPlayerRouteAllowed" />
-    <BottomNavBar v-if="isPhone" />
+    <MiniPlayer v-if="!isImmersiveRoute" />
+    <BottomNavBar v-if="isPhone && !isImmersiveRoute" />
     <UserSelectDialog v-if="userStore.needsSelection" />
   </div>
 </template>

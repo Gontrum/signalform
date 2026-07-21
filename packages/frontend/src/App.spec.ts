@@ -221,6 +221,24 @@ describe('App.vue', () => {
     expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true)
   })
 
+  it('hides the bottom nav on the now-playing route on a phone viewport', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedAppAt('/now-playing')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
+  })
+
+  it('hides the bottom nav on the setup route on a phone viewport', async () => {
+    setViewportWidth(375)
+
+    const wrapper = await createMountedAppAt('/setup')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
+  })
+
   it('does not render the bottom nav on a desktop viewport', async () => {
     setViewportWidth(1024)
 
