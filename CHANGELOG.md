@@ -15,6 +15,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.17.1] - 2026-07-21
+
+### Fixed
+
+- mobile Library: the genre filter chips no longer force the whole page
+  to scroll horizontally — they wrap onto multiple lines instead
+- mobile Library: tapping an album cover now navigates to its track list
+  as expected, instead of immediately starting playback (the hover-only
+  play button had no real `:hover` state on touch and was catching the
+  tap)
+- mobile mini-player: tapping the play/pause icon in the bottom bar now
+  toggles playback instead of always navigating to Now Playing
+- Now Playing: the page title and the mini-player's accessibility label
+  are localized again instead of always showing English
+- Library now has the same accessible desktop heading Settings already
+  had
+- app chrome (nav bars, headers) consistently disables text selection
+  again — the bottom tab bar had a gap where labels could be selected on
+  long-press
+- page transitions: the outgoing screen can no longer be tapped while
+  it's sliding out, closing a brief double-tap window during navigation
+
+### Changed
+
+- updated `pinia` to 4.0.2
+
+---
+
 ## [0.17.0] - 2026-07-21
 
 ### Added
