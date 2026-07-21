@@ -112,6 +112,55 @@ describe('MiniPlayer', () => {
     expect(router.currentRoute.value.path).toBe('/queue')
   })
 
+  it('toggles playback without navigating when playing (calls pause)', async () => {
+    stubPhonePlaybackShortcut({ title: 'Test Track', artist: 'Test Artist', isPlaying: true })
+
+    const { wrapper, router } = await mountMiniPlayer()
+    const playbackStore = usePlaybackStore()
+    const pauseSpy = vi.spyOn(playbackStore, 'pause').mockResolvedValue(undefined)
+    const resumeSpy = vi.spyOn(playbackStore, 'resume').mockResolvedValue(undefined)
+
+    await wrapper.find('[data-testid="mini-player-playpause"]').trigger('click')
+    await flushPromises()
+
+    expect(pauseSpy).toHaveBeenCalledTimes(1)
+    expect(resumeSpy).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
+  it('toggles playback without navigating when paused (calls resume)', async () => {
+    const playbackStore = usePlaybackStore()
+    playbackStore.$patch({
+      currentTrack: {
+        id: '1',
+        title: 'Test Track',
+        artist: 'Test Artist',
+        album: 'Test Album',
+        url: 'track://1',
+      },
+      isPlaying: false,
+      isPaused: true,
+    })
+
+    mockUsePhonePlaybackShortcut.mockReturnValue({
+      playbackStore,
+      hasQueuedTracks: computed(() => false),
+      shouldShowPhonePlaybackShortcut: computed(() => true),
+      phonePlaybackShortcutLabel: computed(() => 'Now Playing'),
+    })
+
+    const { wrapper, router } = await mountMiniPlayer()
+    const pauseSpy = vi.spyOn(playbackStore, 'pause').mockResolvedValue(undefined)
+    const resumeSpy = vi.spyOn(playbackStore, 'resume').mockResolvedValue(undefined)
+
+    await wrapper.find('[data-testid="mini-player-playpause"]').trigger('click')
+    await flushPromises()
+
+    expect(resumeSpy).toHaveBeenCalledTimes(1)
+    expect(pauseSpy).not.toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/')
+  })
+
   it('falls back to queue labels when only queued tracks exist', async () => {
     stubPhonePlaybackShortcut({ hasQueuedTracks: true, label: 'View Full Queue' })
 

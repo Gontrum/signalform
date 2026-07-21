@@ -45,6 +45,18 @@ describe('AlbumCard', () => {
     expect(overlay.classes()).toContain('opacity-0')
   })
 
+  // Bug fix: overlay must not capture taps on mobile (no real hover state) so
+  // taps fall through to the card's own click:navigate handler
+  it('overlay is non-interactive until hovered (pointer-events-none / group-hover:pointer-events-auto)', () => {
+    const wrapper = mount(AlbumCard, {
+      props: { album: makeAlbum() },
+    })
+
+    const overlay = wrapper.find('[data-testid="album-hover-overlay"]')
+    expect(overlay.classes()).toContain('pointer-events-none')
+    expect(overlay.classes()).toContain('group-hover:pointer-events-auto')
+  })
+
   // AC4: click on card body → emit 'click:navigate' with albumId
   it('emits click:navigate with albumId when card body is clicked', async () => {
     const wrapper = mount(AlbumCard, {

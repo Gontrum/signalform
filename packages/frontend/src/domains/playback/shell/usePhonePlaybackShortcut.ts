@@ -22,7 +22,7 @@ export const usePhonePlaybackShortcut = (): UsePhonePlaybackShortcutResult => {
     () => isPhone.value && (playbackStore.hasCurrentTrack || hasQueuedTracks.value),
   )
   const phonePlaybackShortcutLabel = computed(() =>
-    playbackStore.hasCurrentTrack ? 'Open Now Playing' : t('nowPlaying.viewFullQueue'),
+    playbackStore.hasCurrentTrack ? t('nowPlaying.playingBadge') : t('nowPlaying.viewFullQueue'),
   )
 
   return {

@@ -2,6 +2,7 @@
 import { useRouter } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
 import { usePhonePlaybackShortcut } from '@/domains/playback/shell/usePhonePlaybackShortcut'
+import { usePlaybackControls } from '@/domains/playback/shell/usePlaybackControls'
 
 const router = useRouter()
 const i18nStore = useI18nStore()
@@ -11,6 +12,7 @@ const {
   shouldShowPhonePlaybackShortcut,
   phonePlaybackShortcutLabel,
 } = usePhonePlaybackShortcut()
+const { handlePlayPause } = usePlaybackControls()
 const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
 const navigateToNowPlaying = (): void => {
@@ -48,30 +50,40 @@ const navigateToQueue = (): void => {
           }}
         </p>
       </div>
+    </button>
 
-      <!-- Play/Pause indicator -->
-      <div class="flex-shrink-0">
-        <svg
-          v-if="playbackStore.isCurrentlyPlaying"
-          class="h-6 w-6 text-accent-500"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <!-- Pause icon -->
-          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
-        </svg>
-        <svg
-          v-else
-          class="h-6 w-6 text-accent-500"
-          fill="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <!-- Play icon -->
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </div>
+    <!-- Play/Pause toggle -->
+    <button
+      data-testid="mini-player-playpause"
+      type="button"
+      class="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center bg-transparent px-2 hover:bg-neutral-50"
+      :aria-label="
+        playbackStore.isCurrentlyPlaying
+          ? t('nowPlaying.playingBadge')
+          : t('nowPlaying.pausedBadge')
+      "
+      @click="handlePlayPause"
+    >
+      <svg
+        v-if="playbackStore.isCurrentlyPlaying"
+        class="h-6 w-6 text-accent-500"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <!-- Pause icon -->
+        <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+      </svg>
+      <svg
+        v-else
+        class="h-6 w-6 text-accent-500"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+        aria-hidden="true"
+      >
+        <!-- Play icon -->
+        <path d="M8 5v14l11-7z" />
+      </svg>
     </button>
 
     <!-- Queue shortcut -->

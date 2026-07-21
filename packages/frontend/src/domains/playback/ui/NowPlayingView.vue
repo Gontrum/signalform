@@ -17,7 +17,7 @@ const goToQueue = (): void => {
 
 <template>
   <div class="flex h-full min-h-0 flex-col bg-white pb-[env(safe-area-inset-bottom)]">
-    <PageHeader title="Now Playing" show-back back-icon="down" />
+    <PageHeader :title="t('nowPlaying.playingBadge')" show-back back-icon="down" />
 
     <!-- Panel content -->
     <div

@@ -102,4 +102,15 @@ describe('NowPlayingView', () => {
 
     expect(wrapper.find('[data-testid="now-playing-queue-shortcut"]').exists()).toBe(false)
   })
+
+  // Bug fix: page title must be translated, not hardcoded English
+  it('renders the translated page title in German', async () => {
+    const { useI18nStore } = await import('@/app/i18nStore')
+    useI18nStore().setLanguage('de')
+
+    const { wrapper } = await mountView()
+
+    const header = wrapper.find('[data-testid="page-header"]')
+    expect(header.text()).toContain('Läuft gerade')
+  })
 })

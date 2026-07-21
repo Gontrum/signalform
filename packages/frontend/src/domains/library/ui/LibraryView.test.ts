@@ -626,6 +626,25 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="genre-chip-all"]').text()).toContain('All genres')
   })
 
+  // Bug fix: genre chip row must wrap instead of horizontally scrolling on mobile
+  it('genre-filter-row wraps chips instead of scrolling horizontally', async () => {
+    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
+    vi.mocked(getLibraryAlbums).mockResolvedValue({
+      ok: true,
+      value: {
+        albums: [makeAlbum('1', { genre: 'Rock' }), makeAlbum('2', { genre: 'Jazz' })],
+        totalCount: 2,
+      },
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    const genreRow = context.wrapper.find('[data-testid="genre-filter-row"]')
+    expect(genreRow.classes()).not.toContain('overflow-x-auto')
+    expect(genreRow.classes()).toContain('flex-wrap')
+  })
+
   // AC4: selecting a genre → only matching albums shown
   it('shows only albums matching selected genre', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
@@ -1129,5 +1148,19 @@ describe('LibraryView', () => {
     expect(header.exists()).toBe(true)
     expect(header.text()).toContain('Library')
     expect(context.wrapper.find('[data-testid="page-header-back"]').exists()).toBe(false)
+  })
+
+  it('renders a visually-hidden h1 with the library title on desktop, where PageHeader is not shown', async () => {
+    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
+    vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
+    isPhone.value = false
+
+    const context = await mountView()
+
+    expect(context.wrapper.find('[data-testid="page-header"]').exists()).toBe(false)
+    const heading = context.wrapper.find('h1')
+    expect(heading.exists()).toBe(true)
+    expect(heading.classes()).toContain('sr-only')
+    expect(heading.text()).toBe('Library')
   })
 })

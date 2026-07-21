@@ -50,6 +50,7 @@ const {
   <div data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
     <MainNavBar v-if="!isPhone" />
     <PageHeader v-if="isPhone" :title="t('nav.library')" />
+    <h1 v-else class="sr-only">{{ t('nav.library') }}</h1>
 
     <div class="px-4 py-4 sm:px-6">
       <!-- Source selector (AC1 — Story 8.1) -->
@@ -248,40 +249,43 @@ const {
             </button>
           </div>
 
-          <!-- Genre chips — horizontal scroll on mobile -->
-          <div class="-mx-6 px-6 overflow-x-auto" data-testid="genre-filter-row">
-            <div class="flex gap-2 pb-1" role="group" aria-label="Filter by genre">
-              <button
-                type="button"
-                :data-testid="`genre-chip-all`"
-                :aria-pressed="genreFilter === null ? 'true' : 'false'"
-                :class="[
-                  'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
-                  genreFilter === null
-                    ? 'border-neutral-900 bg-neutral-900 text-white'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-                ]"
-                @click="setGenreFilter(null)"
-              >
-                {{ t('library.genre.all') }}
-              </button>
-              <button
-                v-for="genre in availableGenres"
-                :key="genre"
-                type="button"
-                :data-testid="`genre-chip-${genre}`"
-                :aria-pressed="genreFilter === genre ? 'true' : 'false'"
-                :class="[
-                  'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
-                  genreFilter === genre
-                    ? 'border-neutral-900 bg-neutral-900 text-white'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-                ]"
-                @click="setGenreFilter(genre)"
-              >
-                {{ genre }}
-              </button>
-            </div>
+          <!-- Genre chips -->
+          <div
+            class="flex flex-wrap gap-2"
+            data-testid="genre-filter-row"
+            role="group"
+            aria-label="Filter by genre"
+          >
+            <button
+              type="button"
+              :data-testid="`genre-chip-all`"
+              :aria-pressed="genreFilter === null ? 'true' : 'false'"
+              :class="[
+                'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
+                genreFilter === null
+                  ? 'border-neutral-900 bg-neutral-900 text-white'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
+              ]"
+              @click="setGenreFilter(null)"
+            >
+              {{ t('library.genre.all') }}
+            </button>
+            <button
+              v-for="genre in availableGenres"
+              :key="genre"
+              type="button"
+              :data-testid="`genre-chip-${genre}`"
+              :aria-pressed="genreFilter === genre ? 'true' : 'false'"
+              :class="[
+                'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
+                genreFilter === genre
+                  ? 'border-neutral-900 bg-neutral-900 text-white'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
+              ]"
+              @click="setGenreFilter(genre)"
+            >
+              {{ genre }}
+            </button>
           </div>
 
           <!-- Clear all filters -->
