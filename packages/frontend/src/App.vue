@@ -32,22 +32,6 @@ onMounted(() => {
   void userStore.load()
 })
 
-// iOS standalone PWA only: on the very first paint the bottom nav sits a few px
-// too low (measured: its bottom settles from the shell edge up to the visible
-// edge only after the first route change), which clips the tab icons against
-// the home indicator. Nudge a reflow once the content has painted so the layout
-// settles up front instead of after the first navigation. Gated to standalone
-// so the browser (and tests) are unaffected.
-onMounted(() => {
-  if (!window.matchMedia('(display-mode: standalone)').matches) return
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      window.dispatchEvent(new Event('resize'))
-      void document.body.getBoundingClientRect()
-    })
-  })
-})
-
 // Wake-on-LAN: nudge a sleeping LMS server when the app is opened or comes
 // back into view, throttled so tab switching does not spam wake packets.
 let lastWakeAt = 0
