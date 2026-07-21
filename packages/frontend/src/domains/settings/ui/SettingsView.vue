@@ -73,6 +73,7 @@ const appVersion = __APP_VERSION__
   <div class="h-full overflow-y-auto" data-testid="settings-view">
     <MainNavBar v-if="!isPhone" />
     <PageHeader v-if="isPhone" :title="t('settings.title')" />
+    <h1 v-else class="sr-only">{{ t('settings.title') }}</h1>
 
     <div class="mx-auto max-w-xl px-4 py-4 sm:px-6">
       <div v-if="loading" class="flex justify-center py-8" data-testid="settings-loading">

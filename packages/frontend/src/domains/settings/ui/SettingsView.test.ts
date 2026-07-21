@@ -180,6 +180,18 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="page-header"]').exists()).toBe(true)
   })
 
+  it('renders a visually-hidden h1 with the settings title on desktop, where PageHeader is not shown', async () => {
+    isPhone.value = false
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('[data-testid="page-header"]').exists()).toBe(false)
+    const heading = wrapper.find('h1')
+    expect(heading.exists()).toBe(true)
+    expect(heading.classes()).toContain('sr-only')
+    expect(heading.text()).toBe('Settings')
+  })
+
   it('populates the MAC address field from the loaded config', async () => {
     const { getConfig } = await import('@/platform/api/configApi')
     const { ok } = await import('@signalform/shared')

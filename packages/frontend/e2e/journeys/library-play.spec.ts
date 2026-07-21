@@ -41,13 +41,20 @@ test('Journey 4: Library nav → album grid → click album → AlbumDetailView 
   await expect(page.getByTestId('album-detail-view')).toBeVisible({
     timeout: 5000,
   })
-  await expect(page.getByTestId('play-album-button')).toBeVisible({
+  // Scoped to album-detail-content: during the push/pop page transition, the
+  // leaving Library page (with its own hover-overlay play-album-button) and
+  // the entering AlbumDetailView are both briefly mounted, so an unscoped
+  // getByTestId('play-album-button') can match two elements.
+  const playAlbumButton = page
+    .getByTestId('album-detail-content')
+    .getByTestId('play-album-button')
+  await expect(playAlbumButton).toBeVisible({
     timeout: 5000,
   })
 
   // ── Click Play Album and assert the API call ──────────────────────────────
   const playAlbumRequestPromise = captureRequest(page, '/api/playback/play-album')
-  await page.getByTestId('play-album-button').click()
+  await playAlbumButton.click()
 
   const request = await playAlbumRequestPromise
   const body = request.postDataJSON() as { albumId?: string }
