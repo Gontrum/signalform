@@ -65,6 +65,10 @@ body {
   position: absolute;
   inset: 0;
 }
+.push-leave-active,
+.pop-leave-active {
+  pointer-events: none;
+}
 .push-enter-from {
   transform: translateX(100%);
 }
@@ -88,7 +92,8 @@ body {
 
 /* Touch feel: remove Android/iOS tap-highlight flash, avoid the double-tap
    zoom delay on interactive elements, and prevent text selection on chrome
-   that should feel like native app UI (nav bars, headers). */
+   that should feel like native app UI. Apply the .app-chrome class to any
+   nav bar or header element that needs this treatment. */
 html {
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
@@ -97,8 +102,7 @@ button,
 a {
   touch-action: manipulation;
 }
-nav,
-header {
+.app-chrome {
   -webkit-user-select: none;
   user-select: none;
 }

@@ -33,6 +33,12 @@ describe('BottomNavBar', () => {
     expect(nav.classes()).toContain('overflow-hidden')
   })
 
+  it('applies the app-chrome class to the root nav for native-feeling touch behavior', async () => {
+    const router = await createRouter()
+    const wrapper = mount(BottomNavBar, { global: { plugins: [router] } })
+    expect(wrapper.find('[data-testid="bottom-nav"]').classes()).toContain('app-chrome')
+  })
+
   it('labels the landmark with its own distinct name', async () => {
     const router = await createRouter()
     const wrapper = mount(BottomNavBar, { global: { plugins: [router] } })

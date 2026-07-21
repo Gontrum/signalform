@@ -41,7 +41,6 @@ type UseAlbumDetailViewResult = {
   readonly handlePlayTrack: (trackUrl: string) => Promise<void>
   readonly handleAddTrackToQueue: (url: string) => Promise<void>
   readonly handleAddAlbumToQueue: () => Promise<void>
-  readonly goBack: () => void
   readonly handleArtistClick: () => void
   readonly formatDuration: (seconds: number) => string
   readonly detectSource: (url: string) => 'local' | 'qobuz' | 'tidal' | 'unknown'
@@ -244,10 +243,6 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
     }
   }
 
-  const goBack = (): void => {
-    router.back()
-  }
-
   const handleArtistClick = (): void => {
     void router.push({
       name: 'unified-artist',
@@ -274,7 +269,6 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
     handlePlayTrack,
     handleAddTrackToQueue,
     handleAddAlbumToQueue,
-    goBack,
     handleArtistClick,
     formatDuration,
     detectSource,

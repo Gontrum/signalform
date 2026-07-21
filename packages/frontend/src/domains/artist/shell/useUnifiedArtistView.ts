@@ -51,7 +51,6 @@ type UseUnifiedArtistViewResult = {
   readonly albumSort: Ref<ArtistAlbumSortOption>
   readonly sortedLocalAlbums: ComputedRef<ReadonlyArray<ArtistByNameAlbum>>
   readonly sortedTidalAlbums: ComputedRef<ReadonlyArray<ArtistByNameAlbum>>
-  readonly goBack: () => void
   readonly handleLocalAlbumClick: (album: ArtistByNameAlbum) => void
   readonly handleTidalAlbumClick: (album: ArtistByNameAlbum) => Promise<void>
   readonly handleSimilarArtistClick: (similarArtist: SimilarArtistMatch) => void
@@ -212,10 +211,6 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     { immediate: true },
   )
 
-  const goBack = (): void => {
-    router.back()
-  }
-
   const handleLocalAlbumClick = (album: ArtistByNameAlbum): void => {
     void router.push({ name: 'album-detail', params: { albumId: getAlbumDetailId(album) } })
   }
@@ -333,7 +328,6 @@ export const useUnifiedArtistView = (errorNotFoundMessage: string): UseUnifiedAr
     albumSort,
     sortedLocalAlbums,
     sortedTidalAlbums,
-    goBack,
     handleLocalAlbumClick,
     handleTidalAlbumClick,
     handleSimilarArtistClick,

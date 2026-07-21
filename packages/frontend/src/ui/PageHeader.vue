@@ -22,7 +22,7 @@ const goBack = (): void => {
 <template>
   <header
     data-testid="page-header"
-    class="sticky top-0 z-20 flex h-11 flex-shrink-0 items-center gap-1 border-b border-neutral-200/80 bg-white/85 px-2 backdrop-blur-xl"
+    class="app-chrome sticky top-0 z-20 flex h-11 flex-shrink-0 items-center gap-1 border-b border-neutral-200/80 bg-white/85 px-2 backdrop-blur-xl"
   >
     <button
       v-if="showBack"

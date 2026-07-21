@@ -24,7 +24,7 @@ const navLinkClasses = (isActive: boolean): readonly string[] => [
   <nav
     :aria-label="t('nav.brandTagline')"
     data-testid="main-nav"
-    class="mb-4 border-b border-neutral-200 pb-3"
+    class="app-chrome mb-4 border-b border-neutral-200 pb-3"
   >
     <div class="flex flex-wrap items-start gap-x-3 gap-y-3 sm:flex-nowrap sm:items-center">
       <div

@@ -43,6 +43,12 @@ describe('PageHeader', () => {
     expect(wrapper.find('h1').text()).toBe('Queue')
   })
 
+  it('applies the app-chrome class to the root header for native-feeling touch behavior', async () => {
+    const { wrapper } = await mountHeader({ title: 'Queue' })
+
+    expect(wrapper.find('[data-testid="page-header"]').classes()).toContain('app-chrome')
+  })
+
   it('does not render the back button when showBack is omitted', async () => {
     const { wrapper } = await mountHeader({ title: 'Queue' })
 

@@ -76,6 +76,12 @@ describe('MainNavBar', () => {
     expect(nav.attributes('aria-label')).toBe('Signalform · Focus on the music')
   })
 
+  it('applies the app-chrome class to the root nav for native-feeling touch behavior', async () => {
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    expect(wrapper.find('[data-testid="main-nav"]').classes()).toContain('app-chrome')
+  })
+
   it('renders a link to /library with correct href', async () => {
     const router = await createRouter()
     const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
