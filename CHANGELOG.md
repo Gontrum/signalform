@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.12] - 2026-07-21
+
+### Fixed
+
+- installed iPhone PWA: removed `viewport-fit=cover`, which was the actual
+  cause of the whole bottom-gap saga. On this device it shrank the
+  standalone PWA's usable viewport to 62px less than the physical screen on
+  cold start (a known, non-recalculable iOS dynamic-viewport bug), pushing
+  the tab bar and its labels into an unpaintable dead zone. Without cover the
+  app is full height again with the tab bar at the bottom; the bar keeps its
+  content clear of the home-indicator/swipe area via a fixed bottom padding.
+  Also drops the dead JS reflow nudge and safe-area env() paddings that only
+  existed to work around cover
+
+---
+
 ## [0.16.11] - 2026-07-20
 
 ### Fixed
