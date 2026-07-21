@@ -25,3 +25,6 @@ minimumReleaseAgeExclude:
   - "@typescript-eslint/typescript-estree@8.65.0"
   - "@typescript-eslint/utils@8.65.0"
   - "@typescript-eslint/visitor-keys@8.65.0"
+  - "@boundaries/elements@3.1.0"
+  - eslint-plugin-boundaries@7.1.0
+  - eslint-plugin-vue@10.10.0

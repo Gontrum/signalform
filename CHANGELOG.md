@@ -15,6 +15,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.16.13] - 2026-07-21
+
+### Fixed
+
+- mobile Now Playing / setup: the global bottom tab bar is now hidden on
+  these two full-screen routes, so it no longer sits behind the floating
+  "view full queue" button. Now Playing and the setup wizard are treated as
+  immersive views with their own chrome (back button, floating queue toggle),
+  matching how native music apps present the now-playing screen
+- dependency lockfile sync so `pnpm install --frozen-lockfile` passes on
+  `main` again after a batch of Dependabot bumps left `pnpm-lock.yaml` and the
+  `minimumReleaseAge` exclusions in `pnpm-workspace.yaml` out of date
+
+---
+
 ## [0.16.12] - 2026-07-21
 
 ### Fixed
