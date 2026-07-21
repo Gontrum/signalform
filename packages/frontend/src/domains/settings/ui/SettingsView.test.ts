@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
 import SettingsView from '@/domains/settings/ui/SettingsView.vue'
 import { useI18nStore } from '@/app/i18nStore'
@@ -8,6 +9,22 @@ import type { Router } from 'vue-router'
 // ---------------------------------------------------------------------------
 // Mocks
 // ---------------------------------------------------------------------------
+
+// Module-level ref so individual tests can flip isPhone before mounting; reset
+// to false in beforeEach so phone-mode leaks never bleed into other tests.
+const isPhone = ref(false)
+
+vi.mock('@/app/useResponsiveLayout', () => ({
+  useResponsiveLayout: (): {
+    readonly isPhone: typeof isPhone
+    readonly isTablet: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: ReturnType<typeof ref<boolean>>
+  } => ({
+    isPhone,
+    isTablet: ref(false),
+    isDesktop: ref(true),
+  }),
+}))
 
 vi.mock('@/platform/api/configApi', async () => {
   const { ok } = await import('@signalform/shared')
@@ -110,6 +127,7 @@ describe('SettingsView', () => {
     setupTestEnv()
     localStorage.clear()
     vi.clearAllMocks()
+    isPhone.value = false
   })
 
   const createRouter = async (): Promise<Router> => {
@@ -140,6 +158,26 @@ describe('SettingsView', () => {
     expectInputValue(wrapper, '[data-testid="lms-host-input"]', '192.168.1.100')
     expectInputValue(wrapper, '[data-testid="lms-port-input"]', '9000')
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'aa:bb:cc:dd:ee:ff')
+  })
+
+  it('renders a PageHeader with the settings title and no back button', async () => {
+    isPhone.value = true
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const header = wrapper.find('[data-testid="page-header"]')
+    expect(header.exists()).toBe(true)
+    expect(header.text()).toContain('Settings')
+    expect(wrapper.find('[data-testid="page-header-back"]').exists()).toBe(false)
+  })
+
+  it('hides MainNavBar on phone and shows the PageHeader regardless of breakpoint', async () => {
+    isPhone.value = true
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="page-header"]').exists()).toBe(true)
   })
 
   it('populates the MAC address field from the loaded config', async () => {

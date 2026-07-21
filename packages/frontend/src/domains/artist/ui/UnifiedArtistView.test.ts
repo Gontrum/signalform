@@ -298,9 +298,22 @@ describe('UnifiedArtistView', () => {
     const context = await mountView()
     const backSpy = vi.spyOn(context.router, 'back')
 
-    await context.wrapper.find('[data-testid="back-button"]').trigger('click')
+    await context.wrapper.find('[data-testid="page-header-back"]').trigger('click')
 
     expect(backSpy).toHaveBeenCalled()
+  })
+
+  it('PageHeader title reflects artistName once loaded', async () => {
+    const { getArtistByName } = await import('@/platform/api/artistApi')
+    vi.mocked(getArtistByName).mockResolvedValue({
+      ok: true,
+      value: makeResponse(),
+    })
+
+    const context = await mountView()
+    await flushPromises()
+
+    expect(context.wrapper.find('[data-testid="page-header"]').text()).toContain('Radiohead')
   })
 
   it('navigates to album-detail when local album is clicked', async () => {

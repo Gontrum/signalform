@@ -103,6 +103,31 @@ const createMountedAppAt = async (initialPath: string): Promise<VueWrapper> => {
   return mount(App, { global: { plugins: [router] } })
 }
 
+// Depth-annotated routes matching the real router's meta, so afterEach's
+// push/pop transition-name logic can be exercised end to end.
+const createMountedAppWithDepthRoutes = async (): Promise<{
+  readonly wrapper: VueWrapper
+  readonly router: Awaited<ReturnType<typeof createTestRouter>>
+}> => {
+  const router = await createTestRouter([
+    { path: '/', name: 'home', component: HomeView, meta: { depth: 1 } },
+    {
+      path: '/now-playing',
+      name: 'now-playing',
+      component: { template: '<div />' },
+      meta: { depth: 2 },
+    },
+    { path: '/library', name: 'library', component: { template: '<div />' }, meta: { depth: 1 } },
+  ])
+  const wrapper = mount(App, { global: { plugins: [router] } })
+  return { wrapper, router }
+}
+
+const findTransitionName = (wrapper: VueWrapper): string | undefined => {
+  const name: unknown = wrapper.findComponent({ name: 'Transition' }).props('name')
+  return typeof name === 'string' ? name : undefined
+}
+
 // The global mini-player only shows when a track is loaded; seed the playback
 // store so shouldShowPhonePlaybackShortcut becomes true on a phone viewport.
 const givenTrackIsPlaying = async (): Promise<void> => {
@@ -313,5 +338,38 @@ describe('App.vue', () => {
 
     expect(wrapper.find('[data-testid="user-select-dialog"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-testid="user-select-option"]')).toHaveLength(2)
+  })
+
+  describe('push/pop page transitions', () => {
+    it('sets the "push" transition when navigating to a deeper route', async () => {
+      const { wrapper, router } = await createMountedAppWithDepthRoutes()
+      await flushPromises()
+
+      await router.push('/now-playing')
+      await flushPromises()
+
+      expect(findTransitionName(wrapper)).toBe('push')
+    })
+
+    it('sets the "pop" transition when navigating back to a shallower route', async () => {
+      const { wrapper, router } = await createMountedAppWithDepthRoutes()
+      await router.push('/now-playing')
+      await flushPromises()
+
+      await router.push('/')
+      await flushPromises()
+
+      expect(findTransitionName(wrapper)).toBe('pop')
+    })
+
+    it('sets no transition when switching between same-depth routes', async () => {
+      const { wrapper, router } = await createMountedAppWithDepthRoutes()
+      await flushPromises()
+
+      await router.push('/library')
+      await flushPromises()
+
+      expect(findTransitionName(wrapper)).toBe('')
+    })
   })
 })

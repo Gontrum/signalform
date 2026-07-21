@@ -35,6 +35,7 @@ export type MessageKey =
   | 'nav.search'
   | 'nav.library'
   | 'nav.queue'
+  | 'nav.back'
   | 'lms.downBanner'
   | 'home.title'
   | 'home.searchPlaceholder'
@@ -53,6 +54,7 @@ export type MessageKey =
   | 'home.playAlbum'
   | 'home.addAlbumToQueue'
   | 'queue.title'
+  | 'queue.menu'
   | 'queue.empty'
   | 'queue.clear'
   | 'queue.remove'
@@ -229,6 +231,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.search': 'Search',
     'nav.library': 'Library',
     'nav.queue': 'Queue',
+    'nav.back': 'Back',
     'lms.downBanner': 'LMS server unreachable — trying to wake it…',
     'home.title': 'Start',
     'home.searchPlaceholder': 'Search albums, artists or tracks…',
@@ -247,6 +250,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.playAlbum': 'Play album',
     'home.addAlbumToQueue': 'Add album {title} to queue',
     'queue.title': 'Queue',
+    'queue.menu': 'Queue options',
     'queue.empty': 'Your queue is currently empty.',
     'queue.clear': 'Clear queue',
     'queue.remove': 'Remove from queue',
@@ -422,6 +426,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.search': 'Suche',
     'nav.library': 'Bibliothek',
     'nav.queue': 'Warteschlange',
+    'nav.back': 'Zurück',
     'lms.downBanner': 'LMS-Server nicht erreichbar — Weckversuch läuft…',
     'home.title': 'Startseite',
     'home.searchPlaceholder': 'Alben, Künstler oder Titel suchen…',
@@ -440,6 +445,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.playAlbum': 'Album abspielen',
     'home.addAlbumToQueue': 'Album {title} zur Warteschlange hinzufügen',
     'queue.title': 'Warteschlange',
+    'queue.menu': 'Optionen',
     'queue.empty': 'Deine Warteschlange ist aktuell leer.',
     'queue.clear': 'Warteschlange leeren',
     'queue.remove': 'Aus Warteschlange entfernen',

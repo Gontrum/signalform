@@ -52,3 +52,63 @@ body {
   /* Spacing */
   --spacing-11: 2.75rem; /* 44px touch targets */
 }
+
+/* Push/pop page transitions, driven by App.vue's router.afterEach hook
+   (see src/app/pageTransition.ts). Mimics iOS's navigation-stack slide:
+   pushing a deeper screen slides it in from the right, popping back to a
+   shallower screen slides the new (previous) screen in from the left. */
+.push-enter-active,
+.push-leave-active,
+.pop-enter-active,
+.pop-leave-active {
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  position: absolute;
+  inset: 0;
+}
+.push-enter-from {
+  transform: translateX(100%);
+}
+.push-leave-to {
+  transform: translateX(-30%);
+}
+.pop-enter-from {
+  transform: translateX(-30%);
+}
+.pop-leave-to {
+  transform: translateX(100%);
+}
+@media (prefers-reduced-motion: reduce) {
+  .push-enter-active,
+  .push-leave-active,
+  .pop-enter-active,
+  .pop-leave-active {
+    transition: none;
+  }
+}
+
+/* Touch feel: remove Android/iOS tap-highlight flash, avoid the double-tap
+   zoom delay on interactive elements, and prevent text selection on chrome
+   that should feel like native app UI (nav bars, headers). */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+nav,
+header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Restore Tailwind v3's cursor: pointer on buttons (v4 Preflight defaults to
+   cursor: default to match raw browser behavior). See the Tailwind v4
+   upgrade guide's documented restore snippet. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}

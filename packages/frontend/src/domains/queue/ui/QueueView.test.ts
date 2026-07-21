@@ -1,10 +1,31 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
+import { nextTick, ref } from 'vue'
 import { ok, err, type Result, type QueueTrack } from '@signalform/shared'
 import QueueView from './QueueView.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import { getQueueEntryKey } from '@/domains/queue/core/service'
+
+// Module-level ref so individual tests can flip isPhone before mounting; reset
+// to false in beforeEach so phone-mode leaks never bleed into other tests.
+const isPhone = ref(false)
+
+vi.mock('@/app/useResponsiveLayout', () => ({
+  useResponsiveLayout: (): {
+    readonly isPhone: typeof isPhone
+    readonly isTablet: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: ReturnType<typeof ref<boolean>>
+  } => ({
+    isPhone,
+    isTablet: ref(false),
+    isDesktop: ref(true),
+  }),
+}))
+
+const openQueueMenu = async (wrapper: VueWrapper): Promise<void> => {
+  await wrapper.find('[data-testid="queue-menu"]').trigger('click')
+  await nextTick()
+}
 
 type CapturedEventName =
   'player.queue.updated' | 'player.radio.unavailable' | 'player.radio.started'
@@ -219,6 +240,7 @@ describe('QueueView', () => {
   beforeEach(() => {
     setupTestEnv()
     vi.clearAllMocks()
+    isPhone.value = false
     mockRemoveFromQueue.mockResolvedValue(ok(undefined))
     mockReorderQueue.mockResolvedValue(ok(undefined))
     mockJumpToTrack.mockResolvedValue(ok(undefined))
@@ -256,6 +278,7 @@ describe('QueueView', () => {
     const router = await makeQueueRouter()
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
+    await openQueueMenu(wrapper)
 
     const toggle = wrapper.find('[data-testid="playlists-toggle"]')
     expect(toggle.exists()).toBe(true)
@@ -270,11 +293,16 @@ describe('QueueView', () => {
     const router = await makeQueueRouter()
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
+    await openQueueMenu(wrapper)
 
     await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
     await nextTick()
 
     expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
+
+    // Selecting a menu item closes the overflow menu; reopen it to inspect the
+    // toggle's own aria state.
+    await openQueueMenu(wrapper)
     const toggle = wrapper.find('[data-testid="playlists-toggle"]')
     expect(toggle.attributes('aria-expanded')).toBe('true')
     expect(toggle.attributes('aria-controls')).toBe('playlists-panel-region')
@@ -287,15 +315,18 @@ describe('QueueView', () => {
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
 
-    const toggle = wrapper.find('[data-testid="playlists-toggle"]')
-    await toggle.trigger('click')
+    await openQueueMenu(wrapper)
+    await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
     await nextTick()
     expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
 
-    await toggle.trigger('click')
+    await openQueueMenu(wrapper)
+    await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
     await nextTick()
 
     expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(false)
+
+    await openQueueMenu(wrapper)
     expect(wrapper.find('[data-testid="playlists-toggle"]').attributes('aria-expanded')).toBe(
       'false',
     )
@@ -412,6 +443,62 @@ describe('QueueView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('3:45')
+  })
+
+  it('drops the album name from a track row but keeps its duration', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const firstRow = wrapper.findAll('[data-testid="queue-track"]')[0]
+    expect(firstRow?.text()).not.toContain('Album')
+    expect(firstRow?.text()).toContain('3:00')
+  })
+
+  describe('overflow menu', () => {
+    it('is closed by default, opens on click, and closes on backdrop click', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
+
+      const router = await makeQueueRouter()
+      const wrapper = mount(QueueView, { global: { plugins: [router] } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="queue-menu-panel"]').exists()).toBe(false)
+
+      await wrapper.find('[data-testid="queue-menu"]').trigger('click')
+      await nextTick()
+
+      const panel = wrapper.find('[data-testid="queue-menu-panel"]')
+      expect(panel.exists()).toBe(true)
+      expect(panel.attributes('role')).toBe('menu')
+
+      await wrapper.find('[aria-hidden="true"][tabindex="-1"]').trigger('click')
+      await nextTick()
+
+      expect(wrapper.find('[data-testid="queue-menu-panel"]').exists()).toBe(false)
+    })
+  })
+
+  describe('responsive layout', () => {
+    it('hides MainNavBar on phone and shows it on desktop', async () => {
+      mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+      isPhone.value = true
+      const phoneRouter = await makeQueueRouter()
+      const phoneWrapper = mount(QueueView, { global: { plugins: [phoneRouter] } })
+      await flushPromises()
+      expect(phoneWrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+      phoneWrapper.unmount()
+
+      isPhone.value = false
+      const desktopRouter = await makeQueueRouter()
+      const desktopWrapper = mount(QueueView, { global: { plugins: [desktopRouter] } })
+      await flushPromises()
+      expect(desktopWrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+      desktopWrapper.unmount()
+    })
   })
 
   it('shows backend queue error message when fetch fails', async () => {
@@ -1206,6 +1293,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
       scrollSpy.mockClear()
@@ -1503,18 +1591,21 @@ describe('QueueView', () => {
     wrapper.unmount()
   })
 
-  it('navigates to Now Playing when the back button is clicked', async () => {
+  it('navigates back via the page header back button on phone', async () => {
+    // The back button now lives in PageHeader and only renders on phone —
+    // it calls router.back() (browser-style history back) rather than
+    // pushing a hardcoded route.
+    isPhone.value = true
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
-    const pushSpy = vi.spyOn(router, 'push')
+    const backSpy = vi.spyOn(router, 'back').mockImplementation(() => {})
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
-
-    await wrapper.find('[data-testid="back-button"]').trigger('click')
     await flushPromises()
 
-    expect(pushSpy).toHaveBeenCalledWith({ name: 'now-playing' })
-    expect(router.currentRoute.value.name).toBe('now-playing')
+    await wrapper.find('[data-testid="page-header-back"]').trigger('click')
+
+    expect(backSpy).toHaveBeenCalledOnce()
   })
 
   describe('select mode', () => {
@@ -1524,6 +1615,7 @@ describe('QueueView', () => {
       const router = await makeQueueRouter()
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
+      await openQueueMenu(wrapper)
 
       expect(wrapper.find('[data-testid="queue-select-mode-toggle"]').exists()).toBe(true)
     })
@@ -1534,6 +1626,7 @@ describe('QueueView', () => {
       const router = await makeQueueRouter()
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
+      await openQueueMenu(wrapper)
 
       expect(wrapper.find('[data-testid="queue-select-mode-toggle"]').exists()).toBe(false)
     })
@@ -1545,6 +1638,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1564,8 +1658,10 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1581,6 +1677,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1594,6 +1691,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1607,6 +1705,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1628,6 +1727,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1645,6 +1745,7 @@ describe('QueueView', () => {
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
 
+      await openQueueMenu(wrapper)
       await wrapper.find('[data-testid="queue-select-mode-toggle"]').trigger('click')
       await nextTick()
 
@@ -1668,17 +1769,19 @@ describe('QueueView', () => {
       const router = await makeQueueRouter()
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
+      await openQueueMenu(wrapper)
 
       expect(wrapper.find('[data-testid="queue-clear-button"]').exists()).toBe(true)
     })
 
-    it('first click changes button text to the confirmation label', async () => {
+    it('first click changes button text to the confirmation label and keeps the menu open', async () => {
       vi.useFakeTimers()
       mockGetQueue.mockResolvedValue(makeQueueResponse(makeTracks()))
 
       const router = await makeQueueRouter()
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
+      await openQueueMenu(wrapper)
 
       const clearBtn = wrapper.find('[data-testid="queue-clear-button"]')
       expect(clearBtn.text()).toContain('Clear queue')
@@ -1686,6 +1789,9 @@ describe('QueueView', () => {
       await clearBtn.trigger('click')
       await nextTick()
 
+      // First tap only arms the confirmation — the menu must stay open so the
+      // user can see the label change and tap again.
+      expect(wrapper.find('[data-testid="queue-menu-panel"]').exists()).toBe(true)
       expect(wrapper.find('[data-testid="queue-clear-button"]').text()).toContain('Clear?')
       vi.useRealTimers()
     })
@@ -1700,6 +1806,7 @@ describe('QueueView', () => {
       const router = await makeQueueRouter()
       const wrapper = mount(QueueView, { global: { plugins: [router] } })
       await flushPromises()
+      await openQueueMenu(wrapper)
 
       const clearBtn = wrapper.find('[data-testid="queue-clear-button"]')
       await clearBtn.trigger('click')

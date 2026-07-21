@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterView, useRouter, useRoute } from 'vue-router'
 import { getConfig } from '@/platform/api/configApi'
 import { wakeLms } from '@/platform/api/lmsWakeApi'
@@ -7,6 +7,7 @@ import { shouldTriggerWake } from '@/domains/lms/core/service'
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
+import { getTransitionName } from '@/app/pageTransition'
 import { useUserStore } from '@/domains/user/shell/useUserStore'
 import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
@@ -15,6 +16,13 @@ import MiniPlayer from '@/domains/playback/ui/MiniPlayer.vue'
 
 const router = useRouter()
 const route = useRoute()
+
+// Drives the push/pop page-transition CSS (see src/assets/main.css): set on
+// every navigation by comparing the route "depth" meta of the from/to routes.
+const transitionName = ref('')
+router.afterEach((to, from) => {
+  transitionName.value = getTransitionName(from.meta.depth, to.meta.depth)
+})
 
 // Now Playing and the setup wizard are immersive, full-screen views: they hide
 // both the global mini-player (redundant/out of place there) and the bottom tab
@@ -116,8 +124,12 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
-    <div data-testid="app-content" class="min-h-0 flex-1 overflow-hidden">
-      <RouterView />
+    <div data-testid="app-content" class="relative min-h-0 flex-1 overflow-hidden">
+      <RouterView v-slot="{ Component }">
+        <Transition :name="transitionName">
+          <component :is="Component" :key="route.path" />
+        </Transition>
+      </RouterView>
     </div>
     <MiniPlayer v-if="!isImmersiveRoute" />
     <BottomNavBar v-if="isPhone && !isImmersiveRoute" />

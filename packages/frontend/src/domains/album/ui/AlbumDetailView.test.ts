@@ -121,6 +121,23 @@ describe('AlbumDetailView', () => {
     expect(wrapper.find('[data-testid="album-year"]').text()).toBe('1973')
   })
 
+  it('PageHeader title reflects the loaded album title once status is success', async () => {
+    const { getAlbumDetail } = await import('@/platform/api/albumApi')
+    vi.mocked(getAlbumDetail).mockResolvedValue({
+      ok: true,
+      value: makeAlbumDetail(),
+    })
+
+    const { wrapper } = await mountView()
+    await nextTick()
+    await nextTick()
+    await nextTick()
+
+    const header = wrapper.find('[data-testid="page-header"]')
+    expect(header.exists()).toBe(true)
+    expect(header.find('h1').text()).toBe('Dark Side of the Moon')
+  })
+
   it('renders tracklist with correct number of items', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({

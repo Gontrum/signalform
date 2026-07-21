@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import MainNavBar from '@/app/MainNavBar.vue'
+import PageHeader from '@/ui/PageHeader.vue'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useSettingsView } from '../shell/useSettingsView'
 
 const {
@@ -61,17 +63,18 @@ const {
   handleScrobblingToggle,
 } = useSettingsView()
 
+const { isPhone } = useResponsiveLayout()
+
 // Injected at build time via Vite `define` (see vite.config.ts).
 const appVersion = __APP_VERSION__
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto p-6" data-testid="settings-view">
-    <MainNavBar />
+  <div class="h-full overflow-y-auto" data-testid="settings-view">
+    <MainNavBar v-if="!isPhone" />
+    <PageHeader v-if="isPhone" :title="t('settings.title')" />
 
-    <div class="mx-auto max-w-xl">
-      <h1 class="mb-6 text-2xl font-bold text-neutral-900">{{ t('settings.title') }}</h1>
-
+    <div class="mx-auto max-w-xl px-4 py-4 sm:px-6">
       <div v-if="loading" class="flex justify-center py-8" data-testid="settings-loading">
         <div
           class="h-8 w-8 animate-spin rounded-full border-4 border-neutral-900 border-t-transparent"
@@ -527,7 +530,7 @@ const appVersion = __APP_VERSION__
                 role="switch"
                 :aria-checked="personalRadioEnabled"
                 data-testid="personal-radio-toggle"
-                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors hover:opacity-90 focus:outline-none"
                 :class="personalRadioEnabled ? 'bg-neutral-900' : 'bg-neutral-200'"
                 @click="handlePersonalRadioToggle(!personalRadioEnabled)"
               >
@@ -580,7 +583,7 @@ const appVersion = __APP_VERSION__
                 :aria-checked="scrobblingEnabled"
                 :disabled="!hasLastFmSession"
                 data-testid="scrobbling-toggle"
-                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:cursor-not-allowed"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors hover:opacity-90 focus:outline-none disabled:cursor-not-allowed"
                 :class="scrobblingEnabled ? 'bg-neutral-900' : 'bg-neutral-200'"
                 @click="handleScrobblingToggle(!scrobblingEnabled)"
               >

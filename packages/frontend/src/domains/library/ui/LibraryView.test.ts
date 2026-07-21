@@ -1,9 +1,26 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { ref } from 'vue'
 import LibraryView from './LibraryView.vue'
 import type { Router } from 'vue-router'
 import type { VueWrapper } from '@vue/test-utils'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
+
+// Module-level ref so individual tests can flip isPhone before mounting; reset
+// to false in beforeEach so phone-mode leaks never bleed into other tests.
+const isPhone = ref(false)
+
+vi.mock('@/app/useResponsiveLayout', () => ({
+  useResponsiveLayout: (): {
+    readonly isPhone: typeof isPhone
+    readonly isTablet: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: ReturnType<typeof ref<boolean>>
+  } => ({
+    isPhone,
+    isTablet: ref(false),
+    isDesktop: ref(true),
+  }),
+}))
 
 vi.mock('@/platform/api/libraryApi', () => ({
   getLibraryAlbums: vi.fn(),
@@ -82,6 +99,7 @@ describe('LibraryView', () => {
     localStorage.clear()
     sessionStorage.clear()
     setupTestEnv()
+    isPhone.value = false
   })
 
   const mountView = async (): Promise<TestContext> => {
@@ -1096,5 +1114,20 @@ describe('LibraryView', () => {
     const context = await mountView()
 
     expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+  })
+
+  // Step B1: PageHeader renders as the top-level tab's title, no back button
+  // (phone-only — on desktop MainNavBar's tab highlighting already conveys the current page)
+  it('renders PageHeader with the library title and no back button', async () => {
+    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
+    vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
+    isPhone.value = true
+
+    const context = await mountView()
+
+    const header = context.wrapper.find('[data-testid="page-header"]')
+    expect(header.exists()).toBe(true)
+    expect(header.text()).toContain('Library')
+    expect(context.wrapper.find('[data-testid="page-header-back"]').exists()).toBe(false)
   })
 })

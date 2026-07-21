@@ -31,7 +31,7 @@ const navigateToQueue = (): void => {
     <button
       data-testid="mini-player"
       type="button"
-      class="flex min-w-0 flex-1 items-center gap-3 bg-transparent px-4 py-3 text-left"
+      class="flex min-w-0 flex-1 items-center gap-3 bg-transparent px-4 py-3 text-left hover:bg-neutral-50"
       :aria-label="phonePlaybackShortcutLabel"
       @click="navigateToNowPlaying"
       @keydown.space.prevent="navigateToNowPlaying"
@@ -78,7 +78,7 @@ const navigateToQueue = (): void => {
     <button
       data-testid="mini-player-queue"
       type="button"
-      class="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center bg-transparent pl-2 pr-4"
+      class="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center bg-transparent pl-2 pr-4 hover:bg-neutral-50"
       :aria-label="t('nowPlaying.viewFullQueue')"
       @click="navigateToQueue"
     >

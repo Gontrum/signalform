@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { useI18nStore } from '@/app/i18nStore'
 import MainNavBar from '@/app/MainNavBar.vue'
+import PageHeader from '@/ui/PageHeader.vue'
+import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import ArtistHero from './ArtistHero.vue'
 import SimilarArtistGrid from './SimilarArtistGrid.vue'
 import { useUnifiedArtistView } from '../shell/useUnifiedArtistView'
+
+const { isPhone } = useResponsiveLayout()
 
 const i18n = useI18nStore()
 const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
@@ -23,7 +27,6 @@ const {
   albumSort,
   sortedLocalAlbums,
   sortedTidalAlbums,
-  goBack,
   handleLocalAlbumClick,
   handleTidalAlbumClick,
   handleSimilarArtistClick,
@@ -43,22 +46,14 @@ const {
 </script>
 
 <template>
-  <div class="h-full min-h-0 overflow-y-auto bg-white p-6" data-testid="unified-artist-view">
-    <MainNavBar />
-    <!-- Back button -->
-    <button
-      type="button"
-      class="mb-6 flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900"
-      data-testid="back-button"
-      @click="goBack"
-    >
-      ← {{ t('settings.fullResultsBack') }}
-    </button>
+  <div class="h-full min-h-0 overflow-y-auto bg-white" data-testid="unified-artist-view">
+    <MainNavBar v-if="!isPhone" />
+    <PageHeader :title="artistName" :show-back="true" />
 
     <!-- Loading -->
     <div
       v-if="status === 'loading'"
-      class="flex h-64 items-center justify-center"
+      class="flex h-64 items-center justify-center px-4 py-4 sm:px-6"
       data-testid="loading-state"
     >
       <div
@@ -72,7 +67,7 @@ const {
     <!-- Error -->
     <div
       v-else-if="status === 'error'"
-      class="flex h-64 items-center justify-center"
+      class="flex h-64 items-center justify-center px-4 py-4 sm:px-6"
       data-testid="error-state"
     >
       <p class="text-lg font-medium text-red-600">
@@ -81,7 +76,7 @@ const {
     </div>
 
     <!-- Success -->
-    <div v-else-if="status === 'success' && data">
+    <div v-else-if="status === 'success' && data" class="px-4 py-4 sm:px-6">
       <!-- Artist header (with optional hero background) -->
       <ArtistHero :hero-image-url="heroImageUrl">
         <template #default="{ hasImage }">
