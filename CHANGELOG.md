@@ -15,6 +15,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.17.0] - 2026-07-21
+
+### Added
+
+- new `PageHeader` component: a compact, sticky 44px navigation bar used
+  across Queue, Now Playing, Album/Artist detail, and (phone-only) Library
+  and Settings, replacing per-view back links and freeing up vertical space
+  on mobile
+
+### Changed
+
+- mobile queue view is dramatically denser: the header shrank from ~380px
+  to 44px (playlists/select/clear moved into an overflow menu, radio mode
+  is now a compact icon toggle) and track rows dropped from three lines to
+  two (album text removed, duration inlined) — the queue now shows 10+
+  tracks at once instead of 3
+- bottom tab bar now tints the active tab with the app's accent color
+  instead of near-black, switches tabs instantly instead of animating the
+  color, and gives clear press feedback on tap — matching how native iOS
+  tab bars behave
+- navigating between screens now slides push/pop based on the route's
+  navigation depth (e.g. opening an album slides in from the right,
+  going back slides out to the right); switching between top-level tabs
+  stays instant, matching how native apps distinguish drill-down
+  navigation from tab switching
+- restored Tailwind's pre-v4 `cursor: pointer` on buttons, and added
+  visual hover states to interactive controls that only had press
+  feedback, so mouse users get a hover affordance and not just a cursor
+  change
+
+### Fixed
+
+- the radio-mode icon in the queue header no longer resembles a WiFi
+  signal indicator — swapped for an unambiguous broadcast-wave icon
+
+---
+
 ## [0.16.13] - 2026-07-21
 
 ### Fixed
