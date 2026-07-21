@@ -153,13 +153,12 @@ describe('App.vue', () => {
     expect(wrapper.find('.bg-neutral-50').exists()).toBe(true)
   })
 
-  it('applies the top safe-area inset to the content wrapper so it clears the status bar/notch', async () => {
+  it('renders the routed content wrapper that fills the remaining height', async () => {
     const wrapper = await createMountedApp()
 
     const content = wrapper.find('[data-testid="app-content"]')
     expect(content.exists()).toBe(true)
-    // jsdom cannot evaluate env(); assert the utility class is present instead.
-    expect(content.classes()).toContain('pt-[env(safe-area-inset-top)]')
+    expect(content.classes()).toContain('flex-1')
   })
 
   it('does not show the user select dialog when no selection is needed', async () => {
