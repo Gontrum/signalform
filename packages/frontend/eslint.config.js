@@ -1,4 +1,5 @@
 import pluginVue from 'eslint-plugin-vue'
+import pluginVueA11y from 'eslint-plugin-vuejs-accessibility'
 import vueTsEslintConfig from '@vue/eslint-config-typescript'
 import eslintConfigPrettier from 'eslint-config-prettier'
 import functionalPlugin from 'eslint-plugin-functional'
@@ -29,6 +30,9 @@ export default [
   // Vue 3 recommended config
   ...pluginVue.configs['flat/recommended'],
 
+  // Vue accessibility rules (a11y)
+  ...pluginVueA11y.configs['flat/recommended'],
+
   // Vue TypeScript config
   ...vueTsEslintConfig(),
 
@@ -43,8 +47,9 @@ export default [
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
-        // Use project references (tsconfig.app.json + tsconfig.vitest.json)
-        project: ['./tsconfig.app.json', './tsconfig.vitest.json'],
+        // Auto-discovers the right tsconfig per file via TS's project service
+        // (tsconfig.app.json / tsconfig.vitest.json), instead of a fixed list.
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
         extraFileExtensions: ['.vue'],
       },

@@ -3,7 +3,11 @@
   "ignoreBinaries": ["lsof", "ps"],
   "workspaces": {
     ".": {
-      "entry": ["scripts/*.{ts,mjs,sh}"]
+      "entry": ["scripts/*.{ts,mjs,sh}"],
+      "ignoreDependencies": [
+        "@vue/language-server",
+        "typescript-language-server"
+      ]
     },
     "packages/shared": {
       "project": ["src/**/*.ts"]

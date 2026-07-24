@@ -20,8 +20,19 @@
     "format": "pnpm -r run format",
     "format:check": "pnpm -r run format:check",
     "knip": "knip",
+    "depcruise:shared": "cd packages/shared && ../../node_modules/.bin/depcruise src --ts-config tsconfig.json --config ../../.dependency-cruiser.cjs",
+    "depcruise:backend": "cd packages/backend && ../../node_modules/.bin/depcruise src --ts-config tsconfig.json --config ../../.dependency-cruiser.cjs",
+    "depcruise:frontend": "cd packages/frontend && ../../node_modules/.bin/depcruise src --ts-config tsconfig.app.json --config ../../.dependency-cruiser.cjs",
+    "depcruise": "pnpm run depcruise:shared && pnpm run depcruise:backend && pnpm run depcruise:frontend",
+    "madge:graph": "madge --image .review-artifacts/dependency-graph.svg packages/backend/src packages/frontend/src packages/shared/src",
+    "check:types": "pnpm -r run type-check",
+    "check:dead": "knip --reporter json",
+    "check:arch": "pnpm run depcruise",
+    "check:any": "type-coverage --project packages/shared/tsconfig.json && type-coverage --project packages/backend/tsconfig.json && type-coverage --project packages/frontend/tsconfig.app.json",
+    "check:dupes": "jscpd",
+    "review:collect": "node scripts/review-collect.mjs",
     "test:e2e:ci": "pnpm --filter frontend run build && pnpm --filter frontend run test:e2e:ci",
-    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip",
+    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise",
     "quality-gates": "pnpm run precommit",
     "version:bump": "node scripts/bump-version.mjs",
     "prepare": "husky"
@@ -39,19 +50,31 @@
     ]
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
+    "@vue/language-server": "^3.3.8",
+    "dependency-cruiser": "^18.1.0",
     "eslint": "^10.7.0",
     "eslint-plugin-boundaries": "^7.0.2",
     "eslint-plugin-functional": "^10.0.0",
+    "eslint-plugin-vuejs-accessibility": "^2.5.0",
+    "html-validate": "^11.5.6",
     "husky": "^9.1.7",
+    "jscpd": "^5.0.12",
     "knip": "^6.26.0",
     "lint-staged": "^17.0.8",
+    "madge": "^8.0.0",
     "prettier": "3.9.5",
-    "typescript": "^6.0.3"
+    "type-coverage": "^2.29.7",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^5.3.0"
   },
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=11.0.0"
+  },
+  "dependencies": {
+    "playwright": "^1.61.1"
   }
 }

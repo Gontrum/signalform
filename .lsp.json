@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "vue": {
+      "command": "npx",
+      "args": ["vue-language-server", "--stdio"],
+      "extensions": [".vue"],
+      "initializationOptions": {
+        "typescript": { "tsdk": "./node_modules/typescript/lib" }
+      }
+    }
+  }
+}

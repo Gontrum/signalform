@@ -1,0 +1,19 @@
+{
+  "path": [
+    "packages/backend/src",
+    "packages/frontend/src",
+    "packages/shared/src"
+  ],
+  "format": ["typescript"],
+  "reporters": ["console", "json"],
+  "threshold": 0,
+  "exitCode": 1,
+  "ignore": [
+    "**/*.test.ts",
+    "**/*.integration.test.ts",
+    "**/*.acceptance.test.ts",
+    "**/__fixtures__/**"
+  ],
+  "gitignore": true,
+  "absolute": true
+}
