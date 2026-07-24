@@ -1,15 +1,74 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-pnpm.sh"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
+            "command": ".claude/hooks/guard.sh"
+          },
+          {
+            "type": "command",
             "command": ".claude/hooks/enforce-zones.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/require-review.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/format.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/verify.sh"
           }
         ]
       }
     ]
-  }
+  },
+  "extraKnownMarketplaces": {
+    "signalform-plugins": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude-marketplace"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "typescript-lsp@signalform-plugins": true,
+    "vue-lsp@signalform-plugins": true,
+    "playwright@claude-plugins-official": true,
+    "github@claude-plugins-official": true
+  },
+  "enabledMcpjsonServers": ["context7"]
 }
