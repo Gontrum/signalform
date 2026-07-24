@@ -18,4 +18,6 @@ Frontend: composables call core functions.
 No fetch directly in <script setup>. If it imports from 'vue', it's shell.
 
 Always use context7 before implementing any Fastify or Vue API.
-After changes: `pnpm type-check && pnpm lint`
+After changes: `pnpm type-check && pnpm lint && pnpm test -- <changed-file-pattern>`
+Do not rely on the delegating prompt to ask for this separately — it is
+part of this agent's own definition of done.

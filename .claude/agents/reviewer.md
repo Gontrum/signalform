@@ -8,7 +8,11 @@ tools: Read, Bash, Glob, Grep
 
 You review code. You do not modify files.
 
-Run: `pnpm type-check && pnpm lint && pnpm test`
+Run: `pnpm run precommit`
+(currently: test, lint, coverage, type-check, knip, depcruise — one alias
+so this list never drifts from the real gate again)
+
+On completion, run `date +%s > .claude/.reviewer-ran`.
 
 Lint enforces the FCIS boundaries mechanically (framework imports, async/
 await, throw, fetch, immutability, import direction) — do not re-grep for

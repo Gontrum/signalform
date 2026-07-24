@@ -14,5 +14,8 @@ Constraints: pure functions only, no side effects, no await, no I/O,
 no imports from Vue or Fastify. Errors as Result<T, E> – never throw.
 All data readonly. No class, no this, no mutation.
 
-After every change run: `pnpm type-check`
-Fix all errors before stopping.
+After every change run: `pnpm type-check` and the affected package's
+`pnpm test -- <changed-file-pattern>`.
+Fix all errors and failing tests before stopping — this is part of this
+agent's own definition of done, not something the delegating prompt needs
+to ask for separately.
