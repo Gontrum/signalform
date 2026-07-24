@@ -1,6 +1,8 @@
 # Signalform – Claude Code
 
-Project rules are in AGENTS.md. This file adds Claude-specific tooling only.
+@AGENTS.md
+
+This file adds Claude-specific tooling on top of the rules imported above.
 
 ## LSP
 
@@ -13,7 +15,6 @@ Prefer LSP over grep for all navigation:
 
 ## MCP
 
-- Use `context7` before implementing any Fastify or Vue API
 - Use `github` MCP to read issues before implementing features
 - Use `playwright` MCP to verify Vue UI behaviour when needed
 

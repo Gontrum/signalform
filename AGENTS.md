@@ -49,6 +49,11 @@ The fastest test for which zone code belongs in:
 
 ## Testing
 
+If the target test file already exceeds roughly 20 KB, split new cases into
+a sibling file (`*.<scenario>.test.ts`) instead of appending to the
+monolith — appending forces every future session touching this feature to
+load the entire file into context just to add one case.
+
 Every new feature and every bug fix must include tests. This is not optional and is
 part of the definition of done — not a follow-up step.
 
@@ -85,16 +90,8 @@ See package-level AGENTS.md for package-specific rules.
 
 ## Backend: Tidal feature anatomy
 
-For any new Tidal endpoint, three files are involved — use the existing
-`/api/tidal/albums/:albumId/tracks` endpoint as a complete template:
-
-| Layer        | File                                                         | Role                                                    |
-| ------------ | ------------------------------------------------------------ | ------------------------------------------------------- |
-| LMS Client   | `packages/backend/src/adapters/lms-client/tidal-albums.ts`   | Add new LMS method + type to `TidalAlbumsMethods`       |
-| Raw types    | `packages/backend/src/adapters/lms-client/types.ts`          | `TidalAlbumRaw`, `TidalArtistAlbumRaw`, `TidalTrackRaw` |
-| Core mapping | `packages/backend/src/features/tidal-albums/core/service.ts` | Pure Raw→Domain mapping function                        |
-| Shell route  | `packages/backend/src/features/tidal-albums/shell/route.ts`  | Fastify handler: Zod params, `Promise.all`, call core   |
-| Server proxy | `packages/backend/src/server.ts`                             | Wire new LMS method via `forwardLmsCall`                |
+See `.claude/skills/new-tidal-feature/SKILL.md` — same content, kept in one
+place so the two don't drift.
 
 ## Agent Routing
 
