@@ -33,12 +33,14 @@ import {
   createSystemEventPayload,
   hasQueueContextChanged,
   hasStatusChanged,
+} from "./handlers.js";
+import {
   PLAYER_STATUS_CHANGED,
   PLAYER_QUEUE_UPDATED,
   PLAYER_UPDATES_ROOM,
   SYSTEM_LMS_DISCONNECTED,
   SYSTEM_LMS_RECONNECTED,
-} from "./index.js";
+} from "./events.js";
 
 /**
  * LMS Client interface (subset needed for polling)

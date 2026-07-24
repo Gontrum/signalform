@@ -6,7 +6,7 @@ import {
 } from "../../../infrastructure/config/index.js";
 import type { AppConfig } from "../../../infrastructure/config/index.js";
 import { hasAnySession, updateUserSession } from "../../users/index.js";
-import { buildAuthUrl, buildSignature } from "../index.js";
+import { buildAuthUrl, buildSignature } from "../core/service.js";
 
 const CompleteBodySchema = z.object({
   token: z.string().min(1),
