@@ -51,6 +51,41 @@ body {
 
   /* Spacing */
   --spacing-11: 2.75rem; /* 44px touch targets */
+
+  /* Border radius (Apple-style: slightly larger than Tailwind v4 defaults).
+     --radius-sm matches v4's own default (0.25rem) — kept explicit so it
+     reads as a deliberate choice rather than an accident. The bare
+     `rounded` utility (v4's legacy 0.25rem alias) has no overridable
+     theme variable in v4 and is intentionally left alone. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* Box shadows (Apple-style subtle single-layer shadows, not Tailwind v4's
+     default dual-layer Material-style shadows). The bare `shadow` utility
+     has no overridable theme variable in v4 (it aliases shadow-sm's
+     computed value at build time) and is intentionally left alone. */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.05);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.05);
+}
+
+/* Canonical z-index scale. Tailwind v4 has no --z-index-* theme namespace
+   (z-<n> utilities take a bare integer directly), so named z-index utilities
+   must be declared as static utilities via @utility rather than @theme. */
+@utility z-raised {
+  z-index: 10;
+}
+@utility z-sticky {
+  z-index: 20;
+}
+@utility z-overlay {
+  z-index: 50;
+}
+@utility z-banner {
+  z-index: 60;
 }
 
 /* Push/pop page transitions, driven by App.vue's router.afterEach hook
