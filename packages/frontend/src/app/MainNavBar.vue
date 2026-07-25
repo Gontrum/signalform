@@ -13,7 +13,7 @@ const i18nStore = useI18nStore()
 const { t } = storeToRefs(i18nStore)
 
 const navLinkClasses = (isActive: boolean): readonly string[] => [
-  'flex min-h-[44px] flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all sm:flex-none sm:px-4',
+  'flex min-h-11 flex-1 items-center justify-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 sm:flex-none sm:px-4',
   isActive
     ? 'bg-neutral-950 text-white shadow-sm'
     : 'text-neutral-600 hover:bg-white hover:text-neutral-900',
