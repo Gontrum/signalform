@@ -173,13 +173,15 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
     coverError.value = true
   }
 
+  // Use loaded track URLs from album.value if available; otherwise fall back to history.state URLs
+  const getTidalSearchTrackUrls = (): ReadonlyArray<string> =>
+    album.value !== null && album.value.tracks.length > 0
+      ? album.value.tracks.map((t) => t.url).filter((u) => u !== '')
+      : tidalSearchTrackUrls
+
   const handlePlayAlbum = async (): Promise<void> => {
     if (isTidalSearchPath) {
-      // Use loaded track URLs from album.value if available; otherwise fall back to history.state URLs
-      const trackUrls =
-        album.value !== null && album.value.tracks.length > 0
-          ? album.value.tracks.map((t) => t.url).filter((u) => u !== '')
-          : tidalSearchTrackUrls
+      const trackUrls = getTidalSearchTrackUrls()
       const playResult = await playTidalSearchAlbum(tidalSearchTitle, tidalSearchArtist, trackUrls)
       if (!playResult.ok) {
         return
@@ -217,11 +219,7 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
 
   const handleAddAlbumToQueue = async (): Promise<void> => {
     if (isTidalSearchPath) {
-      // Use loaded track URLs from album.value if available; otherwise fall back to history.state URLs
-      const trackUrls =
-        album.value !== null && album.value.tracks.length > 0
-          ? album.value.tracks.map((t) => t.url).filter((u) => u !== '')
-          : tidalSearchTrackUrls
+      const trackUrls = getTidalSearchTrackUrls()
       const queueResult = await addTidalSearchAlbumToQueue(
         tidalSearchTitle,
         tidalSearchArtist,

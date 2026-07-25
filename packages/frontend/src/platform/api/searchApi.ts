@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { Result, AudioQuality } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult } from '@/platform/api/requestResult'
-import { AudioQualitySchema } from '@/platform/api/commonSchemas'
+import { albumLikeFields, AudioQualitySchema } from '@/platform/api/commonSchemas'
 import { proxyCoverArtUrl } from '@/platform/api/coverArtProxy'
 import type {
   AlbumResult,
@@ -18,12 +18,16 @@ import type {
   TrackResult,
 } from '@/domains/search/core/types'
 
-const SearchResultSchema = z.object({
+const trackLikeFields = {
   id: z.string(),
   title: z.string(),
   artist: z.string(),
   album: z.string(),
   duration: z.number().optional(),
+}
+
+const SearchResultSchema = z.object({
+  ...trackLikeFields,
   source: z.enum(['local', 'qobuz', 'tidal', 'unknown']),
   url: z.string(),
 })
@@ -57,11 +61,7 @@ const AvailableSourceSchema = z.object({
 })
 
 const TrackResultSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  artist: z.string(),
-  album: z.string(),
-  duration: z.number().optional(),
+  ...trackLikeFields,
   url: z.string(),
   source: z.enum(['local', 'qobuz', 'tidal', 'unknown']),
   availableSources: z.array(AvailableSourceSchema).optional(),
@@ -70,16 +70,10 @@ const TrackResultSchema = z.object({
 })
 
 const AlbumResultSchema = z.object({
-  id: z.string(),
-  albumId: z.string().optional(),
+  ...albumLikeFields,
   artistId: z.string().nullable().optional(),
   source: z.enum(['local', 'qobuz', 'tidal', 'unknown']).optional(),
-  title: z.string(),
-  artist: z.string(),
   trackCount: z.number(),
-  trackUrls: z.array(z.string()).optional(),
-  trackTitles: z.array(z.string()).optional(),
-  coverArtUrl: z.string().optional(),
 })
 
 const ArtistResultSchema = z.object({

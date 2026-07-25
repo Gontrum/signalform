@@ -32,6 +32,30 @@ const fetchResponse = async <E>(
     .catch<Result<Response, E>>((error: unknown) => err(mapThrownError(error)))
 }
 
+/**
+ * Resolves a fetch call down to an "ok" `Response`, mapping both thrown
+ * errors and non-2xx HTTP responses to `E`. Shared by `fetchJsonResult` and
+ * `fetchVoidResult` so the request/error-handling prelude lives in one place.
+ */
+const resolveOkResponse = async <E>(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  mapThrownError: ThrownErrorMapper<E>,
+  mapHttpError: HttpErrorMapper<E>,
+): Promise<Result<Response, E>> => {
+  const responseResult = await fetchResponse(input, init, mapThrownError)
+  if (!responseResult.ok) {
+    return responseResult
+  }
+
+  const response = responseResult.value
+  if (!response.ok) {
+    return err(await mapHttpError(response))
+  }
+
+  return ok(response)
+}
+
 const parseJsonBody = async <E>(
   response: Response,
   mapParseError: (message: string) => E,
@@ -59,17 +83,17 @@ export async function fetchJsonResult<TParsed, TResult, E = never>(
   init: RequestInit | undefined,
   config: JsonResultConfig<TParsed, E> | JsonMappedResultConfig<TParsed, TResult, E>,
 ): Promise<Result<TParsed | TResult, E>> {
-  const responseResult = await fetchResponse(input, init, config.mapThrownError)
-  if (!responseResult.ok) {
-    return responseResult
+  const okResponseResult = await resolveOkResponse(
+    input,
+    init,
+    config.mapThrownError,
+    config.mapHttpError,
+  )
+  if (!okResponseResult.ok) {
+    return okResponseResult
   }
 
-  const response = responseResult.value
-  if (!response.ok) {
-    return err(await config.mapHttpError(response))
-  }
-
-  const jsonResult = await parseJsonBody(response, config.mapParseError)
+  const jsonResult = await parseJsonBody(okResponseResult.value, config.mapParseError)
   if (!jsonResult.ok) {
     return jsonResult
   }
@@ -91,14 +115,14 @@ export const fetchVoidResult = async <E>(
   init: RequestInit | undefined,
   config: VoidResultConfig<E>,
 ): Promise<Result<void, E>> => {
-  const responseResult = await fetchResponse(input, init, config.mapThrownError)
-  if (!responseResult.ok) {
-    return responseResult
-  }
-
-  const response = responseResult.value
-  if (!response.ok) {
-    return err(await config.mapHttpError(response))
+  const okResponseResult = await resolveOkResponse(
+    input,
+    init,
+    config.mapThrownError,
+    config.mapHttpError,
+  )
+  if (!okResponseResult.ok) {
+    return okResponseResult
   }
 
   return ok(undefined)

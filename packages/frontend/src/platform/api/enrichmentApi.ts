@@ -19,21 +19,21 @@ const SimilarArtistSchema = z.object({
   url: z.string(),
 })
 
-const ArtistEnrichmentSchema = z.object({
+const enrichmentBaseFields = {
   name: z.string(),
   mbid: z.string().optional(),
   listeners: z.number(),
   playcount: z.number(),
   tags: z.array(z.string()),
+}
+
+const ArtistEnrichmentSchema = z.object({
+  ...enrichmentBaseFields,
   bio: z.string(),
 })
 
 const AlbumEnrichmentSchema = z.object({
-  name: z.string(),
-  mbid: z.string().optional(),
-  listeners: z.number(),
-  playcount: z.number(),
-  tags: z.array(z.string()),
+  ...enrichmentBaseFields,
   wiki: z.string(),
 })
 

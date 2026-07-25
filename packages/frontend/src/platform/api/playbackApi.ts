@@ -2,7 +2,12 @@ import { z } from 'zod'
 import type { Result } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult, fetchVoidResult } from '@/platform/api/requestResult'
-import { parseErrorBody } from '@/platform/api/apiHelpers'
+import {
+  mapValidatableThrownError,
+  mapValidatableHttpError,
+  type ValidatableApiError,
+  type ValidatableRequestConfig,
+} from '@/platform/api/apiHelpers'
 import { AudioQualitySchema } from '@/platform/api/commonSchemas'
 
 const VolumeResponseSchema = z.object({ level: z.number() })
@@ -38,104 +43,59 @@ const PlaybackStatusResponseSchema = z.object({
 
 export type PlaybackStatusResponse = z.infer<typeof PlaybackStatusResponseSchema>
 
-export type PlaybackApiError =
-  | { readonly type: 'NETWORK_ERROR'; readonly message: string }
-  | { readonly type: 'TIMEOUT_ERROR'; readonly message: string }
-  | { readonly type: 'SERVER_ERROR'; readonly status: number; readonly message: string }
-  | {
-      readonly type: 'VALIDATION_ERROR'
-      readonly status: number
-      readonly message: string
-    }
-  | { readonly type: 'ABORT_ERROR'; readonly message: string }
-  | { readonly type: 'PARSE_ERROR'; readonly message: string }
+export type PlaybackApiError = ValidatableApiError
 
-type VoidRequestConfig = {
-  readonly url: string
-  readonly init: RequestInit
-  readonly fallbackMessage: string
-  readonly abortMessage: string
-  readonly timeoutMessage: string
-  readonly validationStatuses?: ReadonlyArray<number>
-}
-
-type JsonRequestConfig<TParsed> = VoidRequestConfig & {
+type JsonRequestConfig<TParsed> = ValidatableRequestConfig & {
   readonly schema: z.ZodType<TParsed>
 }
 
-const createPlaybackThrownErrorMapper =
-  (abortMessage: string, timeoutMessage: string) =>
-  (error: unknown): PlaybackApiError => {
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        return { type: 'ABORT_ERROR', message: abortMessage }
-      }
+// Thin same-signature wrappers with an explicit `PlaybackApiError` return
+// type, widening the shared helpers' narrower unions (see apiHelpers.ts).
+const mapPlaybackThrownError = (
+  abortMessage: string,
+  timeoutMessage: string,
+): ((error: unknown) => PlaybackApiError) => mapValidatableThrownError(abortMessage, timeoutMessage)
 
-      if (error.name === 'TimeoutError') {
-        return { type: 'TIMEOUT_ERROR', message: timeoutMessage }
-      }
+const mapPlaybackHttpError = (
+  fallbackMessage: string,
+  validationStatuses?: ReadonlyArray<number>,
+): ((response: Response) => Promise<PlaybackApiError>) =>
+  mapValidatableHttpError(fallbackMessage, validationStatuses)
 
-      return {
-        type: 'NETWORK_ERROR',
-        message: error.message,
-      }
-    }
-
-    return {
-      type: 'NETWORK_ERROR',
-      message: 'Unknown network error occurred',
-    }
-  }
-
-const createPlaybackHttpErrorMapper =
-  (fallbackMessage: string, validationStatuses: ReadonlyArray<number> = []) =>
-  async (response: Response): Promise<PlaybackApiError> => {
-    const errorMessage =
-      (await parseErrorBody(response)) ?? `${fallbackMessage}: HTTP ${response.status}`
-
-    if (validationStatuses.includes(response.status)) {
-      return {
-        type: 'VALIDATION_ERROR',
-        status: response.status,
-        message: errorMessage,
-      }
-    }
-
-    return {
-      type: 'SERVER_ERROR',
-      status: response.status,
-      message: errorMessage,
-    }
-  }
+const buildJsonRequestOptions = <TParsed>(
+  config: JsonRequestConfig<TParsed>,
+): {
+  readonly schema: z.ZodType<TParsed>
+  readonly mapHttpError: (response: Response) => Promise<PlaybackApiError>
+  readonly mapThrownError: (error: unknown) => PlaybackApiError
+  readonly mapParseError: (message: string) => PlaybackApiError
+} => ({
+  schema: config.schema,
+  mapHttpError: mapPlaybackHttpError(config.fallbackMessage, config.validationStatuses),
+  mapThrownError: mapPlaybackThrownError(config.abortMessage, config.timeoutMessage),
+  mapParseError: (message) => ({ type: 'PARSE_ERROR', message }),
+})
 
 const runVoidPlaybackRequest = async (
-  config: VoidRequestConfig,
+  config: ValidatableRequestConfig,
 ): Promise<Result<void, PlaybackApiError>> => {
   return await fetchVoidResult(config.url, config.init, {
-    mapHttpError: createPlaybackHttpErrorMapper(config.fallbackMessage, config.validationStatuses),
-    mapThrownError: createPlaybackThrownErrorMapper(config.abortMessage, config.timeoutMessage),
+    mapHttpError: mapPlaybackHttpError(config.fallbackMessage, config.validationStatuses),
+    mapThrownError: mapPlaybackThrownError(config.abortMessage, config.timeoutMessage),
   })
 }
 
 const runJsonPlaybackRequest = async <TParsed>(
   config: JsonRequestConfig<TParsed>,
 ): Promise<Result<TParsed, PlaybackApiError>> => {
-  return await fetchJsonResult(config.url, config.init, {
-    schema: config.schema,
-    mapHttpError: createPlaybackHttpErrorMapper(config.fallbackMessage, config.validationStatuses),
-    mapThrownError: createPlaybackThrownErrorMapper(config.abortMessage, config.timeoutMessage),
-    mapParseError: (message) => ({ type: 'PARSE_ERROR', message }),
-  })
+  return await fetchJsonResult(config.url, config.init, buildJsonRequestOptions(config))
 }
 
 const runMappedJsonPlaybackRequest = async <TParsed, TResult>(
   config: JsonRequestConfig<TParsed> & { readonly mapValue: (value: TParsed) => TResult },
 ): Promise<Result<TResult, PlaybackApiError>> => {
   return await fetchJsonResult(config.url, config.init, {
-    schema: config.schema,
-    mapHttpError: createPlaybackHttpErrorMapper(config.fallbackMessage, config.validationStatuses),
-    mapThrownError: createPlaybackThrownErrorMapper(config.abortMessage, config.timeoutMessage),
-    mapParseError: (message) => ({ type: 'PARSE_ERROR', message }),
+    ...buildJsonRequestOptions(config),
     mapValue: config.mapValue,
   })
 }
