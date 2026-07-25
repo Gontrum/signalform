@@ -17,15 +17,19 @@ import type {
   AlbumTrackRaw,
   ArtistAlbumRaw,
   LibraryAlbumRaw,
-  TidalTrackRaw,
 } from "./types.js";
-import { MAX_SEARCH_RESULTS } from "./helpers.js";
+import { MAX_SEARCH_RESULTS, validateNonEmptyId } from "./helpers.js";
 import {
   createLmsResultParser,
   isRecord,
   type ExecuteDeps,
 } from "./execute.js";
-import { tidalTracksPayloadParser } from "./schemas.js";
+import {
+  trackIdentityFieldsSchema,
+  audioQualityFieldsSchema,
+  validateAndFetchPlayableTidalAlbumTracks,
+  appendTracksToQueue,
+} from "./schemas.js";
 
 export type LibraryMethods = {
   readonly playAlbum: (albumId: string) => Promise<Result<void, LmsError>>;
@@ -80,18 +84,10 @@ const parseRescanProgressPayload = (
 };
 
 const albumTrackSchema = z.object({
-  id: z.number(),
-  title: z.string(),
-  artist: z.string().optional(),
-  albumartist: z.string().optional(),
-  album: z.string().optional(),
-  url: z.string().optional(),
+  ...trackIdentityFieldsSchema,
   tracknum: z.string().optional(),
   duration: z.number().optional(),
-  bitrate: z.string().optional(),
-  samplerate: z.string().optional(),
-  type: z.string().optional(),
-  samplesize: z.number().optional(),
+  ...audioQualityFieldsSchema,
   year: z.union([z.number(), z.string()]).optional(),
 });
 
@@ -177,13 +173,11 @@ const createLibraryMethodsImplementation = (
      * @returns Result with void or error
      */
     playAlbum: async (albumId: string): Promise<Result<void, LmsError>> => {
-      const trimmedId = albumId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Album ID cannot be empty",
-        });
+      const validation = validateNonEmptyId(albumId, "Album ID");
+      if (!validation.ok) {
+        return validation;
       }
+      const trimmedId = validation.value;
 
       // playlistcontrol cmd:load loads the full album as a playlist.
       // LMS pre-buffers the next track automatically for gapless transitions.
@@ -217,38 +211,17 @@ const createLibraryMethodsImplementation = (
     playTidalAlbum: async (
       albumId: string,
     ): Promise<Result<void, LmsError>> => {
-      const trimmedId = albumId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Album ID cannot be empty",
-        });
-      }
-
-      // Step 1: Fetch album tracks
-      const tracksResult = await executeCommand(
-        ["tidal", "items", 0, 999, `item_id:${trimmedId}`, "want_url:1"],
-        tidalTracksPayloadParser,
+      // Step 1: Validate album id + fetch album tracks
+      const tracksResult = await validateAndFetchPlayableTidalAlbumTracks(
+        executeCommand,
+        albumId,
       );
 
       if (!tracksResult.ok) {
         return tracksResult;
       }
 
-      const allItems = tracksResult.value.loop_loop ?? [];
-      // Type guard narrows url from string|undefined to string, preventing empty-string LMS commands
-      const tracks = allItems.filter(
-        (t): t is TidalTrackRaw & { readonly url: string } =>
-          t.isaudio === 1 && t.url !== undefined && t.url !== "",
-      );
-
-      if (tracks.length === 0) {
-        return err({
-          type: "LmsApiError",
-          code: 0,
-          message: `No playable tracks found for Tidal album ${trimmedId}`,
-        });
-      }
+      const tracks = tracksResult.value;
 
       // Step 2: Clear queue
       const clearResult = await executeCommand(["playlist", "clear"]);
@@ -269,23 +242,10 @@ const createLibraryMethodsImplementation = (
       }
 
       // Step 4: Append remaining tracks to queue (functional sequential reduce)
-      const appendResult = await tracks
-        .slice(1)
-        .reduce<Promise<Result<void, LmsError>>>(
-          async (prevPromise, track) => {
-            const prev = await prevPromise;
-            if (!prev.ok) {
-              return prev;
-            }
-            const result = await executeCommand([
-              "playlist",
-              "add",
-              track.url, // url is string — guaranteed by type guard in filter above
-            ]);
-            return result.ok ? ok(undefined) : err(result.error);
-          },
-          Promise.resolve(ok(undefined)),
-        );
+      const appendResult = await appendTracksToQueue(
+        executeCommand,
+        tracks.slice(1),
+      );
       if (!appendResult.ok) {
         return appendResult;
       }
@@ -325,13 +285,11 @@ const createLibraryMethodsImplementation = (
     getAlbumTracks: async (
       albumId: string,
     ): Promise<Result<readonly AlbumTrackRaw[], LmsError>> => {
-      const trimmedId = albumId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Album ID cannot be empty",
-        });
+      const validation = validateNonEmptyId(albumId, "Album ID");
+      if (!validation.ok) {
+        return validation;
       }
+      const trimmedId = validation.value;
 
       // tags: b=bitrate, r=samplerate, t=track_num, a=artist, A=albumartist, o=type, u=url, d=duration, T=samplesize, y=year, l=album_name
       const command: LmsCommand = [
@@ -380,13 +338,11 @@ const createLibraryMethodsImplementation = (
     getArtistAlbums: async (
       artistId: string,
     ): Promise<Result<readonly ArtistAlbumRaw[], LmsError>> => {
-      const trimmedId = artistId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Artist ID cannot be empty",
-        });
+      const validation = validateNonEmptyId(artistId, "Artist ID");
+      if (!validation.ok) {
+        return validation;
       }
+      const trimmedId = validation.value;
 
       const command: LmsCommand = [
         "albums",

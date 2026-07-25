@@ -96,19 +96,8 @@ export const getAutocompleteSuggestions = (
   // Uses getNavigationArtist (albumartist with VA guard) to avoid showing
   // collaboration names like "Taylor Swift, Hayley Williams" as separate artist entries.
   // Pure: filter by first occurrence of each artist key — no external state needed.
-  const artistSuggestions: readonly AutocompleteSuggestion[] = tracks
-    .filter((t, idx, arr) => {
-      const navArtist = getNavigationArtist(t);
-      return (
-        navArtist.trim() !== "" &&
-        arr.findIndex(
-          (other) =>
-            getNavigationArtist(other).trim().toLowerCase() ===
-            navArtist.trim().toLowerCase(),
-        ) === idx
-      );
-    })
-    .map((t) => ({
+  const artistSuggestions: readonly AutocompleteSuggestion[] =
+    filterUniqueByNavigationArtist(tracks).map((t) => ({
       id: `artist::${getNavigationArtist(t).trim().toLowerCase()}`,
       type: "artist" as const,
       artist: getNavigationArtist(t),
@@ -406,6 +395,33 @@ const getNavigationArtist = (t: {
 };
 
 /**
+ * Filters items to their first occurrence by navigation artist (case-insensitive),
+ * dropping items whose navigation artist is empty.
+ * Shared by getAutocompleteSuggestions (artist suggestions) and extractUniqueArtists —
+ * both derive unique artists from a list of tracks via getNavigationArtist.
+ * Pure function — no side effects, no mutations.
+ *
+ * @param items - Tracks (or track-shaped results) to deduplicate by navigation artist
+ * @returns Items with a non-empty navigation artist, first occurrence per artist
+ */
+const filterUniqueByNavigationArtist = <
+  T extends { readonly artist: string; readonly albumartist?: string },
+>(
+  items: readonly T[],
+): readonly T[] =>
+  items.filter((t, idx, arr) => {
+    const navArtist = getNavigationArtist(t);
+    return (
+      navArtist.trim() !== "" &&
+      arr.findIndex(
+        (other) =>
+          getNavigationArtist(other).trim().toLowerCase() ===
+          navArtist.trim().toLowerCase(),
+      ) === idx
+    );
+  });
+
+/**
  * Extracts unique artists from deduplicated tracks.
  * Deduplication is case-insensitive by navigation artist name.
  * Uses albumartist (when set and not "Various Artists") as navigation target
@@ -419,26 +435,14 @@ const getNavigationArtist = (t: {
 const extractUniqueArtists = (
   tracks: readonly DeduplicatedTrackResult[],
 ): readonly ArtistResult[] =>
-  tracks
-    .filter((t, idx, arr) => {
-      const navArtist = getNavigationArtist(t);
-      return (
-        navArtist.trim() !== "" &&
-        arr.findIndex(
-          (other) =>
-            getNavigationArtist(other).trim().toLowerCase() ===
-            navArtist.trim().toLowerCase(),
-        ) === idx
-      );
-    })
-    .map((t) => ({
-      name: getNavigationArtist(t),
-      artistId: t.artistId ?? null,
-      // Track-ID-based cover URLs are unreliable (LMS returns a generic
-      // placeholder for albums without embedded artwork). Omit until we
-      // have a reliable cover source (e.g. album_id-based URL or external API).
-      coverArtUrl: undefined,
-    }));
+  filterUniqueByNavigationArtist(tracks).map((t) => ({
+    name: getNavigationArtist(t),
+    artistId: t.artistId ?? null,
+    // Track-ID-based cover URLs are unreliable (LMS returns a generic
+    // placeholder for albums without embedded artwork). Omit until we
+    // have a reliable cover source (e.g. album_id-based URL or external API).
+    coverArtUrl: undefined,
+  }));
 
 /**
  * Transforms LMS search results to full results with tracks, albums, and artists.

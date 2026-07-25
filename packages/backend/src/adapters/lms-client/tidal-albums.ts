@@ -9,7 +9,6 @@
 
 import { ok, type Result } from "@signalform/shared";
 import type {
-  LmsCommand,
   LmsError,
   TidalAlbumRaw,
   TidalArtistAlbumRaw,
@@ -20,6 +19,7 @@ import {
   tidalTracksPayloadParser,
   tidalAlbumsPayloadParser,
   tidalArtistAlbumsPayloadParser,
+  executeTidalItems,
 } from "./schemas.js";
 
 export type TidalAlbumsMethods = {
@@ -83,6 +83,34 @@ export const createTidalAlbumsMethods = (
 ): TidalAlbumsMethods => {
   const { executeCommand } = deps;
 
+  // Both getTidalAlbums (item_id:4) and getTidalFeaturedAlbums (item_id:1.0.1)
+  // browse the tidalAlbumsPayloadParser shape, differing only in the item id.
+  const fetchAlbumsByItemId =
+    (itemId: string) =>
+    async (
+      offset: number,
+      limit: number,
+    ): Promise<
+      Result<
+        { readonly albums: readonly TidalAlbumRaw[]; readonly count: number },
+        LmsError
+      >
+    > => {
+      const result = await executeTidalItems(
+        executeCommand,
+        tidalAlbumsPayloadParser,
+        offset,
+        limit,
+        itemId,
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok({ albums: result.value.items, count: result.value.count });
+    };
+
   return {
     /**
      * Get albums from the user's Tidal library.
@@ -94,35 +122,7 @@ export const createTidalAlbumsMethods = (
      * @param limit - Maximum albums to return (max 500)
      * @returns Result with raw album list + total count or error
      */
-    getTidalAlbums: async (
-      offset: number,
-      limit: number,
-    ): Promise<
-      Result<
-        { readonly albums: readonly TidalAlbumRaw[]; readonly count: number },
-        LmsError
-      >
-    > => {
-      const command: LmsCommand = [
-        "tidal",
-        "items",
-        offset,
-        limit,
-        "item_id:4",
-        "want_url:1",
-      ];
-
-      const result = await executeCommand(command, tidalAlbumsPayloadParser);
-
-      if (!result.ok) {
-        return result;
-      }
-
-      const albums = result.value.loop_loop ?? [];
-      const count = result.value.count ?? 0;
-
-      return ok({ albums, count });
-    },
+    getTidalAlbums: fetchAlbumsByItemId("4"),
 
     /**
      * Get tracks from a specific Tidal album.
@@ -145,25 +145,19 @@ export const createTidalAlbumsMethods = (
         LmsError
       >
     > => {
-      const command: LmsCommand = [
-        "tidal",
-        "items",
+      const result = await executeTidalItems(
+        executeCommand,
+        tidalTracksPayloadParser,
         offset,
         limit,
-        `item_id:${albumId}`,
-        "want_url:1",
-      ];
-
-      const result = await executeCommand(command, tidalTracksPayloadParser);
+        albumId,
+      );
 
       if (!result.ok) {
         return result;
       }
 
-      const tracks = result.value.loop_loop ?? [];
-      const count = result.value.count ?? 0;
-
-      return ok({ tracks, count });
+      return ok({ tracks: result.value.items, count: result.value.count });
     },
 
     /**
@@ -197,28 +191,19 @@ export const createTidalAlbumsMethods = (
     > => {
       // Albums are at {artistId}.1 — the "Alben" submenu (always position 1 in artist submenu)
       const albumsItemId = `${artistId}.1`;
-      const command: LmsCommand = [
-        "tidal",
-        "items",
+      const result = await executeTidalItems(
+        executeCommand,
+        tidalArtistAlbumsPayloadParser,
         offset,
         limit,
-        `item_id:${albumsItemId}`,
-        "want_url:1",
-      ];
-
-      const result = await executeCommand(
-        command,
-        tidalArtistAlbumsPayloadParser,
+        albumsItemId,
       );
 
       if (!result.ok) {
         return result;
       }
 
-      const albums = result.value.loop_loop ?? [];
-      const count = result.value.count ?? 0;
-
-      return ok({ albums, count });
+      return ok({ albums: result.value.items, count: result.value.count });
     },
 
     /**
@@ -232,35 +217,7 @@ export const createTidalAlbumsMethods = (
      * @param limit - Maximum albums to return (max 500)
      * @returns Result with raw album list + total count or error
      */
-    getTidalFeaturedAlbums: async (
-      offset: number,
-      limit: number,
-    ): Promise<
-      Result<
-        { readonly albums: readonly TidalAlbumRaw[]; readonly count: number },
-        LmsError
-      >
-    > => {
-      const command: LmsCommand = [
-        "tidal",
-        "items",
-        offset,
-        limit,
-        "item_id:1.0.1",
-        "want_url:1",
-      ];
-
-      const result = await executeCommand(command, tidalAlbumsPayloadParser);
-
-      if (!result.ok) {
-        return result;
-      }
-
-      const albums = result.value.loop_loop ?? [];
-      const count = result.value.count ?? 0;
-
-      return ok({ albums, count });
-    },
+    getTidalFeaturedAlbums: fetchAlbumsByItemId("1.0.1"),
 
     getTidalAlbumParentItems: async (
       albumId: string,
@@ -288,28 +245,19 @@ export const createTidalAlbumsMethods = (
         return ok({ items: [], count: 0 });
       }
 
-      const command: LmsCommand = [
-        "tidal",
-        "items",
+      const result = await executeTidalItems(
+        executeCommand,
+        tidalArtistAlbumsPayloadParser,
         albumIndex,
         1,
-        `item_id:${parentId}`,
-        "want_url:1",
-      ];
-
-      const result = await executeCommand(
-        command,
-        tidalArtistAlbumsPayloadParser,
+        parentId,
       );
 
       if (!result.ok) {
         return result;
       }
 
-      const items = result.value.loop_loop ?? [];
-      const count = result.value.count ?? 0;
-
-      return ok({ items, count });
+      return ok({ items: result.value.items, count: result.value.count });
     },
   };
 };

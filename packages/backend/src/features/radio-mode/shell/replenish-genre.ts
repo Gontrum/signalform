@@ -9,22 +9,14 @@
  */
 
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import type { ReplenishOutcome, ReplenishTrigger } from "../core/types.js";
+import { incrementGenreRadioPage } from "./radio-state.js";
 import {
-  PLAYER_UPDATES_ROOM,
-  PLAYER_RADIO_UNAVAILABLE,
-} from "../../../infrastructure/websocket/index.js";
-import type {
-  CandidateTrack,
-  ReplenishOutcome,
-  ReplenishTrigger,
-} from "../core/types.js";
-import { DEFAULT_DIVERSITY_CONFIG } from "../core/types.js";
-import { filterByDiversity } from "../core/diversity-service.js";
-import { shuffleWithRandom } from "../core/replenish.js";
-import type { RadioUnavailablePayload } from "@signalform/shared";
-import { getRadioQueueState, incrementGenreRadioPage } from "./radio-state.js";
-import { runReplenishPipeline } from "./replenish-pipeline.js";
+  runReplenishPipeline,
+  shuffleAndFilterByDiversity,
+} from "./replenish-pipeline.js";
 import type { ReplenishPipelineDeps } from "./replenish-pipeline.js";
+import { skippedUnavailableOutcome } from "./emit-helpers.js";
 
 export type ReplenishGenreDeps = ReplenishPipelineDeps & {
   readonly lastFmClient: LastFmClient;
@@ -45,16 +37,7 @@ export const replenishGenreQueue = async (
   );
   if (!tagTracksResult.ok) {
     if (tagTracksResult.error.type === "CircuitOpenError") {
-      io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
-        playerId,
-        message: "Radio mode temporarily unavailable",
-        timestamp: Date.now(),
-      } satisfies RadioUnavailablePayload);
-      return {
-        status: "skipped",
-        reason: "lastfm-unavailable",
-        unavailableEmitted: true,
-      };
+      return skippedUnavailableOutcome(io, playerId);
     }
     logger.warn("Genre Radio: tag.getTopTracks failed", {
       event: "radio.genre_lastfm_failed",
@@ -76,20 +59,7 @@ export const replenishGenreQueue = async (
     return { status: "skipped", reason: "no-candidates" };
   }
 
-  const shuffled = shuffleWithRandom(tagTracksResult.value, Math.random);
-
-  const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
-    name: t.name,
-    artist: t.artist,
-    match: 1,
-    url: t.url,
-  }));
-
-  const diversityFiltered = filterByDiversity(
-    candidates,
-    getRadioQueueState().recentArtists,
-    DEFAULT_DIVERSITY_CONFIG,
-  );
+  const diversityFiltered = shuffleAndFilterByDiversity(tagTracksResult.value);
 
   if (diversityFiltered.length === 0) {
     return { status: "skipped", reason: "no-candidates" };

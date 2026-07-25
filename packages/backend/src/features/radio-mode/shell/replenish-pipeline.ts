@@ -18,10 +18,6 @@ import type {
   SearchResult,
 } from "../../../adapters/lms-client/index.js";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
-import {
-  PLAYER_UPDATES_ROOM,
-  PLAYER_QUEUE_UPDATED,
-} from "../../../infrastructure/websocket/index.js";
 import type {
   CandidateTrack,
   RadioAcc,
@@ -29,13 +25,17 @@ import type {
   ReplenishTrigger,
 } from "../core/types.js";
 import { DEFAULT_DIVERSITY_CONFIG } from "../core/types.js";
-import { addToSlidingWindow } from "../core/diversity-service.js";
+import {
+  addToSlidingWindow,
+  filterByDiversity,
+} from "../core/diversity-service.js";
 import {
   acceptIntoBatch,
   buildQueueKeySets,
   computeRepeatKey,
   computeTargetBatchSize,
   evaluateCandidateForBatch,
+  shuffleWithRandom,
 } from "../core/replenish.js";
 import {
   artistMatches,
@@ -48,6 +48,38 @@ import {
   recordExplicitRadioTracks,
   setRadioRecentArtists,
 } from "./radio-state.js";
+import { emitQueueUpdated } from "./emit-helpers.js";
+
+/** Minimal shape needed to build a diversity-filtered candidate list. */
+type CandidateSourceTrack = {
+  readonly name: string;
+  readonly artist: string;
+  readonly url: string;
+};
+
+/**
+ * Shuffles a mode's raw candidate source tracks (last.fm tag/loved/top-track
+ * results), maps them to `CandidateTrack`, and filters against the current
+ * artist diversity window — shared by the genre, loved, and personal
+ * candidate-sourcing paths.
+ */
+export const shuffleAndFilterByDiversity = (
+  tracks: readonly CandidateSourceTrack[],
+): readonly CandidateTrack[] => {
+  const shuffled = shuffleWithRandom(tracks, Math.random);
+  const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
+    name: t.name,
+    artist: t.artist,
+    match: 1,
+    url: t.url,
+  }));
+
+  return filterByDiversity(
+    candidates,
+    getRadioQueueState().recentArtists,
+    DEFAULT_DIVERSITY_CONFIG,
+  );
+};
 
 export type Logger = {
   readonly info: (
@@ -426,13 +458,7 @@ export const runReplenishPipeline = async (
     queueResult.value,
     addedTrackKeys,
   );
-  io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-    playerId,
-    tracks: queueProjection.tracks,
-    radioModeActive: queueProjection.radioModeActive,
-    radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-    timestamp: Date.now(),
-  });
+  emitQueueUpdated(io, playerId, queueProjection);
 
   logger.info("Radio replenish succeeded", {
     event: "radio.replenish_succeeded",

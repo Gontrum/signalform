@@ -13,7 +13,11 @@ import {
   getArtistTopTracksByName,
 } from "./service.js";
 import { getCachedAlbum, setCachedAlbum } from "./cache.js";
-import type { AlbumDetail } from "../core/types.js";
+import type {
+  AlbumDetail,
+  ArtistPopularityServiceError,
+} from "../core/types.js";
+import type { Result } from "@signalform/shared";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 import { mapTidalArtistSearch } from "../../tidal-artists/core/service.js";
 
@@ -168,6 +172,65 @@ const findMatchingTidalArtistId = (
   return exactMatch?.artistId ?? null;
 };
 
+/**
+ * Validates the shared `?name=&limit=` query used by both artist-popularity
+ * routes. Sends the 400 response itself and returns `undefined` on failure.
+ */
+const parseArtistPopularityQuery = (
+  request: FastifyRequest<{ readonly Querystring: unknown }>,
+  reply: FastifyReply,
+): { readonly name: string; readonly limit: number } | undefined => {
+  const validation = ArtistPopularityQuerySchema.safeParse(request.query);
+  if (!validation.success) {
+    reply
+      .code(400)
+      .send({ message: "Artist name is required", code: "INVALID_INPUT" });
+    return undefined;
+  }
+  return validation.data;
+};
+
+/**
+ * Shared last.fm lookup error mapping for the artist-popularity routes:
+ * NotFound becomes 404, everything else is a 503 upstream-unavailable.
+ */
+const sendArtistPopularityError = (
+  reply: FastifyReply,
+  error: { readonly type: string; readonly message: string },
+): FastifyReply => {
+  return error.type === "NotFound"
+    ? reply.code(404).send({ message: error.message, code: "NOT_FOUND" })
+    : reply
+        .code(503)
+        .send({ message: "last.fm not reachable", code: "UNAVAILABLE" });
+};
+
+/**
+ * Validates the shared `?name=&limit=` query, runs an artist-popularity
+ * lookup via `fetchResult`, and sends the result: the mapped error on
+ * failure, or the value as a 200. Shared by the top-tracks and top-albums
+ * routes, which only differ in which lookup they call.
+ */
+const respondWithArtistPopularity = async <T>(
+  request: FastifyRequest<{ readonly Querystring: unknown }>,
+  reply: FastifyReply,
+  fetchResult: (query: {
+    readonly name: string;
+    readonly limit: number;
+  }) => Promise<Result<T, ArtistPopularityServiceError>>,
+): Promise<FastifyReply> => {
+  const query = parseArtistPopularityQuery(request, reply);
+  if (query === undefined) {
+    return reply;
+  }
+
+  const result = await fetchResult(query);
+  if (!result.ok) {
+    return sendArtistPopularityError(reply, result.error);
+  }
+  return reply.code(200).send(result.value);
+};
+
 const getArtistBrowseTidalAlbums = async (
   name: string,
   lmsClient: LmsClient,
@@ -255,32 +318,14 @@ export const createMetadataRoute = (
       request: FastifyRequest<{ readonly Querystring: unknown }>,
       reply: FastifyReply,
     ) => {
-      const validation = ArtistPopularityQuerySchema.safeParse(request.query);
-      if (!validation.success) {
-        return reply
-          .code(400)
-          .send({ message: "Artist name is required", code: "INVALID_INPUT" });
-      }
-
-      const { name, limit } = validation.data;
-      const result = await getArtistTopTracksByName(
-        name,
-        lmsClient,
-        lastFmClient,
-        limit,
+      return respondWithArtistPopularity(request, reply, (query) =>
+        getArtistTopTracksByName(
+          query.name,
+          lmsClient,
+          lastFmClient,
+          query.limit,
+        ),
       );
-
-      if (!result.ok) {
-        return result.error.type === "NotFound"
-          ? reply
-              .code(404)
-              .send({ message: result.error.message, code: "NOT_FOUND" })
-          : reply
-              .code(503)
-              .send({ message: "last.fm not reachable", code: "UNAVAILABLE" });
-      }
-
-      return reply.code(200).send(result.value);
     },
   );
 
@@ -290,27 +335,9 @@ export const createMetadataRoute = (
       request: FastifyRequest<{ readonly Querystring: unknown }>,
       reply: FastifyReply,
     ) => {
-      const validation = ArtistPopularityQuerySchema.safeParse(request.query);
-      if (!validation.success) {
-        return reply
-          .code(400)
-          .send({ message: "Artist name is required", code: "INVALID_INPUT" });
-      }
-
-      const { name, limit } = validation.data;
-      const result = await getArtistTopAlbumsByName(name, lastFmClient, limit);
-
-      if (!result.ok) {
-        return result.error.type === "NotFound"
-          ? reply
-              .code(404)
-              .send({ message: result.error.message, code: "NOT_FOUND" })
-          : reply
-              .code(503)
-              .send({ message: "last.fm not reachable", code: "UNAVAILABLE" });
-      }
-
-      return reply.code(200).send(result.value);
+      return respondWithArtistPopularity(request, reply, (query) =>
+        getArtistTopAlbumsByName(query.name, lastFmClient, query.limit),
+      );
     },
   );
 

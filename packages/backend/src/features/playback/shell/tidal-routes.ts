@@ -31,6 +31,85 @@ const isBodyRecord = (body: unknown): body is Record<string, unknown> => {
   return typeof body === "object" && body !== null;
 };
 
+/**
+ * Plays the first of `urls` then adds the rest to the queue sequentially,
+ * stopping at the first failure. Shared by the two multi-track playback
+ * routes below, which only differ in their log messages on failure.
+ *
+ * Returns the FastifyReply once an error has already been sent, or
+ * `undefined` when playback succeeded and the caller should continue.
+ */
+const playUrlsSequentially = async (
+  lmsClient: LmsClient,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  urls: readonly string[],
+  errorMessages: { readonly play: string; readonly add: string },
+): Promise<FastifyReply | undefined> => {
+  const [firstUrl, ...restUrls] = urls;
+
+  const playResult = await lmsClient.play(firstUrl ?? "");
+  if (!playResult.ok) {
+    return sendLmsError(
+      reply,
+      request,
+      playResult.error,
+      getUserFriendlyErrorMessage,
+      errorMessages.play,
+    );
+  }
+
+  const addResult = await restUrls.reduce<Promise<Result<void, LmsError>>>(
+    async (prevPromise, url) => {
+      const prev = await prevPromise;
+      if (!prev.ok) {
+        return prev;
+      }
+      return lmsClient.addToQueue(url);
+    },
+    Promise.resolve(ok(undefined)),
+  );
+
+  if (!addResult.ok) {
+    return sendLmsError(
+      reply,
+      request,
+      addResult.error,
+      getUserFriendlyErrorMessage,
+      errorMessages.add,
+    );
+  }
+
+  return undefined;
+};
+
+/**
+ * Fetches the queue and, on success, emits the queue-updated event to all
+ * connected players. `onFailure` lets callers opt into logging a warning
+ * (the search-album fallback route intentionally stays silent).
+ */
+const emitQueueUpdate = async (
+  lmsClient: LmsClient,
+  io: TypedSocketIOServer,
+  playerId: string,
+  onFailure?: (error: LmsError) => void,
+): Promise<void> => {
+  const queueResult = await lmsClient.getQueue();
+  if (!queueResult.ok) {
+    onFailure?.(queueResult.error);
+    return;
+  }
+
+  const queueProjection = annotateRadioQueueTracks(queueResult.value);
+  io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
+    playerId,
+    tracks: queueProjection.tracks,
+    radioModeActive: queueProjection.radioModeActive,
+    radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
+    timestamp: Date.now(),
+  });
+};
+
 export const registerTidalRoutes = (
   fastify: FastifyInstance,
   lmsClient: LmsClient,
@@ -61,51 +140,21 @@ export const registerTidalRoutes = (
         });
       }
 
-      const [firstUrl, ...restUrls] = trackUrls;
-
-      const playResult = await lmsClient.play(firstUrl ?? "");
-      if (!playResult.ok) {
-        return sendLmsError(
-          reply,
-          request,
-          playResult.error,
-          getUserFriendlyErrorMessage,
-          "LMS play Tidal search album (fallback) failed",
-        );
-      }
-
-      const addResult = await restUrls.reduce<Promise<Result<void, LmsError>>>(
-        async (prevPromise, url) => {
-          const prev = await prevPromise;
-          if (!prev.ok) {
-            return prev;
-          }
-          return lmsClient.addToQueue(url);
+      const playError = await playUrlsSequentially(
+        lmsClient,
+        request,
+        reply,
+        trackUrls,
+        {
+          play: "LMS play Tidal search album (fallback) failed",
+          add: "LMS add Tidal search album track failed",
         },
-        Promise.resolve(ok(undefined)),
       );
-
-      if (!addResult.ok) {
-        return sendLmsError(
-          reply,
-          request,
-          addResult.error,
-          getUserFriendlyErrorMessage,
-          "LMS add Tidal search album track failed",
-        );
+      if (playError !== undefined) {
+        return playError;
       }
 
-      const queueResult = await lmsClient.getQueue();
-      if (queueResult.ok) {
-        const queueProjection = annotateRadioQueueTracks(queueResult.value);
-        io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-          playerId,
-          tracks: queueProjection.tracks,
-          radioModeActive: queueProjection.radioModeActive,
-          radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-          timestamp: Date.now(),
-        });
-      }
+      await emitQueueUpdate(lmsClient, io, playerId);
 
       return reply.code(204).send();
     },
@@ -135,56 +184,26 @@ export const registerTidalRoutes = (
       });
     }
 
-    const [firstUrl, ...restUrls] = urls;
-
-    const playResult = await lmsClient.play(firstUrl ?? "");
-    if (!playResult.ok) {
-      return sendLmsError(
-        reply,
-        request,
-        playResult.error,
-        getUserFriendlyErrorMessage,
-        "LMS play track-list (first track) failed",
-      );
-    }
-
-    const addResult = await restUrls.reduce<Promise<Result<void, LmsError>>>(
-      async (prevPromise, url) => {
-        const prev = await prevPromise;
-        if (!prev.ok) {
-          return prev;
-        }
-        return lmsClient.addToQueue(url);
+    const playError = await playUrlsSequentially(
+      lmsClient,
+      request,
+      reply,
+      urls,
+      {
+        play: "LMS play track-list (first track) failed",
+        add: "LMS add track-list track failed",
       },
-      Promise.resolve(ok(undefined)),
     );
-
-    if (!addResult.ok) {
-      return sendLmsError(
-        reply,
-        request,
-        addResult.error,
-        getUserFriendlyErrorMessage,
-        "LMS add track-list track failed",
-      );
+    if (playError !== undefined) {
+      return playError;
     }
 
-    const queueResult = await lmsClient.getQueue();
-    if (queueResult.ok) {
-      const queueProjection = annotateRadioQueueTracks(queueResult.value);
-      io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-        playerId,
-        tracks: queueProjection.tracks,
-        radioModeActive: queueProjection.radioModeActive,
-        radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-        timestamp: Date.now(),
-      });
-    } else {
+    await emitQueueUpdate(lmsClient, io, playerId, (error) => {
       fastify.log.warn(
-        { event: "queue_update_emit_failed", error: queueResult.error },
+        { event: "queue_update_emit_failed", error },
         "Could not fetch queue after play-track-list — status poller will sync within 1s",
       );
-    }
+    });
 
     return reply.code(204).send();
   });

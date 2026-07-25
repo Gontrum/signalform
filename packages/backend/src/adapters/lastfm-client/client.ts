@@ -78,6 +78,45 @@ const parseJson = (text: string): Result<unknown, LastFmError> => {
   );
 };
 
+// MusicBrainz IDs are sometimes returned by last.fm as an empty string rather
+// than an absent field — normalize both to `undefined`.
+const optionalMbid = (record: JsonRecord): string | undefined => {
+  const mbid = String(record["mbid"] ?? "");
+  return mbid !== "" ? mbid : undefined;
+};
+
+// Shared param-building/signing logic for both signed GET (buildSignedUrl) and
+// signed POST (postSigned) requests — last.fm's signature algorithm is the
+// same for both, only the transport differs.
+const signRequestParams = (
+  params: Readonly<Record<string, string | number>>,
+  apiKey: string,
+  sessionKey: string,
+  sharedSecret: string,
+): {
+  readonly allParams: Readonly<Record<string, string>>;
+  readonly signature: string;
+} => {
+  const allParams: Readonly<Record<string, string>> = {
+    ...Object.fromEntries(
+      Object.entries(params).map(([k, v]) => [k, String(v)]),
+    ),
+    api_key: apiKey,
+    sk: sessionKey,
+  };
+  const sigStr =
+    Object.entries(allParams)
+      .filter(([k]) => k !== "format" && k !== "callback")
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}${v}`)
+      .join("") + sharedSecret;
+
+  return {
+    allParams,
+    signature: createHash("md5").update(sigStr).digest("hex"),
+  };
+};
+
 export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
   const buildUrl = (
     params: Readonly<Record<string, string | number>>,
@@ -96,165 +135,129 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
     sessionKey: string,
     sharedSecret: string,
   ): string => {
-    const allParams: Readonly<Record<string, string>> = {
-      ...Object.fromEntries(
-        Object.entries(params).map(([k, v]) => [k, String(v)]),
-      ),
-      api_key: config.apiKey,
-      sk: sessionKey,
-    };
-    const sigStr =
-      Object.entries(allParams)
-        .filter(([k]) => k !== "format" && k !== "callback")
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k}${v}`)
-        .join("") + sharedSecret;
-    const sig = createHash("md5").update(sigStr).digest("hex");
+    const { allParams, signature } = signRequestParams(
+      params,
+      config.apiKey,
+      sessionKey,
+      sharedSecret,
+    );
 
     const base = new URL(config.baseUrl);
     Object.entries(allParams).forEach(([key, value]) => {
       base.searchParams.set(key, value);
     });
-    base.searchParams.set("api_sig", sig);
+    base.searchParams.set("api_sig", signature);
     base.searchParams.set("format", "json");
     return base.toString();
   };
+
+  // Shared fetch + timeout/network-error handling + response parsing for both
+  // GET (fetchJson) and POST (postSigned) requests.
+  const requestJson = async (
+    url: string,
+    init?: RequestInit,
+  ): Promise<Result<unknown, LastFmError>> => {
+    const responseResult = await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(config.timeout),
+    })
+      .then<Result<Response, LastFmError>>((response) => ok(response))
+      .catch<Result<Response, LastFmError>>((cause: unknown) => {
+        if (cause instanceof DOMException && cause.name === "TimeoutError") {
+          return err({
+            type: "TimeoutError",
+            message: "last.fm request timed out",
+          });
+        }
+        const message =
+          cause instanceof Error ? cause.message : "Unknown network error";
+        return err({ type: "NetworkError", message });
+      });
+
+    if (!responseResult.ok) {
+      return responseResult;
+    }
+
+    const response = responseResult.value;
+    if (response.status === 429) {
+      return err({
+        type: "RateLimitError",
+        message: "last.fm rate limit exceeded",
+      });
+    }
+
+    const text = await response.text();
+    const parseResult = parseJson(text);
+    if (!parseResult.ok) {
+      return parseResult;
+    }
+
+    const maybeError = getApiError(parseResult.value);
+    if (maybeError !== null) {
+      if (maybeError.error === LASTFM_NOT_FOUND_CODE) {
+        return err({
+          type: "NotFoundError",
+          code: maybeError.error,
+          message: maybeError.message ?? "Not found",
+        });
+      }
+      return err({
+        type: "ApiError",
+        code: maybeError.error,
+        message: maybeError.message ?? "Unknown last.fm error",
+      });
+    }
+
+    return ok(parseResult.value);
+  };
+
+  const fetchJson = (url: string): Promise<Result<unknown, LastFmError>> =>
+    requestJson(url);
 
   const postSigned = async (
     params: Readonly<Record<string, string | number>>,
     sessionKey: string,
     sharedSecret: string,
   ): Promise<Result<unknown, LastFmError>> => {
-    const allParams: Record<string, string> = {
-      ...Object.fromEntries(
-        Object.entries(params).map(([k, v]) => [k, String(v)]),
-      ),
-      api_key: config.apiKey,
-      sk: sessionKey,
-    };
-    const sigStr =
-      Object.entries(allParams)
-        .filter(([k]) => k !== "format" && k !== "callback")
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([k, v]) => `${k}${v}`)
-        .join("") + sharedSecret;
-    const sig = createHash("md5").update(sigStr).digest("hex");
+    const { allParams, signature } = signRequestParams(
+      params,
+      config.apiKey,
+      sessionKey,
+      sharedSecret,
+    );
 
     const body = new URLSearchParams({
       ...allParams,
-      api_sig: sig,
+      api_sig: signature,
       format: "json",
     });
 
-    const responseResult = await fetch(config.baseUrl, {
+    return requestJson(config.baseUrl, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
-      signal: AbortSignal.timeout(config.timeout),
-    })
-      .then<Result<Response, LastFmError>>((response) => ok(response))
-      .catch<Result<Response, LastFmError>>((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "TimeoutError") {
-          return err({
-            type: "TimeoutError",
-            message: "last.fm request timed out",
-          });
-        }
-        const message =
-          cause instanceof Error ? cause.message : "Unknown network error";
-        return err({ type: "NetworkError", message });
-      });
-
-    if (!responseResult.ok) {
-      return responseResult;
-    }
-    const response = responseResult.value;
-    if (response.status === 429) {
-      return err({
-        type: "RateLimitError",
-        message: "last.fm rate limit exceeded",
-      });
-    }
-    const text = await response.text();
-    const parseResult = parseJson(text);
-    if (!parseResult.ok) {
-      return parseResult;
-    }
-    const maybeError = getApiError(parseResult.value);
-    if (maybeError !== null) {
-      if (maybeError.error === LASTFM_NOT_FOUND_CODE) {
-        return err({
-          type: "NotFoundError",
-          code: maybeError.error,
-          message: maybeError.message ?? "Not found",
-        });
-      }
-      return err({
-        type: "ApiError",
-        code: maybeError.error,
-        message: maybeError.message ?? "Unknown last.fm error",
-      });
-    }
-    return ok(parseResult.value);
+    });
   };
 
-  const fetchJson = async (
+  // Fetches a JSON list field nested under `path` (e.g. ["similartracks"]) and
+  // keyed by `itemKey` (e.g. "track") — the common shape of last.fm list
+  // responses. Returns [] when the field is absent or not an array.
+  const fetchListField = async (
     url: string,
-  ): Promise<Result<unknown, LastFmError>> => {
-    const responseResult = await fetch(url, {
-      signal: AbortSignal.timeout(config.timeout),
-    })
-      .then<Result<Response, LastFmError>>((response) => ok(response))
-      .catch<Result<Response, LastFmError>>((cause: unknown) => {
-        if (cause instanceof DOMException && cause.name === "TimeoutError") {
-          return err({
-            type: "TimeoutError",
-            message: "last.fm request timed out",
-          });
-        }
-
-        const message =
-          cause instanceof Error ? cause.message : "Unknown network error";
-        return err({ type: "NetworkError", message });
-      });
-
-    if (!responseResult.ok) {
-      return responseResult;
+    path: readonly string[],
+    itemKey: string,
+  ): Promise<Result<readonly unknown[], LastFmError>> => {
+    const result = await fetchJson(url);
+    if (!result.ok) {
+      return result;
     }
 
-    const response = responseResult.value;
-
-    if (response.status === 429) {
-      return err({
-        type: "RateLimitError",
-        message: "last.fm rate limit exceeded",
-      });
-    }
-
-    const text = await response.text();
-    const parseResult = parseJson(text);
-    if (!parseResult.ok) {
-      return parseResult;
-    }
-
-    const maybeError = getApiError(parseResult.value);
-    if (maybeError !== null) {
-      if (maybeError.error === LASTFM_NOT_FOUND_CODE) {
-        return err({
-          type: "NotFoundError",
-          code: maybeError.error,
-          message: maybeError.message ?? "Not found",
-        });
-      }
-
-      return err({
-        type: "ApiError",
-        code: maybeError.error,
-        message: maybeError.message ?? "Unknown last.fm error",
-      });
-    }
-
-    return ok(parseResult.value);
+    const record = path.reduce<JsonRecord | undefined>(
+      (current, key) => (current ? getNestedRecord(current, key) : undefined),
+      isRecord(result.value) ? result.value : undefined,
+    );
+    const items = record?.[itemKey];
+    return ok(Array.isArray(items) ? items : []);
   };
 
   return {
@@ -269,34 +272,25 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         track,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["similartracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const similarTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "similartracks")
-        : undefined;
-      const tracks = similarTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly SimilarTrack[] = tracks.flatMap(
+      const mapped: readonly SimilarTrack[] = listResult.value.flatMap(
         (trackValue): readonly SimilarTrack[] => {
           if (!isRecord(trackValue)) {
             return [];
           }
 
           const artistRecord = getNestedRecord(trackValue, "artist");
-          const mbidStr = String(trackValue["mbid"] ?? "");
           const duration = Number(trackValue["duration"] ?? 0);
 
           return [
             {
               name: String(trackValue["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(trackValue),
               match: Number(trackValue["match"] ?? 0),
               duration: duration > 0 ? duration : undefined,
               url: String(trackValue["url"] ?? ""),
@@ -313,30 +307,25 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       limit = DEFAULT_LIMIT,
     ): Promise<Result<readonly SimilarArtist[], LastFmError>> => {
       const url = buildUrl({ method: "artist.getSimilar", artist, limit });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(
+        url,
+        ["similarartists"],
+        "artist",
+      );
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const similarArtistsRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "similarartists")
-        : undefined;
-      const artists = similarArtistsRecord?.["artist"];
-      if (!Array.isArray(artists)) {
-        return ok([]);
-      }
-
-      const mapped: readonly SimilarArtist[] = artists.flatMap(
+      const mapped: readonly SimilarArtist[] = listResult.value.flatMap(
         (artistValue): readonly SimilarArtist[] => {
           if (!isRecord(artistValue)) {
             return [];
           }
 
-          const mbidStr = String(artistValue["mbid"] ?? "");
           return [
             {
               name: String(artistValue["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(artistValue),
               match: Number(artistValue["match"] ?? 0),
               url: String(artistValue["url"] ?? ""),
             },
@@ -375,11 +364,10 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       const statsRecord = getNestedRecord(artistRecord, "stats");
       const tagsRecord = getNestedRecord(artistRecord, "tags");
       const bioRecord = getNestedRecord(artistRecord, "bio");
-      const mbidStr = String(artistRecord["mbid"] ?? "");
 
       return ok({
         name: String(artistRecord["name"] ?? ""),
-        mbid: mbidStr !== "" ? mbidStr : undefined,
+        mbid: optionalMbid(artistRecord),
         listeners: parseInt(String(statsRecord?.["listeners"] ?? "0"), 10),
         playcount: parseInt(String(statsRecord?.["playcount"] ?? "0"), 10),
         tags: extractTagNames(tagsRecord?.["tag"]),
@@ -416,11 +404,10 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
 
       const tagsRecord = getNestedRecord(albumRecord, "tags");
       const wikiRecord = getNestedRecord(albumRecord, "wiki");
-      const mbidStr = String(albumRecord["mbid"] ?? "");
 
       return ok({
         name: String(albumRecord["name"] ?? ""),
-        mbid: mbidStr !== "" ? mbidStr : undefined,
+        mbid: optionalMbid(albumRecord),
         listeners: parseInt(String(albumRecord["listeners"] ?? "0"), 10),
         playcount: parseInt(String(albumRecord["playcount"] ?? "0"), 10),
         tags: extractTagNames(tagsRecord?.["tag"]),
@@ -433,32 +420,23 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       limit = DEFAULT_LIMIT,
     ): Promise<Result<readonly ArtistTopTrack[], LastFmError>> => {
       const url = buildUrl({ method: "artist.getTopTracks", artist, limit });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["toptracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const topTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "toptracks")
-        : undefined;
-      const tracks = topTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly ArtistTopTrack[] = tracks.flatMap(
+      const mapped: readonly ArtistTopTrack[] = listResult.value.flatMap(
         (trackValue): readonly ArtistTopTrack[] => {
           if (!isRecord(trackValue)) {
             return [];
           }
 
           const artistRecord = getNestedRecord(trackValue, "artist");
-          const mbidStr = String(trackValue["mbid"] ?? "");
           return [
             {
               name: String(trackValue["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? artist),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(trackValue),
               playcount: parseInt(String(trackValue["playcount"] ?? "0"), 10),
               listeners: parseInt(String(trackValue["listeners"] ?? "0"), 10),
               url: String(trackValue["url"] ?? ""),
@@ -475,32 +453,23 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       limit = DEFAULT_LIMIT,
     ): Promise<Result<readonly ArtistTopAlbum[], LastFmError>> => {
       const url = buildUrl({ method: "artist.getTopAlbums", artist, limit });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["topalbums"], "album");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const topAlbumsRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "topalbums")
-        : undefined;
-      const albums = topAlbumsRecord?.["album"];
-      if (!Array.isArray(albums)) {
-        return ok([]);
-      }
-
-      const mapped: readonly ArtistTopAlbum[] = albums.flatMap(
+      const mapped: readonly ArtistTopAlbum[] = listResult.value.flatMap(
         (albumValue): readonly ArtistTopAlbum[] => {
           if (!isRecord(albumValue)) {
             return [];
           }
 
           const artistRecord = getNestedRecord(albumValue, "artist");
-          const mbidStr = String(albumValue["mbid"] ?? "");
           return [
             {
               name: String(albumValue["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? artist),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(albumValue),
               playcount: parseInt(String(albumValue["playcount"] ?? "0"), 10),
               url: String(albumValue["url"] ?? ""),
             },
@@ -517,31 +486,22 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       limit = DEFAULT_LIMIT,
     ): Promise<Result<readonly TagTopTrack[], LastFmError>> => {
       const url = buildUrl({ method: "tag.getTopTracks", tag, page, limit });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["tracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const topTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "tracks")
-        : undefined;
-      const tracks = topTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly TagTopTrack[] = tracks.flatMap(
+      const mapped: readonly TagTopTrack[] = listResult.value.flatMap(
         (trackValue): readonly TagTopTrack[] => {
           if (!isRecord(trackValue)) {
             return [];
           }
           const artistRecord = getNestedRecord(trackValue, "artist");
-          const mbidStr = String(trackValue["mbid"] ?? "");
           return [
             {
               name: String(trackValue["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(trackValue),
               url: String(trackValue["url"] ?? ""),
             },
           ];
@@ -556,23 +516,16 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
       limit = 10,
     ): Promise<Result<readonly TagSearchResult[], LastFmError>> => {
       const url = buildUrl({ method: "tag.search", tag: query, limit });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(
+        url,
+        ["results", "tagmatches"],
+        "tag",
+      );
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const resultsRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "results")
-        : undefined;
-      const tagMatchesRecord = resultsRecord
-        ? getNestedRecord(resultsRecord, "tagmatches")
-        : undefined;
-      const tags = tagMatchesRecord?.["tag"];
-      if (!Array.isArray(tags)) {
-        return ok([]);
-      }
-
-      const mapped: readonly TagSearchResult[] = tags.flatMap(
+      const mapped: readonly TagSearchResult[] = listResult.value.flatMap(
         (tagValue): readonly TagSearchResult[] => {
           if (!isRecord(tagValue)) {
             return [];
@@ -601,29 +554,20 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         period,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["topartists"], "artist");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const topArtistsRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "topartists")
-        : undefined;
-      const artists = topArtistsRecord?.["artist"];
-      if (!Array.isArray(artists)) {
-        return ok([]);
-      }
-
-      const mapped: readonly UserTopArtist[] = artists.flatMap(
+      const mapped: readonly UserTopArtist[] = listResult.value.flatMap(
         (entry): readonly UserTopArtist[] => {
           if (!isRecord(entry)) {
             return [];
           }
-          const mbidStr = String(entry["mbid"] ?? "");
           return [
             {
               name: String(entry["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(entry),
               playcount: parseInt(String(entry["playcount"] ?? "0"), 10),
               url: String(entry["url"] ?? ""),
             },
@@ -645,31 +589,22 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         period,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["toptracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const topTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "toptracks")
-        : undefined;
-      const tracks = topTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly UserTopTrack[] = tracks.flatMap(
+      const mapped: readonly UserTopTrack[] = listResult.value.flatMap(
         (entry): readonly UserTopTrack[] => {
           if (!isRecord(entry)) {
             return [];
           }
           const artistRecord = getNestedRecord(entry, "artist");
-          const mbidStr = String(entry["mbid"] ?? "");
           return [
             {
               name: String(entry["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(entry),
               playcount: parseInt(String(entry["playcount"] ?? "0"), 10),
               url: String(entry["url"] ?? ""),
             },
@@ -689,31 +624,22 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         user: username,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["lovedtracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const lovedTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "lovedtracks")
-        : undefined;
-      const tracks = lovedTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly UserLovedTrack[] = tracks.flatMap(
+      const mapped: readonly UserLovedTrack[] = listResult.value.flatMap(
         (entry): readonly UserLovedTrack[] => {
           if (!isRecord(entry)) {
             return [];
           }
           const artistRecord = getNestedRecord(entry, "artist");
-          const mbidStr = String(entry["mbid"] ?? "");
           return [
             {
               name: String(entry["name"] ?? ""),
               artist: String(artistRecord?.["name"] ?? ""),
-              mbid: mbidStr !== "" ? mbidStr : undefined,
+              mbid: optionalMbid(entry),
               url: String(entry["url"] ?? ""),
             },
           ];
@@ -732,21 +658,13 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         user: username,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
-      }
-
-      const recentTracksRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "recenttracks")
-        : undefined;
-      const tracks = recentTracksRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
+      const listResult = await fetchListField(url, ["recenttracks"], "track");
+      if (!listResult.ok) {
+        return listResult;
       }
 
       // recentTracks artist field uses "#text" key, not "name"
-      const mapped: readonly UserRecentTrack[] = tracks.flatMap(
+      const mapped: readonly UserRecentTrack[] = listResult.value.flatMap(
         (entry): readonly UserRecentTrack[] => {
           if (!isRecord(entry)) {
             return [];
@@ -777,20 +695,12 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         user: username,
         limit,
       });
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(url, ["neighbours"], "user");
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const neighboursRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "neighbours")
-        : undefined;
-      const users = neighboursRecord?.["user"];
-      if (!Array.isArray(users)) {
-        return ok([]);
-      }
-
-      const mapped: readonly UserNeighbour[] = users.flatMap(
+      const mapped: readonly UserNeighbour[] = listResult.value.flatMap(
         (entry): readonly UserNeighbour[] => {
           if (!isRecord(entry)) {
             return [];
@@ -818,20 +728,16 @@ export const createLastFmClient = (config: LastFmConfig): LastFmClient => {
         sessionKey,
         sharedSecret,
       );
-      const result = await fetchJson(url);
-      if (!result.ok) {
-        return result;
+      const listResult = await fetchListField(
+        url,
+        ["recommendations"],
+        "track",
+      );
+      if (!listResult.ok) {
+        return listResult;
       }
 
-      const recommendationsRecord = isRecord(result.value)
-        ? getNestedRecord(result.value, "recommendations")
-        : undefined;
-      const tracks = recommendationsRecord?.["track"];
-      if (!Array.isArray(tracks)) {
-        return ok([]);
-      }
-
-      const mapped: readonly RecommendedTrack[] = tracks.flatMap(
+      const mapped: readonly RecommendedTrack[] = listResult.value.flatMap(
         (entry): readonly RecommendedTrack[] => {
           if (!isRecord(entry)) {
             return [];

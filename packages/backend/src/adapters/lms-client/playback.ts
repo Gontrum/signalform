@@ -17,13 +17,13 @@ import type {
   SearchResult,
 } from "./types.js";
 import {
-  MAX_TRACK_URL_LENGTH,
   PAUSE_ENABLED,
-  VALID_TRACK_PROTOCOLS,
   detectSource,
   parseTidalAudioQuality,
+  validateTrackUrl,
 } from "./helpers.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
+import { numericIdTrackFieldsSchema } from "./schemas.js";
 
 export type PlaybackMethods = {
   readonly play: (trackUrl: string) => Promise<Result<void, LmsError>>;
@@ -45,10 +45,7 @@ const isPlayerMode = (value: string): value is PlayerStatus["mode"] => {
 };
 
 const statusTrackSchema = z.object({
-  id: z.union([z.number(), z.string()]),
-  title: z.string(),
-  artist: z.string().optional(),
-  album: z.string().optional(),
+  ...numericIdTrackFieldsSchema,
   url: z.string().optional(),
   artist_ids: z.string().optional(),
   trackartist_ids: z.string().optional(),
@@ -102,35 +99,14 @@ const createPlaybackMethodsImplementation = (
      * @returns Result with void or error
      */
     play: async (trackUrl: string): Promise<Result<void, LmsError>> => {
-      // Validate track URL (fail fast)
-      const trimmedUrl = trackUrl.trim();
-      if (trimmedUrl === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Track URL cannot be empty",
-        });
+      // Validate track URL (fail fast). Issue #15: also validates protocol
+      // (security - prevent malformed URLs).
+      const validation = validateTrackUrl(trackUrl, "NetworkError");
+      if (!validation.ok) {
+        return validation;
       }
 
-      if (trimmedUrl.length > MAX_TRACK_URL_LENGTH) {
-        return err({
-          type: "NetworkError",
-          message: `Track URL exceeds maximum length of ${MAX_TRACK_URL_LENGTH} characters`,
-        });
-      }
-
-      // Issue #15: Validate URL protocol (security - prevent malformed URLs)
-      const hasValidProtocol = VALID_TRACK_PROTOCOLS.some((protocol) =>
-        trimmedUrl.startsWith(protocol),
-      );
-
-      if (!hasValidProtocol) {
-        return err({
-          type: "NetworkError",
-          message: `Invalid track URL protocol. Must start with: ${VALID_TRACK_PROTOCOLS.join(", ")}`,
-        });
-      }
-
-      const command: LmsCommand = ["playlist", "play", trimmedUrl];
+      const command: LmsCommand = ["playlist", "play", validation.value];
       const result = await executeCommandWithRetry(command);
 
       if (!result.ok) {

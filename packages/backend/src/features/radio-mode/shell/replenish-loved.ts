@@ -11,23 +11,14 @@
  */
 
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
-import {
-  PLAYER_UPDATES_ROOM,
-  PLAYER_RADIO_UNAVAILABLE,
-} from "../../../infrastructure/websocket/index.js";
-import type {
-  CandidateTrack,
-  ReplenishOutcome,
-  ReplenishTrigger,
-} from "../core/types.js";
-import { DEFAULT_DIVERSITY_CONFIG } from "../core/types.js";
-import { filterByDiversity } from "../core/diversity-service.js";
-import { shuffleWithRandom } from "../core/replenish.js";
-import type { RadioUnavailablePayload } from "@signalform/shared";
-import { getRadioQueueState } from "./radio-state.js";
+import type { ReplenishOutcome, ReplenishTrigger } from "../core/types.js";
 import type { LovedRadioContext } from "./radio-state.js";
-import { runReplenishPipeline } from "./replenish-pipeline.js";
+import {
+  runReplenishPipeline,
+  shuffleAndFilterByDiversity,
+} from "./replenish-pipeline.js";
 import type { ReplenishPipelineDeps } from "./replenish-pipeline.js";
+import { skippedUnavailableOutcome } from "./emit-helpers.js";
 
 const LOVED_TRACKS_LIMIT = 200;
 
@@ -49,16 +40,7 @@ export const replenishLovedRadioQueue = async (
   );
   if (!lovedTracksResult.ok) {
     if (lovedTracksResult.error.type === "CircuitOpenError") {
-      io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
-        playerId,
-        message: "Radio mode temporarily unavailable",
-        timestamp: Date.now(),
-      } satisfies RadioUnavailablePayload);
-      return {
-        status: "skipped",
-        reason: "lastfm-unavailable",
-        unavailableEmitted: true,
-      };
+      return skippedUnavailableOutcome(io, playerId);
     }
     logger.warn("Loved Radio: user.getLovedTracks failed", {
       event: "radio.loved_lastfm_failed",
@@ -78,19 +60,8 @@ export const replenishLovedRadioQueue = async (
     return { status: "skipped", reason: "no-candidates" };
   }
 
-  const shuffled = shuffleWithRandom(lovedTracksResult.value, Math.random);
-
-  const candidates: readonly CandidateTrack[] = shuffled.map((t) => ({
-    name: t.name,
-    artist: t.artist,
-    match: 1,
-    url: t.url,
-  }));
-
-  const diversityFiltered = filterByDiversity(
-    candidates,
-    getRadioQueueState().recentArtists,
-    DEFAULT_DIVERSITY_CONFIG,
+  const diversityFiltered = shuffleAndFilterByDiversity(
+    lovedTracksResult.value,
   );
 
   if (diversityFiltered.length === 0) {

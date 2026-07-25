@@ -78,6 +78,37 @@ const isSearchResultsResponse = (
   );
 };
 
+/**
+ * Sends the shared "LMS not reachable" 503 response after logging the
+ * upstream failure. Shared by the full-search and autocomplete routes,
+ * which only differ in their log message.
+ */
+const sendLmsSearchUnavailable = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  context: {
+    readonly query: string;
+    readonly error: { readonly type: string; readonly message: string };
+    readonly startTime: number;
+    readonly logMessage: string;
+  },
+): FastifyReply => {
+  request.log.error(
+    {
+      query: context.query,
+      error: context.error.type,
+      message: context.error.message,
+      duration: Date.now() - context.startTime,
+    },
+    context.logMessage,
+  );
+
+  return reply.code(503).send({
+    message: "LMS not reachable",
+    code: "LMS_UNREACHABLE",
+  });
+};
+
 const isCachedSearchResponse = (
   value: unknown,
 ): value is
@@ -152,19 +183,11 @@ export const createSearchRoute = (
 
       // 4. Handle LMS errors
       if (!lmsResult.ok) {
-        request.log.error(
-          {
-            query,
-            error: lmsResult.error.type,
-            message: lmsResult.error.message,
-            duration: Date.now() - startTime,
-          },
-          "LMS search failed",
-        );
-
-        return reply.code(503).send({
-          message: "LMS not reachable",
-          code: "LMS_UNREACHABLE",
+        return sendLmsSearchUnavailable(request, reply, {
+          query,
+          error: lmsResult.error,
+          startTime,
+          logMessage: "LMS search failed",
         });
       }
 
@@ -297,19 +320,11 @@ export const createSearchRoute = (
 
       // 3. Handle LMS errors
       if (!lmsResult.ok) {
-        request.log.error(
-          {
-            query,
-            error: lmsResult.error.type,
-            message: lmsResult.error.message,
-            duration: Date.now() - startTime,
-          },
-          "LMS autocomplete search failed",
-        );
-
-        return reply.code(503).send({
-          message: "LMS not reachable",
-          code: "LMS_UNREACHABLE",
+        return sendLmsSearchUnavailable(request, reply, {
+          query,
+          error: lmsResult.error,
+          startTime,
+          logMessage: "LMS autocomplete search failed",
         });
       }
 

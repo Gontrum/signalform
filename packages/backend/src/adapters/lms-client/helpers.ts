@@ -5,12 +5,19 @@
  * No dependency on config, executeCommand, or any runtime state.
  */
 
-import type { AudioQuality, SourceType } from "@signalform/shared";
-export { VALID_TRACK_PROTOCOLS } from "@signalform/shared";
+import {
+  ok,
+  err,
+  VALID_TRACK_PROTOCOLS,
+  type AudioQuality,
+  type SourceType,
+  type Result,
+} from "@signalform/shared";
+import type { LmsError } from "./types.js";
 
 // LMS Protocol Constants
 export const MAX_SEARCH_RESULTS = 999; // LMS protocol limit for search results per query
-export const MAX_TRACK_URL_LENGTH = 2048; // Reasonable URL length limit to prevent DoS
+const MAX_TRACK_URL_LENGTH = 2048; // Reasonable URL length limit to prevent DoS — only used by validateTrackUrl below
 export const PAUSE_ENABLED = "1"; // LMS pause command: "1" = pause, "0" = resume
 export const TIDAL_SEARCH_TIMEOUT_MS = 450; // Tidal search latency ~300-400ms observed; radio mode needs results to prevent queue starvation
 export const TIDAL_ENRICH_TIMEOUT_MS = 500; // Per-track tidal_info enrichment budget (tidal_info calls Tidal REST API ~200-400ms)
@@ -39,6 +46,71 @@ const LMS_FORMAT_MAP: Readonly<
   aac: { format: "AAC", lossless: false },
   ogg: { format: "OGG", lossless: false },
 } as const;
+
+/**
+ * Validates that an id (album id, artist id, ...) is non-empty after
+ * trimming, returning the trimmed id on success or an EmptyQueryError
+ * (`"{label} cannot be empty"`) otherwise.
+ *
+ * Shared by library's playAlbum/playTidalAlbum/getAlbumTracks/getArtistAlbums
+ * and queue's addAlbumToQueue/addTidalAlbumToQueue — all trim + reject-empty
+ * an id the same way before building an LMS command from it.
+ */
+export const validateNonEmptyId = (
+  value: string,
+  label: string,
+): Result<string, LmsError> => {
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return err({
+      type: "EmptyQueryError",
+      message: `${label} cannot be empty`,
+    });
+  }
+  return ok(trimmed);
+};
+
+/**
+ * Validates a track URL for playback/queueing: non-empty, within
+ * MAX_TRACK_URL_LENGTH, and using an allowed protocol (VALID_TRACK_PROTOCOLS).
+ * Returns the trimmed URL on success.
+ *
+ * Shared by playback's play() and queue's addToQueue() — both perform the
+ * same validation, differing only in which LmsError `type` is reported for
+ * the length/protocol failures (`invalidErrorType`); an empty URL is always
+ * an EmptyQueryError regardless of caller.
+ */
+export const validateTrackUrl = (
+  trackUrl: string,
+  invalidErrorType: "NetworkError" | "ValidationError",
+): Result<string, LmsError> => {
+  const trimmedUrl = trackUrl.trim();
+  if (trimmedUrl === "") {
+    return err({
+      type: "EmptyQueryError",
+      message: "Track URL cannot be empty",
+    });
+  }
+
+  if (trimmedUrl.length > MAX_TRACK_URL_LENGTH) {
+    return err({
+      type: invalidErrorType,
+      message: `Track URL exceeds maximum length of ${MAX_TRACK_URL_LENGTH} characters`,
+    });
+  }
+
+  const hasValidProtocol = VALID_TRACK_PROTOCOLS.some((protocol) =>
+    trimmedUrl.startsWith(protocol),
+  );
+  if (!hasValidProtocol) {
+    return err({
+      type: invalidErrorType,
+      message: `Invalid track URL protocol. Must start with: ${VALID_TRACK_PROTOCOLS.join(", ")}`,
+    });
+  }
+
+  return ok(trimmedUrl);
+};
 
 // Extracts numeric Tidal track ID from URL: "tidal://58990486.flc" → "58990486"
 export const extractTidalTrackId = (url: string): string | undefined => {

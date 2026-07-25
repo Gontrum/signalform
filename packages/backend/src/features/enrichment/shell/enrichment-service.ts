@@ -33,24 +33,35 @@ export type SimilarArtistsClient = {
   ) => Promise<Result<readonly SimilarArtist[], LastFmServiceError>>;
 };
 
+/**
+ * Maps a Last.fm client result onto the enrichment error type, applying
+ * `mapValue` to the success payload. Shared by the three enrichment lookups
+ * below, which only differ in the upstream call and success shape.
+ */
+const mapEnrichmentResult = <T, U>(
+  result: Result<T, LastFmServiceError>,
+  mapValue: (value: T) => U,
+): Result<U, EnrichmentError> => {
+  if (!result.ok) {
+    return err(mapLastFmError(result.error));
+  }
+  return ok(mapValue(result.value));
+};
+
 export const getArtistEnrichment = async (
   name: string,
   client: ArtistInfoClient,
   language: Language,
 ): Promise<Result<ArtistEnrichment, EnrichmentError>> => {
   const result = await client.getArtistInfo(name, language);
-  if (!result.ok) {
-    return err(mapLastFmError(result.error));
-  }
-  const info = result.value;
-  return ok({
+  return mapEnrichmentResult(result, (info) => ({
     name: info.name,
     mbid: info.mbid,
     listeners: info.listeners,
     playcount: info.playcount,
     tags: info.tags,
     bio: info.bio,
-  });
+  }));
 };
 
 export const getAlbumEnrichment = async (
@@ -60,18 +71,14 @@ export const getAlbumEnrichment = async (
   language: Language,
 ): Promise<Result<AlbumEnrichment, EnrichmentError>> => {
   const result = await client.getAlbumInfo(artist, album, language);
-  if (!result.ok) {
-    return err(mapLastFmError(result.error));
-  }
-  const info = result.value;
-  return ok({
+  return mapEnrichmentResult(result, (info) => ({
     name: info.name,
     mbid: info.mbid,
     listeners: info.listeners,
     playcount: info.playcount,
     tags: info.tags,
     wiki: info.wiki,
-  });
+  }));
 };
 
 export const getSimilarArtistsEnrichment = async (
@@ -80,8 +87,5 @@ export const getSimilarArtistsEnrichment = async (
   limit = 6,
 ): Promise<Result<readonly SimilarArtist[], EnrichmentError>> => {
   const result = await client.getSimilarArtists(name, limit);
-  if (!result.ok) {
-    return err(mapLastFmError(result.error));
-  }
-  return ok(result.value);
+  return mapEnrichmentResult(result, (artists) => artists);
 };

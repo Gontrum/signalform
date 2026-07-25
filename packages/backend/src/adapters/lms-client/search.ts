@@ -27,6 +27,10 @@ import {
   parseAudioQuality,
 } from "./helpers.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
+import {
+  trackIdentityFieldsSchema,
+  audioQualityFieldsSchema,
+} from "./schemas.js";
 
 const tidalInfoPayloadParser = createLmsResultParser(
   z.object({
@@ -46,15 +50,8 @@ const localSearchPayloadParser = createLmsResultParser(
     titles_loop: z
       .array(
         z.object({
-          id: z.number(),
-          title: z.string(),
-          artist: z.string().optional(),
-          albumartist: z.string().optional(),
-          album: z.string().optional(),
-          url: z.string().optional(),
-          bitrate: z.string().optional(),
-          samplerate: z.string().optional(),
-          type: z.string().optional(),
+          ...trackIdentityFieldsSchema,
+          ...audioQualityFieldsSchema,
           remote: z.string().optional(),
           artist_ids: z.string().optional(),
           trackartist_ids: z.string().optional(),

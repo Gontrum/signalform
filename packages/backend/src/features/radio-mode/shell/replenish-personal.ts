@@ -10,11 +10,6 @@
  */
 
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
-import {
-  PLAYER_UPDATES_ROOM,
-  PLAYER_RADIO_UNAVAILABLE,
-} from "../../../infrastructure/websocket/index.js";
-import type { RadioUnavailablePayload } from "@signalform/shared";
 import type {
   CandidateTrack,
   ReplenishOutcome,
@@ -37,6 +32,7 @@ import {
 import type { PersonalRadioContext } from "./radio-state.js";
 import { runReplenishPipeline } from "./replenish-pipeline.js";
 import type { ReplenishPipelineDeps } from "./replenish-pipeline.js";
+import { skippedUnavailableOutcome } from "./emit-helpers.js";
 
 export type ReplenishPersonalDeps = ReplenishPipelineDeps & {
   readonly lastFmClient: LastFmClient;
@@ -54,20 +50,6 @@ export const replenishPersonalRadioQueue = async (
 ): Promise<ReplenishOutcome> => {
   const { lastFmClient, logger, io, playerId } = deps;
   const { username, seedArtists, neighbours, cycle } = context;
-
-  // Mirrors the genre path: circuit open → tell the frontend radio is down.
-  const emitRadioUnavailable = (): ReplenishOutcome => {
-    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
-      playerId,
-      message: "Radio mode temporarily unavailable",
-      timestamp: Date.now(),
-    } satisfies RadioUnavailablePayload);
-    return {
-      status: "skipped",
-      reason: "lastfm-unavailable",
-      unavailableEmitted: true,
-    };
-  };
 
   if (seedArtists.length === 0) {
     return { status: "skipped", reason: "no-candidates" };
@@ -179,7 +161,7 @@ export const replenishPersonalRadioQueue = async (
   const similarResult = await lastFmClient.getSimilarArtists(seedArtist, 20);
   if (!similarResult.ok) {
     if (similarResult.error.type === "CircuitOpenError") {
-      return emitRadioUnavailable();
+      return skippedUnavailableOutcome(io, playerId);
     }
     logger.warn("Personal Radio: artist.getSimilar failed", {
       event: "radio.personal_lastfm_failed",
@@ -209,7 +191,7 @@ export const replenishPersonalRadioQueue = async (
     trackResults.length > 0 &&
     trackResults.every((r) => !r.ok && r.error.type === "CircuitOpenError")
   ) {
-    return emitRadioUnavailable();
+    return skippedUnavailableOutcome(io, playerId);
   }
 
   const allTracks = trackResults.flatMap((r) => (r.ok ? r.value : []));

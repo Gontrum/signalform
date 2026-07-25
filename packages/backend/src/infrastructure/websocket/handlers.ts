@@ -138,6 +138,14 @@ export const createSystemEventPayload = (
 };
 
 /**
+ * Joins queue preview track IDs into a comparable string key.
+ * Used by hasStatusChanged/hasQueueContextChanged to detect queue changes
+ * without a deep array comparison.
+ */
+const getQueuePreviewIdsKey = (status: LmsPlayerStatus): string =>
+  status.queuePreview?.map((t) => t.id).join(",") ?? "";
+
+/**
  * Checks if player status has changed
  * Used for polling fallback to avoid emitting unchanged status
  */
@@ -149,15 +157,11 @@ export const hasStatusChanged = (
     return true;
   }
 
-  const prevQueueIds = prev.queuePreview?.map((t) => t.id).join(",") ?? "";
-  const currentQueueIds =
-    current.queuePreview?.map((t) => t.id).join(",") ?? "";
-
   return (
     prev.mode !== current.mode ||
     prev.currentTrack?.id !== current.currentTrack?.id ||
     prev.volume !== current.volume ||
-    prevQueueIds !== currentQueueIds
+    getQueuePreviewIdsKey(prev) !== getQueuePreviewIdsKey(current)
   );
 };
 
@@ -169,12 +173,8 @@ export const hasQueueContextChanged = (
     return false;
   }
 
-  const prevQueueIds = prev.queuePreview?.map((t) => t.id).join(",") ?? "";
-  const currentQueueIds =
-    current.queuePreview?.map((t) => t.id).join(",") ?? "";
-
   return (
     prev.currentTrack?.id !== current.currentTrack?.id ||
-    prevQueueIds !== currentQueueIds
+    getQueuePreviewIdsKey(prev) !== getQueuePreviewIdsKey(current)
   );
 };

@@ -77,6 +77,38 @@ type LmsClient = {
 };
 
 /**
+ * Logs the "radio queue-end trigger fired" event shared by the proactive
+ * (queue-emptied-during-playback) and stop (play→stop transition) triggers —
+ * only the event name/message and trigger kind differ between the two.
+ */
+const logQueueEndTriggerFired = (
+  app: FastifyInstance,
+  playerId: string,
+  trigger: "proactive" | "stop",
+  seedTrack: { readonly artist: string; readonly title: string },
+  previousStatus: LmsPlayerStatus,
+  currentStatus: LmsPlayerStatus,
+): void => {
+  app.log.info(
+    {
+      event: `radio.queue_end_triggered_${trigger}`,
+      playerId,
+      seedArtist: seedTrack.artist,
+      seedTitle: seedTrack.title,
+      previousMode: previousStatus.mode,
+      currentMode: currentStatus.mode,
+      previousTime: previousStatus.time,
+      currentTime: currentStatus.time,
+      previousQueuePreviewLength: previousStatus.queuePreview?.length ?? 0,
+      currentQueuePreviewLength: currentStatus.queuePreview?.length ?? 0,
+    },
+    trigger === "proactive"
+      ? "Radio queue-end proactive trigger fired"
+      : "Radio queue-end stop trigger fired",
+  );
+};
+
+/**
  * Starts LMS status polling
  * @param io - Socket.IO server instance
  * @param lmsClient - LMS client for fetching status
@@ -445,20 +477,13 @@ export const startStatusPolling = (
         await scheduleNextPoll(nextStatus, false, nextStallState);
         return;
       }
-      app.log.info(
-        {
-          event: "radio.queue_end_triggered_proactive",
-          playerId,
-          seedArtist: seedTrack.artist,
-          seedTitle: seedTrack.title,
-          previousMode: previousStatus.mode,
-          currentMode: currentStatus.mode,
-          previousTime: previousStatus.time,
-          currentTime: currentStatus.time,
-          previousQueuePreviewLength: previousStatus.queuePreview?.length ?? 0,
-          currentQueuePreviewLength: currentStatus.queuePreview?.length ?? 0,
-        },
-        "Radio queue-end proactive trigger fired",
+      logQueueEndTriggerFired(
+        app,
+        playerId,
+        "proactive",
+        seedTrack,
+        previousStatus,
+        currentStatus,
       );
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }
@@ -497,20 +522,13 @@ export const startStatusPolling = (
         await scheduleNextPoll(nextStatus, false, nextStallState);
         return;
       }
-      app.log.info(
-        {
-          event: "radio.queue_end_triggered_stop",
-          playerId,
-          seedArtist: seedTrack.artist,
-          seedTitle: seedTrack.title,
-          previousMode: previousStatus.mode,
-          currentMode: currentStatus.mode,
-          previousTime: previousStatus.time,
-          currentTime: currentStatus.time,
-          previousQueuePreviewLength: previousStatus.queuePreview?.length ?? 0,
-          currentQueuePreviewLength: currentStatus.queuePreview?.length ?? 0,
-        },
-        "Radio queue-end stop trigger fired",
+      logQueueEndTriggerFired(
+        app,
+        playerId,
+        "stop",
+        seedTrack,
+        previousStatus,
+        currentStatus,
       );
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }

@@ -28,10 +28,7 @@ import {
 import {
   PLAYER_UPDATES_ROOM,
   PLAYER_RADIO_STARTED,
-  PLAYER_QUEUE_UPDATED,
-  PLAYER_RADIO_UNAVAILABLE,
 } from "../../../infrastructure/websocket/index.js";
-import type { RadioUnavailablePayload } from "@signalform/shared";
 import {
   annotateRadioQueueTracks,
   clearRadioQueueRuntimeState,
@@ -48,6 +45,7 @@ import type { Logger } from "./replenish-pipeline.js";
 import { replenishPersonalRadioQueue } from "./replenish-personal.js";
 import { replenishGenreQueue } from "./replenish-genre.js";
 import { replenishLovedRadioQueue } from "./replenish-loved.js";
+import { emitQueueUpdated, skippedUnavailableOutcome } from "./emit-helpers.js";
 
 // Number of similar tracks to fetch from last.fm (larger pool = better filtering results)
 const LASTFM_SIMILAR_LIMIT = 50;
@@ -180,16 +178,7 @@ export const createRadioEngine = (
               "Radio: last.fm circuit open — radio temporarily unavailable",
               { event: "radio.circuit_open", trigger },
             );
-            io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_RADIO_UNAVAILABLE, {
-              playerId,
-              message: "Radio mode temporarily unavailable",
-              timestamp: Date.now(),
-            } satisfies RadioUnavailablePayload);
-            return {
-              status: "skipped",
-              reason: "lastfm-unavailable",
-              unavailableEmitted: true,
-            };
+            return skippedUnavailableOutcome(io, playerId);
           }
           logger.warn("Radio: last.fm fetch failed — radio aborted", {
             event: "radio.lastfm_fetch_failed",
@@ -516,13 +505,7 @@ export const createRadioEngine = (
     const queueProjection = annotateRadioQueueTracks(
       refreshedQueueResult.value,
     );
-    io.to(PLAYER_UPDATES_ROOM).emit(PLAYER_QUEUE_UPDATED, {
-      playerId,
-      tracks: queueProjection.tracks,
-      radioModeActive: queueProjection.radioModeActive,
-      radioBoundaryIndex: queueProjection.radioBoundaryIndex ?? undefined,
-      timestamp: Date.now(),
-    });
+    emitQueueUpdated(io, playerId, queueProjection);
 
     logger.info("Radio mode toggled", {
       event:

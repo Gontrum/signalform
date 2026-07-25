@@ -8,23 +8,23 @@
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
  */
 
-import { ok, err, type Result } from "@signalform/shared";
+import { ok, type Result } from "@signalform/shared";
 import type { QueueTrack } from "@signalform/shared";
 import { z } from "zod";
-import type {
-  LmsCommand,
-  LmsError,
-  SavedPlaylist,
-  TidalTrackRaw,
-} from "./types.js";
+import type { LmsCommand, LmsError, SavedPlaylist } from "./types.js";
 import {
-  MAX_TRACK_URL_LENGTH,
-  VALID_TRACK_PROTOCOLS,
   detectQueueSource,
   parseAudioQuality,
+  validateTrackUrl,
+  validateNonEmptyId,
 } from "./helpers.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
-import { tidalTracksPayloadParser } from "./schemas.js";
+import {
+  numericIdTrackFieldsSchema,
+  audioQualityFieldsSchema,
+  validateAndFetchPlayableTidalAlbumTracks,
+  appendTracksToQueue,
+} from "./schemas.js";
 
 export type QueueMethods = {
   readonly getQueue: () => Promise<Result<readonly QueueTrack[], LmsError>>;
@@ -52,16 +52,9 @@ export type QueueMethods = {
 };
 
 const queueTrackRawSchema = z.object({
-  id: z.union([z.number(), z.string()]),
-  title: z.string(),
-  artist: z.string().optional(),
-  album: z.string().optional(),
+  ...numericIdTrackFieldsSchema,
   duration: z.union([z.number(), z.string()]).optional(),
-  url: z.string().optional(),
-  bitrate: z.string().optional(),
-  samplerate: z.string().optional(),
-  type: z.string().optional(),
-  samplesize: z.number().optional(),
+  ...audioQualityFieldsSchema,
 });
 
 const queuePayloadParser = createLmsResultParser(
@@ -175,32 +168,12 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     },
 
     addToQueue: async (trackUrl: string): Promise<Result<void, LmsError>> => {
-      const trimmedUrl = trackUrl.trim();
-      if (trimmedUrl === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Track URL cannot be empty",
-        });
+      const validation = validateTrackUrl(trackUrl, "ValidationError");
+      if (!validation.ok) {
+        return validation;
       }
 
-      if (trimmedUrl.length > MAX_TRACK_URL_LENGTH) {
-        return err({
-          type: "ValidationError",
-          message: `Track URL exceeds maximum length of ${MAX_TRACK_URL_LENGTH} characters`,
-        });
-      }
-
-      const hasValidProtocol = VALID_TRACK_PROTOCOLS.some((protocol) =>
-        trimmedUrl.startsWith(protocol),
-      );
-      if (!hasValidProtocol) {
-        return err({
-          type: "ValidationError",
-          message: `Invalid track URL protocol. Must start with: ${VALID_TRACK_PROTOCOLS.join(", ")}`,
-        });
-      }
-
-      const command: LmsCommand = ["playlist", "add", trimmedUrl];
+      const command: LmsCommand = ["playlist", "add", validation.value];
       const result = await executeCommand(command);
 
       if (!result.ok) {
@@ -224,13 +197,11 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     addAlbumToQueue: async (
       albumId: string,
     ): Promise<Result<void, LmsError>> => {
-      const trimmedId = albumId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Album ID cannot be empty",
-        });
+      const validation = validateNonEmptyId(albumId, "Album ID");
+      if (!validation.ok) {
+        return validation;
       }
+      const trimmedId = validation.value;
 
       const result = await executeCommand([
         "playlistcontrol",
@@ -257,54 +228,18 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     addTidalAlbumToQueue: async (
       albumId: string,
     ): Promise<Result<void, LmsError>> => {
-      const trimmedId = albumId.trim();
-      if (trimmedId === "") {
-        return err({
-          type: "EmptyQueryError",
-          message: "Album ID cannot be empty",
-        });
-      }
-
-      // Step 1: Fetch album tracks
-      const tracksResult = await executeCommand(
-        ["tidal", "items", 0, 999, `item_id:${trimmedId}`, "want_url:1"],
-        tidalTracksPayloadParser,
+      // Step 1: Validate album id + fetch album tracks
+      const tracksResult = await validateAndFetchPlayableTidalAlbumTracks(
+        executeCommand,
+        albumId,
       );
 
       if (!tracksResult.ok) {
         return tracksResult;
       }
 
-      const allItems = tracksResult.value.loop_loop ?? [];
-      const tracks = allItems.filter(
-        (t): t is TidalTrackRaw & { readonly url: string } =>
-          t.isaudio === 1 && t.url !== undefined && t.url !== "",
-      );
-
-      if (tracks.length === 0) {
-        return err({
-          type: "LmsApiError",
-          code: 0,
-          message: `No playable tracks found for Tidal album ${trimmedId}`,
-        });
-      }
-
       // Step 2: Add all tracks sequentially (no-loop reduce — functional/no-loop-statements)
-      return tracks.reduce<Promise<Result<void, LmsError>>>(
-        async (prevPromise, track) => {
-          const prev = await prevPromise;
-          if (!prev.ok) {
-            return prev;
-          }
-          const result = await executeCommand([
-            "playlist",
-            "add",
-            track.url, // url is string — guaranteed by type guard in filter above
-          ]);
-          return result.ok ? ok(undefined) : err(result.error);
-        },
-        Promise.resolve(ok(undefined)),
-      );
+      return appendTracksToQueue(executeCommand, tracksResult.value);
     },
 
     clearQueue: async (): Promise<Result<void, LmsError>> => {
