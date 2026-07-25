@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useSettingsView } from '../shell/useSettingsView'
 
@@ -67,28 +69,77 @@ const { isPhone } = useResponsiveLayout()
 
 // Injected at build time via Vite `define` (see vite.config.ts).
 const appVersion = __APP_VERSION__
+
+// Destructive actions (delete user, disconnect Last.fm) require a double tap
+// within a 3-second window before they fire — a single accidental click must
+// never cause irreversible data loss. Keyed by userId because the settings
+// view renders one delete/disconnect button per user row; a single shared
+// boolean would arm every row's button at once.
+const pendingDeleteUserId = ref<string | undefined>(undefined)
+const pendingDeleteTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const handleDeleteUser = (userId: string): void => {
+  if (pendingDeleteUserId.value === userId) {
+    if (pendingDeleteTimer.value !== null) {
+      clearTimeout(pendingDeleteTimer.value)
+      pendingDeleteTimer.value = null
+    }
+    pendingDeleteUserId.value = undefined
+    removeUser(userId)
+    return
+  }
+  if (pendingDeleteTimer.value !== null) {
+    clearTimeout(pendingDeleteTimer.value)
+  }
+  pendingDeleteUserId.value = userId
+  pendingDeleteTimer.value = setTimeout(() => {
+    pendingDeleteUserId.value = undefined
+    pendingDeleteTimer.value = null
+  }, 3000)
+}
+
+const pendingLastFmDisconnectUserId = ref<string | undefined>(undefined)
+const pendingLastFmDisconnectTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const handleDisconnectLastFm = (userId: string): void => {
+  if (pendingLastFmDisconnectUserId.value === userId) {
+    if (pendingLastFmDisconnectTimer.value !== null) {
+      clearTimeout(pendingLastFmDisconnectTimer.value)
+      pendingLastFmDisconnectTimer.value = null
+    }
+    pendingLastFmDisconnectUserId.value = undefined
+    handleLastFmDisconnect(userId)
+    return
+  }
+  if (pendingLastFmDisconnectTimer.value !== null) {
+    clearTimeout(pendingLastFmDisconnectTimer.value)
+  }
+  pendingLastFmDisconnectUserId.value = userId
+  pendingLastFmDisconnectTimer.value = setTimeout(() => {
+    pendingLastFmDisconnectUserId.value = undefined
+    pendingLastFmDisconnectTimer.value = null
+  }, 3000)
+}
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto" data-testid="settings-view">
+  <main class="h-full overflow-y-auto" data-testid="settings-view">
     <MainNavBar v-if="!isPhone" />
     <PageHeader v-if="isPhone" :title="t('settings.title')" />
     <h1 v-else class="sr-only">{{ t('settings.title') }}</h1>
 
     <div class="mx-auto max-w-xl px-4 py-4 sm:px-6">
       <div v-if="loading" class="flex justify-center py-8" data-testid="settings-loading">
-        <div
-          class="h-8 w-8 animate-spin rounded-full border-4 border-neutral-900 border-t-transparent"
-        />
+        <LoadingSpinner size="md" color="neutral-900" />
       </div>
 
-      <p v-else-if="loadError" data-testid="settings-load-error" class="text-sm text-red-600">
+      <p v-else-if="loadError" data-testid="settings-load-error" class="text-sm text-error">
         {{ t('settings.error.loadFailed') }}
       </p>
 
       <form v-else data-testid="settings-form" class="space-y-6" @submit.prevent="save">
         <section>
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             {{ t('settings.section.integration') }}
           </h2>
 
@@ -104,7 +155,7 @@ const appVersion = __APP_VERSION__
                   type="text"
                   data-testid="lms-host-input"
                   placeholder="192.168.1.100"
-                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
                 />
               </div>
               <div class="w-24">
@@ -117,7 +168,7 @@ const appVersion = __APP_VERSION__
                   type="number"
                   data-testid="lms-port-input"
                   placeholder="9000"
-                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
                 />
               </div>
               <button
@@ -132,7 +183,7 @@ const appVersion = __APP_VERSION__
               </button>
             </div>
 
-            <p v-if="discoverError" data-testid="discover-error" class="text-xs text-red-600">
+            <p v-if="discoverError" data-testid="discover-error" class="text-xs text-error">
               {{
                 discoverError === 'none'
                   ? t('settings.discoverNone')
@@ -170,7 +221,7 @@ const appVersion = __APP_VERSION__
                 type="text"
                 data-testid="lms-mac-input"
                 placeholder="aa:bb:cc:dd:ee:ff"
-                class="w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm focus:border-neutral-900 focus:outline-none"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               />
               <p class="mt-1 text-xs text-neutral-500">{{ t('settings.lmsMacAddressHint') }}</p>
             </div>
@@ -178,7 +229,7 @@ const appVersion = __APP_VERSION__
         </section>
 
         <section>
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             {{ t('settings.section.experience') }}
           </h2>
 
@@ -194,7 +245,7 @@ const appVersion = __APP_VERSION__
                   type="text"
                   data-testid="player-id-input"
                   placeholder="aa:bb:cc:dd:ee:ff"
-                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono focus:border-neutral-900 focus:outline-none"
+                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
                 />
               </div>
               <button
@@ -209,7 +260,7 @@ const appVersion = __APP_VERSION__
               </button>
             </div>
 
-            <p v-if="playersError" data-testid="players-error" class="text-xs text-red-600">
+            <p v-if="playersError" data-testid="players-error" class="text-xs text-error">
               {{
                 playersError === 'none'
                   ? t('settings.playersNone')
@@ -242,7 +293,7 @@ const appVersion = __APP_VERSION__
         </section>
 
         <section>
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             {{ t('settings.languageSection') }}
           </h2>
 
@@ -255,7 +306,7 @@ const appVersion = __APP_VERSION__
                 id="language-select"
                 v-model="language"
                 data-testid="language-select"
-                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               >
                 <option value="en">{{ t('settings.languageEnglish') }}</option>
                 <option value="de">{{ t('settings.languageGerman') }}</option>
@@ -265,7 +316,7 @@ const appVersion = __APP_VERSION__
         </section>
 
         <section>
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             API Keys
           </h2>
 
@@ -273,7 +324,7 @@ const appVersion = __APP_VERSION__
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-key">
                 Last.fm API Key
-                <span v-if="hasLastFmKey" class="ml-1 text-green-600">✓ configured</span>
+                <span v-if="hasLastFmKey" class="ml-1 text-success">✓ configured</span>
               </label>
               <input
                 id="lastfm-key"
@@ -285,14 +336,14 @@ const appVersion = __APP_VERSION__
                     ? t('settings.lastfmPlaceholderConfigured')
                     : t('settings.lastfmPlaceholderEmpty')
                 "
-                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               />
             </div>
 
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-secret">
                 Last.fm Shared Secret
-                <span v-if="hasLastFmSharedSecret" class="ml-1 text-green-600">✓ configured</span>
+                <span v-if="hasLastFmSharedSecret" class="ml-1 text-success">✓ configured</span>
               </label>
               <input
                 id="lastfm-secret"
@@ -304,14 +355,14 @@ const appVersion = __APP_VERSION__
                     ? t('settings.lastfmPlaceholderConfigured')
                     : t('settings.lastfmPlaceholderEmpty')
                 "
-                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               />
             </div>
 
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="fanart-key">
                 Fanart.tv API Key
-                <span v-if="hasFanartKey" class="ml-1 text-green-600">✓ configured</span>
+                <span v-if="hasFanartKey" class="ml-1 text-success">✓ configured</span>
               </label>
               <input
                 id="fanart-key"
@@ -323,7 +374,7 @@ const appVersion = __APP_VERSION__
                     ? t('settings.fanartPlaceholderConfigured')
                     : t('settings.fanartPlaceholderEmpty')
                 "
-                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               />
             </div>
           </div>
@@ -331,7 +382,7 @@ const appVersion = __APP_VERSION__
 
         <!-- Users section -->
         <section data-testid="users-section">
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             {{ t('settings.usersSection') }}
           </h2>
 
@@ -350,7 +401,7 @@ const appVersion = __APP_VERSION__
                     type="text"
                     :aria-label="t('settings.userRename')"
                     data-testid="user-rename-input"
-                    class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none sm:flex-1"
+                    class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:flex-1"
                   />
                   <div class="flex flex-wrap gap-2">
                     <button
@@ -411,10 +462,14 @@ const appVersion = __APP_VERSION__
                       v-if="user.hasLastFmSession"
                       type="button"
                       data-testid="lastfm-disconnect-button"
-                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                      @click="handleLastFmDisconnect(user.id)"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-error hover:bg-error/10"
+                      @click="handleDisconnectLastFm(user.id)"
                     >
-                      {{ t('settings.lastFmDisconnect') }}
+                      {{
+                        pendingLastFmDisconnectUserId === user.id
+                          ? t('settings.lastFmDisconnectConfirm')
+                          : t('settings.lastFmDisconnect')
+                      }}
                     </button>
                     <button
                       v-else
@@ -436,10 +491,14 @@ const appVersion = __APP_VERSION__
                     <button
                       type="button"
                       data-testid="user-delete-button"
-                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
-                      @click="removeUser(user.id)"
+                      class="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-error hover:bg-error/10"
+                      @click="handleDeleteUser(user.id)"
                     >
-                      {{ t('settings.userDelete') }}
+                      {{
+                        pendingDeleteUserId === user.id
+                          ? t('settings.userDeleteConfirm')
+                          : t('settings.userDelete')
+                      }}
                     </button>
                   </div>
                 </template>
@@ -464,12 +523,12 @@ const appVersion = __APP_VERSION__
             </div>
 
             <!-- Auth error -->
-            <p v-if="lastFmAuthError" data-testid="lastfm-auth-error" class="text-sm text-red-600">
+            <p v-if="lastFmAuthError" data-testid="lastfm-auth-error" class="text-sm text-error">
               {{ t('settings.lastFmAuthError') }}
             </p>
 
             <!-- User action error -->
-            <p v-if="userActionError" data-testid="user-action-error" class="text-sm text-red-600">
+            <p v-if="userActionError" data-testid="user-action-error" class="text-sm text-error">
               {{ t('settings.userActionError') }}
             </p>
 
@@ -487,7 +546,7 @@ const appVersion = __APP_VERSION__
                   v-model="newUserName"
                   type="text"
                   data-testid="new-user-input"
-                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                  class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
                 />
               </div>
               <button
@@ -514,7 +573,7 @@ const appVersion = __APP_VERSION__
 
         <!-- Last.fm section -->
         <section data-testid="lastfm-section">
-          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-400">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
             {{ t('settings.lastFm') }}
           </h2>
 
@@ -602,14 +661,14 @@ const appVersion = __APP_VERSION__
         <p
           v-if="saveSuccess"
           data-testid="save-success"
-          class="rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
+          class="rounded-lg bg-success/10 px-4 py-3 text-sm font-medium text-success"
         >
           {{ t('settings.saveSuccess') }}
         </p>
         <p
           v-if="saveError"
           data-testid="save-error"
-          class="rounded-lg bg-red-50 px-4 py-3 text-sm font-medium text-red-700"
+          class="rounded-lg bg-error/10 px-4 py-3 text-sm font-medium text-error"
         >
           {{ t('settings.error.saveFailed') }}
         </p>
@@ -640,5 +699,5 @@ const appVersion = __APP_VERSION__
         Signalform v{{ appVersion }}
       </p>
     </div>
-  </div>
+  </main>
 </template>

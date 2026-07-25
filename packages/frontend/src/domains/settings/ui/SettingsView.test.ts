@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
 import SettingsView from '@/domains/settings/ui/SettingsView.vue'
 import { useI18nStore } from '@/app/i18nStore'
@@ -158,6 +158,16 @@ describe('SettingsView', () => {
     expectInputValue(wrapper, '[data-testid="lms-host-input"]', '192.168.1.100')
     expectInputValue(wrapper, '[data-testid="lms-port-input"]', '9000')
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'aa:bb:cc:dd:ee:ff')
+  })
+
+  // a11y audit: SettingsView is a top-level route and must expose a `main`
+  // landmark for screen-reader "skip to main content" navigation.
+  it('renders a main landmark as the root element', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    expect(wrapper.find('main').exists()).toBe(true)
+    expect(wrapper.find('main[data-testid="settings-view"]').exists()).toBe(true)
   })
 
   it('renders a PageHeader with the settings title and no back button', async () => {
@@ -448,6 +458,20 @@ describe('SettingsView', () => {
   })
 
   // ---------------------------------------------------------------------------
+  // Section heading contrast (WCAG 1.4.3)
+  // ---------------------------------------------------------------------------
+
+  it('renders section headings with sufficient-contrast text-neutral-600, not text-neutral-400', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const headings = wrapper.findAll('h2')
+    expect(headings.length).toBeGreaterThan(0)
+    expect(headings.every((heading) => heading.classes().includes('text-neutral-600'))).toBe(true)
+    expect(headings.every((heading) => !heading.classes().includes('text-neutral-400'))).toBe(true)
+  })
+
+  // ---------------------------------------------------------------------------
   // App version footer
   // ---------------------------------------------------------------------------
 
@@ -584,20 +608,75 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="user-rename-input"]').exists()).toBe(false)
   })
 
-  it('deletes a user and reloads the user list', async () => {
+  it('deletes a user on the second click and reloads the user list', async () => {
     const { deleteUser, getUsers } = await import('@/platform/api/usersApi')
     const router = await createRouter()
     const wrapper = await mountView(router)
     const loadsBeforeDelete = vi.mocked(getUsers).mock.calls.length
 
-    await wrapper
+    const deleteButton = wrapper
       .findAll('[data-testid="user-row"]')[1]!
       .find('[data-testid="user-delete-button"]')
-      .trigger('click')
+    await deleteButton.trigger('click')
+    await nextTick()
+    expect(deleteUser).not.toHaveBeenCalled()
+
+    await deleteButton.trigger('click')
     await flushPromises()
 
     expect(deleteUser).toHaveBeenCalledWith('u2')
     expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeDelete + 1)
+  })
+
+  it('does not delete a user on a single click, and shows the confirm label', async () => {
+    vi.useFakeTimers()
+    const { deleteUser } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const deleteButton = wrapper
+      .findAll('[data-testid="user-row"]')[1]!
+      .find('[data-testid="user-delete-button"]')
+    expect(deleteButton.text()).toBe('Delete')
+
+    await deleteButton.trigger('click')
+    await nextTick()
+
+    expect(deleteUser).not.toHaveBeenCalled()
+    expect(
+      wrapper
+        .findAll('[data-testid="user-row"]')[1]!
+        .find('[data-testid="user-delete-button"]')
+        .text(),
+    ).toBe('Delete?')
+
+    vi.useRealTimers()
+  })
+
+  it('reverts the delete confirm label after the 3-second window expires without a second click', async () => {
+    vi.useFakeTimers()
+    const { deleteUser } = await import('@/platform/api/usersApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const deleteButton = wrapper
+      .findAll('[data-testid="user-row"]')[1]!
+      .find('[data-testid="user-delete-button"]')
+    await deleteButton.trigger('click')
+    await nextTick()
+
+    vi.advanceTimersByTime(3000)
+    await nextTick()
+
+    expect(deleteUser).not.toHaveBeenCalled()
+    expect(
+      wrapper
+        .findAll('[data-testid="user-row"]')[1]!
+        .find('[data-testid="user-delete-button"]')
+        .text(),
+    ).toBe('Delete')
+
+    vi.useRealTimers()
   })
 
   it('shows an error when a user action fails', async () => {
@@ -750,7 +829,7 @@ describe('SettingsView', () => {
     vi.unstubAllGlobals()
   })
 
-  it('disconnect calls disconnectLastFm with the userId and reloads users', async () => {
+  it('disconnect calls disconnectLastFm with the userId on the second click and reloads users', async () => {
     const { disconnectLastFm } = await import('@/platform/api/lastFmAuthApi')
     const { getUsers } = await import('@/platform/api/usersApi')
     vi.mocked(disconnectLastFm).mockResolvedValueOnce(true)
@@ -760,11 +839,53 @@ describe('SettingsView', () => {
     const loadsBeforeDisconnect = vi.mocked(getUsers).mock.calls.length
 
     // Only Ada (u1) has a session — her row shows the disconnect button
-    await wrapper.find('[data-testid="lastfm-disconnect-button"]').trigger('click')
+    const disconnectButton = wrapper.find('[data-testid="lastfm-disconnect-button"]')
+    await disconnectButton.trigger('click')
+    await nextTick()
+    expect(disconnectLastFm).not.toHaveBeenCalled()
+
+    await disconnectButton.trigger('click')
     await flushPromises()
 
     expect(disconnectLastFm).toHaveBeenCalledWith('u1')
     expect(vi.mocked(getUsers).mock.calls.length).toBe(loadsBeforeDisconnect + 1)
+  })
+
+  it('does not disconnect Last.fm on a single click, and shows the confirm label', async () => {
+    vi.useFakeTimers()
+    const { disconnectLastFm } = await import('@/platform/api/lastFmAuthApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const disconnectButton = wrapper.find('[data-testid="lastfm-disconnect-button"]')
+    expect(disconnectButton.text()).toBe('Disconnect')
+
+    await disconnectButton.trigger('click')
+    await nextTick()
+
+    expect(disconnectLastFm).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').text()).toBe('Disconnect?')
+
+    vi.useRealTimers()
+  })
+
+  it('reverts the disconnect confirm label after the 3-second window expires without a second click', async () => {
+    vi.useFakeTimers()
+    const { disconnectLastFm } = await import('@/platform/api/lastFmAuthApi')
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const disconnectButton = wrapper.find('[data-testid="lastfm-disconnect-button"]')
+    await disconnectButton.trigger('click')
+    await nextTick()
+
+    vi.advanceTimersByTime(3000)
+    await nextTick()
+
+    expect(disconnectLastFm).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="lastfm-disconnect-button"]').text()).toBe('Disconnect')
+
+    vi.useRealTimers()
   })
 
   it('shows auth error when connect fails', async () => {
