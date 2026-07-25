@@ -332,6 +332,19 @@ describe('QueueView', () => {
     )
   })
 
+  // a11y audit: QueueView is a top-level route and must expose a `main`
+  // landmark for screen-reader "skip to main content" navigation.
+  it('renders a main landmark as the root element', async () => {
+    mockGetQueue.mockResolvedValue(makeQueueResponse([]))
+
+    const router = await makeQueueRouter()
+    const wrapper = mount(QueueView, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.find('main').exists()).toBe(true)
+    expect(wrapper.find('main[data-testid="queue-view"]').exists()).toBe(true)
+  })
+
   it('shows empty state when queue is empty', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
@@ -419,7 +432,7 @@ describe('QueueView', () => {
     expect(wrapper.find('[data-testid="current-track"]').exists()).toBe(true)
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
-    expect(trackRows[1]?.classes()).toContain('bg-blue-50')
+    expect(trackRows[1]?.classes()).toContain('bg-accent-50')
   })
 
   it('formats duration as mm:ss', async () => {
@@ -1121,9 +1134,9 @@ describe('QueueView', () => {
     expect(wrapper.find('[data-testid="radio-boundary"]').text()).toContain('Radio Mode')
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
-    expect(trackRows[0]?.classes()).not.toContain('bg-sky-100/60')
-    expect(trackRows[1]?.classes()).toContain('bg-sky-100/60')
-    expect(trackRows[2]?.classes()).toContain('bg-sky-100/60')
+    expect(trackRows[0]?.classes()).not.toContain('bg-accent-100/60')
+    expect(trackRows[1]?.classes()).toContain('bg-accent-100/60')
+    expect(trackRows[2]?.classes()).toContain('bg-accent-100/60')
   })
 
   it('does not show radio boundary when radioBoundaryIndex is null', async () => {
@@ -1184,9 +1197,9 @@ describe('QueueView', () => {
     expect(rows[0]?.attributes('data-busy')).toBe('false')
     expect(rows[1]?.attributes('data-busy')).toBe('true')
     expect(rows[2]?.attributes('data-busy')).toBe('false')
-    expect(rows[0]?.classes()).not.toContain('bg-sky-100/60')
-    expect(rows[1]?.classes()).toContain('bg-sky-100/60')
-    expect(rows[2]?.classes()).not.toContain('bg-sky-100/60')
+    expect(rows[0]?.classes()).not.toContain('bg-accent-100/60')
+    expect(rows[1]?.classes()).toContain('bg-accent-100/60')
+    expect(rows[2]?.classes()).not.toContain('bg-accent-100/60')
   })
 
   it('renders duplicate user/radio occurrences with a stable boundary and tint separation', async () => {
@@ -1202,9 +1215,9 @@ describe('QueueView', () => {
     expect(wrapper.find('[data-testid="radio-boundary"]').exists()).toBe(true)
     expect(rows[0]?.text()).toContain('Two of Hearts')
     expect(rows[1]?.text()).toContain('Two of Hearts')
-    expect(rows[0]?.classes()).not.toContain('bg-sky-100/60')
-    expect(rows[1]?.classes()).toContain('bg-sky-100/60')
-    expect(rows[2]?.classes()).toContain('bg-sky-100/60')
+    expect(rows[0]?.classes()).not.toContain('bg-accent-100/60')
+    expect(rows[1]?.classes()).toContain('bg-accent-100/60')
+    expect(rows[2]?.classes()).toContain('bg-accent-100/60')
   })
 
   it('scrolls boundary into view when radioBoundaryIndex first appears', async () => {
@@ -1366,10 +1379,10 @@ describe('QueueView', () => {
     await nextTick()
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
-    expect(trackRows[0]?.classes()).toContain('bg-blue-50')
-    expect(trackRows[0]?.classes()).not.toContain('bg-sky-100/60')
+    expect(trackRows[0]?.classes()).toContain('bg-accent-50')
+    expect(trackRows[0]?.classes()).not.toContain('bg-accent-100/60')
     expect(wrapper.find('[data-testid="queue-current-badge"]').text()).toContain('Now Playing')
-    expect(trackRows[1]?.classes()).toContain('bg-sky-100/60')
+    expect(trackRows[1]?.classes()).toContain('bg-accent-100/60')
   })
 
   it('keeps radio tint on radio tracks after reorder-style updates', async () => {
@@ -1392,9 +1405,9 @@ describe('QueueView', () => {
     await nextTick()
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
-    expect(trackRows[0]?.classes()).toContain('bg-sky-100/60')
-    expect(trackRows[1]?.classes()).not.toContain('bg-sky-100/60')
-    expect(trackRows[2]?.classes()).toContain('bg-sky-100/60')
+    expect(trackRows[0]?.classes()).toContain('bg-accent-100/60')
+    expect(trackRows[1]?.classes()).not.toContain('bg-accent-100/60')
+    expect(trackRows[2]?.classes()).toContain('bg-accent-100/60')
   })
 
   it('shows radio unavailable banner when radioUnavailableMessage is set', async () => {
@@ -1582,8 +1595,8 @@ describe('QueueView', () => {
 
     const trackRows = wrapper.findAll('[data-testid="queue-track"]')
     expect(trackRows[0]?.attributes('data-busy')).toBe('false')
-    expect(trackRows[0]?.classes()).toContain('bg-blue-50')
-    expect(trackRows[1]?.classes()).toContain('bg-sky-100/60')
+    expect(trackRows[0]?.classes()).toContain('bg-accent-50')
+    expect(trackRows[1]?.classes()).toContain('bg-accent-100/60')
     expect(wrapper.find('[data-testid="radio-boundary"]').exists()).toBe(true)
     expect(mockGetQueue).toHaveBeenCalledTimes(1)
 

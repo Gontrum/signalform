@@ -5,6 +5,8 @@ import { formatSeconds } from '@signalform/shared'
 import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import Banner from '@/ui/Banner.vue'
+import Popover from '@/ui/Popover.vue'
 import PlaylistsPanel from '@/domains/playlists/ui/PlaylistsPanel.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
@@ -243,7 +245,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
 </script>
 
 <template>
-  <div ref="viewRoot" data-testid="queue-view" class="flex h-full min-h-0 flex-col">
+  <main ref="viewRoot" data-testid="queue-view" class="flex h-full min-h-0 flex-col">
     <MainNavBar v-if="!isPhone" />
     <PageHeader :title="t('queue.title')" :show-back="isPhone">
       <template #trailing>
@@ -251,10 +253,10 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
           type="button"
           role="switch"
           data-testid="radio-mode-toggle"
-          class="flex h-9 w-9 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+          class="flex h-9 w-9 items-center justify-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-60"
           :class="
             isRadioMode
-              ? 'bg-sky-100 text-sky-600 hover:bg-sky-200'
+              ? 'bg-accent-100 text-accent-600 hover:bg-accent-200'
               : 'text-neutral-500 hover:bg-neutral-100'
           "
           :aria-checked="isRadioMode ? 'true' : 'false'"
@@ -297,28 +299,17 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
             </svg>
           </button>
 
-          <!-- Backdrop closes the menu on outside click -->
-          <button
-            v-if="isQueueMenuOpen"
-            type="button"
-            aria-hidden="true"
-            tabindex="-1"
-            class="fixed inset-0 z-10 cursor-default"
-            @click="closeQueueMenu"
-          />
-
-          <div
-            v-if="isQueueMenuOpen"
+          <Popover
+            v-model:open="isQueueMenuOpen"
             data-testid="queue-menu-panel"
-            role="menu"
             :aria-label="t('queue.menu')"
-            class="absolute right-0 top-full z-20 mt-1 flex w-48 flex-col rounded-xl border border-neutral-200 bg-white p-1 shadow-lg"
+            panel-class="absolute right-0 top-full mt-1 flex w-48 flex-col"
           >
             <button
               type="button"
               role="menuitem"
               data-testid="playlists-toggle"
-              class="flex min-h-[44px] items-center justify-between gap-2 rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
+              class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
               :aria-expanded="isPlaylistsOpen ? 'true' : 'false'"
               :aria-controls="isPlaylistsOpen ? 'playlists-panel-region' : undefined"
               @click="handleTogglePlaylistsFromMenu"
@@ -331,7 +322,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                 type="button"
                 role="menuitem"
                 data-testid="queue-select-mode-toggle"
-                class="flex min-h-[44px] items-center rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex min-h-11 items-center rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="isLoading || isMutatingQueue"
                 @click="handleToggleSelectModeFromMenu"
               >
@@ -343,14 +334,14 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                 type="button"
                 role="menuitem"
                 data-testid="queue-clear-button"
-                class="flex min-h-[44px] items-center rounded-lg px-3 text-left text-sm text-red-600 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                class="flex min-h-11 items-center rounded-lg px-3 text-left text-sm text-error hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
                 :disabled="isLoading || isMutatingQueue || isJumping || isClearingQueue"
                 @click="handleClearQueueFromMenu"
               >
                 {{ clearConfirmPending ? t('queue.clearConfirm') : t('queue.clear') }}
               </button>
             </template>
-          </div>
+          </Popover>
         </div>
       </template>
     </PageHeader>
@@ -358,45 +349,46 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
     <div class="flex min-h-0 flex-1 flex-col px-4 sm:px-6 sm:pt-4">
       <PlaylistsPanel v-if="isPlaylistsOpen" id="playlists-panel-region" />
 
-      <div
+      <Banner
         v-if="radioUnavailableMessage"
-        role="alert"
         data-testid="radio-unavailable-banner"
-        class="mx-4 mb-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700"
+        variant="warning"
+        class="mx-4 mb-3"
       >
         {{ radioUnavailableMessage }}
-      </div>
+      </Banner>
 
-      <div
+      <Banner
         v-if="radioModeError"
-        role="alert"
         data-testid="radio-mode-error"
-        class="mx-4 mb-3 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
+        variant="error"
+        class="mx-4 mb-3"
       >
         {{ radioModeError }}
-      </div>
+      </Banner>
 
-      <div
+      <Banner
         v-if="jumpError"
         data-testid="queue-jump-error"
-        class="mb-3 rounded bg-red-50 px-4 py-2 text-center text-sm text-red-600"
+        variant="error"
+        class="mb-3 text-center"
       >
         {{ jumpError }}
-      </div>
+      </Banner>
 
-      <div
+      <Banner
         v-if="lastMutationError"
-        role="alert"
         data-testid="queue-mutation-error"
-        class="mb-3 rounded bg-red-50 px-4 py-2 text-center text-sm text-red-600"
+        variant="error"
+        class="mb-3 text-center"
       >
         {{ lastMutationError }}
-      </div>
+      </Banner>
 
       <div
         v-if="isDragActive"
         data-testid="queue-drag-state"
-        class="mb-3 rounded border border-sky-200 bg-sky-50 px-4 py-2 text-center text-sm text-sky-700"
+        class="mb-3 rounded border border-accent-200 bg-accent-50 px-4 py-2 text-center text-sm text-accent-700"
       >
         {{ t('queue.dragHint') }}
       </div>
@@ -409,7 +401,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
         {{ t('queue.loading') }}
       </div>
 
-      <div v-else-if="error" data-testid="queue-error" class="py-12 text-center text-red-500">
+      <div v-else-if="error" data-testid="queue-error" class="py-12 text-center text-error">
         {{ error }}
       </div>
 
@@ -430,7 +422,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
           <input
             type="checkbox"
             :checked="allTracksSelected"
-            class="h-4 w-4 cursor-pointer rounded border-neutral-300 text-blue-500 accent-blue-500 focus:ring-blue-500"
+            class="h-4 w-4 cursor-pointer rounded border-neutral-300 text-accent-500 accent-accent-500 focus:ring-accent-500"
             :aria-label="t('queue.selectAll')"
             @change="handleSelectAll"
           />
@@ -455,9 +447,9 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
               role="separator"
               aria-label="Radio mode starts here"
               data-testid="radio-boundary"
-              class="flex select-none items-center gap-3 border-t-2 border-dashed border-sky-300 bg-sky-50/20 px-4 py-2"
+              class="flex select-none items-center gap-3 border-t-2 border-dashed border-accent-300 bg-accent-50/20 px-4 py-2"
             >
-              <span class="text-xs font-medium tracking-wide text-sky-500">{{
+              <span class="text-xs font-medium tracking-wide text-accent-500">{{
                 t('queue.radioModeSeparator')
               }}</span>
             </li>
@@ -474,10 +466,10 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
               :class="[
                 'relative scroll-mt-24 px-4 py-2 transition-colors',
                 track.isCurrent
-                  ? 'border-l-4 border-blue-500 bg-blue-50 shadow-[inset_0_0_0_1px_rgba(59,130,246,0.12)]'
+                  ? 'border-l-4 border-accent-500 bg-accent-50 ring-1 ring-inset ring-accent-500/10'
                   : '',
-                isRadioTrack(track, index) && !track.isCurrent ? 'bg-sky-100/60' : '',
-                isDropTarget(index) ? 'bg-sky-50' : '',
+                isRadioTrack(track, index) && !track.isCurrent ? 'bg-accent-100/60' : '',
+                isDropTarget(index) ? 'bg-accent-50' : '',
                 dragTrackId === getTrackKey(track) ? 'scale-[0.985] opacity-35' : '',
                 isRowBusy(getTrackKey(track)) ? 'opacity-60' : '',
               ]"
@@ -485,12 +477,12 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
               <div
                 v-if="getDropPosition(index) === 'before'"
                 data-testid="queue-drop-line-before"
-                class="absolute inset-x-3 top-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
+                class="absolute inset-x-3 top-0 z-raised h-1 rounded-full bg-accent-500 ring-2 ring-accent-100"
               />
               <div
                 v-if="getDropPosition(index) === 'after'"
                 data-testid="queue-drop-line-after"
-                class="absolute inset-x-3 bottom-0 z-10 h-1 rounded-full bg-sky-500 shadow-[0_0_0_2px_rgba(224,242,254,0.95)]"
+                class="absolute inset-x-3 bottom-0 z-raised h-1 rounded-full bg-accent-500 ring-2 ring-accent-100"
               />
 
               <div class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
@@ -508,7 +500,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                     type="checkbox"
                     :checked="selectedTrackIds.has(track.id)"
                     :aria-label="`Select ${track.title}`"
-                    class="h-4 w-4 cursor-pointer rounded border-neutral-300 accent-blue-500 focus:ring-blue-500"
+                    class="h-4 w-4 cursor-pointer rounded border-neutral-300 accent-accent-500 focus:ring-accent-500"
                     @change="handleToggleTrackSelection(track.id)"
                     @click.stop
                   />
@@ -518,7 +510,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                   type="button"
                   data-testid="queue-track-jump"
                   :class="[
-                    'min-h-10 min-w-0 rounded-lg px-2 py-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500',
+                    'min-h-10 min-w-0 rounded-lg px-2 py-1.5 text-left focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500',
                     isRowBusy(getTrackKey(track)) || isMutatingQueue
                       ? 'cursor-not-allowed opacity-70'
                       : 'hover:bg-neutral-50',
@@ -537,14 +529,14 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                     <div class="flex items-center gap-2">
                       <p
                         class="truncate text-[15px] font-medium text-neutral-900"
-                        :class="{ 'text-blue-700': track.isCurrent }"
+                        :class="{ 'text-accent-700': track.isCurrent }"
                       >
                         {{ track.title }}
                       </p>
                       <span
                         v-if="track.isCurrent"
                         data-testid="queue-current-badge"
-                        class="inline-flex flex-shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700"
+                        class="inline-flex flex-shrink-0 rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-semibold text-accent-700"
                       >
                         {{ t('queue.nowPlayingLabel') }}
                       </span>
@@ -573,7 +565,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                   <button
                     type="button"
                     data-testid="queue-track-reorder"
-                    class="min-h-9 min-w-9 touch-none select-none rounded-lg px-2 py-2 text-xs text-neutral-400 hover:text-neutral-600 active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="min-h-9 min-w-9 touch-none select-none rounded-lg px-2 py-2 text-xs text-neutral-400 hover:text-neutral-600 active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isMutatingQueue || isJumping"
                     :aria-label="`Reorder ${track.title}`"
                     @mousedown="startMouseDrag($event, getTrackKey(track), index)"
@@ -584,7 +576,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                   <button
                     type="button"
                     data-testid="queue-track-remove"
-                    class="min-h-9 min-w-9 rounded-lg px-2 py-2 text-xs text-red-400 hover:text-red-600 active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="min-h-9 min-w-9 rounded-lg px-2 py-2 text-xs text-error hover:text-error active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-error disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isMutatingQueue || isJumping"
                     :aria-label="`Remove ${track.title}`"
                     @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
@@ -607,7 +599,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                   dragTrackId === getTrackKey(track) || (isTouchDragging && isDropTarget(index))
                 "
                 data-testid="queue-track-drag-status"
-                class="mt-2 text-xs text-sky-700"
+                class="mt-2 text-xs text-accent-700"
               >
                 {{
                   dragTrackId === getTrackKey(track)
@@ -631,10 +623,10 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
     <div
       v-if="dragOverlayStyle && draggedTrack"
       data-testid="queue-drag-overlay"
-      class="pointer-events-none fixed z-50 hidden max-w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-sky-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur sm:block"
+      class="pointer-events-none fixed z-overlay hidden max-w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-accent-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur sm:block"
       :style="dragOverlayStyle"
     >
-      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-sky-600">
+      <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-600">
         {{ t('queue.dragOverlay') }}
       </p>
       <p class="truncate text-sm font-semibold text-neutral-900">
@@ -644,7 +636,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
       <p
         v-if="dragOverlayLabel"
         data-testid="queue-drag-overlay-label"
-        class="mt-1 truncate text-xs font-medium text-sky-700"
+        class="mt-1 truncate text-xs font-medium text-accent-700"
       >
         {{ dragOverlayLabel }}
       </p>
@@ -662,7 +654,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
       <div class="flex items-center justify-between gap-3">
         <button
           type="button"
-          class="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+          class="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500"
           @click="handleToggleSelectMode"
         >
           {{ t('queue.cancelSelect') }}
@@ -671,9 +663,9 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
           type="button"
           data-testid="queue-remove-selected-button"
           :class="[
-            'rounded-lg border px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50',
+            'rounded-lg border px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset focus:ring-error disabled:cursor-not-allowed disabled:opacity-50',
             hasSelectedTracks
-              ? 'border-red-300 bg-red-50 text-red-700 hover:bg-red-100'
+              ? 'border-error/30 bg-error/10 text-error hover:bg-error/10'
               : 'border-neutral-200 bg-white text-neutral-400',
           ]"
           :disabled="!hasSelectedTracks || isBatchRemoving"
@@ -684,5 +676,5 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
         </button>
       </div>
     </div>
-  </div>
+  </main>
 </template>
