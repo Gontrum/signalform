@@ -1,4 +1,5 @@
 import { ok, err, fromThrowable, type Result } from "@signalform/shared";
+import { isRecord } from "../lms-client/execute.js";
 import type { FanartClient, FanartError } from "./types.js";
 
 const FANART_BASE_URL = "https://webservice.fanart.tv/v3/music";
@@ -12,12 +13,6 @@ type FanartImage = {
 type FanartArtistResponse = {
   readonly artistbackground?: readonly FanartImage[];
   readonly artistthumb?: readonly FanartImage[];
-};
-
-const isRecord = (
-  value: unknown,
-): value is Readonly<Record<string, unknown>> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 };
 
 const parseImages = (value: unknown): readonly FanartImage[] => {

@@ -8,6 +8,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
+import { isRecord } from "../../../adapters/lms-client/execute.js";
 import {
   searchTracks,
   getAutocompleteSuggestions,
@@ -37,12 +38,6 @@ const AutocompleteQuerySchema = z.object({
       message: "Query cannot be empty",
     }),
 });
-
-const isRecord = (
-  value: unknown,
-): value is Readonly<Record<string, unknown>> => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-};
 
 const isBasicSearchResponse = (
   value: unknown,

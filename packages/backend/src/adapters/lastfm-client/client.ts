@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { ok, err, fromThrowable, type Result } from "@signalform/shared";
+import { isRecord } from "../lms-client/execute.js";
 import type {
   LastFmConfig,
   LastFmError,
@@ -27,10 +28,6 @@ const DEFAULT_LIMIT = 50;
 const LASTFM_NOT_FOUND_CODE = 6;
 
 type JsonRecord = Readonly<Record<string, unknown>>;
-
-const isRecord = (value: unknown): value is JsonRecord => {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-};
 
 const getNestedRecord = (
   record: JsonRecord,

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { isRecord } from "../../../adapters/lms-client/execute.js";
 import {
   loadConfig,
   saveConfig,
@@ -24,9 +25,6 @@ type LastFmSessionResponse = {
     readonly name: string;
   };
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const isLastFmTokenResponse = (
   value: unknown,
