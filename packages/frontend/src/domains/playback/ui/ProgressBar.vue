@@ -8,6 +8,7 @@
 
     <!-- Progress bar -->
     <!-- Issue #13: Disable during loading -->
+    <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- click-to-seek here is a mouse/touch convenience; keyboard seeking is fully supported via the sibling role="slider" thumb (tabindex, arrow keys), so no keyboard equivalent is needed on this wrapper. -->
     <div
       class="progress-wrapper"
       :class="{ disabled: isLoading }"

@@ -23,7 +23,11 @@ const onCoverError = (): void => {
   <div
     data-testid="album-list-row"
     class="group flex cursor-pointer items-center gap-4 rounded-lg p-3 hover:bg-neutral-50"
+    role="button"
+    tabindex="0"
     @click="emit('click:navigate', album.id)"
+    @keydown.enter="emit('click:navigate', album.id)"
+    @keydown.space.prevent="emit('click:navigate', album.id)"
   >
     <!-- 48px thumbnail -->
     <div

@@ -100,6 +100,34 @@ const handleAlbumActivate = (album: AlbumResult): void => {
   }
 }
 
+// An album card is only interactive (clickable/keyboard-activatable) when it is
+// navigable to a local album or playable as a Tidal search result. Non-actionable
+// albums (e.g. streaming results without track URLs) must get neither the
+// role/tabindex nor the click/keydown handlers.
+const isAlbumActionable = (album: AlbumResult): boolean =>
+  Boolean(album.albumId) || (album.source === 'tidal' && Boolean(album.trackUrls?.length))
+
+// Bundles role/tabindex together with the click/keydown listeners so a non-actionable
+// album gets none of them — a single v-bind keeps static analysis (and readers) able to
+// see the interactive role and its handlers as one unit, rather than three independently
+// conditioned bindings that only happen to agree at runtime.
+const albumInteractionProps = (album: AlbumResult): Readonly<Record<string, unknown>> =>
+  isAlbumActionable(album)
+    ? {
+        role: 'button',
+        tabindex: '0',
+        onClick: () => handleAlbumActivate(album),
+        onKeydown: (event: KeyboardEvent) => {
+          if (event.key === 'Enter') {
+            handleAlbumActivate(album)
+          } else if (event.key === ' ') {
+            event.preventDefault()
+            handleAlbumActivate(album)
+          }
+        },
+      }
+    : {}
+
 const handleArtistClick = (artist: ArtistResult) => {
   emit('navigate-artist', { artistId: artist.artistId, name: artist.name })
 }
@@ -380,20 +408,13 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
         -->
         <div
           :data-testid="`album-result-item-${album.id}`"
-          v-bind="
-            album.albumId || (album.source === 'tidal' && album.trackUrls?.length)
-              ? { role: 'button', tabindex: '0' }
-              : {}
-          "
+          v-bind="albumInteractionProps(album)"
           :class="[
             'flex items-center gap-4 justify-between rounded-lg border border-neutral-200 bg-white p-4',
-            album.albumId || (album.source === 'tidal' && album.trackUrls?.length)
+            isAlbumActionable(album)
               ? 'transition-all duration-200 hover:border-accent-300 hover:shadow-md cursor-pointer'
               : 'cursor-default',
           ]"
-          @click="handleAlbumActivate(album)"
-          @keydown.enter="handleAlbumActivate(album)"
-          @keydown.space.prevent="handleAlbumActivate(album)"
         >
           <!-- Album Cover: actual image when available, ♪ placeholder when not (AC1-AC3) -->
           <!-- Falls back to Tidal artist image when LMS returns its generic placeholder -->

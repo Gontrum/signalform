@@ -102,8 +102,15 @@ watch(
       </div>
 
       <ul v-else class="divide-y divide-gray-200" role="listbox">
+        <!--
+          Keyboard selection is fully handled by the parent input's
+          @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant
+          combobox pattern) — this option element is never itself focused (tabindex="-1").
+        -->
+        <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events -->
         <li
           v-for="(suggestion, index) in props.suggestions"
+          :id="`suggestion-item-${index}`"
           :key="suggestion.id"
           :class="[
             'flex min-h-[48px] cursor-pointer items-center px-4 py-3 transition-colors duration-150 motion-reduce:duration-[0.01ms] md:min-h-[56px]',
@@ -113,6 +120,7 @@ watch(
           :aria-label="`${suggestion.artist}${suggestion.album ? ` - ${suggestion.album}` : ''}`"
           :data-testid="`suggestion-item-${index}`"
           role="option"
+          tabindex="-1"
           :aria-selected="activeIndex === index"
           @click="emit('select', suggestion)"
         >
@@ -160,8 +168,15 @@ watch(
         </li>
       </ul>
 
+      <!--
+        Keyboard selection is fully handled by the parent input's
+        @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant
+        combobox pattern) — this option element is never itself focused (tabindex="-1").
+      -->
+      <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events -->
       <li
         v-if="suggestions.length > 0"
+        :id="`suggestion-item-${suggestions.length}`"
         :class="[
           'flex min-h-[48px] cursor-pointer items-center gap-3 border-t border-gray-200 px-4 py-3 text-sm transition-colors duration-150 motion-reduce:duration-[0.01ms] md:min-h-[56px]',
           activeIndex === suggestions.length
@@ -171,6 +186,7 @@ watch(
         data-testid="autocomplete-footer-hint"
         :aria-label="`Search for ${query}`"
         role="option"
+        tabindex="-1"
         :aria-selected="activeIndex === suggestions.length"
         @click="emit('search')"
       >

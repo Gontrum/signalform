@@ -77,6 +77,25 @@ describe('AlbumListRow', () => {
     expect(wrapper.emitted('click:navigate')?.[0]).toEqual(['42'])
   })
 
+  // A11y: keyboard equivalent for the clickable row (Enter/Space act like a click)
+  it('emits click:navigate with albumId when Enter is pressed on the row', async () => {
+    const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
+
+    await wrapper.find('[data-testid="album-list-row"]').trigger('keydown.enter')
+
+    expect(wrapper.emitted('click:navigate')).toBeTruthy()
+    expect(wrapper.emitted('click:navigate')?.[0]).toEqual(['42'])
+  })
+
+  it('emits click:navigate with albumId when Space is pressed on the row', async () => {
+    const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
+
+    await wrapper.find('[data-testid="album-list-row"]').trigger('keydown.space')
+
+    expect(wrapper.emitted('click:navigate')).toBeTruthy()
+    expect(wrapper.emitted('click:navigate')?.[0]).toEqual(['42'])
+  })
+
   // AC7: click on play button → emit 'click:play', no 'click:navigate'
   it('emits click:play with albumId when play button is clicked', async () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })

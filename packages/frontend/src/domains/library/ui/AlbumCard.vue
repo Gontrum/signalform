@@ -23,7 +23,11 @@ const onCoverError = (): void => {
   <div
     data-testid="album-card"
     class="group cursor-pointer"
+    role="button"
+    tabindex="0"
     @click="emit('click:navigate', album.id)"
+    @keydown.enter="emit('click:navigate', album.id)"
+    @keydown.space.prevent="emit('click:navigate', album.id)"
   >
     <!-- Cover image container -->
     <div
