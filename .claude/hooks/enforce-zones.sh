@@ -20,6 +20,12 @@
 # inhaltlichen FCIS-Regeln erzwingen ESLint (Paket-Configs), der pre-commit-
 # Grep-Backstop und CI ohnehin mechanisch; umgehbar ist nur das "wer editiert".
 
+if ! command -v jq >/dev/null 2>&1; then
+  cat >/dev/null
+  echo "enforce-zones.sh: jq fehlt – Zonenschutz kann nicht geprüft werden, Aktion wird blockiert. jq installieren." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 FILE_PATH=$(jq -r '.tool_input.file_path // empty' <<<"$INPUT")
 AGENT_TYPE=$(jq -r '.agent_type // empty' <<<"$INPUT")

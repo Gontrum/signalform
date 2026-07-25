@@ -4,6 +4,12 @@
 # *.tsbuildinfo, frontend's dev-dist/, playwright-report/, test-results/.
 # pnpm-lock.yaml is machine-written by `pnpm install` — hand edits desync it.
 
+if ! command -v jq >/dev/null 2>&1; then
+  cat >/dev/null
+  echo "guard.sh: jq fehlt – Lockfile-/Generated-Guard kann nicht geprüft werden, Aktion wird blockiert. jq installieren." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 FILE_PATH=$(jq -r '.tool_input.file_path // empty' <<<"$INPUT")
 
