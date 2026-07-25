@@ -1,8 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
+import AlbumActionButtons from '@/domains/search/ui/AlbumActionButtons.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useAlbumDetailView } from '../shell/useAlbumDetailView'
 
@@ -33,6 +36,17 @@ const {
   formatDuration,
   detectSource,
 } = useAlbumDetailView()
+
+// Trivial UI-only derivation of the album-level queue button state (success/error/idle)
+// from the two transient flag sets already exposed by the composable — no new business
+// logic, just the same three-way branch AlbumDetailView's hand-rolled markup used inline.
+const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
+  albumQueueErrorFlag.items.value.has(albumQueueKey)
+    ? 'error'
+    : albumQueueSuccessFlag.items.value.has(albumQueueKey)
+      ? 'success'
+      : 'idle',
+)
 </script>
 
 <template>
@@ -47,9 +61,7 @@ const {
         data-testid="loading-state"
         class="flex justify-center py-20"
       >
-        <div
-          class="h-12 w-12 animate-spin rounded-full border-4 border-accent-400 border-t-transparent"
-        />
+        <LoadingSpinner size="lg" color="accent-400" />
       </div>
 
       <!-- Error: Not Found -->
@@ -90,7 +102,7 @@ const {
           <!-- Album Cover -->
           <div
             data-testid="album-cover"
-            class="h-[200px] w-[200px] flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg md:h-[300px] md:w-[300px]"
+            class="h-50 w-50 flex-shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg md:h-75 md:w-75"
           >
             <img
               v-if="album.coverArtUrl && !coverError"
@@ -141,81 +153,17 @@ const {
               {{ album.tracks.length }} tracks
             </p>
 
-            <div class="flex gap-2">
-              <button
-                type="button"
-                data-testid="play-album-button"
-                class="mt-2 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white hover:bg-accent-600 active:bg-accent-700"
-                @click="handlePlayAlbum"
-              >
-                <svg
-                  class="h-5 w-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                {{ t('home.playAlbum') }}
-              </button>
-
-              <!-- AC2 (Story 9.4): Add Album to Queue button -->
-              <button
-                type="button"
-                data-testid="add-album-to-queue-button"
-                class="mt-2 inline-flex items-center gap-2 rounded-lg border border-accent-500 px-4 py-3 font-semibold text-accent-500 hover:bg-accent-50 active:bg-accent-100"
-                :aria-label="`Add ${album?.title ?? 'album'} to queue`"
-                @click="handleAddAlbumToQueue"
-              >
-                <svg
-                  v-if="albumQueueSuccessFlag.items.value.has(albumQueueKey)"
-                  class="h-5 w-5 text-green-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                <svg
-                  v-else-if="albumQueueErrorFlag.items.value.has(albumQueueKey)"
-                  class="h-5 w-5 text-red-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-                <svg
-                  v-else
-                  class="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                + Queue
-              </button>
-            </div>
+            <!-- AC2 (Story 9.4): Play Album + Add Album to Queue buttons -->
+            <AlbumActionButtons
+              size="large"
+              :album-id="album.id"
+              :album-title="album.title"
+              :album-artist="album.artist"
+              play-state="idle"
+              :queue-state="albumQueueButtonState"
+              @play="handlePlayAlbum"
+              @add-to-queue="handleAddAlbumToQueue"
+            />
           </div>
         </div>
 
@@ -282,7 +230,7 @@ const {
             >
               <svg
                 v-if="queueSuccessUrls.items.value.has(track.url)"
-                class="h-4 w-4 text-green-500"
+                class="h-4 w-4 text-success"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -297,7 +245,7 @@ const {
               </svg>
               <svg
                 v-else-if="queueErrorUrls.items.value.has(track.url)"
-                class="h-4 w-4 text-red-500"
+                class="h-4 w-4 text-error"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

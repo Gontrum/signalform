@@ -165,7 +165,7 @@ describe('AlbumDetailView', () => {
     await nextTick()
     await nextTick()
 
-    expect(wrapper.find('[data-testid="play-album-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid^="play-album-button"]').exists()).toBe(true)
   })
 
   it('shows error-not-found state on 404', async () => {
@@ -302,7 +302,7 @@ describe('AlbumDetailView', () => {
     await nextTick()
     await nextTick()
 
-    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
+    await wrapper.find('[data-testid^="play-album-button"]').trigger('click')
     await nextTick()
 
     expect(playAlbum).toHaveBeenCalledWith('42')
@@ -632,7 +632,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     await nextTick()
     await nextTick()
 
-    expect(wrapper.find('[data-testid="play-album-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid^="play-album-button"]').exists()).toBe(true)
   })
 
   it('AC1: clicking "Play Album" calls playAlbum("4.0")', async () => {
@@ -654,7 +654,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     await nextTick()
     await nextTick()
 
-    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
+    await wrapper.find('[data-testid^="play-album-button"]').trigger('click')
     await nextTick()
 
     expect(playAlbum).toHaveBeenCalledWith('4.0')
@@ -732,7 +732,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     await nextTick()
     await nextTick()
 
-    expect(wrapper.find('[data-testid="play-album-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid^="play-album-button"]').exists()).toBe(true)
   })
 
   it('AC2: clicking "Play Album" calls playAlbum("6.0.1.0")', async () => {
@@ -754,7 +754,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     await nextTick()
     await nextTick()
 
-    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
+    await wrapper.find('[data-testid^="play-album-button"]').trigger('click')
     await nextTick()
 
     expect(playAlbum).toHaveBeenCalledWith('6.0.1.0')
@@ -987,7 +987,7 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
     await nextTick()
     await nextTick()
 
-    expect(wrapper.find('[data-testid="add-album-to-queue-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid^="add-album-to-queue-button"]').exists()).toBe(true)
   })
 })
 
@@ -1070,7 +1070,7 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     await nextTick()
     await nextTick()
 
-    await wrapper.find('[data-testid="play-album-button"]').trigger('click')
+    await wrapper.find('[data-testid^="play-album-button"]').trigger('click')
     await nextTick()
 
     expect(playTidalSearchAlbum).toHaveBeenCalledWith('OK Computer', 'Radiohead', [
@@ -1088,7 +1088,7 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     await nextTick()
     await nextTick()
 
-    await wrapper.find('[data-testid="add-album-to-queue-button"]').trigger('click')
+    await wrapper.find('[data-testid^="add-album-to-queue-button"]').trigger('click')
     await nextTick()
 
     expect(addTidalSearchAlbumToQueue).toHaveBeenCalledWith('OK Computer', 'Radiohead', [
