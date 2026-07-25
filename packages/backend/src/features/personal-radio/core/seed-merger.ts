@@ -110,11 +110,28 @@ export const spreadSample = <T>(arr: readonly T[], n: number): readonly T[] => {
     .filter((item): item is T => item !== undefined);
 };
 
-export const fisherYatesShuffle = <T>(arr: readonly T[]): readonly T[] =>
+/**
+ * Shuffles `arr` using the Fisher–Yates algorithm.
+ *
+ * The randomness source is injected via `random` so this function stays pure
+ * and deterministic-under-test — callers (the shell) are expected to pass the
+ * platform's built-in pseudo-random number generator (returning a float in
+ * [0, 1), e.g. the JS runtime's global `random()` on `Math`) in production.
+ *
+ * Pure function — no side effects, no mutations.
+ *
+ * @param arr    - Source array
+ * @param random - Randomness source; must return a number in [0, 1)
+ * @returns Shuffled readonly array of the same elements
+ */
+export const fisherYatesShuffle = <T>(
+  arr: readonly T[],
+  random: () => number,
+): readonly T[] =>
   Array.from({ length: arr.length }, (_, i) => i).reduce<readonly T[]>(
     (acc, _, i) => {
       const remaining = arr.length - i;
-      const j = Math.floor(Math.random() * remaining);
+      const j = Math.floor(random() * remaining);
       const item = acc[j];
       const last = acc[remaining - 1];
       if (item === undefined || last === undefined) {

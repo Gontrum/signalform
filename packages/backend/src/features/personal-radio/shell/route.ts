@@ -150,8 +150,8 @@ export const createPersonalRadioRoute = (
 
     // Step 7: Blend comfort + discovery based on personalRadioDiscovery ratio
     const discoveryRatio = config.personalRadioDiscovery;
-    const shuffledComfort = fisherYatesShuffle(candidateTracks);
-    const shuffledDiscovery = fisherYatesShuffle(discoveryPool);
+    const shuffledComfort = fisherYatesShuffle(candidateTracks, Math.random);
+    const shuffledDiscovery = fisherYatesShuffle(discoveryPool, Math.random);
 
     const blendedCandidates = mergeTrackPools(
       shuffledComfort,
