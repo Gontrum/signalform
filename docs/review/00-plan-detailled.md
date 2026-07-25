@@ -441,10 +441,19 @@ Doppel-Tap vor destruktiver Aktion erzwingt.
 **Backend-Duplikate:**
 
 14. `isRecord`/`isBodyRecord` auf die bereits exportierte Version in `execute.ts` konsolidieren — 2.7
-    DoD: `test $(grep -rl 'isBodyRecord\|isRecord' packages/backend/src --include='*.ts' | grep -v test | wc -l) -eq 1`
+    DoD: `test $(grep -rln '^const isRecord\|^const isBodyRecord\|^export const isRecord' packages/backend/src --include='*.ts' | grep -v test | wc -l) -eq 1`
+    (Korrigiert 2026-07-25: die ursprüngliche Formulierung zählte jedes Vorkommen
+    des Substrings, inkl. Import-Zeilen aller Aufrufer — bei Konsolidierung per
+    Import kann diese Zahl nie auf 1 sinken, unabhängig von der Umsetzungsqualität.
+    Die korrigierte Zeile zählt stattdessen Definitionen.)
 15. `genre-radio`/`loved-radio` sowie `tidal-routes`/`queue` gemeinsame Klon-Blöcke extrahieren — 2.6
 16. `App.spec.ts`/`HomeView.spec.ts`-Test-Setup-Duplikat in gemeinsame Fixture — 01, kleinster Fund
-    DoD (14-16 gemeinsam): `pnpm run check:dupes; echo $?` → `0`, danach `.jscpd.json`-Schwelle zurück auf `0` ratchen (schließt Welle-1-Aufgabe 2 ab): `jq '.threshold' .jscpd.json` → `0`
+    DoD (14-16 gemeinsam): `pnpm run check:dupes; echo $?` → `0`, danach `.jscpd.json`-Schwelle
+    auf den mit 14-16 erreichten Ist-Wert ratchen (nicht auf `0` — 14 Klone aus 2.6/2.7
+    bleiben unbeauftragt liegen, siehe Restliste unten): `jq '.threshold' .jscpd.json` → `0.62`
+    (Korrigiert 2026-07-25: `0` ist mit dem Umfang von 14-16 nicht erreichbar, ohne
+    unbeauftragte Zusatzarbeit an den übrigen 2.6/2.7-Klonen zu leisten — Ratchet folgt
+    stattdessen dem in §4.1 selbst etablierten Ist-Wert-Muster.)
 
 **Frontend-Musterkonsolidierung (2.8, 2.9 — Ziel bereits im Code vorhanden):**
 
