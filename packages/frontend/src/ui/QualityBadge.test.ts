@@ -106,8 +106,8 @@ describe('QualityBadge', () => {
       props: { source: 'local', quality },
     })
     const badge = wrapper.find('[data-testid="quality-badge"]')
-    expect(badge.classes()).toContain('bg-emerald-100')
-    expect(badge.classes()).toContain('text-emerald-800')
+    expect(badge.classes()).toContain('bg-success/10')
+    expect(badge.classes()).toContain('text-success')
   })
 
   // 5.7 — green class applied for source=local (no quality data)
@@ -116,8 +116,8 @@ describe('QualityBadge', () => {
       props: { source: 'local' },
     })
     const badge = wrapper.find('[data-testid="quality-badge"]')
-    expect(badge.classes()).toContain('bg-emerald-100')
-    expect(badge.classes()).toContain('text-emerald-800')
+    expect(badge.classes()).toContain('bg-success/10')
+    expect(badge.classes()).toContain('text-success')
   })
 
   // 5.8 — amber class applied for high-bitrate lossy quality (bitrate ≥ 256000)
@@ -132,8 +132,8 @@ describe('QualityBadge', () => {
       props: { source: 'local', quality },
     })
     const badge = wrapper.find('[data-testid="quality-badge"]')
-    expect(badge.classes()).toContain('bg-amber-100')
-    expect(badge.classes()).toContain('text-amber-800')
+    expect(badge.classes()).toContain('bg-warning/10')
+    expect(badge.classes()).toContain('text-warning')
   })
 
   // 5.9 — amber class applied for source=qobuz (no quality data)
@@ -142,8 +142,8 @@ describe('QualityBadge', () => {
       props: { source: 'qobuz' },
     })
     const badge = wrapper.find('[data-testid="quality-badge"]')
-    expect(badge.classes()).toContain('bg-amber-100')
-    expect(badge.classes()).toContain('text-amber-800')
+    expect(badge.classes()).toContain('bg-warning/10')
+    expect(badge.classes()).toContain('text-warning')
   })
 
   // 5.10 — gray class applied for standard quality (bitrate < 256kbps, non-lossless)

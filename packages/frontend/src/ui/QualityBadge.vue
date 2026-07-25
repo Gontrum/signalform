@@ -62,8 +62,8 @@ const qualityTier = computed((): QualityTier => {
 // standard: #525252 on #F5F5F5 ≈ 5.9:1 WCAG AA ✓
 const badgeClasses = computed((): string => {
   const tierClasses: Record<QualityTier, string> = {
-    lossless: 'bg-emerald-100 text-emerald-800',
-    high: 'bg-amber-100 text-amber-800',
+    lossless: 'bg-success/10 text-success',
+    high: 'bg-warning/10 text-warning',
     standard: 'bg-neutral-100 text-neutral-600',
   }
   return tierClasses[qualityTier.value]
