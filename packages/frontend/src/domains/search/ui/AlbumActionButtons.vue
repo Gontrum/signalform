@@ -6,6 +6,7 @@
  * album result row. The parent is responsible for providing the correct
  * handler functions.
  */
+import { computed } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
 
 interface Props {
@@ -15,10 +16,12 @@ interface Props {
   playState: 'idle' | 'success' | 'error'
   queueState: 'idle' | 'success' | 'error'
   showGoToArtist?: boolean
+  size?: 'compact' | 'large'
 }
 
 const props = withDefaults(defineProps<Props>(), {
   showGoToArtist: false,
+  size: 'compact',
 })
 
 interface Emits {
@@ -31,20 +34,43 @@ const emit = defineEmits<Emits>()
 
 const i18n = useI18nStore()
 const t = i18n.t
+
+// 'large' is the always-labelled, more generously padded variant used by the album
+// detail page's hero CTA; 'compact' (default) preserves the dense search-results row
+// styling — labels hidden below `sm:`, tighter padding — with zero visual change.
+const isLarge = computed(() => props.size === 'large')
+
+const wrapperClasses = computed(() => (isLarge.value ? 'flex gap-2' : 'ml-4 flex gap-2'))
+
+const playButtonClasses = computed(() =>
+  isLarge.value
+    ? 'mt-2 inline-flex items-center gap-2 rounded-lg bg-accent-500 px-6 py-3 font-semibold text-white transition-all duration-200 ease-out hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 active:bg-accent-700'
+    : 'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-accent-500 px-3 py-2 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 active:bg-accent-700 sm:px-6',
+)
+
+const playIconClasses = computed(() => (isLarge.value ? 'h-5 w-5' : 'h-5 w-5 sm:mr-2'))
+
+const playLabelClasses = computed(() => (isLarge.value ? '' : 'hidden sm:inline'))
+
+const queueButtonClasses = computed(() =>
+  isLarge.value
+    ? 'mt-2 inline-flex items-center gap-2 rounded-lg border border-accent-500 px-4 py-3 font-semibold text-accent-500 transition-all duration-200 ease-out hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
+    : 'inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-accent-500 px-3 py-2 text-sm font-medium text-accent-500 transition-all duration-200 ease-out hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
+)
 </script>
 
 <template>
-  <div class="ml-4 flex gap-2">
+  <div :class="wrapperClasses">
     <button
       :data-testid="`play-album-button-${props.albumId}`"
       type="button"
-      class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-accent-500 px-3 py-2 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 active:bg-accent-700 sm:px-6"
+      :class="playButtonClasses"
       :aria-label="`${t('home.playAlbum')} ${props.albumTitle}`"
       @click.stop="emit('play')"
     >
       <svg
         v-if="props.playState === 'success'"
-        class="h-5 w-5 text-white sm:mr-2"
+        :class="[playIconClasses, 'text-white']"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -54,7 +80,7 @@ const t = i18n.t
       </svg>
       <svg
         v-else-if="props.playState === 'error'"
-        class="h-5 w-5 text-red-200 sm:mr-2"
+        :class="[playIconClasses, 'text-error/30']"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -69,7 +95,7 @@ const t = i18n.t
       </svg>
       <svg
         v-else
-        class="h-5 w-5 sm:mr-2"
+        :class="playIconClasses"
         fill="currentColor"
         viewBox="0 0 24 24"
         xmlns="http://www.w3.org/2000/svg"
@@ -77,19 +103,19 @@ const t = i18n.t
       >
         <path d="M8 5v14l11-7z" />
       </svg>
-      <span data-testid="play-album-text" class="hidden sm:inline">{{ t('home.playAlbum') }}</span>
+      <span data-testid="play-album-text" :class="playLabelClasses">{{ t('home.playAlbum') }}</span>
     </button>
 
     <button
       :data-testid="`add-album-to-queue-button-${props.albumId}`"
       type="button"
-      class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-accent-500 px-3 py-2 text-sm font-medium text-accent-500 transition-all duration-200 ease-out hover:bg-accent-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+      :class="queueButtonClasses"
       :aria-label="`${t('home.addAlbumToQueue')} ${props.albumTitle}`"
       @click.stop="emit('add-to-queue')"
     >
       <svg
         v-if="props.queueState === 'success'"
-        class="h-5 w-5 text-green-500"
+        class="h-5 w-5 text-success"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -100,7 +126,7 @@ const t = i18n.t
       <svg
         v-else-if="props.queueState === 'error'"
         data-testid="add-album-to-queue-error"
-        class="h-5 w-5 text-red-500"
+        class="h-5 w-5 text-error"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -123,6 +149,7 @@ const t = i18n.t
       >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
+      <span v-if="isLarge" data-testid="add-album-to-queue-text">+ Queue</span>
     </button>
 
     <button
