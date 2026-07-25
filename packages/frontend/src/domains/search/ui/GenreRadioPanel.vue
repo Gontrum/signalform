@@ -41,7 +41,7 @@ const {
           activeIndex >= 0 ? `genre-radio-suggestion-${activeIndex}` : undefined
         "
         aria-controls="genre-radio-suggestions"
-        class="w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+        class="w-full rounded-lg border border-neutral-300 bg-white px-4 py-3 text-base text-neutral-900 placeholder:text-neutral-400 transition-all duration-200 ease-out focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
         data-testid="genre-radio-input"
         autocomplete="off"
         @input="handleQueryInput(($event.target as HTMLInputElement).value)"
@@ -54,7 +54,7 @@ const {
       <ul
         v-if="showSuggestions"
         id="genre-radio-suggestions"
-        class="absolute top-full z-10 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-md"
+        class="absolute top-full z-raised mt-1 w-full rounded-lg border border-neutral-200 bg-white shadow-md"
         role="listbox"
       >
         <!--
@@ -68,15 +68,15 @@ const {
           :id="`genre-radio-suggestion-${index}`"
           :key="suggestion.name"
           data-testid="genre-radio-suggestion"
-          class="cursor-pointer px-4 py-2 text-sm text-gray-900 hover:bg-gray-50"
-          :class="{ 'bg-gray-100': activeIndex === index }"
+          class="cursor-pointer px-4 py-2 text-sm text-neutral-900 hover:bg-neutral-50"
+          :class="{ 'bg-neutral-100': activeIndex === index }"
           role="option"
           tabindex="-1"
           :aria-selected="activeIndex === index"
           @click="selectSuggestion(suggestion.name)"
         >
           {{ suggestion.name }}
-          <span class="ml-1 text-xs text-gray-400">{{ suggestion.count }}</span>
+          <span class="ml-1 text-xs text-neutral-400">{{ suggestion.count }}</span>
         </li>
       </ul>
     </div>
@@ -92,12 +92,12 @@ const {
         {{ isStarting ? t('search.genreRadioSearching') : t('search.genreRadioStart') }}
       </button>
 
-      <span v-if="isSearching" class="text-xs text-gray-400" aria-live="polite">
+      <span v-if="isSearching" class="text-xs text-neutral-400" aria-live="polite">
         {{ t('search.genreRadioSearching') }}
       </span>
     </div>
 
-    <p v-if="error" data-testid="genre-radio-panel-error" class="mt-1 text-xs text-red-500">
+    <p v-if="error" data-testid="genre-radio-panel-error" class="mt-1 text-xs text-error">
       {{ t('artist.genreRadioError') }}
     </p>
   </div>
