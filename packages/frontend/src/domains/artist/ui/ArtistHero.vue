@@ -46,7 +46,7 @@ withDefaults(defineProps<Props>(), {
 
     <!-- Content slot: receives heroImageUrl as a scoped slot prop so
          callers can adapt text colours without duplicating the null-check -->
-    <div :class="heroImageUrl ? 'relative z-10 p-6' : 'py-2'">
+    <div :class="heroImageUrl ? 'relative z-raised p-6' : 'py-2'">
       <slot :has-image="heroImageUrl !== null" />
     </div>
   </div>
