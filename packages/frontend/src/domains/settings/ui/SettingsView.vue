@@ -348,6 +348,7 @@ const appVersion = __APP_VERSION__
                   <input
                     v-model="renameValue"
                     type="text"
+                    :aria-label="t('settings.userRename')"
                     data-testid="user-rename-input"
                     class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none sm:flex-1"
                   />
@@ -548,12 +549,13 @@ const appVersion = __APP_VERSION__
               class="space-y-2"
               data-testid="discovery-slider-section"
             >
-              <label class="text-xs font-medium text-neutral-700">
+              <label class="text-xs font-medium text-neutral-700" for="discovery-slider">
                 {{ t('settings.discoverySlider') }}
               </label>
               <div class="flex items-center gap-2">
                 <span class="text-xs text-neutral-500">{{ t('settings.discoveryComfort') }}</span>
                 <input
+                  id="discovery-slider"
                   type="range"
                   min="0"
                   max="100"

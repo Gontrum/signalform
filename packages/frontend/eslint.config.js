@@ -60,6 +60,11 @@ export default [
       'vue/require-default-prop': 'warn',
       // Relax rules for test files
       '@typescript-eslint/no-explicit-any': ['error', { ignoreRestArgs: true }],
+      // Plugin default requires a label to BOTH wrap its control AND have a
+      // matching for/id — but either one alone is a valid WCAG association.
+      // `some` still flags labels with neither (the real bug), just stops
+      // flagging correctly for/id-paired labels that aren't also nested.
+      'vuejs-accessibility/label-has-for': ['error', { required: { some: ['nesting', 'id'] } }],
     },
   },
 

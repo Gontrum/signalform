@@ -100,6 +100,7 @@ const {
               v-model="manualHost"
               type="text"
               placeholder="192.168.1.100"
+              :aria-label="t('settings.hostLabel')"
               data-testid="manual-host-input"
               class="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
@@ -107,6 +108,7 @@ const {
               v-model="manualPort"
               type="number"
               placeholder="9000"
+              :aria-label="t('settings.portLabel')"
               data-testid="manual-port-input"
               class="w-24 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
@@ -190,8 +192,11 @@ const {
 
         <div class="mb-6 space-y-6">
           <div>
-            <label class="mb-1.5 block text-xs font-medium text-neutral-700">Last.fm API key</label>
+            <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="setup-lastfm-key"
+              >Last.fm API key</label
+            >
             <input
+              id="setup-lastfm-key"
               v-model="lastFmApiKey"
               type="text"
               data-testid="lastfm-key-input"
@@ -210,10 +215,11 @@ const {
             </p>
           </div>
           <div>
-            <label class="mb-1.5 block text-xs font-medium text-neutral-700"
+            <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="setup-fanart-key"
               >Fanart.tv API key</label
             >
             <input
+              id="setup-fanart-key"
               v-model="fanartApiKey"
               type="text"
               data-testid="fanart-key-input"
