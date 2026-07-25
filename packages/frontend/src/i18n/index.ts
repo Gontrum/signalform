@@ -61,6 +61,7 @@ export type MessageKey =
   | 'queue.backToNowPlaying'
   | 'library.emptyLocal'
   | 'library.emptyTidal'
+  | 'library.featuredTidal'
   | 'library.noGenreMatch'
   | 'library.rescanButton'
   | 'library.rescanScanning'
@@ -154,6 +155,7 @@ export type MessageKey =
   | 'settings.lastFmConnect'
   | 'settings.lastFmConnected'
   | 'settings.lastFmDisconnect'
+  | 'settings.lastFmDisconnectConfirm'
   | 'settings.lastFmConfirm'
   | 'settings.lastFmOpenPrompt'
   | 'settings.lastFmAuthError'
@@ -163,6 +165,7 @@ export type MessageKey =
   | 'settings.userRenameSave'
   | 'settings.userRenameCancel'
   | 'settings.userDelete'
+  | 'settings.userDeleteConfirm'
   | 'settings.userAddLabel'
   | 'settings.userAddButton'
   | 'settings.userActionError'
@@ -258,6 +261,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.loading': 'Loading queue…',
     'library.emptyLocal': 'No albums found in your library',
     'library.emptyTidal': 'No albums found in your Tidal library',
+    'library.featuredTidal': 'New on Tidal',
     'library.noGenreMatch': 'No albums match the selected genre',
     'library.rescanButton': 'Refresh library',
     'library.rescanScanning': 'Scanning…',
@@ -350,6 +354,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastFmConnect': 'Connect with Last.fm',
     'settings.lastFmConnected': 'Connected as {username}',
     'settings.lastFmDisconnect': 'Disconnect',
+    'settings.lastFmDisconnectConfirm': 'Disconnect?',
     'settings.lastFmConfirm': 'Confirm connection',
     'settings.lastFmOpenPrompt': 'Authorise Signalform on Last.fm, then click confirm.',
     'settings.lastFmAuthError': 'Could not connect. Please try again.',
@@ -359,6 +364,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.userRenameSave': 'Save',
     'settings.userRenameCancel': 'Cancel',
     'settings.userDelete': 'Delete',
+    'settings.userDeleteConfirm': 'Delete?',
     'settings.userAddLabel': 'New user',
     'settings.userAddButton': 'Add user',
     'settings.userActionError': 'Could not update users. Please try again.',
@@ -453,6 +459,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.loading': 'Warteschlange wird geladen…',
     'library.emptyLocal': 'Keine Alben in deiner Bibliothek gefunden',
     'library.emptyTidal': 'Keine Alben in deiner Tidal-Bibliothek gefunden',
+    'library.featuredTidal': 'Neu bei Tidal',
     'library.noGenreMatch': 'Keine Alben entsprechen dem ausgewählten Genre',
     'library.rescanButton': 'Bibliothek aktualisieren',
     'library.rescanScanning': 'Bibliothek wird durchsucht…',
@@ -548,6 +555,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastFmConnect': 'Mit Last.fm verbinden',
     'settings.lastFmConnected': 'Verbunden als {username}',
     'settings.lastFmDisconnect': 'Verbindung trennen',
+    'settings.lastFmDisconnectConfirm': 'Wirklich trennen?',
     'settings.lastFmConfirm': 'Verbindung bestätigen',
     'settings.lastFmOpenPrompt':
       'Autorisiere Signalform auf Last.fm und klicke danach auf Bestätigen.',
@@ -558,6 +566,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.userRenameSave': 'Speichern',
     'settings.userRenameCancel': 'Abbrechen',
     'settings.userDelete': 'Löschen',
+    'settings.userDeleteConfirm': 'Wirklich löschen?',
     'settings.userAddLabel': 'Neuer Benutzer',
     'settings.userAddButton': 'Benutzer hinzufügen',
     'settings.userActionError':
