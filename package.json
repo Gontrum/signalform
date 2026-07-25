@@ -30,7 +30,7 @@
     "check:dupes": "jscpd",
     "review:collect": "node scripts/review-collect.mjs",
     "test:e2e:ci": "pnpm --filter frontend run build && pnpm --filter frontend run test:e2e:ci",
-    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise",
+    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise && pnpm run check:dupes",
     "quality-gates": "pnpm run precommit",
     "version:bump": "node scripts/bump-version.mjs",
     "prepare": "husky"

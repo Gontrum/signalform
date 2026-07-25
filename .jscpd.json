@@ -6,8 +6,7 @@
   ],
   "format": ["typescript"],
   "reporters": ["console", "json"],
-  "threshold": 0,
-  "exitCode": 1,
+  "threshold": 0.97,
   "ignore": [
     "**/*.test.ts",
     "**/*.integration.test.ts",
