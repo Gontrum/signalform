@@ -6,6 +6,7 @@
 
 export { createLmsClient } from "./client.js";
 export type { LmsClient } from "./client.js";
+export { addUrlsSequentially } from "./queue-helpers.js";
 export type {
   LmsConfig,
   LmsCommand,

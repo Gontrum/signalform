@@ -7,14 +7,18 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import type { LmsClient } from "../../../adapters/lms-client/index.js";
-import type { LmsError } from "../../../adapters/lms-client/index.js";
+import {
+  addUrlsSequentially,
+  type LmsClient,
+  type LmsError,
+} from "../../../adapters/lms-client/index.js";
+import { isRecord } from "../../../adapters/lms-client/execute.js";
 import { initiateAlbumPlayback } from "../core/service.js";
 import {
   getUserFriendlyErrorMessage,
   getUserFriendlyAlbumErrorMessage,
 } from "../core/error-mappers.js";
-import { ok, isTidalAlbumId, type Result } from "@signalform/shared";
+import { isTidalAlbumId } from "@signalform/shared";
 import type { TypedSocketIOServer } from "../../../infrastructure/websocket/index.js";
 import {
   PLAYER_QUEUE_UPDATED,
@@ -26,10 +30,6 @@ import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js"
 const PlayAlbumRequestSchema = z.object({
   albumId: z.string().min(1, "Album ID is required"),
 });
-
-const isBodyRecord = (body: unknown): body is Record<string, unknown> => {
-  return typeof body === "object" && body !== null;
-};
 
 /**
  * Plays the first of `urls` then adds the rest to the queue sequentially,
@@ -59,16 +59,7 @@ const playUrlsSequentially = async (
     );
   }
 
-  const addResult = await restUrls.reduce<Promise<Result<void, LmsError>>>(
-    async (prevPromise, url) => {
-      const prev = await prevPromise;
-      if (!prev.ok) {
-        return prev;
-      }
-      return lmsClient.addToQueue(url);
-    },
-    Promise.resolve(ok(undefined)),
-  );
+  const addResult = await addUrlsSequentially(lmsClient, restUrls);
 
   if (!addResult.ok) {
     return sendLmsError(
@@ -127,7 +118,7 @@ export const registerTidalRoutes = (
   fastify.post(
     "/api/playback/play-tidal-search-album",
     async (request, reply) => {
-      const body = isBodyRecord(request.body) ? request.body : null;
+      const body = isRecord(request.body) ? request.body : null;
 
       const trackUrls: readonly string[] = Array.isArray(body?.["trackUrls"])
         ? body["trackUrls"].filter((u): u is string => typeof u === "string")
@@ -170,7 +161,7 @@ export const registerTidalRoutes = (
    * 204 | 400 | 503
    */
   fastify.post("/api/playback/play-track-list", async (request, reply) => {
-    const body = isBodyRecord(request.body) ? request.body : null;
+    const body = isRecord(request.body) ? request.body : null;
     const urls = body?.["urls"];
 
     if (
