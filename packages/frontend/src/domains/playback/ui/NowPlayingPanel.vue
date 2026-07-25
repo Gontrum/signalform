@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { formatSeconds } from '@signalform/shared'
 import AlbumCover from '@/ui/AlbumCover.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import EmptyState from '@/ui/EmptyState.vue'
+import Banner from '@/ui/Banner.vue'
+import Popover from '@/ui/Popover.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useNowPlayingPanel } from '@/domains/playback/shell/useNowPlayingPanel'
 import PlaybackControls from './PlaybackControls.vue'
@@ -93,7 +96,7 @@ const selectSleepOff = async (): Promise<void> => {
           type="button"
           data-testid="track-artist"
           :aria-label="`Go to ${playbackStore.currentTrack?.artist ?? 'artist'} page`"
-          class="min-h-[44px] px-2 text-base text-neutral-600 truncate hover:underline hover:text-neutral-900 focus:underline focus:text-neutral-900 focus:outline-none"
+          class="min-h-11 px-2 text-base text-neutral-600 truncate hover:underline hover:text-neutral-900 focus:underline focus:text-neutral-900 focus:outline-none"
           @click="navigateToArtist"
         >
           {{ playbackStore.currentTrack?.artist }}
@@ -106,7 +109,7 @@ const selectSleepOff = async (): Promise<void> => {
           type="button"
           data-testid="track-album"
           :aria-label="`Go to ${playbackStore.currentTrack?.album ?? 'album'} page`"
-          class="min-h-[44px] px-2 text-sm text-neutral-500 truncate hover:underline hover:text-neutral-700 focus:underline focus:text-neutral-700 focus:outline-none"
+          class="min-h-11 px-2 text-sm text-neutral-500 truncate hover:underline hover:text-neutral-700 focus:underline focus:text-neutral-700 focus:outline-none"
           @click="navigateToAlbum"
         >
           {{ playbackStore.currentTrack?.album }}
@@ -121,8 +124,8 @@ const selectSleepOff = async (): Promise<void> => {
             :aria-label="isLoved ? 'Unlove track on Last.fm' : 'Love track on Last.fm'"
             :disabled="isLoving"
             data-testid="love-button"
-            class="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-neutral-400 hover:text-red-500 focus:outline-none focus:text-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            :class="{ 'text-red-500': isLoved }"
+            class="min-h-11 min-w-11 flex items-center justify-center rounded-full text-neutral-400 hover:text-error focus:outline-none focus:text-error disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            :class="{ 'text-error': isLoved }"
             @click="toggleLove"
           >
             <svg
@@ -200,7 +203,7 @@ const selectSleepOff = async (): Promise<void> => {
           :aria-label="t('sleepTimer.label')"
           :aria-expanded="isSleepMenuOpen"
           aria-haspopup="menu"
-          class="flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 focus:text-neutral-900 focus:outline-none transition-colors"
+          class="flex min-h-11 items-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-neutral-500 hover:text-neutral-900 focus:text-neutral-900 focus:outline-none transition-colors"
           :class="{ 'bg-accent-100 text-accent-700 hover:text-accent-700': isSleepTimerActive }"
           @click="toggleSleepMenu"
         >
@@ -225,22 +228,11 @@ const selectSleepOff = async (): Promise<void> => {
           <span v-else>{{ t('sleepTimer.label') }}</span>
         </button>
 
-        <!-- Backdrop closes the menu on outside click -->
-        <button
-          v-if="isSleepMenuOpen"
-          type="button"
-          aria-hidden="true"
-          tabindex="-1"
-          class="fixed inset-0 z-10 cursor-default"
-          @click="isSleepMenuOpen = false"
-        />
-
-        <div
-          v-if="isSleepMenuOpen"
+        <Popover
+          v-model:open="isSleepMenuOpen"
           data-testid="sleep-timer-menu"
-          role="menu"
           :aria-label="t('sleepTimer.label')"
-          class="absolute bottom-full left-1/2 z-20 mb-2 flex w-40 -translate-x-1/2 flex-col rounded-xl border border-neutral-200 bg-white p-1 shadow-lg"
+          panel-class="absolute bottom-full left-1/2 mb-2 flex w-40 -translate-x-1/2 flex-col"
         >
           <button
             v-for="preset in sleepPresets"
@@ -248,7 +240,7 @@ const selectSleepOff = async (): Promise<void> => {
             type="button"
             role="menuitem"
             :data-testid="`sleep-timer-preset-${preset.minutes}`"
-            class="flex min-h-[44px] items-center rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
+            class="flex min-h-11 items-center rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
             @click="selectSleepPreset(preset.minutes)"
           >
             {{ t(preset.key) }}
@@ -258,12 +250,12 @@ const selectSleepOff = async (): Promise<void> => {
             type="button"
             role="menuitem"
             data-testid="sleep-timer-off"
-            class="mt-1 flex min-h-[44px] items-center rounded-lg border-t border-neutral-100 px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
+            class="mt-1 flex min-h-11 items-center rounded-lg border-t border-neutral-100 px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
             @click="selectSleepOff"
           >
             {{ t('sleepTimer.off') }}
           </button>
-        </div>
+        </Popover>
       </div>
 
       <!-- Playback Controls -->
@@ -309,7 +301,7 @@ const selectSleepOff = async (): Promise<void> => {
         <button
           type="button"
           data-testid="view-full-queue"
-          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
+          class="mt-2 min-h-11 px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
           @click="navigateToQueue"
         >
           {{ t('nowPlaying.viewFullQueue') }}
@@ -318,12 +310,14 @@ const selectSleepOff = async (): Promise<void> => {
     </div>
 
     <!-- Empty State -->
-    <div v-else data-testid="empty-state" class="flex flex-col items-center text-center">
-      <!-- Placeholder Album Cover -->
-      <div
-        data-testid="placeholder-album-cover"
-        class="mb-6 flex h-[120px] w-[120px] md:h-[160px] md:w-[160px] lg:h-[200px] lg:w-[200px] items-center justify-center rounded-lg bg-neutral-100"
-      >
+    <EmptyState
+      v-else
+      data-testid="empty-state"
+      icon-testid="placeholder-album-cover"
+      :title="t('nowPlaying.emptyTitle')"
+      :subtitle="t('nowPlaying.emptySubtitle')"
+    >
+      <template #icon>
         <!-- Music Note Icon (simple SVG) -->
         <svg
           class="h-12 w-12 md:h-14 md:w-14 lg:h-20 lg:w-20 text-neutral-400"
@@ -339,15 +333,7 @@ const selectSleepOff = async (): Promise<void> => {
             d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
           />
         </svg>
-      </div>
-
-      <!-- Empty State Text -->
-      <h2 class="mb-2 text-xl font-semibold text-neutral-900">
-        {{ t('nowPlaying.emptyTitle') }}
-      </h2>
-      <p class="text-sm text-neutral-500">
-        {{ t('nowPlaying.emptySubtitle') }}
-      </p>
+      </template>
 
       <div
         v-if="queuedTracks.length > 0"
@@ -374,55 +360,53 @@ const selectSleepOff = async (): Promise<void> => {
         <button
           type="button"
           data-testid="view-full-queue-empty-state"
-          class="mt-2 min-h-[44px] px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
+          class="mt-2 min-h-11 px-2 text-xs text-neutral-700 underline hover:text-neutral-900 focus:outline-none focus:text-neutral-900"
           @click="navigateToQueue"
         >
           {{ t('nowPlaying.viewFullQueue') }}
         </button>
       </div>
-    </div>
+    </EmptyState>
 
     <!-- Error State -->
-    <div
+    <Banner
       v-if="playbackStore.hasError"
       data-testid="playback-error"
-      class="mt-4 w-full max-w-sm rounded-lg border border-red-200 bg-red-50 p-4"
-      role="alert"
-      aria-live="assertive"
+      variant="error"
+      class="mt-4 w-full max-w-sm"
     >
-      <p class="text-sm font-medium text-red-800">
-        {{ playbackStore.error }}
-      </p>
-      <button
-        type="button"
-        class="mt-2 min-h-[44px] px-2 text-xs font-medium text-red-600 underline hover:text-red-700"
-        @click="playbackStore.clearError"
-      >
-        Dismiss
-      </button>
-    </div>
+      {{ playbackStore.error }}
+      <template #action>
+        <button
+          type="button"
+          class="min-h-11 px-2 text-xs font-medium text-error underline hover:text-error"
+          @click="playbackStore.clearError"
+        >
+          Dismiss
+        </button>
+      </template>
+    </Banner>
 
     <!-- LMS Connectivity Error Banner (S02) -->
-    <div
+    <Banner
       v-if="playbackStore.isLmsDisconnected"
       data-testid="lms-error-banner"
-      class="mt-4 w-full max-w-sm rounded-lg border border-amber-200 bg-amber-50 p-4"
-      role="alert"
-      aria-live="assertive"
+      variant="warning"
+      class="mt-4 w-full max-w-sm"
     >
-      <p class="text-sm font-medium text-amber-900">
-        {{ playbackStore.lmsError }}
-      </p>
-      <button
-        type="button"
-        data-testid="lms-retry-button"
-        :disabled="playbackStore.isRetryingLms"
-        class="mt-2 flex min-h-[44px] items-center gap-1.5 px-2 text-xs font-medium text-amber-700 underline hover:text-amber-800 disabled:opacity-50 disabled:cursor-not-allowed"
-        @click="playbackStore.retryLmsConnection()"
-      >
-        <span v-if="playbackStore.isRetryingLms" aria-hidden="true">↻</span>
-        {{ playbackStore.isRetryingLms ? 'Connecting…' : 'Retry' }}
-      </button>
-    </div>
+      {{ playbackStore.lmsError }}
+      <template #action>
+        <button
+          type="button"
+          data-testid="lms-retry-button"
+          :disabled="playbackStore.isRetryingLms"
+          class="flex min-h-11 items-center gap-1.5 px-2 text-xs font-medium text-warning underline hover:text-warning disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="playbackStore.retryLmsConnection()"
+        >
+          <span v-if="playbackStore.isRetryingLms" aria-hidden="true">↻</span>
+          {{ playbackStore.isRetryingLms ? 'Connecting…' : 'Retry' }}
+        </button>
+      </template>
+    </Banner>
   </div>
 </template>

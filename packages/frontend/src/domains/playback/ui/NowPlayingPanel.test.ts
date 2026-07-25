@@ -167,12 +167,12 @@ describe('NowPlayingPanel', () => {
 
     const albumCover = context.wrapper.find('[data-testid="album-cover"]')
     expect(albumCover.exists()).toBe(true)
-    expect(albumCover.classes()).toContain('lg:h-[200px]')
-    expect(albumCover.classes()).toContain('lg:w-[200px]')
-    expect(albumCover.classes()).toContain('md:h-[160px]')
-    expect(albumCover.classes()).toContain('md:w-[160px]')
-    expect(albumCover.classes()).toContain('h-[120px]')
-    expect(albumCover.classes()).toContain('w-[120px]')
+    expect(albumCover.classes()).toContain('lg:h-50')
+    expect(albumCover.classes()).toContain('lg:w-50')
+    expect(albumCover.classes()).toContain('md:h-40')
+    expect(albumCover.classes()).toContain('md:w-40')
+    expect(albumCover.classes()).toContain('h-30')
+    expect(albumCover.classes()).toContain('w-30')
   })
 
   it('placeholder album cover has responsive size classes up to 200px on large screens', async () => {
@@ -180,12 +180,12 @@ describe('NowPlayingPanel', () => {
 
     const placeholder = context.wrapper.find('[data-testid="placeholder-album-cover"]')
     expect(placeholder.exists()).toBe(true)
-    expect(placeholder.classes()).toContain('lg:h-[200px]')
-    expect(placeholder.classes()).toContain('lg:w-[200px]')
-    expect(placeholder.classes()).toContain('md:h-[160px]')
-    expect(placeholder.classes()).toContain('md:w-[160px]')
-    expect(placeholder.classes()).toContain('h-[120px]')
-    expect(placeholder.classes()).toContain('w-[120px]')
+    expect(placeholder.classes()).toContain('lg:h-50')
+    expect(placeholder.classes()).toContain('lg:w-50')
+    expect(placeholder.classes()).toContain('md:h-40')
+    expect(placeholder.classes()).toContain('md:w-40')
+    expect(placeholder.classes()).toContain('h-30')
+    expect(placeholder.classes()).toContain('w-30')
   })
 
   it('music note SVG icon in playing state album cover has responsive size classes', async () => {
@@ -337,7 +337,7 @@ describe('NowPlayingPanel', () => {
       const badge = context.wrapper.find('[data-testid="quality-badge"]')
       expect(badge.exists()).toBe(true)
       expect(badge.text().trim()).toContain('Qobuz')
-      expect(badge.classes()).toContain('bg-amber-100')
+      expect(badge.classes()).toContain('bg-warning/10')
     })
 
     // Story 8.7 fix AC3: quality badge shows FLAC for Tidal browse-played tracks
