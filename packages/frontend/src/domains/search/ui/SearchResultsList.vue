@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Listbox, ListboxOptions, ListboxOption } from '@headlessui/vue'
 import type { TrackResult, AlbumResult, ArtistResult } from '../core/types'
 import QualityBadge from '@/ui/QualityBadge.vue'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import AlbumActionButtons from './AlbumActionButtons.vue'
 import { SOURCE_LABELS, SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
 import { useI18nStore } from '@/app/i18nStore'
@@ -231,7 +232,7 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
                     v-if="result.artist"
                     type="button"
                     data-testid="track-artist-link"
-                    class="cursor-pointer hover:text-primary-600 hover:underline"
+                    class="cursor-pointer hover:text-accent-600 hover:underline"
                     @click.stop="
                       emit('navigate-artist', {
                         artistId: result.artistId ?? null,
@@ -270,7 +271,7 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
                 <!-- Success checkmark — shown only after confirmed API success -->
                 <svg
                   v-if="trackQueueSuccess.items.value.has(result.id)"
-                  class="h-4 w-4 text-green-500"
+                  class="h-4 w-4 text-success"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -287,7 +288,7 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
                 <svg
                   v-else-if="trackQueueError.items.value.has(result.id)"
                   data-testid="add-to-queue-error"
-                  class="h-4 w-4 text-red-500"
+                  class="h-4 w-4 text-error"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -329,28 +330,7 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
                 @click.stop="handlePlay(result)"
               >
                 <!-- Loading Spinner (Issue #9: Loading state) -->
-                <svg
-                  v-if="playbackStore.isLoading"
-                  class="h-5 w-5 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle
-                    class="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    stroke-width="4"
-                  />
-                  <path
-                    class="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
+                <LoadingSpinner v-if="playbackStore.isLoading" size="sm" color="current" />
                 <!-- Play Icon -->
                 <svg
                   v-else
