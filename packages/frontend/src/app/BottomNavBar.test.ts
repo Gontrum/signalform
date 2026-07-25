@@ -129,7 +129,7 @@ describe('BottomNavBar', () => {
     const wrapper = mount(BottomNavBar, { global: { plugins: [router] } })
 
     const activeLink = wrapper.find('[data-testid="bottom-nav-search"]')
-    expect(activeLink.classes()).toContain('text-accent-500')
+    expect(activeLink.classes()).toContain('text-accent-600')
 
     const inactiveLink = wrapper.find('[data-testid="bottom-nav-library"]')
     expect(inactiveLink.classes()).toContain('text-neutral-500')

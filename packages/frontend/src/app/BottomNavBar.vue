@@ -9,9 +9,12 @@ const { isSearch, isLibrary, isQueue, isSettings } = useActiveNav()
 const i18nStore = useI18nStore()
 const { t } = storeToRefs(i18nStore)
 
+// accent-600 (not accent-500) — at this label's 10px font size, accent-500
+// (#3B82F6) on white is only 3.67:1, below the WCAG AA 4.5:1 minimum for
+// text; accent-600 (#2563EB) reaches 5.17:1.
 const linkClasses = (isActive: boolean): readonly string[] => [
-  'flex min-h-[56px] min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 active:opacity-50',
-  isActive ? 'text-accent-500' : 'text-neutral-500 hover:text-neutral-900',
+  'flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 py-2 active:opacity-50',
+  isActive ? 'text-accent-600' : 'text-neutral-500 hover:text-neutral-900',
 ]
 
 const labelClasses = (isActive: boolean): readonly string[] => [
