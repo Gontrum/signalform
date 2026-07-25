@@ -34,7 +34,8 @@
       },
       "eslint": {
         "config": ["eslint.config.js"]
-      }
+      },
+      "ignoreDependencies": ["@axe-core/playwright"]
     }
   }
 }

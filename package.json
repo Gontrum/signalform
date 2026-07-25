@@ -9,8 +9,6 @@
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "start:production": "node scripts/start-production-stack.mjs",
-    "measure:lms-host": "node scripts/measure-lms-host-viability.mjs",
-    "verify:production": "node scripts/verify-production-stack.mjs",
     "test": "pnpm -r run test",
     "test:unit": "pnpm -r run test",
     "test:coverage": "pnpm -r run test -- --coverage",
@@ -50,7 +48,6 @@
     ]
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.12.1",
     "@typescript-eslint/eslint-plugin": "^8.64.0",
     "@typescript-eslint/parser": "^8.64.0",
     "@vue/language-server": "^3.3.8",
@@ -59,7 +56,6 @@
     "eslint-plugin-boundaries": "^7.0.2",
     "eslint-plugin-functional": "^10.0.0",
     "eslint-plugin-vuejs-accessibility": "^2.5.0",
-    "html-validate": "^11.5.6",
     "husky": "^9.1.7",
     "jscpd": "^5.0.12",
     "knip": "^6.26.0",
@@ -73,8 +69,5 @@
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=11.0.0"
-  },
-  "dependencies": {
-    "playwright": "^1.61.1"
   }
 }

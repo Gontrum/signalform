@@ -10,6 +10,9 @@ build/
 # Raw output from `pnpm run review:collect`
 .review-artifacts/
 
+# Raw output from `pnpm run check:dupes` (jscpd)
+report/
+
 # Test output
 coverage/
 packages/frontend/test-results/
