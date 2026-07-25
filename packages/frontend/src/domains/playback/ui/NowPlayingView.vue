@@ -33,7 +33,7 @@ const goToQueue = (): void => {
       v-if="shouldShowPhonePlaybackShortcut && hasQueuedTracks"
       data-testid="now-playing-queue-shortcut"
       type="button"
-      class="fixed inset-x-4 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-50 flex min-h-[56px] items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 shadow-xl hover:bg-neutral-50"
+      class="fixed inset-x-4 bottom-[max(env(safe-area-inset-bottom),0.75rem)] z-overlay flex min-h-14 items-center justify-center rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-900 shadow-xl hover:bg-neutral-50"
       :aria-label="t('nowPlaying.viewFullQueue')"
       @click="goToQueue"
     >
