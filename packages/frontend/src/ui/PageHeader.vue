@@ -22,13 +22,13 @@ const goBack = (): void => {
 <template>
   <header
     data-testid="page-header"
-    class="app-chrome sticky top-0 z-20 flex h-11 flex-shrink-0 items-center gap-1 border-b border-neutral-200/80 bg-white/85 px-2 backdrop-blur-xl"
+    class="app-chrome sticky top-0 z-sticky flex h-11 flex-shrink-0 items-center gap-1 border-b border-neutral-200/80 bg-white/85 px-2 backdrop-blur-xl"
   >
     <button
       v-if="showBack"
       type="button"
       data-testid="page-header-back"
-      class="flex min-h-[44px] min-w-[44px] items-center justify-center text-accent-500 hover:opacity-70 active:opacity-50"
+      class="flex min-h-11 min-w-11 items-center justify-center text-accent-500 hover:opacity-70 active:opacity-50"
       :aria-label="t('nav.back')"
       @click="goBack"
     >
