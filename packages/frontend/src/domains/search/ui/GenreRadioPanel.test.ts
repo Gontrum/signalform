@@ -162,4 +162,113 @@ describe('GenreRadioPanel', () => {
     const btn = wrapper.find('[data-testid="genre-radio-start-button"]')
     expect(btn.attributes('disabled')).toBeDefined()
   })
+
+  describe('keyboard navigation', () => {
+    const showTwoSuggestions = async (
+      wrapper: ReturnType<typeof mount>,
+    ): Promise<ReturnType<ReturnType<typeof mount>['find']>> => {
+      const { searchTags } = await import('@/platform/api/genreRadioApi')
+      vi.mocked(searchTags).mockResolvedValue([
+        { name: 'Jazz', count: 50, url: 'https://last.fm/tag/jazz' },
+        { name: 'Punk', count: 30, url: 'https://last.fm/tag/punk' },
+      ])
+
+      const input = wrapper.find('[data-testid="genre-radio-input"]')
+      await input.setValue('Ja')
+      await input.trigger('input')
+
+      vi.advanceTimersByTime(300)
+      await flushPromises()
+
+      return input
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    it('arrow-down highlights the first suggestion', async () => {
+      const wrapper = mountPanel()
+      const input = await showTwoSuggestions(wrapper)
+
+      await input.trigger('keydown.down')
+      await nextTick()
+
+      const suggestions = wrapper.findAll('[data-testid="genre-radio-suggestion"]')
+      expect(suggestions[0]?.attributes('aria-selected')).toBe('true')
+      expect(suggestions[1]?.attributes('aria-selected')).toBe('false')
+      expect(input.attributes('aria-activedescendant')).toBe('genre-radio-suggestion-0')
+
+      vi.useRealTimers()
+    })
+
+    it('arrow-down from the last suggestion wraps to the first', async () => {
+      const wrapper = mountPanel()
+      const input = await showTwoSuggestions(wrapper)
+
+      await input.trigger('keydown.down')
+      await input.trigger('keydown.down')
+      await input.trigger('keydown.down')
+      await nextTick()
+
+      const suggestions = wrapper.findAll('[data-testid="genre-radio-suggestion"]')
+      expect(suggestions[0]?.attributes('aria-selected')).toBe('true')
+
+      vi.useRealTimers()
+    })
+
+    it('arrow-up from nothing highlighted wraps to the last suggestion', async () => {
+      const wrapper = mountPanel()
+      const input = await showTwoSuggestions(wrapper)
+
+      await input.trigger('keydown.up')
+      await nextTick()
+
+      const suggestions = wrapper.findAll('[data-testid="genre-radio-suggestion"]')
+      expect(suggestions[1]?.attributes('aria-selected')).toBe('true')
+
+      vi.useRealTimers()
+    })
+
+    it('Enter with a suggestion highlighted selects it instead of starting radio', async () => {
+      const { startGenreRadio } = await import('@/platform/api/genreRadioApi')
+      const wrapper = mountPanel()
+      const input = await showTwoSuggestions(wrapper)
+
+      await input.trigger('keydown.down')
+      await nextTick()
+
+      await input.trigger('keydown.enter')
+      await flushPromises()
+
+      expect(startGenreRadio).not.toHaveBeenCalled()
+      expect(wrapper.find('[data-testid="genre-radio-suggestion"]').exists()).toBe(false)
+      const inputEl = wrapper.find('[data-testid="genre-radio-input"]')
+      expect(inputEl.element).toBeInstanceOf(HTMLInputElement)
+      if (!(inputEl.element instanceof HTMLInputElement)) {
+        return
+      }
+      expect(inputEl.element.value).toBe('Jazz')
+
+      vi.useRealTimers()
+    })
+
+    it('Enter with nothing highlighted still starts radio as before', async () => {
+      const { startGenreRadio } = await import('@/platform/api/genreRadioApi')
+      vi.mocked(startGenreRadio).mockResolvedValue({ genreName: 'Punk', tracksAdded: 3 })
+
+      const wrapper = mountPanel()
+      const input = wrapper.find('[data-testid="genre-radio-input"]')
+      await input.setValue('Punk')
+      await input.trigger('input')
+      await nextTick()
+
+      await input.trigger('keydown.enter')
+      await flushPromises()
+
+      expect(startGenreRadio).toHaveBeenCalledWith('Punk')
+
+      vi.useRealTimers()
+    })
+  })
 })
