@@ -28,7 +28,7 @@ const navigateToQueue = (): void => {
   <div
     v-if="shouldShowPhonePlaybackShortcut"
     data-testid="mini-player-bar"
-    class="flex min-h-[56px] w-full flex-shrink-0 items-stretch border-t border-neutral-200 bg-white"
+    class="flex min-h-14 w-full flex-shrink-0 items-stretch border-t border-neutral-200 bg-white"
   >
     <button
       data-testid="mini-player"
