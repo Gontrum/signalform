@@ -194,7 +194,7 @@ describe('VolumeControl', () => {
     expect(volumeDisplay.attributes('aria-live')).toBe('polite')
   })
 
-  it('applies muted class to button when muted', async () => {
+  it('applies the muted background class to button when muted', async () => {
     const wrapper = mount(VolumeControl)
     const store = usePlaybackStore()
 
@@ -202,17 +202,17 @@ describe('VolumeControl', () => {
     await wrapper.vm.$nextTick()
 
     const button = wrapper.find('button')
-    expect(button.classes()).toContain('muted')
+    expect(button.classes()).toContain('bg-error/10')
   })
 
-  it('removes muted class from button when not muted', () => {
+  it('removes the muted background class from button when not muted', () => {
     const wrapper = mount(VolumeControl)
     const store = usePlaybackStore()
 
     setPlaybackStoreState(store, { isMuted: false })
 
     const button = wrapper.find('button')
-    expect(button.classes()).not.toContain('muted')
+    expect(button.classes()).not.toContain('bg-error/10')
   })
 
   it('updates volume display reactively', async () => {
