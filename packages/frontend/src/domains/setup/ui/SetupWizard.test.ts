@@ -88,6 +88,15 @@ describe('SetupWizard', () => {
     expect(context.wrapper.find('[data-testid="step-server"]').exists()).toBe(true)
   })
 
+  // a11y audit: the setup wizard is a top-level route and must expose a
+  // `main` landmark for screen-reader "skip to main content" navigation.
+  it('renders a main landmark as the root element', async () => {
+    const context = await mountWizard()
+
+    expect(context.wrapper.find('main').exists()).toBe(true)
+    expect(context.wrapper.find('main[data-testid="setup-wizard"]').exists()).toBe(true)
+  })
+
   it('scan button calls discoverServers', async () => {
     const { discoverServers } = await import('@/platform/api/setupApi')
 
@@ -119,6 +128,13 @@ describe('SetupWizard', () => {
     await flushPromises()
 
     expect(context.wrapper.find('[data-testid="scan-error"]').exists()).toBe(true)
+  })
+
+  it('renders the Advanced label with sufficient-contrast text-neutral-600, not text-neutral-400', async () => {
+    const context = await mountWizard()
+    const label = context.wrapper.find('[data-testid="manual-entry"] p')
+    expect(label.classes()).toContain('text-neutral-600')
+    expect(label.classes()).not.toContain('text-neutral-400')
   })
 
   it('proceed-to-player-button disabled when no host selected', async () => {

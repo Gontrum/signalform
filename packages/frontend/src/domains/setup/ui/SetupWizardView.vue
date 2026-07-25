@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { setupSteps } from '../core/service'
 import { useSetupWizard } from '../shell/useSetupWizard'
 
@@ -33,7 +34,7 @@ const {
 </script>
 
 <template>
-  <div
+  <main
     class="flex min-h-screen items-center justify-center bg-neutral-50 p-6"
     data-testid="setup-wizard"
   >
@@ -92,7 +93,7 @@ const {
         </p>
 
         <div class="mb-6 space-y-3" data-testid="manual-entry">
-          <p class="text-xs font-medium uppercase tracking-wide text-neutral-400">
+          <p class="text-xs font-medium uppercase tracking-wide text-neutral-600">
             {{ t('settings.section.advanced') }}
           </p>
           <div class="flex gap-2">
@@ -133,12 +134,10 @@ const {
         </p>
 
         <div v-if="loadingPlayers" class="flex justify-center py-8" data-testid="players-loading">
-          <div
-            class="h-8 w-8 animate-spin rounded-full border-4 border-neutral-900 border-t-transparent"
-          />
+          <LoadingSpinner size="md" color="neutral-900" />
         </div>
 
-        <p v-else-if="playersError" data-testid="players-error" class="mb-4 text-sm text-red-600">
+        <p v-else-if="playersError" data-testid="players-error" class="mb-4 text-sm text-error">
           {{ playersError }}
         </p>
 
@@ -158,7 +157,7 @@ const {
             </div>
             <span
               v-if="player.connected"
-              class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+              class="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
               >online</span
             >
           </button>
@@ -239,7 +238,7 @@ const {
           </div>
         </div>
 
-        <p v-if="saveError" data-testid="save-error" class="mb-4 text-sm text-red-600">
+        <p v-if="saveError" data-testid="save-error" class="mb-4 text-sm text-error">
           {{ saveError }}
         </p>
 
@@ -282,5 +281,5 @@ const {
         </button>
       </div>
     </div>
-  </div>
+  </main>
 </template>
