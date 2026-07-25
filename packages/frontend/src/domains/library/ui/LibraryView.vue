@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
+import EmptyState from '@/ui/EmptyState.vue'
 import AlbumCard from '@/domains/library/ui/AlbumCard.vue'
 import AlbumListRow from '@/domains/library/ui/AlbumListRow.vue'
 import { useI18nStore } from '@/app/i18nStore'
@@ -47,7 +49,7 @@ const {
 </script>
 
 <template>
-  <div data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
+  <main data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
     <MainNavBar v-if="!isPhone" />
     <PageHeader v-if="isPhone" :title="t('nav.library')" />
     <h1 v-else class="sr-only">{{ t('nav.library') }}</h1>
@@ -102,7 +104,7 @@ const {
           type="button"
           data-testid="rescan-library-button"
           :disabled="isRescanning"
-          class="flex min-h-[44px] items-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+          class="flex min-h-11 items-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
           :aria-label="isRescanning ? 'Scanning library…' : 'Refresh local library'"
           @click="handleRescan"
         >
@@ -136,9 +138,7 @@ const {
         data-testid="loading-state"
         class="flex justify-center py-20"
       >
-        <div
-          class="h-12 w-12 animate-spin rounded-full border-4 border-accent-400 border-t-transparent"
-        />
+        <LoadingSpinner size="lg" color="accent-400" />
       </div>
 
       <!-- Error state (source-specific message) -->
@@ -156,9 +156,26 @@ const {
       <div
         v-else-if="albums.length === 0 && activeSource === 'local'"
         data-testid="empty-state"
-        class="py-20 text-center text-neutral-500"
+        class="py-20"
       >
-        <p class="text-lg">{{ t('library.emptyLocal') }}</p>
+        <EmptyState :title="t('library.emptyLocal')">
+          <template #icon>
+            <svg
+              class="h-12 w-12 md:h-14 md:w-14 lg:h-20 lg:w-20 text-neutral-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+              />
+            </svg>
+          </template>
+        </EmptyState>
       </div>
 
       <!-- Story 8.9 AC2: No Tidal favorites → show Featured Albums (Neu bei Tidal) -->
@@ -172,9 +189,7 @@ const {
           data-testid="featured-loading-state"
           class="flex justify-center py-20"
         >
-          <div
-            class="h-12 w-12 animate-spin rounded-full border-4 border-accent-400 border-t-transparent"
-          />
+          <LoadingSpinner size="lg" color="accent-400" />
         </div>
 
         <!-- Featured error -->
@@ -188,7 +203,9 @@ const {
 
         <!-- Featured albums grid -->
         <div v-else data-testid="featured-albums-section">
-          <h2 class="mb-4 text-lg font-semibold text-neutral-700">Neu bei Tidal</h2>
+          <h2 class="mb-4 text-lg font-semibold text-neutral-700">
+            {{ t('library.featuredTidal') }}
+          </h2>
           <div
             data-testid="featured-album-grid"
             class="grid grid-cols-2 gap-6 lg:grid-cols-3 lg:gap-8"
@@ -218,7 +235,7 @@ const {
               :data-testid="`sort-chip-${opt.value}`"
               :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
               :class="[
-                'min-h-[36px] rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-9 rounded-full border px-4 text-sm font-medium transition-colors',
                 sortBy === opt.value
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
@@ -238,7 +255,7 @@ const {
               :data-testid="`decade-chip-${opt.value}`"
               :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
               :class="[
-                'min-h-[36px] rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-9 rounded-full border px-4 text-sm font-medium transition-colors',
                 decadeFilter === opt.value
                   ? 'border-accent-500 bg-accent-500 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
@@ -261,7 +278,7 @@ const {
               :data-testid="`genre-chip-all`"
               :aria-pressed="genreFilter === null ? 'true' : 'false'"
               :class="[
-                'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-9 flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
                 genreFilter === null
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
@@ -277,7 +294,7 @@ const {
               :data-testid="`genre-chip-${genre}`"
               :aria-pressed="genreFilter === genre ? 'true' : 'false'"
               :class="[
-                'min-h-[36px] flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-9 flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
                 genreFilter === genre
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
@@ -392,5 +409,5 @@ const {
         </div>
       </div>
     </div>
-  </div>
+  </main>
 </template>

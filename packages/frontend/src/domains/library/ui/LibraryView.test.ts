@@ -1017,6 +1017,9 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="featured-albums-section"]').exists()).toBe(true)
     expect(context.wrapper.find('[data-testid="featured-album-grid"]').exists()).toBe(true)
     expect(context.wrapper.findAll('[data-testid="featured-album-grid"] .group')).toHaveLength(2)
+    expect(context.wrapper.find('[data-testid="tidal-featured-section"] h2').text()).toBe(
+      'New on Tidal',
+    )
   })
 
   // H1c: clicking a featured album card navigates to album-detail with Tidal state
@@ -1133,6 +1136,18 @@ describe('LibraryView', () => {
     const context = await mountView()
 
     expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+  })
+
+  // a11y audit: LibraryView is a top-level route and must expose a `main`
+  // landmark for screen-reader "skip to main content" navigation.
+  it('renders a main landmark as the root element', async () => {
+    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
+    vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
+
+    const context = await mountView()
+
+    expect(context.wrapper.find('main').exists()).toBe(true)
+    expect(context.wrapper.find('main[data-testid="library-view"]').exists()).toBe(true)
   })
 
   // Step B1: PageHeader renders as the top-level tab's title, no back button
