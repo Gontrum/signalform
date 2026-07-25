@@ -2,6 +2,7 @@
 import { useI18nStore } from '@/app/i18nStore'
 import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import ArtistHero from './ArtistHero.vue'
 import SimilarArtistGrid from './SimilarArtistGrid.vue'
@@ -56,12 +57,7 @@ const {
       class="flex h-64 items-center justify-center px-4 py-4 sm:px-6"
       data-testid="loading-state"
     >
-      <div
-        class="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"
-        role="status"
-      >
-        <span class="sr-only">{{ t('home.loading') }}</span>
-      </div>
+      <LoadingSpinner size="md" color="current" />
     </div>
 
     <!-- Error -->
@@ -70,7 +66,7 @@ const {
       class="flex h-64 items-center justify-center px-4 py-4 sm:px-6"
       data-testid="error-state"
     >
-      <p class="text-lg font-medium text-red-600">
+      <p class="text-lg font-medium text-error">
         {{ errorMessage || t('artist.errorServerMessage') }}
       </p>
     </div>
@@ -106,7 +102,7 @@ const {
             <span
               v-if="radioError"
               data-testid="artist-radio-error"
-              :class="hasImage ? 'text-sm text-red-300' : 'text-sm text-red-600'"
+              :class="hasImage ? 'text-sm text-error/70' : 'text-sm text-error'"
             >
               {{ t('artist.radioError') }}
             </span>
@@ -184,7 +180,7 @@ const {
                     ? 'text-xs border rounded-full px-2 py-0.5 cursor-pointer transition'
                     : 'text-xs border rounded-full px-2 py-0.5 cursor-pointer transition',
                   genreRadioError && genreRadioActiveTag === tag
-                    ? 'border-red-400 text-red-500'
+                    ? 'border-error text-error'
                     : hasImage
                       ? 'border-white/40 text-white/80 hover:bg-white/10'
                       : 'border-neutral-200 text-neutral-600 hover:bg-neutral-100',
@@ -198,7 +194,7 @@ const {
             <p
               v-if="genreRadioError"
               data-testid="genre-radio-error"
-              :class="hasImage ? 'mt-1 text-xs text-red-300' : 'mt-1 text-xs text-red-500'"
+              :class="hasImage ? 'mt-1 text-xs text-error/70' : 'mt-1 text-xs text-error'"
             >
               {{ t('artist.genreRadioError') }}
             </p>
@@ -260,7 +256,20 @@ const {
               :disabled="track.url === ''"
               @click="handleTopTrackAddToQueue(track)"
             >
-              +
+              <svg
+                class="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4v16m8-8H4"
+                />
+              </svg>
             </button>
             <button
               type="button"
@@ -269,7 +278,15 @@ const {
               :aria-label="`${t('artist.playTopTrack')} ${track.title}`"
               @click="handleTopTrackPlay(track)"
             >
-              ▶
+              <svg
+                class="h-4 w-4"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
             </button>
           </div>
         </div>
