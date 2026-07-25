@@ -24,17 +24,8 @@ const stubLmsHealth = (isDown: boolean): void => {
 
 // App renders HomeView which embeds NowPlayingPanel + VolumeControl (playback API on mount)
 vi.mock('@/platform/api/playbackApi', async () => {
-  const { ok } = await import('@signalform/shared')
-  return {
-    playTrack: vi.fn().mockResolvedValue(ok(undefined)),
-    setVolume: vi.fn().mockResolvedValue(ok(undefined)),
-    getVolume: vi.fn().mockResolvedValue(ok(50)),
-    getPlaybackStatus: vi
-      .fn()
-      .mockResolvedValue(
-        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
-      ),
-  }
+  const { mockPlaybackApiModule } = await import('@/test-utils')
+  return mockPlaybackApiModule()
 })
 
 vi.mock('@/platform/api/configApi', () => ({

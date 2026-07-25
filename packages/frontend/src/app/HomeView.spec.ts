@@ -6,17 +6,8 @@ import type { Router } from 'vue-router'
 
 // HomeView embeds NowPlayingPanel + VolumeControl which call playback API on mount
 vi.mock('@/platform/api/playbackApi', async () => {
-  const { ok } = await import('@signalform/shared')
-  return {
-    playTrack: vi.fn().mockResolvedValue(ok(undefined)),
-    setVolume: vi.fn().mockResolvedValue(ok(undefined)),
-    getVolume: vi.fn().mockResolvedValue(ok(50)),
-    getPlaybackStatus: vi
-      .fn()
-      .mockResolvedValue(
-        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
-      ),
-  }
+  const { mockPlaybackApiModule } = await import('@/test-utils')
+  return mockPlaybackApiModule()
 })
 
 describe('HomeView.vue', () => {
