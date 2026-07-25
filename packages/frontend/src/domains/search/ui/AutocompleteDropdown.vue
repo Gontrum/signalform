@@ -16,6 +16,7 @@
  */
 import { ref, watch } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
+import Banner from '@/ui/Banner.vue'
 import { useArtistImages } from '@/domains/enrichment/shell/useArtistImage'
 import type { AutocompleteSuggestion } from '../core/types'
 
@@ -77,13 +78,13 @@ watch(
 <template>
   <div
     v-if="!error || suggestions.length > 0 || isLoading"
-    class="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-lg bg-gray-100 shadow-md transition-all duration-150 motion-reduce:duration-[0.01ms]"
+    class="absolute top-full z-raised mt-1 w-full overflow-hidden rounded-lg bg-neutral-100 shadow-md transition-all duration-200 motion-reduce:duration-[0.01ms]"
     style="transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1)"
   >
     <div class="w-full" aria-label="Autocomplete suggestions" data-testid="autocomplete-dropdown">
       <div
         v-if="isLoading"
-        class="px-4 py-3 text-sm text-gray-500"
+        class="px-4 py-3 text-sm text-neutral-500"
         role="status"
         aria-live="polite"
         data-testid="loading-state"
@@ -93,7 +94,7 @@ watch(
 
       <div
         v-else-if="isEmpty && !isLoading"
-        class="px-4 py-3 text-sm italic text-gray-500"
+        class="px-4 py-3 text-sm italic text-neutral-500"
         role="status"
         aria-live="polite"
         data-testid="empty-state"
@@ -101,7 +102,7 @@ watch(
         {{ t('home.emptyState.title') }}
       </div>
 
-      <ul v-else class="divide-y divide-gray-200" role="listbox">
+      <ul v-else class="divide-y divide-neutral-200" role="listbox">
         <!--
           Keyboard selection is fully handled by the parent input's
           @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant
@@ -113,8 +114,8 @@ watch(
           :id="`suggestion-item-${index}`"
           :key="suggestion.id"
           :class="[
-            'flex min-h-[48px] cursor-pointer items-center px-4 py-3 transition-colors duration-150 motion-reduce:duration-[0.01ms] md:min-h-[56px]',
-            activeIndex === index ? 'bg-accent-500 text-white' : 'bg-gray-100 text-gray-900',
+            'flex min-h-12 cursor-pointer items-center px-4 py-3 transition-colors duration-200 motion-reduce:duration-[0.01ms] md:min-h-14',
+            activeIndex === index ? 'bg-accent-500 text-white' : 'bg-neutral-100 text-neutral-900',
           ]"
           :style="{ transitionTimingFunction: 'cubic-bezier(0.4, 0.0, 0.2, 1)' }"
           :aria-label="`${suggestion.artist}${suggestion.album ? ` - ${suggestion.album}` : ''}`"
@@ -127,7 +128,7 @@ watch(
           <div
             :class="[
               'h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg flex items-center justify-center',
-              activeIndex === index ? 'bg-accent-400' : 'bg-gray-300',
+              activeIndex === index ? 'bg-accent-400' : 'bg-neutral-300',
             ]"
           >
             <img
@@ -136,21 +137,24 @@ watch(
               :alt="`${suggestion.album || suggestion.artist} cover art`"
               class="h-full w-full object-cover"
             />
-            <span v-else class="text-xs text-gray-500">♪</span>
+            <span v-else class="text-xs text-neutral-500">♪</span>
           </div>
 
           <div class="ml-3 min-w-0 flex-1">
             <div
               :class="[
                 'truncate text-base font-normal',
-                activeIndex === index ? 'text-white' : 'text-gray-700',
+                activeIndex === index ? 'text-white' : 'text-neutral-700',
               ]"
             >
               {{ suggestion.artist }}
             </div>
             <div
               v-if="suggestion.album"
-              :class="['truncate text-sm', activeIndex === index ? 'text-white' : 'text-gray-500']"
+              :class="[
+                'truncate text-sm',
+                activeIndex === index ? 'text-white' : 'text-neutral-500',
+              ]"
             >
               {{ suggestion.album }}
             </div>
@@ -158,7 +162,7 @@ watch(
 
           <div
             v-if="suggestion.quality?.lossless"
-            class="ml-2 flex-shrink-0 rounded bg-green-600 px-2 py-1 text-xs font-medium text-white"
+            class="ml-2 flex-shrink-0 rounded bg-success px-2 py-1 text-xs font-medium text-white"
             :title="`${suggestion.quality.format} ${suggestion.quality.sampleRate}/${suggestion.quality.bitrate / 1000}k`"
           >
             {{ suggestion.quality.format }} {{ suggestion.quality.sampleRate }}/{{
@@ -178,10 +182,10 @@ watch(
         v-if="suggestions.length > 0"
         :id="`suggestion-item-${suggestions.length}`"
         :class="[
-          'flex min-h-[48px] cursor-pointer items-center gap-3 border-t border-gray-200 px-4 py-3 text-sm transition-colors duration-150 motion-reduce:duration-[0.01ms] md:min-h-[56px]',
+          'flex min-h-12 cursor-pointer items-center gap-3 border-t border-neutral-200 px-4 py-3 text-sm transition-colors duration-200 motion-reduce:duration-[0.01ms] md:min-h-14',
           activeIndex === suggestions.length
             ? 'bg-accent-500 text-white'
-            : 'bg-gray-100 text-gray-700',
+            : 'bg-neutral-100 text-neutral-700',
         ]"
         data-testid="autocomplete-footer-hint"
         :aria-label="`Search for ${query}`"
@@ -193,7 +197,7 @@ watch(
         <svg
           :class="[
             'h-4 w-4 flex-shrink-0',
-            activeIndex === suggestions.length ? 'text-white' : 'text-gray-500',
+            activeIndex === suggestions.length ? 'text-white' : 'text-neutral-500',
           ]"
           fill="none"
           stroke="currentColor"
@@ -212,13 +216,12 @@ watch(
     </div>
   </div>
 
-  <div
+  <Banner
     v-if="error && !isLoading && suggestions.length === 0"
-    class="absolute top-full z-10 mt-1 w-full rounded-lg bg-error/10 p-4 text-center text-sm text-error shadow-md"
-    role="alert"
-    aria-live="assertive"
     data-testid="error-state"
+    variant="error"
+    class="absolute top-full z-raised mt-1 w-full text-center shadow-md"
   >
     {{ error }}
-  </div>
+  </Banner>
 </template>
