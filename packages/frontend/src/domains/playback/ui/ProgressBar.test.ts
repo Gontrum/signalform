@@ -421,7 +421,9 @@ describe('ProgressBar Component', () => {
       await wrapper.vm.$nextTick()
 
       const progressWrapper = wrapper.find('.progress-wrapper')
-      expect(progressWrapper.classes()).toContain('disabled')
+      expect(progressWrapper.classes()).toContain('pointer-events-none')
+      expect(progressWrapper.classes()).toContain('cursor-not-allowed')
+      expect(progressWrapper.classes()).toContain('opacity-50')
     })
 
     it('does not start a seek gesture while loading', async () => {
