@@ -4,49 +4,17 @@ import type {
   LastFmClient,
   UserLovedTrack,
 } from "../../../adapters/lastfm-client/index.js";
-import type { SearchResult } from "../../../adapters/lms-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
 import { resolveRequestUser } from "../../users/index.js";
 import {
   setLovedRadioContext,
   setRadioModeEnabledState,
 } from "../../radio-mode/index.js";
-
-// ponytail: duplicated from genre-radio; extract a shared shell helper if a third mode needs it
-const normalizeStr = (s: string): string =>
-  s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-// ponytail: duplicated from genre-radio; extract a shared shell helper if a third mode needs it
-const artistMatches = (
-  resultArtist: string,
-  candidateArtist: string,
-): boolean => {
-  const r = normalizeStr(resultArtist);
-  const c = normalizeStr(candidateArtist);
-  return r.includes(c) || c.includes(r);
-};
-
-// ponytail: duplicated from genre-radio; extract a shared shell helper if a third mode needs it
-const sourceRank = (source: string): number =>
-  source === "local" ? 0 : source === "qobuz" ? 1 : source === "tidal" ? 2 : 3;
-
-// ponytail: duplicated from genre-radio; extract a shared shell helper if a third mode needs it
-const pickBestResult = (
-  results: readonly SearchResult[],
-): SearchResult | undefined =>
-  [...results].sort((a, b) => sourceRank(a.source) - sourceRank(b.source))[0];
-
-/** Random-sort shuffle — each element gets a random sort key. */
-// ponytail: duplicated from genre-radio; extract a shared shell helper if a third mode needs it
-const shuffled = <T>(arr: readonly T[]): readonly T[] =>
-  arr
-    .map((value) => ({ value, key: Math.random() }))
-    .sort((a, b) => a.key - b.key)
-    .map(({ value }) => value);
+import {
+  artistMatches,
+  pickBestResult,
+  fisherYatesShuffle,
+} from "../../personal-radio/index.js";
 
 const MAX_TRACKS = 8;
 
@@ -91,8 +59,9 @@ export const createLovedRadioRoute = (
       return reply.status(404).send({ error: "No loved tracks found" });
     }
 
-    const candidates: readonly UserLovedTrack[] = shuffled(
+    const candidates: readonly UserLovedTrack[] = fisherYatesShuffle(
       lovedTracksResult.value,
+      Math.random,
     );
 
     // Collect up to MAX_TRACKS playable URLs via sequential LMS searches
