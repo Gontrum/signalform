@@ -1,3 +1,4 @@
+import { vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
@@ -38,6 +39,44 @@ export const createTestRouter = async (
   await router.push(path)
   await router.isReady()
   return router
+}
+
+/**
+ * `vi.mock` factory for `@/platform/api/playbackApi`.
+ *
+ * Stubs `playTrack`, `setVolume`, `getVolume`, and `getPlaybackStatus` with
+ * neutral resolved values, so components that embed NowPlayingPanel +
+ * VolumeControl (which call the playback API on mount) can be mounted
+ * without hitting the network.
+ *
+ * @example
+ * ```ts
+ * // `vi.mock` factories are hoisted above all imports, so the factory must
+ * // do a dynamic `import()` of this module rather than referencing a
+ * // statically-imported binding directly (which throws a TDZ error).
+ * vi.mock('@/platform/api/playbackApi', async () => {
+ *   const { mockPlaybackApiModule } = await import('@/test-utils')
+ *   return mockPlaybackApiModule()
+ * })
+ * ```
+ */
+export const mockPlaybackApiModule = async (): Promise<{
+  readonly playTrack: ReturnType<typeof vi.fn>
+  readonly setVolume: ReturnType<typeof vi.fn>
+  readonly getVolume: ReturnType<typeof vi.fn>
+  readonly getPlaybackStatus: ReturnType<typeof vi.fn>
+}> => {
+  const { ok } = await import('@signalform/shared')
+  return {
+    playTrack: vi.fn().mockResolvedValue(ok(undefined)),
+    setVolume: vi.fn().mockResolvedValue(ok(undefined)),
+    getVolume: vi.fn().mockResolvedValue(ok(50)),
+    getPlaybackStatus: vi
+      .fn()
+      .mockResolvedValue(
+        ok({ status: 'stopped', currentTime: 0, currentTrack: null, queuePreview: [] }),
+      ),
+  }
 }
 
 /**
