@@ -7,13 +7,29 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import SearchPanel from './SearchPanel.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 import * as searchApi from '@/platform/api/searchApi'
 import { ok, err } from '@signalform/shared'
 import type { AlbumResult, ArtistResult, TrackResult } from '../core/types'
+
+// Module-level ref so individual tests can flip isPhone before mounting; reset
+// to false in beforeEach so phone-mode leaks never bleed into other tests.
+const isPhone = ref(false)
+
+vi.mock('@/app/useResponsiveLayout', () => ({
+  useResponsiveLayout: (): {
+    readonly isPhone: typeof isPhone
+    readonly isTablet: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: ReturnType<typeof ref<boolean>>
+  } => ({
+    isPhone,
+    isTablet: ref(false),
+    isDesktop: ref(true),
+  }),
+}))
 
 // SearchPanel renders AutocompleteDropdown which uses useArtistImages → getArtistHeroImage
 vi.mock('@/platform/api/heroImageApi', async () => {
@@ -156,6 +172,7 @@ describe('SearchPanel', () => {
     mockGetConfig.mockResolvedValue(ok({ personalRadioEnabled: false }))
     mockStartLovedRadio.mockResolvedValue({ tracksAdded: 1 })
     mockStartPersonalRadio.mockResolvedValue({ tracksAdded: 1, seedArtists: [] })
+    isPhone.value = false
   })
 
   it('renders search input with placeholder', async (): Promise<void> => {
@@ -1225,7 +1242,7 @@ describe('SearchPanel', () => {
       expect(backButtonInContainer.exists()).toBe(true)
     })
 
-    it('scroll header inside container has sticky, top-0, and z-10 classes (AC3)', async (): Promise<void> => {
+    it('scroll header inside container has sticky, top-0, and z-raised classes (AC3)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
       )
@@ -1242,7 +1259,7 @@ describe('SearchPanel', () => {
       expect(scrollHeader.exists()).toBe(true)
       expect(scrollHeader.classes()).toContain('sticky')
       expect(scrollHeader.classes()).toContain('top-0')
-      expect(scrollHeader.classes()).toContain('z-10')
+      expect(scrollHeader.classes()).toContain('z-raised')
       expect(scrollHeader.classes()).toContain('bg-neutral-50/95')
       expect(scrollHeader.classes()).toContain('backdrop-blur-sm')
       expect(scrollHeader.classes()).toContain('border')
@@ -1409,11 +1426,35 @@ describe('SearchPanel', () => {
     })
   })
 
-  // Story 9.3 AC2: MainNavBar integration — verifies nav renders inside SearchPanel
+  // Story 9.3 AC2: MainNavBar integration — verifies nav renders inside SearchPanel (desktop)
   it('renders MainNavBar inside the search container (Story 9.3 AC2)', async (): Promise<void> => {
+    isPhone.value = false
     const context = await whenSearchPanelIsMounted()
 
     expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
+  })
+
+  // Step B1: PageHeader renders as the top-level tab's title on phone
+  // (on desktop MainNavBar's tab highlighting already conveys the current page)
+  it('renders PageHeader with the search title and hides MainNavBar on phone', async (): Promise<void> => {
+    isPhone.value = true
+    const context = await whenSearchPanelIsMounted()
+
+    const header = context.wrapper.find('[data-testid="page-header"]')
+    expect(header.exists()).toBe(true)
+    expect(header.text()).toContain('Search')
+    expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+  })
+
+  it('renders a visually-hidden h1 with the search title on desktop, where PageHeader is not shown', async (): Promise<void> => {
+    isPhone.value = false
+    const context = await whenSearchPanelIsMounted()
+
+    expect(context.wrapper.find('[data-testid="page-header"]').exists()).toBe(false)
+    const heading = context.wrapper.find('h1')
+    expect(heading.exists()).toBe(true)
+    expect(heading.classes()).toContain('sr-only')
+    expect(heading.text()).toBe('Search')
   })
 
   describe('Tidal availability warning', () => {
