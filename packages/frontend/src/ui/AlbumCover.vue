@@ -67,7 +67,7 @@ const handleFullResError = (): void => {
 <template>
   <div
     data-testid="album-cover"
-    class="relative mb-6 flex h-[120px] w-[120px] md:h-[160px] md:w-[160px] lg:h-[200px] lg:w-[200px] flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg items-center justify-center"
+    class="relative mb-6 flex h-30 w-30 md:h-40 md:w-40 lg:h-50 lg:w-50 flex-shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-accent-400 to-accent-600 shadow-lg items-center justify-center"
   >
     <!-- Music note fallback (shown when no URL or on error) -->
     <svg

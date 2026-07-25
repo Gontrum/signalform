@@ -77,11 +77,11 @@ describe('AlbumCover', () => {
   it('has responsive size classes on container', () => {
     const wrapper = mount(AlbumCover)
     const classes = wrapper.find('[data-testid="album-cover"]').classes()
-    expect(classes).toContain('h-[120px]')
-    expect(classes).toContain('w-[120px]')
-    expect(classes).toContain('md:h-[160px]')
-    expect(classes).toContain('lg:h-[200px]')
-    expect(classes).toContain('lg:w-[200px]')
+    expect(classes).toContain('h-30')
+    expect(classes).toContain('w-30')
+    expect(classes).toContain('md:h-40')
+    expect(classes).toContain('lg:h-50')
+    expect(classes).toContain('lg:w-50')
   })
 
   it('has shadow-lg on container (Apple depth aesthetic)', () => {
