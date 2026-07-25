@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import {
@@ -130,7 +131,9 @@ export const createLastFmAuthRoute = (
 
       const { token, userId } = validation.data;
       const params = { method: "auth.getSession", api_key: apiKey, token };
-      const sig = buildSignature(params, sharedSecret);
+      const sig = buildSignature(params, sharedSecret, (input) =>
+        crypto.createHash("md5").update(input).digest("hex"),
+      );
 
       try {
         const url = `https://ws.audioscrobbler.com/2.0/?method=auth.getSession&api_key=${encodeURIComponent(apiKey)}&token=${encodeURIComponent(token)}&api_sig=${encodeURIComponent(sig)}&format=json`;

@@ -1,22 +1,22 @@
-import crypto from "node:crypto";
-
 const EXCLUDED_SIG_PARAMS = new Set(["format", "callback"]);
 
 /**
  * Builds an MD5 signature per Last.fm spec:
  * Filter out `format` and `callback`, sort remaining params alphabetically,
- * concatenate key+value pairs, append sharedSecret, MD5.
+ * concatenate key+value pairs, append sharedSecret, hash.
+ * The hash function is injected by the caller so this stays framework/Node-free.
  */
 export const buildSignature = (
   params: Readonly<Record<string, string>>,
   sharedSecret: string,
+  hash: (input: string) => string,
 ): string => {
   const sorted = Object.keys(params)
     .filter((key) => !EXCLUDED_SIG_PARAMS.has(key))
     .sort();
   const str =
     sorted.map((key) => `${key}${params[key] ?? ""}`).join("") + sharedSecret;
-  return crypto.createHash("md5").update(str).digest("hex");
+  return hash(str);
 };
 
 /**

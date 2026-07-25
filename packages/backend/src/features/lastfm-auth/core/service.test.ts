@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { buildAuthUrl, buildSignature } from "./service.js";
 
+const identityHash = (input: string): string => input;
+
 describe("buildSignature", () => {
-  it("sorts params alphabetically and produces the correct MD5 hash", () => {
+  it("sorts params alphabetically and produces the correct pre-hash string", () => {
     // params: method=auth.getSession, token=ABC123
     // sorted: method, token -> "methodauth.getSessiontokenABC123" + "mysecret"
-    // MD5("methodauth.getSessiontokenABC123mysecret") = 6f12d4e926b339fa0f94bb65ac4f4b9e
+    // pre-hash string: "methodauth.getSessiontokenABC123mysecret"
     const result = buildSignature(
       { token: "ABC123", method: "auth.getSession" },
       "mysecret",
+      identityHash,
     );
 
-    expect(result).toBe("6f12d4e926b339fa0f94bb65ac4f4b9e");
+    expect(result).toBe("methodauth.getSessiontokenABC123mysecret");
   });
 
   it("excludes 'format' and 'callback' from the signature even if passed", () => {
@@ -24,33 +27,29 @@ describe("buildSignature", () => {
         callback: "cb",
       },
       "mysecret",
+      identityHash,
     );
 
-    expect(result).toBe("6f12d4e926b339fa0f94bb65ac4f4b9e");
+    expect(result).toBe("methodauth.getSessiontokenABC123mysecret");
   });
 
   it("hashes correctly when params contain only 'format' and 'callback' (all excluded)", () => {
     // All params excluded → string becomes just the secret
-    // MD5("mysecret") = 06c219e5bc8378f3a8a3f83b4b7e4649
+    // pre-hash string: "mysecret"
     const result = buildSignature(
       { format: "json", callback: "cb" },
       "mysecret",
+      identityHash,
     );
 
-    expect(result).toBe("06c219e5bc8378f3a8a3f83b4b7e4649");
+    expect(result).toBe("mysecret");
   });
 
   it("hashes correctly with empty params (only secret)", () => {
-    // MD5("mysecret") = 06c219e5bc8378f3a8a3f83b4b7e4649
-    const result = buildSignature({}, "mysecret");
+    // pre-hash string: "mysecret"
+    const result = buildSignature({}, "mysecret", identityHash);
 
-    expect(result).toBe("06c219e5bc8378f3a8a3f83b4b7e4649");
-  });
-
-  it("returns a lowercase hex string of 32 characters", () => {
-    const result = buildSignature({ api_key: "key1" }, "secret");
-
-    expect(result).toMatch(/^[0-9a-f]{32}$/);
+    expect(result).toBe("mysecret");
   });
 });
 

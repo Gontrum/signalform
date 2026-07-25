@@ -51,7 +51,11 @@ vi.mock("../../../infrastructure/config", async (importOriginal) => {
 // Mock core functions so the route test does not depend on @core-dev implementation
 vi.mock("../core/service.js", () => ({
   buildSignature: vi.fn(
-    (_params: Record<string, string>, _secret: string) => "mock-sig",
+    (
+      _params: Record<string, string>,
+      _secret: string,
+      _hash: (input: string) => string,
+    ) => "mock-sig",
   ),
   buildAuthUrl: vi.fn(
     (apiKey: string, token: string) =>
