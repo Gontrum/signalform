@@ -10,7 +10,7 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
 <template>
   <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/40 p-6"
+    class="fixed inset-0 z-overlay flex items-center justify-center bg-neutral-900/40 p-6"
     data-testid="user-select-dialog"
     role="dialog"
     aria-modal="true"
