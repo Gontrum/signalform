@@ -15,6 +15,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.18.0] - 2026-07-26
+
+### Added
+
+- new `Popover`, `Banner`, `EmptyState`, and `LoadingSpinner` shared UI
+  primitives
+- destructive actions in Settings now require a double-tap confirmation
+  before executing
+- keyboard navigation for genre radio suggestions
+- size variant for `AlbumActionButtons`
+
+### Changed
+
+- consolidated most views and panels (Library, Album/Artist detail, Queue,
+  Now Playing, Search, Settings, MiniPlayer, VolumeControl, ProgressBar, and
+  more) onto shared design primitives, a common spacing scale, and named
+  z-index tokens
+- migrated the frontend to Tailwind v4's CSS-first theme configuration
+- unified the genre/loved/personal radio start flows onto one shared,
+  quality-aware pipeline
+- queue routes now validate input with Zod instead of an unsafe cast
+- added dependency-cruiser, jscpd, and knip to the toolchain; all four
+  static-analysis checks (dead code, architecture, duplication, type
+  coverage) are now a blocking CI gate instead of local-only reports
+
+### Fixed
+
+- numerous WCAG AA accessibility fixes: color contrast (decade chips,
+  clear-filters, bottom-nav active label), missing accessible names
+  (autocomplete, personal-radio/scrobbling toggles), nested-interactive
+  controls removed from `AlbumCard`, settings/setup form labels connected to
+  their inputs, and various broken or missing keyboard accessibility
+- removed a stray `node:crypto` import that had leaked into `lastfm-auth`
+  core logic
+
+---
+
 ## [0.17.1] - 2026-07-21
 
 ### Fixed
