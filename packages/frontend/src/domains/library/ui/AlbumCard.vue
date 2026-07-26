@@ -93,15 +93,28 @@ const navigate = (): void => {
       Hover overlay: sibling of the "navigate" region above (see comment
       there), not a descendant of it, so its two real buttons stay outside
       any interactive ancestor's subtree.
+
+      The overlay container itself stays `pointer-events-none` PERMANENTLY
+      (never `group-hover:pointer-events-auto`): Playwright's `.click()` (and
+      any real mouse pointer) moves over the card before clicking, which sets
+      real CSS `:hover` — if the whole overlay div became hit-testable on
+      hover, it would sit on top of (and swallow clicks meant for) the
+      "navigate" region beneath for every pixel in its footprint, not just the
+      two buttons, since it is painted after (and covers the same footprint
+      as) the cover image. Each button re-enables its own
+      `pointer-events-auto` instead — a child can opt back into hit-testing
+      even though its `pointer-events: none` ancestor does not — so the
+      buttons stay clickable on hover while every other point in the overlay
+      area still falls through to "navigate" beneath.
     -->
     <div
       data-testid="album-hover-overlay"
-      class="absolute inset-x-0 top-0 aspect-square overflow-hidden rounded-lg flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-hover:pointer-events-auto"
+      class="absolute inset-x-0 top-0 aspect-square overflow-hidden rounded-lg flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100"
     >
       <button
         type="button"
         data-testid="play-album-button"
-        class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+        class="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
         :aria-label="`Play ${album.title}`"
         @click.stop="emit('click:play', album.id)"
       >
@@ -114,7 +127,7 @@ const navigate = (): void => {
       <button
         type="button"
         data-testid="add-album-to-queue-button"
-        class="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-neutral-900 shadow hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+        class="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-neutral-900 shadow hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
         :aria-label="`Add ${album.title} to queue`"
         @click.stop="emit('click:add-to-queue', album.id)"
       >

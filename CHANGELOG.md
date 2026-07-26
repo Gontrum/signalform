@@ -55,6 +55,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (autocomplete, personal-radio/scrobbling toggles), nested-interactive
   controls removed from `AlbumCard`, settings/setup form labels connected to
   their inputs, and various broken or missing keyboard accessibility
+- AlbumDetailView: the hero Play/Add-to-queue/Go-to-artist buttons
+  regressed to always carrying an `-{albumId}` suffix in their test ids
+  when `AlbumActionButtons` was consolidated onto the shared primitive;
+  the single-album hero view now gets stable, bare ids again
+- `AlbumCard`: the hover overlay's full footprint had become clickable on
+  hover (not just its two buttons), silently swallowing clicks meant for
+  the underlying album navigation; only the buttons themselves are
+  clickable again, the rest of the overlay area passes clicks through
 - removed a stray `node:crypto` import that had leaked into `lastfm-auth`
   core logic
 

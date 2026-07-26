@@ -74,7 +74,7 @@ describe('AlbumActionButtons', () => {
     it('uses the larger padding and font-semibold classes for the play button', () => {
       const wrapper = mountButtons({ size: 'large' })
 
-      const playButton = wrapper.find('[data-testid="play-album-button-42"]')
+      const playButton = wrapper.find('[data-testid="play-album-button"]')
       expect(playButton.classes()).toContain('px-6')
       expect(playButton.classes()).toContain('py-3')
       expect(playButton.classes()).toContain('font-semibold')
@@ -84,7 +84,7 @@ describe('AlbumActionButtons', () => {
     it('uses the larger padding and font-semibold classes for the queue button', () => {
       const wrapper = mountButtons({ size: 'large' })
 
-      const queueButton = wrapper.find('[data-testid="add-album-to-queue-button-42"]')
+      const queueButton = wrapper.find('[data-testid="add-album-to-queue-button"]')
       expect(queueButton.classes()).toContain('px-4')
       expect(queueButton.classes()).toContain('py-3')
       expect(queueButton.classes()).toContain('font-semibold')
@@ -97,19 +97,33 @@ describe('AlbumActionButtons', () => {
       expect(wrapper.classes()).not.toContain('ml-4')
     })
 
-    it('keeps the same test-ids as the compact variant', () => {
+    // Regression guard: AlbumDetailView renders exactly one album per page, so its
+    // hero Play/Queue/Go-to-artist buttons use stable, bare test-ids instead of the
+    // albumId-suffixed ones the compact (list) variant needs to disambiguate rows.
+    // e2e journeys (album-play.spec.ts, library-play.spec.ts) navigate to
+    // AlbumDetailView and assert on these bare ids directly.
+    it('uses bare (non-parametrized) test-ids, unlike the albumId-suffixed compact variant', () => {
       const wrapper = mountButtons({ size: 'large' })
 
-      expect(wrapper.find('[data-testid="play-album-button-42"]').exists()).toBe(true)
-      expect(wrapper.find('[data-testid="add-album-to-queue-button-42"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="play-album-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="add-album-to-queue-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="play-album-button-42"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="add-album-to-queue-button-42"]').exists()).toBe(false)
+    })
+
+    it('uses a bare go-to-artist test-id when shown', () => {
+      const wrapper = mountButtons({ size: 'large', showGoToArtist: true })
+
+      expect(wrapper.find('[data-testid="go-to-artist-button"]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid="go-to-artist-button-42"]').exists()).toBe(false)
     })
   })
 
-  describe('shared behaviour (both sizes)', () => {
+  describe('shared behaviour, size="large"', () => {
     it('emits play on play button click', async () => {
       const wrapper = mountButtons({ size: 'large' })
 
-      await wrapper.find('[data-testid="play-album-button-42"]').trigger('click')
+      await wrapper.find('[data-testid="play-album-button"]').trigger('click')
 
       expect(wrapper.emitted('play')).toHaveLength(1)
     })
@@ -117,7 +131,7 @@ describe('AlbumActionButtons', () => {
     it('emits add-to-queue on queue button click', async () => {
       const wrapper = mountButtons({ size: 'large' })
 
-      await wrapper.find('[data-testid="add-album-to-queue-button-42"]').trigger('click')
+      await wrapper.find('[data-testid="add-album-to-queue-button"]').trigger('click')
 
       expect(wrapper.emitted('add-to-queue')).toHaveLength(1)
     })
@@ -126,6 +140,30 @@ describe('AlbumActionButtons', () => {
       const wrapper = mountButtons({ size: 'large', queueState: 'error' })
 
       expect(wrapper.find('[data-testid="add-album-to-queue-error"]').exists()).toBe(true)
+    })
+  })
+
+  describe('shared behaviour, default (compact) size', () => {
+    it('emits play on play button click', async () => {
+      const wrapper = mountButtons()
+
+      await wrapper.find('[data-testid="play-album-button-42"]').trigger('click')
+
+      expect(wrapper.emitted('play')).toHaveLength(1)
+    })
+
+    it('emits add-to-queue on queue button click', async () => {
+      const wrapper = mountButtons()
+
+      await wrapper.find('[data-testid="add-album-to-queue-button-42"]').trigger('click')
+
+      expect(wrapper.emitted('add-to-queue')).toHaveLength(1)
+    })
+
+    it('uses an albumId-suffixed go-to-artist test-id when shown', () => {
+      const wrapper = mountButtons({ showGoToArtist: true })
+
+      expect(wrapper.find('[data-testid="go-to-artist-button-42"]').exists()).toBe(true)
     })
   })
 })

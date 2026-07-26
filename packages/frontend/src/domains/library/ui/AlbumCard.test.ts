@@ -45,16 +45,42 @@ describe('AlbumCard', () => {
     expect(overlay.classes()).toContain('opacity-0')
   })
 
-  // Bug fix: overlay must not capture taps on mobile (no real hover state) so
-  // taps fall through to the card's own click:navigate handler
-  it('overlay is non-interactive until hovered (pointer-events-none / group-hover:pointer-events-auto)', () => {
+  // Bug fix (0.17.1): overlay must not capture taps on mobile (no real hover
+  // state) so taps fall through to the card's own click:navigate handler.
+  //
+  // Regression guard: the overlay container itself must stay
+  // `pointer-events-none` PERMANENTLY (no `group-hover:pointer-events-auto`)
+  // rather than becoming hit-testable as a whole on hover — a real pointer
+  // hover (e.g. Playwright's `.click()`, which moves the mouse first) would
+  // otherwise make the overlay swallow clicks meant for the "navigate"
+  // region beneath it for every pixel in its footprint, not just its two
+  // buttons, since it is painted after (and covers the same footprint as)
+  // the cover image.
+  it('overlay container stays pointer-events-none even on hover (never group-hover:pointer-events-auto)', () => {
     const wrapper = mount(AlbumCard, {
       props: { album: makeAlbum() },
     })
 
     const overlay = wrapper.find('[data-testid="album-hover-overlay"]')
     expect(overlay.classes()).toContain('pointer-events-none')
-    expect(overlay.classes()).toContain('group-hover:pointer-events-auto')
+    expect(overlay.classes()).not.toContain('group-hover:pointer-events-auto')
+  })
+
+  // Each button opts back into hit-testing individually (a child can
+  // re-enable pointer-events even though its ancestor has
+  // `pointer-events: none`), so they stay clickable on hover while the rest
+  // of the overlay's footprint still falls through to "navigate" beneath.
+  it('play and add-to-queue buttons individually re-enable pointer-events-auto', () => {
+    const wrapper = mount(AlbumCard, {
+      props: { album: makeAlbum() },
+    })
+
+    expect(wrapper.find('[data-testid="play-album-button"]').classes()).toContain(
+      'pointer-events-auto',
+    )
+    expect(wrapper.find('[data-testid="add-album-to-queue-button"]').classes()).toContain(
+      'pointer-events-auto',
+    )
   })
 
   // AC4: click on cover image → emit 'click:navigate' with albumId

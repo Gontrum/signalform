@@ -40,6 +40,23 @@ const t = i18n.t
 // styling — labels hidden below `sm:`, tighter padding — with zero visual change.
 const isLarge = computed(() => props.size === 'large')
 
+// Test-id parametrization by albumId only makes sense in 'compact' mode, where many
+// album rows (each with their own Play/Queue/Go-to-artist buttons) can be on the page
+// at once — the id disambiguates which row's button matched. 'large' is only ever used
+// once per page (the single hero album on AlbumDetailView), so it keeps stable, bare
+// ids instead: e2e journeys (album-play.spec.ts, library-play.spec.ts) navigate to that
+// page and assert on the bare `play-album-button` id, which regressed when this
+// component was introduced to replace AlbumDetailView's old hand-rolled hero button.
+const playButtonTestId = computed(() =>
+  isLarge.value ? 'play-album-button' : `play-album-button-${props.albumId}`,
+)
+const queueButtonTestId = computed(() =>
+  isLarge.value ? 'add-album-to-queue-button' : `add-album-to-queue-button-${props.albumId}`,
+)
+const goToArtistTestId = computed(() =>
+  isLarge.value ? 'go-to-artist-button' : `go-to-artist-button-${props.albumId}`,
+)
+
 const wrapperClasses = computed(() => (isLarge.value ? 'flex gap-2' : 'ml-4 flex gap-2'))
 
 const playButtonClasses = computed(() =>
@@ -62,7 +79,7 @@ const queueButtonClasses = computed(() =>
 <template>
   <div :class="wrapperClasses">
     <button
-      :data-testid="`play-album-button-${props.albumId}`"
+      :data-testid="playButtonTestId"
       type="button"
       :class="playButtonClasses"
       :aria-label="`${t('home.playAlbum')} ${props.albumTitle}`"
@@ -107,7 +124,7 @@ const queueButtonClasses = computed(() =>
     </button>
 
     <button
-      :data-testid="`add-album-to-queue-button-${props.albumId}`"
+      :data-testid="queueButtonTestId"
       type="button"
       :class="queueButtonClasses"
       :aria-label="`${t('home.addAlbumToQueue')} ${props.albumTitle}`"
@@ -154,7 +171,7 @@ const queueButtonClasses = computed(() =>
 
     <button
       v-if="props.showGoToArtist && props.albumArtist"
-      :data-testid="`go-to-artist-button-${props.albumId}`"
+      :data-testid="goToArtistTestId"
       type="button"
       class="hidden min-h-11 items-center justify-center rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all duration-200 ease-out hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:inline-flex"
       :aria-label="`${t('home.goToArtist')}: ${props.albumArtist}`"
