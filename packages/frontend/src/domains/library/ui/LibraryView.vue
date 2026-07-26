@@ -255,7 +255,7 @@ const {
               :class="[
                 'min-h-9 rounded-full border px-4 text-sm font-medium transition-colors',
                 decadeFilter === opt.value
-                  ? 'border-accent-500 bg-accent-500 text-white'
+                  ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
               ]"
               @click="setDecadeFilter(opt.value)"
@@ -308,7 +308,7 @@ const {
             v-if="hasActiveFilters"
             type="button"
             data-testid="clear-all-filters"
-            class="text-sm text-accent-500 hover:text-accent-700 underline"
+            class="text-sm text-accent-700 hover:text-accent-900 underline"
             @click="clearAllFilters"
           >
             × Clear all filters

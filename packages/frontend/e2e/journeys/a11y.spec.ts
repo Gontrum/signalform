@@ -7,19 +7,23 @@
  * already landed (Wave 1's heading/contrast fixes, item 10's Search <h1>,
  * item 9's Settings/Setup Wizard contrast fixes, toggle `aria-label` on
  * /settings, nested-interactive album cards on /library). It is NOT a full,
- * unrestricted `.analyze()` scan — several Quick-Win a11y items are still
- * open (autocomplete `aria-label` placement, decade-chip contrast) and would
- * make an unrestricted scan fail for reasons unrelated to already-completed
- * work.
+ * unrestricted `.analyze()` scan — an unrestricted scan on any route still
+ * turns up unrelated noise (e.g. the Vue DevTools browser-extension panel
+ * triggers `aria-prohibited-attr`/`region`), so each route's `rules` array
+ * stays a deliberate allowlist rather than "everything", even now that all
+ * of the original Wave 1 Quick-Win a11y items have landed.
  *
- * As each still-open Quick-Win item (see docs/review/00-plan-detailled.md,
- * Wave 1 Quick Wins 1-5) lands, widen the rule set for the affected route
- * below rather than adding a new spec file.
+ * As each Quick-Win item (see docs/review/00-plan-detailled.md, Wave 1 Quick
+ * Wins 1-5) landed, the rule set for the affected route below was widened
+ * rather than adding a new spec file.
  *
  * Landed: autocomplete `aria-label` placement — the `/` route case below now
  * types a query and waits for the populated `<ul role="listbox">` dropdown
  * before scanning, with `aria-input-field-name` added to its rule set.
- * Still open: decade-chip contrast.
+ * Landed: decade-chip contrast — the `/library` route case now clicks a
+ * non-default decade chip (which also reveals the "Clear all filters"
+ * button) before scanning, with `color-contrast` added to its rule set.
+ * All four original Wave 1 Quick-Win a11y items are now closed.
  */
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
@@ -41,7 +45,7 @@ const routes: readonly RouteCheck[] = [
   {
     path: '/library',
     testid: 'library-view',
-    rules: ['page-has-heading-one', 'heading-order', 'nested-interactive'],
+    rules: ['page-has-heading-one', 'heading-order', 'nested-interactive', 'color-contrast'],
   },
   {
     path: '/queue',
@@ -99,6 +103,19 @@ for (const breakpoint of breakpoints) {
         if (isSearchRoute) {
           await page.getByTestId('search-input').fill('nov')
           await page.waitForSelector('ul[role="listbox"]')
+        }
+
+        // Exercise an active (non-default) decade chip — this is the state
+        // that needs its `color-contrast` rule checked. The default chip
+        // (`all`) is already active on load and would not exercise the fix.
+        // The click also reveals the "Clear all filters" button, whose own
+        // contrast was fixed alongside the decade chip (see LibraryView.vue).
+        // The extra wait lets the chip's `transition-colors` finish before
+        // scanning — otherwise axe can sample an in-transition blended
+        // color rather than the settled one.
+        if (route.path === '/library') {
+          await page.getByTestId('decade-chip-2020s').click()
+          await page.waitForTimeout(300)
         }
 
         const results = await new AxeBuilder({ page }).withRules([...route.rules]).analyze()
