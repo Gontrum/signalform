@@ -56,14 +56,19 @@ const qualityTier = computed((): QualityTier => {
   return 'standard' // tidal, unknown = standard
 })
 
-// WCAG AA verified color classes
-// lossless: #065F46 on #D1FAE5 ≈ 7.5:1 WCAG AAA ✓
-// high:     #92400E on #FEF3C7 ≈ 5.8:1 WCAG AA ✓
+// WCAG AA verified color classes. Text color must contrast against the
+// *tinted* background (bg-success/10 / bg-warning/10), not the raw
+// --color-success/--color-warning value — those are vivid, saturated
+// colors that fail contrast (~2.1:1) when used as text on a light tint of
+// themselves. The "-content" tokens (main.css) are darkened variants
+// verified against the actual rendered tint:
+// lossless: text-success-content (#065F46) on bg-success/10 tint ≈ 6.5:1 WCAG AA ✓
+// high:     text-warning-content (#92400E) on bg-warning/10 tint ≈ 6.4:1 WCAG AA ✓
 // standard: #525252 on #F5F5F5 ≈ 5.9:1 WCAG AA ✓
 const badgeClasses = computed((): string => {
   const tierClasses: Record<QualityTier, string> = {
-    lossless: 'bg-success/10 text-success',
-    high: 'bg-warning/10 text-warning',
+    lossless: 'bg-success/10 text-success-content',
+    high: 'bg-warning/10 text-warning-content',
     standard: 'bg-neutral-100 text-neutral-600',
   }
   return tierClasses[qualityTier.value]

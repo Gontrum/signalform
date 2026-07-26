@@ -42,6 +42,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `QualityBadge` lossless/high-quality tags: the tag text used the raw
+  saturated success/warning color on its own light tint, only ~2.1:1
+  contrast; introduced dedicated darker `-content` tokens for text on tint
+  backgrounds (~6.5:1 / ~6.4:1)
+- main nav bar: awaiting the router's initial navigation before mounting,
+  fixing a transient flash where the active/inactive tab styling was
+  swapped (and briefly under WCAG AA contrast) on first paint of any route
+  other than `/`
 - numerous WCAG AA accessibility fixes: color contrast (decade chips,
   clear-filters, bottom-nav active label), missing accessible names
   (autocomplete, personal-radio/scrobbling toggles), nested-interactive

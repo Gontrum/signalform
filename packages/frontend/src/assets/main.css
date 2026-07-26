@@ -46,6 +46,15 @@ body {
   --color-warning: #f59e0b;
   --color-error: #ef4444;
 
+  /* "-content" pairs: text color verified WCAG AA (≥ 4.5:1) against the
+     matching semantic color used as a 10%-opacity tint background (e.g.
+     `bg-success/10 text-success-content`). Do NOT use the raw
+     --color-success / --color-warning as text on their own tint — those
+     are vivid, saturated colors that fail contrast at ~2:1 against a light
+     tint of themselves. See QualityBadge.vue for verified ratios. */
+  --color-success-content: #065f46;
+  --color-warning-content: #92400e;
+
   /* Font family */
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
