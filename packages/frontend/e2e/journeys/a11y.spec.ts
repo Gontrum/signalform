@@ -15,10 +15,16 @@
  * As each still-open Quick-Win item (see docs/review/00-plan-detailled.md,
  * Wave 1 Quick Wins 1-5) lands, widen the rule set for the affected route
  * below rather than adding a new spec file.
+ *
+ * Landed: autocomplete `aria-label` placement — the `/` route case below now
+ * types a query and waits for the populated `<ul role="listbox">` dropdown
+ * before scanning, with `aria-input-field-name` added to its rule set.
+ * Still open: decade-chip contrast.
  */
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { setupApiMocks } from '../helpers/mockApi.ts'
+import { populatedAutocompleteResponse } from '../helpers/fixtures.ts'
 
 interface RouteCheck {
   readonly path: string
@@ -30,7 +36,7 @@ const routes: readonly RouteCheck[] = [
   {
     path: '/',
     testid: 'search-container',
-    rules: ['page-has-heading-one', 'heading-order', 'landmark-one-main'],
+    rules: ['page-has-heading-one', 'heading-order', 'landmark-one-main', 'aria-input-field-name'],
   },
   {
     path: '/library',
@@ -66,7 +72,11 @@ for (const breakpoint of breakpoints) {
 
     for (const route of routes) {
       test(`${route.path} has no violations for [${route.rules.join(', ')}]`, async ({ page }) => {
-        await setupApiMocks(page, {})
+        const isSearchRoute = route.path === '/'
+        await setupApiMocks(
+          page,
+          isSearchRoute ? { autocomplete: populatedAutocompleteResponse } : {},
+        )
         await page.goto(route.path)
         await page.waitForSelector(`[data-testid="${route.testid}"]`)
         // Settle wait: confirmed still necessary even after fixing App.vue's
@@ -82,6 +92,14 @@ for (const breakpoint of breakpoints) {
         // finishes settling — an unrelated, genuine async-render-pass delay
         // on first load, not navigation churn.
         await page.waitForTimeout(300)
+
+        // Exercise the populated autocomplete dropdown state — this is the
+        // state in which `<ul role="listbox">` is rendered and needs its
+        // `aria-input-field-name` rule (moved-onto-listbox `aria-label`) checked.
+        if (isSearchRoute) {
+          await page.getByTestId('search-input').fill('nov')
+          await page.waitForSelector('ul[role="listbox"]')
+        }
 
         const results = await new AxeBuilder({ page }).withRules([...route.rules]).analyze()
 

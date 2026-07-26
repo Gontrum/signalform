@@ -36,6 +36,7 @@ const omitNullValues = (obj: JsonObject): JsonObject =>
 
 export interface ApiMocks {
   readonly search?: JsonObject
+  readonly autocomplete?: JsonObject
   readonly albumDetail?: JsonObject
   readonly libraryAlbums?: JsonObject
   readonly queue?: JsonValue
@@ -73,9 +74,10 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       const pathname = requestUrl.pathname
       const method = route.request().method()
 
-      // Autocomplete — always return empty to suppress background calls
+      // Autocomplete — returns mocks.autocomplete when supplied, otherwise empty
+      // (empty suppresses background calls for tests that don't care about it).
       if (pathname === '/api/search/autocomplete') {
-        await fulfill200(route, emptyAutocompleteResponse)
+        await fulfill200(route, mocks.autocomplete ?? emptyAutocompleteResponse)
         return
       }
 

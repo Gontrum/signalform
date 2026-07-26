@@ -81,7 +81,7 @@ watch(
     class="absolute top-full z-raised mt-1 w-full overflow-hidden rounded-lg bg-neutral-100 shadow-md transition-all duration-200 motion-reduce:duration-[0.01ms]"
     style="transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1)"
   >
-    <div class="w-full" aria-label="Autocomplete suggestions" data-testid="autocomplete-dropdown">
+    <div class="w-full" data-testid="autocomplete-dropdown">
       <div
         v-if="isLoading"
         class="px-4 py-3 text-sm text-neutral-500"
@@ -102,7 +102,12 @@ watch(
         {{ t('home.emptyState.title') }}
       </div>
 
-      <ul v-else class="divide-y divide-neutral-200" role="listbox">
+      <ul
+        v-else
+        class="divide-y divide-neutral-200"
+        role="listbox"
+        aria-label="Autocomplete suggestions"
+      >
         <!--
           Keyboard selection is fully handled by the parent input's
           @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant

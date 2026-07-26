@@ -215,6 +215,18 @@ describe('AutocompleteDropdown', () => {
     const dropdownComponent = wrapper.findComponent(AutocompleteDropdown)
     expect(Array.isArray(dropdownComponent.props('suggestions'))).toBe(true)
   })
+
+  it('gives the listbox an accessible name and keeps the roleless wrapper unlabelled', async () => {
+    const suggestions = await givenValidSuggestions()
+    const wrapper = await whenComponentIsMounted({
+      suggestions,
+      isLoading: false,
+      isEmpty: false,
+      error: null,
+    })
+
+    await thenListboxHasAccessibleNameAndWrapperDoesNot(wrapper)
+  })
 })
 
 type AutocompleteDropdownProps = {
@@ -273,4 +285,16 @@ const thenWrapperReceivesErrorProp = async (
 
 const thenMotionReduceClassIsPresent = async (wrapper: ReturnType<typeof mount>): Promise<void> => {
   expect(wrapper.html()).toContain('motion-reduce')
+}
+
+const thenListboxHasAccessibleNameAndWrapperDoesNot = async (
+  wrapper: ReturnType<typeof mount>,
+): Promise<void> => {
+  const listbox = wrapper.find('[role="listbox"]')
+  expect(listbox.exists()).toBe(true)
+  expect(listbox.attributes('aria-label')).toBeTruthy()
+
+  const wrapperDiv = wrapper.find('[data-testid="autocomplete-dropdown"]')
+  expect(wrapperDiv.exists()).toBe(true)
+  expect(wrapperDiv.attributes('aria-label')).toBeUndefined()
 }

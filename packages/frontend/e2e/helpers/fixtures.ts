@@ -219,6 +219,15 @@ export const emptyAutocompleteResponse = {
   query: 'test',
 }
 
+/** Populated autocomplete response — used to exercise the open/populated dropdown state. */
+export const populatedAutocompleteResponse = {
+  suggestions: [
+    { id: 'a1', type: 'artist' as const, artist: 'Nova Vale' },
+    { id: 'a2', type: 'artist' as const, artist: 'Kite Harbor' },
+  ],
+  query: 'nov',
+}
+
 // ── Live queue-editing helpers ────────────────────────────────────────────────
 
 export type LiveQueueTrackSnapshot = {
