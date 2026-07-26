@@ -3,16 +3,14 @@ import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import { loadConfig } from "../../../infrastructure/config/index.js";
 import { resolveRequestUser } from "../../users/index.js";
-import {
-  mergeTrackPools,
-  spreadSample,
-  fisherYatesShuffle,
-} from "../core/seed-merger.js";
-import { artistMatches, pickBestResult } from "../core/search-matcher.js";
+import { mergeTrackPools, spreadSample } from "../core/seed-merger.js";
 import { scoreArtistsFromHistory } from "../core/artist-scorer.js";
 import {
   setPersonalRadioContext,
   setRadioModeEnabledState,
+  shuffleWithRandom,
+  resolvePlayableUrls,
+  playAndQueue,
 } from "../../radio-mode/index.js";
 
 const MAX_INITIAL_TRACKS = 8;
@@ -150,8 +148,8 @@ export const createPersonalRadioRoute = (
 
     // Step 7: Blend comfort + discovery based on personalRadioDiscovery ratio
     const discoveryRatio = config.personalRadioDiscovery;
-    const shuffledComfort = fisherYatesShuffle(candidateTracks, Math.random);
-    const shuffledDiscovery = fisherYatesShuffle(discoveryPool, Math.random);
+    const shuffledComfort = shuffleWithRandom(candidateTracks, Math.random);
+    const shuffledDiscovery = shuffleWithRandom(discoveryPool, Math.random);
 
     const blendedCandidates = mergeTrackPools(
       shuffledComfort,
@@ -161,42 +159,18 @@ export const createPersonalRadioRoute = (
     );
 
     // Step 8: LMS search — collect up to MAX_INITIAL_TRACKS playable URLs
-    const { urls: playableUrls } = await blendedCandidates
-      .slice(0, MAX_CANDIDATE_SEARCHES)
-      .reduce<Promise<{ readonly urls: readonly string[] }>>(
-        async (accPromise, track) => {
-          const acc = await accPromise;
-          if (acc.urls.length >= MAX_INITIAL_TRACKS) {
-            return acc;
-          }
-          const searchResult = await lmsClient.search(
-            `${track.artist} ${track.name}`,
-          );
-          if (!searchResult.ok || searchResult.value.tracks.length === 0) {
-            return acc;
-          }
-          const matching = searchResult.value.tracks.filter((r) =>
-            artistMatches(r.artist, track.artist),
-          );
-          const best = pickBestResult(matching);
-          if (best === undefined || acc.urls.includes(best.url)) {
-            return acc;
-          }
-          return { urls: [...acc.urls, best.url] };
-        },
-        Promise.resolve({ urls: [] }),
-      );
+    const { playableUrls } = await resolvePlayableUrls(
+      { lmsClient },
+      blendedCandidates.slice(0, MAX_CANDIDATE_SEARCHES),
+      MAX_INITIAL_TRACKS,
+    );
 
     if (playableUrls.length === 0) {
       return reply.status(404).send({ error: "No playable tracks found" });
     }
 
     // Step 9: Start playback
-    await lmsClient.play(playableUrls[0]!);
-    await playableUrls.slice(1).reduce<Promise<void>>(async (prev, url) => {
-      await prev;
-      await lmsClient.addToQueue(url);
-    }, Promise.resolve());
+    await playAndQueue({ lmsClient }, playableUrls);
 
     // Step 10: Set radio context
     setPersonalRadioContext({

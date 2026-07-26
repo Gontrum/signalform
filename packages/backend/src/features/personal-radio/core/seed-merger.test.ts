@@ -5,13 +5,8 @@
  * Covers all specified edge cases for spreadSample.
  */
 
-import { describe, it, test, expect } from "vitest";
-import {
-  pickChannel,
-  mergeTrackPools,
-  spreadSample,
-  fisherYatesShuffle,
-} from "./seed-merger.js";
+import { describe, test, expect } from "vitest";
+import { pickChannel, mergeTrackPools, spreadSample } from "./seed-merger.js";
 
 // ---------------------------------------------------------------------------
 // pickChannel
@@ -192,60 +187,5 @@ describe("spreadSample", () => {
     // Math.round(i * 8 / 4) for i in 0..4 → 0, 2, 4, 6, 8
     const result = spreadSample(arr, 5);
     expect(result).toEqual(["a", "c", "e", "g", "i"]);
-  });
-});
-
-describe("fisherYatesShuffle", () => {
-  it("returns empty array for empty input", () => {
-    expect(fisherYatesShuffle([], Math.random)).toEqual([]);
-  });
-
-  it("returns single element unchanged", () => {
-    expect(fisherYatesShuffle([42], Math.random)).toEqual([42]);
-  });
-
-  it("preserves all elements (set equality)", () => {
-    const arr = [1, 2, 3, 4, 5];
-    const result = fisherYatesShuffle(arr, Math.random);
-    expect(new Set(result)).toEqual(new Set(arr));
-  });
-
-  it("preserves length", () => {
-    const arr = ["a", "b", "c", "d"];
-    expect(fisherYatesShuffle(arr, Math.random)).toHaveLength(arr.length);
-  });
-
-  it("produces an exact deterministic order for a fixed random sequence", () => {
-    const arr = ["a", "b", "c", "d"];
-    // Fixed sequence of "random" values, one per reduce step (i = 0..3).
-    const sequence = [0.9, 0.5, 0.1, 0.0];
-    let call = 0;
-    const random = (): number => sequence[call++] ?? 0;
-
-    // Trace of the algorithm (acc starts as [...arr] = ["a","b","c","d"]):
-    //
-    // i=0: remaining=4, j=floor(0.9*4)=3
-    //   acc[3]="d" (item), acc[3]="d" (last, remaining-1=3)
-    //   → map: idx3 -> last("d"), idx3(again, last branch wins in ternary) -> item("d")
-    //   Note: j === remaining-1 here (3===3), so the ternary's second branch wins
-    //   for idx 3 ("idx === remaining - 1 ? item : el"), leaving acc unchanged:
-    //   acc = ["a","b","c","d"]
-    //
-    // i=1: remaining=3, j=floor(0.5*3)=1
-    //   item=acc[1]="b", last=acc[2]="c"
-    //   idx1 -> last("c"), idx2 -> item("b"), others unchanged
-    //   acc = ["a","c","b","d"]
-    //
-    // i=2: remaining=2, j=floor(0.1*2)=0
-    //   item=acc[0]="a", last=acc[1]="c"
-    //   idx0 -> last("c"), idx1 -> item("a")
-    //   acc = ["c","a","b","d"]
-    //
-    // i=3: remaining=1, j=floor(0.0*1)=0
-    //   item=acc[0]="c", last=acc[0]="c" (remaining-1=0)
-    //   idx0 -> last wins over item in ternary ("idx === remaining - 1 ? item : el")
-    //   since idx===0===remaining-1, idx0 -> item("c"): acc unchanged
-    //   acc = ["c","a","b","d"]
-    expect(fisherYatesShuffle(arr, random)).toEqual(["c", "a", "b", "d"]);
   });
 });

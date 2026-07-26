@@ -49,3 +49,11 @@ export {
 // Loved Radio context
 export type { LovedRadioContext } from "./shell/radio-state.js";
 export { setLovedRadioContext } from "./shell/radio-state.js";
+
+// Track selection (quality-aware LMS result / artist matching)
+export { artistMatches, selectBestTrackUrl } from "./core/track-selection.js";
+export { shuffleWithRandom } from "./core/replenish.js";
+
+// Start pipeline (shared candidate→playable-URL resolution + play/queue tail)
+export type { StartPipelineDeps } from "./shell/start-pipeline.js";
+export { resolvePlayableUrls, playAndQueue } from "./shell/start-pipeline.js";

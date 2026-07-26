@@ -22,10 +22,16 @@ vi.mock("../../../infrastructure/config/index.js", () => ({
   DEFAULT_CONFIG_PATH: "/tmp/test-config.json",
 }));
 
-vi.mock("../../radio-mode/index.js", () => ({
-  setLovedRadioContext: vi.fn(),
-  setRadioModeEnabledState: vi.fn(),
-}));
+vi.mock("../../radio-mode/index.js", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../radio-mode/index.js")
+  >("../../radio-mode/index.js");
+  return {
+    ...actual,
+    setLovedRadioContext: vi.fn(),
+    setRadioModeEnabledState: vi.fn(),
+  };
+});
 
 import { loadConfig } from "../../../infrastructure/config/index.js";
 import type { AppConfig } from "../../../infrastructure/config/service.js";

@@ -14,10 +14,16 @@ import type {
   TagTopTrack,
 } from "../../../adapters/lastfm-client/index.js";
 
-vi.mock("../../radio-mode/index.js", () => ({
-  setGenreRadioContext: vi.fn(),
-  setRadioModeEnabledState: vi.fn(),
-}));
+vi.mock("../../radio-mode/index.js", async () => {
+  const actual = await vi.importActual<
+    typeof import("../../radio-mode/index.js")
+  >("../../radio-mode/index.js");
+  return {
+    ...actual,
+    setGenreRadioContext: vi.fn(),
+    setRadioModeEnabledState: vi.fn(),
+  };
+});
 
 import {
   setGenreRadioContext,

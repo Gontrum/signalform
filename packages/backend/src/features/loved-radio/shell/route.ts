@@ -9,12 +9,10 @@ import { resolveRequestUser } from "../../users/index.js";
 import {
   setLovedRadioContext,
   setRadioModeEnabledState,
+  shuffleWithRandom,
+  resolvePlayableUrls,
+  playAndQueue,
 } from "../../radio-mode/index.js";
-import {
-  artistMatches,
-  pickBestResult,
-  fisherYatesShuffle,
-} from "../../personal-radio/index.js";
 
 const MAX_TRACKS = 8;
 
@@ -59,47 +57,23 @@ export const createLovedRadioRoute = (
       return reply.status(404).send({ error: "No loved tracks found" });
     }
 
-    const candidates: readonly UserLovedTrack[] = fisherYatesShuffle(
+    const candidates: readonly UserLovedTrack[] = shuffleWithRandom(
       lovedTracksResult.value,
       Math.random,
     );
 
     // Collect up to MAX_TRACKS playable URLs via sequential LMS searches
-    const { urls: playableUrls } = await candidates.reduce<
-      Promise<{ readonly urls: readonly string[] }>
-    >(
-      async (accPromise, track) => {
-        const acc = await accPromise;
-        if (acc.urls.length >= MAX_TRACKS) {
-          return acc;
-        }
-        const searchResult = await lmsClient.search(
-          `${track.artist} ${track.name}`,
-        );
-        if (!searchResult.ok || searchResult.value.tracks.length === 0) {
-          return acc;
-        }
-        const matching = searchResult.value.tracks.filter((r) =>
-          artistMatches(r.artist, track.artist),
-        );
-        const best = pickBestResult(matching);
-        if (best === undefined || acc.urls.includes(best.url)) {
-          return acc;
-        }
-        return { urls: [...acc.urls, best.url] };
-      },
-      Promise.resolve({ urls: [] }),
+    const { playableUrls } = await resolvePlayableUrls(
+      { lmsClient },
+      candidates,
+      MAX_TRACKS,
     );
 
     if (playableUrls.length === 0) {
       return reply.status(404).send({ error: "No playable tracks found" });
     }
 
-    await lmsClient.play(playableUrls[0]!);
-    await playableUrls.slice(1).reduce<Promise<void>>(async (prev, url) => {
-      await prev;
-      await lmsClient.addToQueue(url);
-    }, Promise.resolve());
+    await playAndQueue({ lmsClient }, playableUrls);
 
     setLovedRadioContext({ username });
     setRadioModeEnabledState(true);

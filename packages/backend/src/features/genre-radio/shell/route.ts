@@ -8,12 +8,10 @@ import type {
 import {
   setGenreRadioContext,
   setRadioModeEnabledState,
+  shuffleWithRandom,
+  resolvePlayableUrls,
+  playAndQueue,
 } from "../../radio-mode/index.js";
-import {
-  artistMatches,
-  pickBestResult,
-  fisherYatesShuffle,
-} from "../../personal-radio/index.js";
 
 const bodySchema = z.object({ genreName: z.string().min(1).max(100) });
 
@@ -43,36 +41,16 @@ export const createGenreRadioRoute = (
       return reply.status(404).send({ error: "No tracks found for genre" });
     }
 
-    const candidates: readonly TagTopTrack[] = fisherYatesShuffle(
+    const candidates: readonly TagTopTrack[] = shuffleWithRandom(
       tagTracksResult.value,
       Math.random,
     );
 
     // Collect up to MAX_TRACKS playable URLs via sequential LMS searches
-    const { urls: playableUrls } = await candidates.reduce<
-      Promise<{ readonly urls: readonly string[] }>
-    >(
-      async (accPromise, track) => {
-        const acc = await accPromise;
-        if (acc.urls.length >= MAX_TRACKS) {
-          return acc;
-        }
-        const searchResult = await lmsClient.search(
-          `${track.artist} ${track.name}`,
-        );
-        if (!searchResult.ok || searchResult.value.tracks.length === 0) {
-          return acc;
-        }
-        const matching = searchResult.value.tracks.filter((r) =>
-          artistMatches(r.artist, track.artist),
-        );
-        const best = pickBestResult(matching);
-        if (best === undefined || acc.urls.includes(best.url)) {
-          return acc;
-        }
-        return { urls: [...acc.urls, best.url] };
-      },
-      Promise.resolve({ urls: [] }),
+    const { playableUrls } = await resolvePlayableUrls(
+      { lmsClient },
+      candidates,
+      MAX_TRACKS,
     );
 
     if (playableUrls.length === 0) {
@@ -81,11 +59,7 @@ export const createGenreRadioRoute = (
         .send({ error: "No playable tracks found for genre" });
     }
 
-    await lmsClient.play(playableUrls[0]!);
-    await playableUrls.slice(1).reduce<Promise<void>>(async (prev, url) => {
-      await prev;
-      await lmsClient.addToQueue(url);
-    }, Promise.resolve());
+    await playAndQueue({ lmsClient }, playableUrls);
 
     setGenreRadioContext({ genreName, page: 2 });
     setRadioModeEnabledState(true);

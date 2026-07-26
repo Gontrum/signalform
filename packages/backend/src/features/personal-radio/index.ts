@@ -4,10 +4,4 @@ export {
   pickChannel,
   mergeTrackPools,
   spreadSample,
-  fisherYatesShuffle,
 } from "./core/seed-merger.js";
-export {
-  artistMatches,
-  sourceRank,
-  pickBestResult,
-} from "./core/search-matcher.js";
