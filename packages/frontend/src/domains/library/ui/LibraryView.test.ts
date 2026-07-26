@@ -236,8 +236,11 @@ describe('LibraryView', () => {
     const context = await mountView()
     await flushPromises()
 
-    const card = context.wrapper.find('[data-testid="album-card"]')
-    await card.trigger('click')
+    // nested-interactive fix: the outer album-card wrapper is no longer
+    // itself interactive — click the cover image, which bubbles up to
+    // AlbumCard's own "navigate" button around the cover.
+    const coverImg = context.wrapper.find('[data-testid="album-cover-img"]')
+    await coverImg.trigger('click')
     await flushPromises()
 
     expect(context.router.currentRoute.value.name).toBe('album-detail')
@@ -1053,7 +1056,11 @@ describe('LibraryView', () => {
     )
     expect(featuredCard.exists()).toBe(true)
 
-    await featuredCard.trigger('click')
+    // nested-interactive fix: the outer album-card wrapper is no longer
+    // itself interactive — click the cover image, which bubbles up to
+    // AlbumCard's own "navigate" button around the cover.
+    const featuredCoverImg = featuredCard.find('[data-testid="album-cover-img"]')
+    await featuredCoverImg.trigger('click')
     await flushPromises()
 
     expect(context.router.currentRoute.value.name).toBe('album-detail')

@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import type { LibraryAlbum } from '@/domains/library/core/types'
 
-defineProps<{
+const props = defineProps<{
   album: LibraryAlbum
 }>()
 
@@ -17,77 +17,53 @@ const coverError = ref<boolean>(false)
 const onCoverError = (): void => {
   coverError.value = true
 }
+
+const navigate = (): void => {
+  emit('click:navigate', props.album.id)
+}
 </script>
 
 <template>
-  <div
-    data-testid="album-card"
-    class="group cursor-pointer"
-    role="button"
-    tabindex="0"
-    @click="emit('click:navigate', album.id)"
-    @keydown.enter="emit('click:navigate', album.id)"
-    @keydown.space.prevent="emit('click:navigate', album.id)"
-  >
-    <!-- Cover image container -->
+  <!--
+    `relative` here is the positioning context for the hover overlay below,
+    which is a sibling of the "navigate" region (not a descendant of it) so a
+    screen reader/AT user never encounters an interactive control nested
+    inside another one (axe nested-interactive, WCAG 4.1.2). The overlay is
+    pinned to the top of this card via `inset-x-0 top-0 aspect-square`, which
+    matches the cover image's own `aspect-square` sizing below it.
+  -->
+  <div data-testid="album-card" class="group relative cursor-pointer">
+    <!--
+      Single "navigate" region: wraps both the cover image and the title/
+      artist info block as ONE interactive control (one tab-stop) rather
+      than two, since both areas trigger the same action.
+    -->
     <div
-      class="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-accent-400 to-accent-600"
+      data-testid="album-navigate-button"
+      role="button"
+      tabindex="0"
+      :aria-label="`View ${album.title} by ${album.artist}`"
+      @click="navigate"
+      @keydown.enter="navigate"
+      @keydown.space.prevent="navigate"
     >
-      <img
-        v-if="!coverError"
-        :src="album.coverArtUrl"
-        :alt="`${album.title} by ${album.artist}`"
-        data-testid="album-cover-img"
-        loading="lazy"
-        class="h-full w-full object-cover"
-        @error="onCoverError"
-      />
-
-      <!-- Music note SVG fallback when cover fails to load -->
-      <div v-else class="flex h-full w-full items-center justify-center">
-        <svg
-          class="h-16 w-16 text-white opacity-80"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-          />
-        </svg>
-      </div>
-
-      <!-- Hover overlay -->
       <div
-        data-testid="album-hover-overlay"
-        class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-hover:pointer-events-auto"
+        class="relative aspect-square overflow-hidden rounded-lg bg-gradient-to-br from-accent-400 to-accent-600"
       >
-        <button
-          type="button"
-          data-testid="play-album-button"
-          class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          :aria-label="`Play ${album.title}`"
-          @click.stop="emit('click:play', album.id)"
-        >
-          <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </button>
+        <img
+          v-if="!coverError"
+          :src="album.coverArtUrl"
+          :alt="`${album.title} by ${album.artist}`"
+          data-testid="album-cover-img"
+          loading="lazy"
+          class="h-full w-full object-cover"
+          @error="onCoverError"
+        />
 
-        <!-- AC3 (Story 9.4): Add to Queue button in hover overlay -->
-        <button
-          type="button"
-          data-testid="add-album-to-queue-button"
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-neutral-900 shadow hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-          :aria-label="`Add ${album.title} to queue`"
-          @click.stop="emit('click:add-to-queue', album.id)"
-        >
+        <!-- Music note SVG fallback when cover fails to load -->
+        <div v-else class="flex h-full w-full items-center justify-center">
           <svg
-            class="h-5 w-5"
+            class="h-16 w-16 text-white opacity-80"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -97,21 +73,66 @@ const onCoverError = (): void => {
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M12 4v16m8-8H4"
+              d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
             />
           </svg>
-        </button>
+        </div>
+      </div>
+
+      <div class="mt-2 px-1">
+        <p data-testid="album-title" class="truncate text-sm font-semibold text-neutral-900">
+          {{ album.title }}
+        </p>
+        <p data-testid="album-artist" class="truncate text-xs text-neutral-500">
+          {{ album.artist }}
+        </p>
       </div>
     </div>
 
-    <!-- Album info -->
-    <div class="mt-2 px-1">
-      <p data-testid="album-title" class="truncate text-sm font-semibold text-neutral-900">
-        {{ album.title }}
-      </p>
-      <p data-testid="album-artist" class="truncate text-xs text-neutral-500">
-        {{ album.artist }}
-      </p>
+    <!--
+      Hover overlay: sibling of the "navigate" region above (see comment
+      there), not a descendant of it, so its two real buttons stay outside
+      any interactive ancestor's subtree.
+    -->
+    <div
+      data-testid="album-hover-overlay"
+      class="absolute inset-x-0 top-0 aspect-square overflow-hidden rounded-lg flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-hover:pointer-events-auto"
+    >
+      <button
+        type="button"
+        data-testid="play-album-button"
+        class="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+        :aria-label="`Play ${album.title}`"
+        @click.stop="emit('click:play', album.id)"
+      >
+        <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </button>
+
+      <!-- AC3 (Story 9.4): Add to Queue button in hover overlay -->
+      <button
+        type="button"
+        data-testid="add-album-to-queue-button"
+        class="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-neutral-900 shadow hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
+        :aria-label="`Add ${album.title} to queue`"
+        @click.stop="emit('click:add-to-queue', album.id)"
+      >
+        <svg
+          class="h-5 w-5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4v16m8-8H4"
+          />
+        </svg>
+      </button>
     </div>
   </div>
 </template>

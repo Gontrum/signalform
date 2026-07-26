@@ -6,10 +6,11 @@
  * narrow: it only asserts axe rules that are guaranteed green by the fixes
  * already landed (Wave 1's heading/contrast fixes, item 10's Search <h1>,
  * item 9's Settings/Setup Wizard contrast fixes, toggle `aria-label` on
- * /settings). It is NOT a full, unrestricted `.analyze()` scan — several
- * Quick-Win a11y items are still open (nested-interactive album cards,
- * autocomplete `aria-label` placement, decade-chip contrast) and would make
- * an unrestricted scan fail for reasons unrelated to already-completed work.
+ * /settings, nested-interactive album cards on /library). It is NOT a full,
+ * unrestricted `.analyze()` scan — several Quick-Win a11y items are still
+ * open (autocomplete `aria-label` placement, decade-chip contrast) and would
+ * make an unrestricted scan fail for reasons unrelated to already-completed
+ * work.
  *
  * As each still-open Quick-Win item (see docs/review/00-plan-detailled.md,
  * Wave 1 Quick Wins 1-5) lands, widen the rule set for the affected route
@@ -34,7 +35,7 @@ const routes: readonly RouteCheck[] = [
   {
     path: '/library',
     testid: 'library-view',
-    rules: ['page-has-heading-one', 'heading-order'],
+    rules: ['page-has-heading-one', 'heading-order', 'nested-interactive'],
   },
   {
     path: '/queue',
