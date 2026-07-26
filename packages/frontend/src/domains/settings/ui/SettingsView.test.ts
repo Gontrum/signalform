@@ -949,4 +949,20 @@ describe('SettingsView', () => {
     const scrobblingToggle = wrapper.find('[data-testid="scrobbling-toggle"]')
     expect(scrobblingToggle.attributes('disabled')).toBeUndefined()
   })
+
+  it('Personal Radio toggle has an accessible name matching its visible label', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const toggle = wrapper.find('[data-testid="personal-radio-toggle"]')
+    expect(toggle.attributes('aria-label')).toBe('Personal Radio')
+  })
+
+  it('Scrobbling toggle has an accessible name matching its visible label', async () => {
+    const router = await createRouter()
+    const wrapper = await mountView(router)
+
+    const toggle = wrapper.find('[data-testid="scrobbling-toggle"]')
+    expect(toggle.attributes('aria-label')).toBe('Scrobbling')
+  })
 })

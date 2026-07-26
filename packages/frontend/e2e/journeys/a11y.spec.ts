@@ -5,11 +5,11 @@
  * docs/review/02-ui.md. Unlike that ad-hoc audit, this spec is intentionally
  * narrow: it only asserts axe rules that are guaranteed green by the fixes
  * already landed (Wave 1's heading/contrast fixes, item 10's Search <h1>,
- * item 9's Settings/Setup Wizard contrast fixes). It is NOT a full,
- * unrestricted `.analyze()` scan — several Quick-Win a11y items are still
- * open (toggle `aria-label`, nested-interactive album cards, autocomplete
- * `aria-label` placement, decade-chip contrast) and would make an
- * unrestricted scan fail for reasons unrelated to already-completed work.
+ * item 9's Settings/Setup Wizard contrast fixes, toggle `aria-label` on
+ * /settings). It is NOT a full, unrestricted `.analyze()` scan — several
+ * Quick-Win a11y items are still open (nested-interactive album cards,
+ * autocomplete `aria-label` placement, decade-chip contrast) and would make
+ * an unrestricted scan fail for reasons unrelated to already-completed work.
  *
  * As each still-open Quick-Win item (see docs/review/00-plan-detailled.md,
  * Wave 1 Quick Wins 1-5) lands, widen the rule set for the affected route
@@ -44,7 +44,7 @@ const routes: readonly RouteCheck[] = [
   {
     path: '/settings',
     testid: 'settings-view',
-    rules: ['page-has-heading-one', 'heading-order', 'color-contrast'],
+    rules: ['page-has-heading-one', 'heading-order', 'color-contrast', 'button-name'],
   },
   {
     path: '/setup',
