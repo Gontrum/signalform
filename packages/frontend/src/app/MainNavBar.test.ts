@@ -82,6 +82,19 @@ describe('MainNavBar', () => {
     expect(wrapper.find('[data-testid="main-nav"]').classes()).toContain('app-chrome')
   })
 
+  // MainNavBar renders directly under App.vue with no surrounding page
+  // container to supply spacing (unlike SearchPanel/LibraryView, which pad
+  // themselves), so it must own its own padding or the brand badge and nav
+  // links sit flush against the viewport edges.
+  it('supplies its own horizontal and top padding, matching the page-level spacing scale', async () => {
+    const router = await createRouter()
+    const wrapper = mount(MainNavBar, { global: { plugins: [router] } })
+    const nav = wrapper.find('[data-testid="main-nav"]')
+    expect(nav.classes()).toContain('px-4')
+    expect(nav.classes()).toContain('sm:px-6')
+    expect(nav.classes()).toContain('pt-4')
+  })
+
   it('renders a link to /library with correct href', async () => {
     const router = await createRouter()
     const wrapper = mount(MainNavBar, { global: { plugins: [router] } })

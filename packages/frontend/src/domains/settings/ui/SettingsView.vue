@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
@@ -123,8 +122,7 @@ const handleDisconnectLastFm = (userId: string): void => {
 </script>
 
 <template>
-  <main class="h-full overflow-y-auto" data-testid="settings-view">
-    <MainNavBar v-if="!isPhone" />
+  <div class="h-full overflow-y-auto" data-testid="settings-view">
     <PageHeader v-if="isPhone" :title="t('settings.title')" />
     <h1 v-else class="sr-only">{{ t('settings.title') }}</h1>
 
@@ -392,7 +390,7 @@ const handleDisconnectLastFm = (userId: string): void => {
               <li
                 v-for="user in users"
                 :key="user.id"
-                class="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center"
+                class="flex flex-col gap-2 px-3 py-2"
                 data-testid="user-row"
               >
                 <template v-if="renamingUserId === user.id">
@@ -401,7 +399,7 @@ const handleDisconnectLastFm = (userId: string): void => {
                     type="text"
                     :aria-label="t('settings.userRename')"
                     data-testid="user-rename-input"
-                    class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:flex-1"
+                    class="w-full min-w-0 rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
                   />
                   <div class="flex flex-wrap gap-2">
                     <button
@@ -423,9 +421,20 @@ const handleDisconnectLastFm = (userId: string): void => {
                   </div>
                 </template>
                 <template v-else>
-                  <div class="min-w-0 sm:flex-1">
+                  <!-- Always stacked (no md:flex-row row layout): this row
+                       renders inside AppLayout's left column, which is only
+                       60% of the *viewport* width on tablet/desktop — but
+                       Tailwind's md: breakpoint reacts to viewport width, not
+                       this column's actual width, so a `md:flex-row` here
+                       activates well before the column is wide enough for a
+                       name plus a wrapping button group (up to 4 buttons) to
+                       coexist without squeezing the name into truncation.
+                       Stacking name-above-buttons unconditionally sidesteps
+                       that viewport/container mismatch entirely and gives the
+                       name the full row width regardless of column size. -->
+                  <div class="min-w-0">
                     <p
-                      class="truncate text-sm font-medium text-neutral-900"
+                      class="break-words text-sm font-medium text-neutral-900"
                       data-testid="user-name"
                     >
                       {{ user.name }}
@@ -699,5 +708,5 @@ const handleDisconnectLastFm = (userId: string): void => {
         Signalform v{{ appVersion }}
       </p>
     </div>
-  </main>
+  </div>
 </template>

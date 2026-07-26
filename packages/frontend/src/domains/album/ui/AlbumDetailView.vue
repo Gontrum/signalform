@@ -3,13 +3,9 @@ import { computed } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import AlbumActionButtons from '@/domains/search/ui/AlbumActionButtons.vue'
-import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useAlbumDetailView } from '../shell/useAlbumDetailView'
-
-const { isPhone } = useResponsiveLayout()
 
 const i18n = useI18nStore()
 
@@ -51,7 +47,6 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
 
 <template>
   <div class="h-full min-h-0 overflow-y-auto bg-white" data-testid="album-detail-view">
-    <MainNavBar v-if="!isPhone" />
     <PageHeader :title="album?.title ?? 'Album'" :show-back="true" />
 
     <div class="px-4 py-4 sm:px-6">

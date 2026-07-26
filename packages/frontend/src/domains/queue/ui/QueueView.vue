@@ -2,7 +2,6 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { formatSeconds } from '@signalform/shared'
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import Banner from '@/ui/Banner.vue'
@@ -245,8 +244,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
 </script>
 
 <template>
-  <main ref="viewRoot" data-testid="queue-view" class="flex h-full min-h-0 flex-col">
-    <MainNavBar v-if="!isPhone" />
+  <div ref="viewRoot" data-testid="queue-view" class="flex h-full min-h-0 flex-col">
     <PageHeader :title="t('queue.title')" :show-back="isPhone">
       <template #trailing>
         <button
@@ -676,5 +674,5 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
         </button>
       </div>
     </div>
-  </main>
+  </div>
 </template>

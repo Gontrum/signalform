@@ -3,9 +3,14 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { computed, ref } from 'vue'
 import { ok } from '@signalform/shared'
 import App from './App.vue'
-import HomeView from './app/HomeView.vue'
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
+
+// The home route is just a routed leaf component (SearchPanel.vue in the
+// real router) — App.vue itself now owns the global chrome (MainNavBar,
+// AppLayout, NowPlayingPanel), so a trivial stub is enough here; the
+// composition under test lives in App.vue, not in whatever the route renders.
+const homeStub = { template: '<div data-testid="home-stub">Home</div>' }
 
 // Control the global "LMS down" banner via a stubbed composable, so the App
 // tests do not depend on the polling/health mechanics (covered separately).
@@ -22,7 +27,10 @@ const stubLmsHealth = (isDown: boolean): void => {
   })
 }
 
-// App renders HomeView which embeds NowPlayingPanel + VolumeControl (playback API on mount)
+// App.vue wraps every non-immersive route in AppLayout, whose right column
+// always renders NowPlayingPanel (which embeds VolumeControl and calls the
+// playback API on mount) — so this mock is needed file-wide, not just for
+// the home route.
 vi.mock('@/platform/api/playbackApi', async () => {
   const { mockPlaybackApiModule } = await import('@/test-utils')
   return mockPlaybackApiModule()
@@ -48,6 +56,14 @@ vi.mock('@/platform/api/usersApi', () => ({
 
 vi.mock('@/platform/api/lmsWakeApi', () => ({
   wakeLms: vi.fn().mockResolvedValue(undefined),
+}))
+
+// NowPlayingPanel also owns the sleep-timer control, which fetches its state
+// on mount via useSleepTimer — mocked file-wide for the same reason as the
+// playbackApi mock above, and so remount-guard tests can spy on call counts.
+vi.mock('@/platform/api/sleepTimerApi', () => ({
+  getSleepTimer: vi.fn().mockResolvedValue(ok(0)),
+  setSleepTimer: vi.fn().mockResolvedValue(ok(undefined)),
 }))
 
 const setViewportWidth = (width: number): void => {
@@ -78,14 +94,15 @@ const createMatchMediaMock = (): ((query: string) => MediaQueryList) => {
 }
 
 const createMountedApp = async (): Promise<VueWrapper> => {
-  const router = await createTestRouter([{ path: '/', name: 'home', component: HomeView }])
+  const router = await createTestRouter([{ path: '/', name: 'home', component: homeStub }])
   return mount(App, { global: { plugins: [router] } })
 }
 
 const createMountedAppAt = async (initialPath: string): Promise<VueWrapper> => {
   const router = await createTestRouter(
     [
-      { path: '/', name: 'home', component: HomeView },
+      { path: '/', name: 'home', component: homeStub },
+      { path: '/library', name: 'library', component: { template: '<div />' } },
       { path: '/now-playing', name: 'now-playing', component: { template: '<div />' } },
       { path: '/setup', name: 'setup', component: { template: '<div />' } },
     ],
@@ -101,7 +118,7 @@ const createMountedAppWithDepthRoutes = async (): Promise<{
   readonly router: Awaited<ReturnType<typeof createTestRouter>>
 }> => {
   const router = await createTestRouter([
-    { path: '/', name: 'home', component: HomeView, meta: { depth: 1 } },
+    { path: '/', name: 'home', component: homeStub, meta: { depth: 1 } },
     {
       path: '/now-playing',
       name: 'now-playing',
@@ -109,6 +126,16 @@ const createMountedAppWithDepthRoutes = async (): Promise<{
       meta: { depth: 2 },
     },
     { path: '/library', name: 'library', component: { template: '<div />' }, meta: { depth: 1 } },
+    // Non-immersive depth-2 drill-down (e.g. album-detail, unified-artist in
+    // the real router): unlike now-playing, this stays wrapped in AppLayout,
+    // so it exercises the nested left-panel Transition rather than the outer
+    // immersive-switch Transition.
+    {
+      path: '/detail',
+      name: 'detail',
+      component: { template: '<div />' },
+      meta: { depth: 2 },
+    },
   ])
   const wrapper = mount(App, { global: { plugins: [router] } })
   return { wrapper, router }
@@ -361,6 +388,143 @@ describe('App.vue', () => {
       await flushPromises()
 
       expect(findTransitionName(wrapper)).toBe('')
+    })
+
+    // A plain Vue <Transition> only reacts to its own direct slot child
+    // changing identity (mount/unmount or a key change on that direct
+    // child) — a key change nested further down does not bubble up. Since
+    // AppLayout itself is intentionally unkeyed now (so it and
+    // NowPlayingPanel persist across non-immersive navigations), the outer
+    // Transition wrapping AppLayout/immersive-branch no longer sees a
+    // direct-child change for navigations *within* the non-immersive
+    // branch (e.g. Library -> an album/artist detail screen). The push/pop
+    // slide for that class of navigation is therefore played by a second,
+    // nested Transition scoped to just the routed left-panel content.
+    it('sets the "push" transition for a depth-1 -> depth-2 navigation that stays non-immersive (nested left-panel Transition)', async () => {
+      const { wrapper, router } = await createMountedAppWithDepthRoutes()
+      await flushPromises()
+
+      await router.push('/detail')
+      await flushPromises()
+
+      expect(findTransitionName(wrapper)).toBe('push')
+      // Both the outer (immersive-switch) and nested (left-panel) Transition
+      // exist for a non-immersive route — this is the specific mechanism
+      // that lets the nested one actually receive a direct-child key change.
+      expect(wrapper.findAllComponents({ name: 'Transition' })).toHaveLength(2)
+    })
+
+    it('renders only the outer Transition (no nested left-panel Transition) on an immersive route', async () => {
+      const wrapper = await createMountedAppAt('/now-playing')
+      await flushPromises()
+
+      expect(wrapper.findAllComponents({ name: 'Transition' })).toHaveLength(1)
+    })
+  })
+
+  // App.vue is the single source of truth for MainNavBar/AppLayout/
+  // NowPlayingPanel placement: MainNavBar renders exactly once, above the
+  // routed content, for every non-immersive route (regardless of which view
+  // is routed), and every non-immersive route is wrapped in AppLayout with
+  // NowPlayingPanel always in the right column on tablet/desktop. Immersive
+  // routes (now-playing, setup) bypass all of this and render full-screen.
+  describe('global chrome — MainNavBar, AppLayout, NowPlayingPanel', () => {
+    it('renders MainNavBar exactly once on a non-immersive route on tablet/desktop', async () => {
+      const wrapper = await createMountedAppAt('/library')
+      await flushPromises()
+
+      expect(wrapper.findAll('[data-testid="main-nav"]')).toHaveLength(1)
+    })
+
+    it('does not render MainNavBar on the now-playing immersive route', async () => {
+      const wrapper = await createMountedAppAt('/now-playing')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+    })
+
+    it('does not render MainNavBar on the setup immersive route', async () => {
+      const wrapper = await createMountedAppAt('/setup')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+    })
+
+    it('wraps a non-home route in AppLayout and renders NowPlayingPanel in the right column', async () => {
+      const wrapper = await createMountedAppAt('/library')
+      await flushPromises()
+
+      const rightPanel = wrapper.find('[data-testid="right-panel"]')
+      expect(rightPanel.exists()).toBe(true)
+      expect(rightPanel.find('[data-testid="now-playing-panel"]').exists()).toBe(true)
+
+      const leftPanel = wrapper.find('[data-testid="left-panel"]')
+      expect(leftPanel.exists()).toBe(true)
+    })
+
+    it('bypasses AppLayout for the now-playing immersive route (no left/right panels)', async () => {
+      const wrapper = await createMountedAppAt('/now-playing')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="left-panel"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="right-panel"]').exists()).toBe(false)
+    })
+
+    it('bypasses AppLayout for the setup immersive route (no left/right panels)', async () => {
+      const wrapper = await createMountedAppAt('/setup')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="left-panel"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="right-panel"]').exists()).toBe(false)
+    })
+
+    it('hides MainNavBar and the right panel on a phone viewport, showing BottomNavBar instead', async () => {
+      setViewportWidth(375)
+
+      const wrapper = await createMountedAppAt('/library')
+      await flushPromises()
+
+      expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="right-panel"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(true)
+    })
+
+    // Regression guard: AppLayout used to be keyed by route.path, which forced
+    // Vue to fully unmount/remount the whole AppLayout subtree — including
+    // NowPlayingPanel in #right — on every navigation between two
+    // non-immersive routes, not just when the left-slot content actually
+    // changed. That defeated Now Playing's purpose as persistent global
+    // chrome: useNowPlayingPanel/useSleepTimer would refetch their state (and
+    // any open sleep-timer popover would silently reset) on every nav. The
+    // key must live on the routed left-slot content only.
+    it('does not remount NowPlayingPanel (no repeated playback/sleep-timer fetch) across sequential non-immersive route navigations', async () => {
+      const { getPlaybackStatus } = await import('@/platform/api/playbackApi')
+      const { getSleepTimer } = await import('@/platform/api/sleepTimerApi')
+
+      const { wrapper, router } = await createMountedAppWithDepthRoutes()
+      await flushPromises()
+
+      // Capture the post-mount baseline rather than hardcoding a literal
+      // count: getPlaybackStatus is called both by usePlaybackStore's own
+      // one-time sync init AND by useNowPlayingPanel's onMounted, so the
+      // exact number reflects those two call sites, not just this
+      // component's mount. What this test actually guards is that neither
+      // count grows across subsequent non-immersive navigations, which
+      // would mean NowPlayingPanel (and the sleep timer) got torn down and
+      // remounted.
+      const playbackCallsAfterMount = vi.mocked(getPlaybackStatus).mock.calls.length
+      const sleepTimerCallsAfterMount = vi.mocked(getSleepTimer).mock.calls.length
+      expect(sleepTimerCallsAfterMount).toBe(1)
+      expect(wrapper.find('[data-testid="now-playing-panel"]').exists()).toBe(true)
+
+      await router.push('/library')
+      await flushPromises()
+      await router.push('/')
+      await flushPromises()
+
+      expect(getPlaybackStatus).toHaveBeenCalledTimes(playbackCallsAfterMount)
+      expect(getSleepTimer).toHaveBeenCalledTimes(sleepTimerCallsAfterMount)
+      expect(wrapper.find('[data-testid="now-playing-panel"]').exists()).toBe(true)
     })
   })
 })

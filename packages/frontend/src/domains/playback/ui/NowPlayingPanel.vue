@@ -58,7 +58,7 @@ const selectSleepOff = async (): Promise<void> => {
 <template>
   <div
     data-testid="now-playing-panel"
-    class="flex min-h-full flex-col items-center rounded-2xl border border-neutral-200 bg-white px-5 pb-5 pt-6 shadow-md sm:sticky sm:top-0 sm:h-full sm:justify-center sm:p-8"
+    class="flex min-h-full flex-col items-center rounded-2xl border border-neutral-200 bg-white px-5 pb-5 pt-6 shadow-md sm:sticky sm:top-0 sm:justify-center sm:p-8"
     :class="{
       'justify-start': isPhone,
     }"

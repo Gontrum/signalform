@@ -1128,26 +1128,21 @@ describe('LibraryView', () => {
     expect(getTidalAlbums).toHaveBeenCalledTimes(2)
   })
 
-  // Story 9.3 AC3: MainNavBar integration — verifies nav renders inside LibraryView
-  it('renders MainNavBar inside the library view (Story 9.3 AC3)', async () => {
+  // MainNavBar is now rendered exactly once, globally, by App.vue — see
+  // src/App.test.ts. LibraryView itself no longer renders it (avoids the
+  // nav shifting position depending on which route renders it).
+  //
+  // LibraryView is a top-level route rendered inside AppLayout's left
+  // panel `<main>` landmark, so its own root must be a plain `<div>` to
+  // avoid a nested-landmark a11y violation (see e2e/journeys/a11y.spec.ts).
+  it('renders a div (not a nested main landmark) as the root element', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
 
     const context = await mountView()
 
-    expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
-  })
-
-  // a11y audit: LibraryView is a top-level route and must expose a `main`
-  // landmark for screen-reader "skip to main content" navigation.
-  it('renders a main landmark as the root element', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
-
-    const context = await mountView()
-
-    expect(context.wrapper.find('main').exists()).toBe(true)
-    expect(context.wrapper.find('main[data-testid="library-view"]').exists()).toBe(true)
+    expect(context.wrapper.find('main').exists()).toBe(false)
+    expect(context.wrapper.find('div[data-testid="library-view"]').exists()).toBe(true)
   })
 
   // Step B1: PageHeader renders as the top-level tab's title, no back button

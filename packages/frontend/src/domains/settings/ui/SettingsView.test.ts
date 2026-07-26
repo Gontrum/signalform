@@ -153,21 +153,22 @@ describe('SettingsView', () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
     expect(getConfig).toHaveBeenCalledOnce()
-    expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="nav-settings"]').attributes('aria-current')).toBe('page')
     expectInputValue(wrapper, '[data-testid="lms-host-input"]', '192.168.1.100')
     expectInputValue(wrapper, '[data-testid="lms-port-input"]', '9000')
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'aa:bb:cc:dd:ee:ff')
   })
 
-  // a11y audit: SettingsView is a top-level route and must expose a `main`
-  // landmark for screen-reader "skip to main content" navigation.
-  it('renders a main landmark as the root element', async () => {
+  // SettingsView is a top-level route rendered inside AppLayout's left panel
+  // `<main>` landmark (see src/App.vue), so its own root must be a plain
+  // `<div>` to avoid a nested-landmark a11y violation (see
+  // e2e/journeys/a11y.spec.ts). MainNavBar itself is now rendered exactly
+  // once, globally, by App.vue — see src/App.test.ts — not by SettingsView.
+  it('renders a div (not a nested main landmark) as the root element', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
 
-    expect(wrapper.find('main').exists()).toBe(true)
-    expect(wrapper.find('main[data-testid="settings-view"]').exists()).toBe(true)
+    expect(wrapper.find('main').exists()).toBe(false)
+    expect(wrapper.find('div[data-testid="settings-view"]').exists()).toBe(true)
   })
 
   it('renders a PageHeader with the settings title and no back button', async () => {
@@ -181,12 +182,11 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="page-header-back"]').exists()).toBe(false)
   })
 
-  it('hides MainNavBar on phone and shows the PageHeader regardless of breakpoint', async () => {
+  it('shows the PageHeader regardless of breakpoint', async () => {
     isPhone.value = true
     const router = await createRouter()
     const wrapper = await mountView(router)
 
-    expect(wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="page-header"]').exists()).toBe(true)
   })
 
@@ -445,17 +445,10 @@ describe('SettingsView', () => {
     expect(router.currentRoute.value.name).toBe('setup')
   })
 
-  // ---------------------------------------------------------------------------
-  // Top-level navigation
-  // ---------------------------------------------------------------------------
-
-  it('navigates to home when the Search nav item is clicked', async () => {
-    const router = await createRouter()
-    const wrapper = await mountView(router)
-    await wrapper.find('[data-testid="nav-search"]').trigger('click')
-    await flushPromises()
-    expect(router.currentRoute.value.name).toBe('home')
-  })
+  // Top-level navigation via the Search nav item is a MainNavBar behaviour —
+  // MainNavBar is now rendered exactly once, globally, by App.vue (see
+  // src/App.spec.ts), not by SettingsView itself. Its `nav-search` link
+  // target is already covered by src/app/MainNavBar.test.ts.
 
   // ---------------------------------------------------------------------------
   // Section heading contrast (WCAG 1.4.3)
@@ -533,14 +526,19 @@ describe('SettingsView', () => {
   // Users section
   // ---------------------------------------------------------------------------
 
-  it('stacks user rows on mobile and wraps the action buttons', async () => {
+  it('always stacks user rows (name above buttons), regardless of viewport width', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
 
     const row = wrapper.findAll('[data-testid="user-row"]')[0]!
-    // Column layout on mobile, single line from sm: upward
+    // Always column layout: this row renders inside AppLayout's 60%-of-viewport
+    // left column, not the full viewport, so a `md:flex-row` (which reacts to
+    // viewport width) would activate long before the column is actually wide
+    // enough for name + buttons to coexist without truncating the name. See
+    // the regression test below and the comment in SettingsView.vue.
     expect(row.classes()).toContain('flex-col')
-    expect(row.classes()).toContain('sm:flex-row')
+    expect(row.classes()).not.toContain('md:flex-row')
+    expect(row.classes()).not.toContain('sm:flex-row')
     // Action buttons live in a wrapping container so they never force overflow
     const buttonGroup = row.find('div.flex-wrap')
     expect(buttonGroup.exists()).toBe(true)

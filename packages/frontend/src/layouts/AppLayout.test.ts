@@ -97,8 +97,10 @@ describe('AppLayout', () => {
     await thenLayoutFillsContainerHeight(context.wrapper)
   })
 
-  // AC1–AC3: Scroll containment — right panel must be height-bounded and overflow-clipped
-  it('right panel has h-full and overflow-hidden for scroll containment (AC1-AC3)', async () => {
+  // Right panel must be height-bounded but vertically scrollable: tall
+  // NowPlayingPanel content (long queue preview, sleep timer menu open, etc.)
+  // needs to be reachable via scroll rather than clipped by overflow-hidden.
+  it('right panel has h-full and overflow-y-auto so tall content can scroll', async () => {
     const context = await givenViewportIsTablet()
 
     await whenLayoutIsMounted(context.wrapper)
@@ -223,7 +225,8 @@ describe('AppLayout', () => {
   const thenRightPanelHasScrollContainment = async (wrapper: VueWrapper): Promise<void> => {
     const rightPanel = wrapper.find('[data-testid="right-panel"]')
     expect(rightPanel.classes()).toContain('h-full')
-    expect(rightPanel.classes()).toContain('overflow-hidden')
+    expect(rightPanel.classes()).toContain('overflow-y-auto')
+    expect(rightPanel.classes()).not.toContain('overflow-hidden')
   }
 
   afterEach(() => {

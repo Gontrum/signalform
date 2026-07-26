@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../app/HomeView.vue'
+import SearchPanel from '../domains/search/ui/SearchPanel.vue'
 
 // Module augmentation: routes carry a `depth` used to derive push/pop page
 // transitions (see App.vue's afterEach hook). Top-level tabs (home, library,
@@ -16,7 +16,7 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: SearchPanel,
       meta: { depth: 1 },
     },
     {

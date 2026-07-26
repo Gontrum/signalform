@@ -13,6 +13,9 @@ import UserSelectDialog from '@/domains/user/ui/UserSelectDialog.vue'
 import LmsDownBanner from '@/domains/lms/ui/LmsDownBanner.vue'
 import BottomNavBar from '@/app/BottomNavBar.vue'
 import MiniPlayer from '@/domains/playback/ui/MiniPlayer.vue'
+import MainNavBar from '@/app/MainNavBar.vue'
+import AppLayout from '@/layouts/AppLayout.vue'
+import NowPlayingPanel from '@/domains/playback/ui/NowPlayingPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -124,10 +127,43 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-neutral-50">
     <LmsDownBanner v-if="isLmsDown" />
+    <MainNavBar v-if="!isImmersiveRoute && !isPhone" />
     <div data-testid="app-content" class="relative min-h-0 flex-1 overflow-hidden">
       <RouterView v-slot="{ Component }">
         <Transition :name="transitionName">
-          <component :is="Component" :key="route.path" />
+          <!-- Non-immersive routes are wrapped in the global 60/40 AppLayout
+               split, with Now Playing always in the right column on
+               tablet/desktop (AppLayout itself hides that column on phone).
+               Immersive routes (now-playing, setup) bypass AppLayout entirely
+               and render full-screen, exactly as before. AppLayout itself is
+               NOT keyed by route.path (unlike the v-else branch below): a
+               Vue <Transition> only reacts to its own *direct* slot child
+               changing identity — a key change nested further down (e.g. on
+               the routed component inside #left) does not bubble up and
+               retrigger this outer Transition. Keying AppLayout here would
+               force a full unmount/remount of the whole subtree on every
+               non-immersive navigation, including NowPlayingPanel in #right,
+               which is exactly the persistent-chrome bug this avoids
+               (NowPlayingPanel would otherwise refetch playback/sleep-timer
+               state and lose any open popover state on every nav). -->
+          <AppLayout v-if="!isImmersiveRoute" class="h-full">
+            <template #left>
+              <!-- Nested Transition, scoped to just the routed left-panel
+                   content: this is what actually plays the push/pop slide
+                   for navigations between two non-immersive routes (e.g. a
+                   depth-1 -> depth-2 drill-down like Library -> Album
+                   Detail), since the outer Transition above no longer sees a
+                   direct-child identity change for those. AppLayout and
+                   NowPlayingPanel in #right are untouched by this. -->
+              <Transition :name="transitionName">
+                <component :is="Component" :key="route.path" />
+              </Transition>
+            </template>
+            <template #right>
+              <NowPlayingPanel />
+            </template>
+          </AppLayout>
+          <component :is="Component" v-else :key="route.path" />
         </Transition>
       </RouterView>
     </div>

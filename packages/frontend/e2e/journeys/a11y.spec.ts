@@ -68,6 +68,19 @@ for (const breakpoint of breakpoints) {
         await setupApiMocks(page, {})
         await page.goto(route.path)
         await page.waitForSelector(`[data-testid="${route.testid}"]`)
+        // Settle wait: confirmed still necessary even after fixing App.vue's
+        // AppLayout remount bug (the key moved off AppLayout onto the routed
+        // left-slot content, so NowPlayingPanel no longer remounts on SPA
+        // navigation — see App.spec.ts's remount-guard test). That fix does
+        // NOT apply here: each case above does a cold `page.goto`, not an
+        // in-app client-side navigation, so there is no prior AppLayout
+        // instance to persist across. Removing this wait reproduces 2 real
+        // failures (tablet/desktop /settings) where MainNavBar's
+        // `router-link-active` class is scanned mid-paint, on its own
+        // initial mount, before the active-link background/text color
+        // finishes settling — an unrelated, genuine async-render-pass delay
+        // on first load, not navigation churn.
+        await page.waitForTimeout(300)
 
         const results = await new AxeBuilder({ page }).withRules([...route.rules]).analyze()
 

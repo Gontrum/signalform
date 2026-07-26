@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { useI18nStore } from '@/app/i18nStore'
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
-import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import ArtistHero from './ArtistHero.vue'
 import SimilarArtistGrid from './SimilarArtistGrid.vue'
 import { useUnifiedArtistView } from '../shell/useUnifiedArtistView'
-
-const { isPhone } = useResponsiveLayout()
 
 const i18n = useI18nStore()
 const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
@@ -48,7 +44,6 @@ const {
 
 <template>
   <div class="h-full min-h-0 overflow-y-auto bg-white" data-testid="unified-artist-view">
-    <MainNavBar v-if="!isPhone" />
     <PageHeader :title="artistName" :show-back="true" />
 
     <!-- Loading -->

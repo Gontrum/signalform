@@ -1426,24 +1426,18 @@ describe('SearchPanel', () => {
     })
   })
 
-  // Story 9.3 AC2: MainNavBar integration — verifies nav renders inside SearchPanel (desktop)
-  it('renders MainNavBar inside the search container (Story 9.3 AC2)', async (): Promise<void> => {
-    isPhone.value = false
-    const context = await whenSearchPanelIsMounted()
-
-    expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
-  })
+  // MainNavBar is now rendered exactly once, globally, by App.vue — see
+  // src/App.test.ts. SearchPanel itself no longer renders it (avoids the
+  // nav shifting position depending on which route renders it).
 
   // Step B1: PageHeader renders as the top-level tab's title on phone
-  // (on desktop MainNavBar's tab highlighting already conveys the current page)
-  it('renders PageHeader with the search title and hides MainNavBar on phone', async (): Promise<void> => {
+  it('renders PageHeader with the search title on phone', async (): Promise<void> => {
     isPhone.value = true
     const context = await whenSearchPanelIsMounted()
 
     const header = context.wrapper.find('[data-testid="page-header"]')
     expect(header.exists()).toBe(true)
     expect(header.text()).toContain('Search')
-    expect(context.wrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
   })
 
   it('renders a visually-hidden h1 with the search title on desktop, where PageHeader is not shown', async (): Promise<void> => {

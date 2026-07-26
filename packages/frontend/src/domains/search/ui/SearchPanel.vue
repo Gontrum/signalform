@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import EmptyState from '@/ui/EmptyState.vue'
@@ -53,7 +52,6 @@ const {
 
 <template>
   <div data-testid="search-container" class="flex h-full flex-col p-6">
-    <MainNavBar v-if="!isPhone" />
     <PageHeader v-if="isPhone" :title="t('nav.search')" />
     <h1 v-else class="sr-only">{{ t('nav.search') }}</h1>
     <!-- Autocomplete Mode -->

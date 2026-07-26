@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import MainNavBar from '@/app/MainNavBar.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import EmptyState from '@/ui/EmptyState.vue'
@@ -49,8 +48,7 @@ const {
 </script>
 
 <template>
-  <main data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
-    <MainNavBar v-if="!isPhone" />
+  <div data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
     <PageHeader v-if="isPhone" :title="t('nav.library')" />
     <h1 v-else class="sr-only">{{ t('nav.library') }}</h1>
 
@@ -409,5 +407,5 @@ const {
         </div>
       </div>
     </div>
-  </main>
+  </div>
 </template>

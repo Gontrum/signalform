@@ -153,6 +153,22 @@ describe('NowPlayingPanel', () => {
     await thenPanelIsSticky(context.wrapper)
   })
 
+  // AppLayout's right panel is a scrolling container (overflow-y-auto), not a
+  // clipped one. A fixed `sm:h-full` on the panel combined with
+  // `sm:justify-center` would clamp the panel to the container's height and
+  // silently clip any overflow above the fold (the classic flexbox
+  // centered-overflow bug), leaving tall content (long queue preview, sleep
+  // timer menu, etc.) unreachable even though the ancestor can scroll. The
+  // panel must instead use `min-h-full` so it grows past the fold and the
+  // ancestor's scroll can reach all of it.
+  it('does not clamp its height on tablet/desktop, so tall content can scroll into view', async () => {
+    const context = await createMountedContext()
+    const panel = context.wrapper.find('[data-testid="now-playing-panel"]')
+
+    expect(panel.classes()).toContain('min-h-full')
+    expect(panel.classes()).not.toContain('sm:h-full')
+  })
+
   it('anchors content to the top on phone layouts so queue actions stay inside the card', async () => {
     isPhone.value = true
     const context = await createMountedContext()

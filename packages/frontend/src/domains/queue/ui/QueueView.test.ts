@@ -332,17 +332,19 @@ describe('QueueView', () => {
     )
   })
 
-  // a11y audit: QueueView is a top-level route and must expose a `main`
-  // landmark for screen-reader "skip to main content" navigation.
-  it('renders a main landmark as the root element', async () => {
+  // QueueView is a top-level route rendered inside AppLayout's left panel
+  // `<main>` landmark (see src/App.vue), so its own root must be a plain
+  // `<div>` to avoid a nested-landmark a11y violation (see
+  // e2e/journeys/a11y.spec.ts).
+  it('renders a div (not a nested main landmark) as the root element', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
     const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
 
-    expect(wrapper.find('main').exists()).toBe(true)
-    expect(wrapper.find('main[data-testid="queue-view"]').exists()).toBe(true)
+    expect(wrapper.find('main').exists()).toBe(false)
+    expect(wrapper.find('div[data-testid="queue-view"]').exists()).toBe(true)
   })
 
   it('shows empty state when queue is empty', async () => {
@@ -494,25 +496,8 @@ describe('QueueView', () => {
     })
   })
 
-  describe('responsive layout', () => {
-    it('hides MainNavBar on phone and shows it on desktop', async () => {
-      mockGetQueue.mockResolvedValue(makeQueueResponse([]))
-
-      isPhone.value = true
-      const phoneRouter = await makeQueueRouter()
-      const phoneWrapper = mount(QueueView, { global: { plugins: [phoneRouter] } })
-      await flushPromises()
-      expect(phoneWrapper.find('[data-testid="main-nav"]').exists()).toBe(false)
-      phoneWrapper.unmount()
-
-      isPhone.value = false
-      const desktopRouter = await makeQueueRouter()
-      const desktopWrapper = mount(QueueView, { global: { plugins: [desktopRouter] } })
-      await flushPromises()
-      expect(desktopWrapper.find('[data-testid="main-nav"]').exists()).toBe(true)
-      desktopWrapper.unmount()
-    })
-  })
+  // MainNavBar rendering (phone vs desktop) moved to App.vue — it is no
+  // longer rendered by QueueView itself. See src/App.test.ts.
 
   it('shows backend queue error message when fetch fails', async () => {
     mockGetQueue.mockResolvedValue(
