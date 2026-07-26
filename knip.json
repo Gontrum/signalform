@@ -35,7 +35,11 @@
       "eslint": {
         "config": ["eslint.config.js"]
       },
-      "ignoreDependencies": ["@axe-core/playwright"]
+      // Tailwind v4 is CSS-first: main.css does `@import 'tailwindcss'`
+      // instead of a tailwind.config.js. knip's Tailwind plugin doesn't
+      // (yet) recognize that CSS-only usage, so it flags the package as an
+      // unused devDependency even though it's actively used.
+      "ignoreDependencies": ["@axe-core/playwright", "tailwindcss"]
     }
   }
 }
