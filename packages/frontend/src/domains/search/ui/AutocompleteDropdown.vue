@@ -175,49 +175,49 @@ watch(
             }}
           </div>
         </li>
-      </ul>
 
-      <!--
-        Keyboard selection is fully handled by the parent input's
-        @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant
-        combobox pattern) — this option element is never itself focused (tabindex="-1").
-      -->
-      <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events -->
-      <li
-        v-if="suggestions.length > 0"
-        :id="`suggestion-item-${suggestions.length}`"
-        :class="[
-          'flex min-h-12 cursor-pointer items-center gap-3 border-t border-neutral-200 px-4 py-3 text-sm transition-colors duration-200 motion-reduce:duration-[0.01ms] md:min-h-14',
-          activeIndex === suggestions.length
-            ? 'bg-accent-500 text-white'
-            : 'bg-neutral-100 text-neutral-700',
-        ]"
-        data-testid="autocomplete-footer-hint"
-        :aria-label="`Search for ${query}`"
-        role="option"
-        tabindex="-1"
-        :aria-selected="activeIndex === suggestions.length"
-        @click="emit('search')"
-      >
-        <svg
+        <!--
+          Keyboard selection is fully handled by the parent input's
+          @keydown.enter/@keydown.down/@keydown.up via activeIndex (aria-activedescendant
+          combobox pattern) — this option element is never itself focused (tabindex="-1").
+        -->
+        <!-- eslint-disable-next-line vuejs-accessibility/click-events-have-key-events -->
+        <li
+          v-if="suggestions.length > 0"
+          :id="`suggestion-item-${suggestions.length}`"
           :class="[
-            'h-4 w-4 flex-shrink-0',
-            activeIndex === suggestions.length ? 'text-white' : 'text-neutral-500',
+            'flex min-h-12 cursor-pointer items-center gap-3 border-t border-neutral-200 px-4 py-3 text-sm transition-colors duration-200 motion-reduce:duration-[0.01ms] md:min-h-14',
+            activeIndex === suggestions.length
+              ? 'bg-accent-500 text-white'
+              : 'bg-neutral-100 text-neutral-700',
           ]"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
+          data-testid="autocomplete-footer-hint"
+          :aria-label="`Search for ${query}`"
+          role="option"
+          tabindex="-1"
+          :aria-selected="activeIndex === suggestions.length"
+          @click="emit('search')"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-        <span>{{ t('home.viewArtist').replace('{name}', String(query ?? '')) }}</span>
-      </li>
+          <svg
+            :class="[
+              'h-4 w-4 flex-shrink-0',
+              activeIndex === suggestions.length ? 'text-white' : 'text-neutral-500',
+            ]"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <span>{{ t('home.viewArtist').replace('{name}', String(query ?? '')) }}</span>
+        </li>
+      </ul>
     </div>
   </div>
 

@@ -70,6 +70,7 @@ const routes: readonly RouteCheck[] = [
       'landmark-one-main',
       'aria-input-field-name',
       'aria-valid-attr-value',
+      'aria-required-parent',
       'color-contrast',
     ],
   },
@@ -186,6 +187,59 @@ for (const breakpoint of breakpoints) {
     }
   })
 }
+
+// Behavioral regression for the autocomplete footer's DOM-nesting fix
+// (docs/review/04-a11y.md, item 4). The axe `aria-required-parent` rule
+// added to the '/' route case above catches the static ARIA-structure
+// violation (the footer's role="option" now has a role="listbox" ancestor),
+// but axe cannot verify that moving the footer <li> inside the <ul> left
+// keyboard navigation (activeIndex math in useSearchPanel.ts) unaffected —
+// that requires a real, keyboard-driven Playwright test.
+test.describe('Autocomplete footer — keyboard navigation survives the DOM move into the listbox (docs/review/04-a11y.md, item 4)', () => {
+  test('ArrowDown reaches the footer, wraps around, and Enter on the footer opens full results', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { autocomplete: populatedAutocompleteResponse })
+    await page.goto('/')
+
+    const searchInput = page.getByTestId('search-input')
+    await searchInput.fill('nov')
+    await page.waitForSelector('ul[role="listbox"]')
+
+    // Two suggestions (Nova Vale, Kite Harbor) → suggestion-item-0,
+    // suggestion-item-1, and the footer is suggestion-item-2. ArrowDown
+    // from the input lands on suggestion-item-0, a second ArrowDown lands
+    // on suggestion-item-1, and a third ArrowDown should land on the
+    // footer — confirming the DOM move didn't break the index math.
+    await searchInput.press('ArrowDown')
+    await searchInput.press('ArrowDown')
+    await searchInput.press('ArrowDown')
+
+    await expect(searchInput).toHaveAttribute('aria-activedescendant', 'suggestion-item-2')
+    await expect(page.getByTestId('autocomplete-footer-hint')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+
+    // A 4th ArrowDown from the footer wraps back around to the first
+    // suggestion — confirming wrap-around is unchanged by the move.
+    await searchInput.press('ArrowDown')
+    await expect(searchInput).toHaveAttribute('aria-activedescendant', 'suggestion-item-0')
+
+    // Navigate back to the footer and press Enter — confirms Enter on the
+    // footer still triggers the full-search path (handleEnterKey's
+    // activeIndex === suggestions.length branch), not a suggestion select.
+    // Currently on suggestion-item-0, so 2 more ArrowDowns reach the footer
+    // (0 -> 1 -> 2/footer).
+    await searchInput.press('ArrowDown')
+    await searchInput.press('ArrowDown')
+    await expect(searchInput).toHaveAttribute('aria-activedescendant', 'suggestion-item-2')
+
+    await searchInput.press('Enter')
+
+    await expect(page.getByTestId('full-results-list')).toBeVisible()
+  })
+})
 
 // Behavioral regression for Popover.vue's Escape-to-close + focus-return fix
 // (docs/review/04-a11y.md, item 2). This is not an axe scan — axe cannot

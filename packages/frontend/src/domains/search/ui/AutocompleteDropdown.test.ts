@@ -227,6 +227,18 @@ describe('AutocompleteDropdown', () => {
 
     await thenListboxHasAccessibleNameAndWrapperDoesNot(wrapper)
   })
+
+  it('renders the footer hint as a descendant of the listbox, not a sibling (aria-required-parent)', async () => {
+    const suggestions = await givenValidSuggestions()
+    const wrapper = await whenComponentIsMounted({
+      suggestions,
+      isLoading: false,
+      isEmpty: false,
+      error: null,
+    })
+
+    await thenFooterHintIsInsideListbox(wrapper)
+  })
 })
 
 type AutocompleteDropdownProps = {
@@ -297,4 +309,12 @@ const thenListboxHasAccessibleNameAndWrapperDoesNot = async (
   const wrapperDiv = wrapper.find('[data-testid="autocomplete-dropdown"]')
   expect(wrapperDiv.exists()).toBe(true)
   expect(wrapperDiv.attributes('aria-label')).toBeUndefined()
+}
+
+const thenFooterHintIsInsideListbox = async (wrapper: ReturnType<typeof mount>): Promise<void> => {
+  const listbox = wrapper.find('[role="listbox"]')
+  expect(listbox.exists()).toBe(true)
+
+  const footerHintInsideListbox = listbox.find('[data-testid="autocomplete-footer-hint"]')
+  expect(footerHintInsideListbox.exists()).toBe(true)
 }
