@@ -81,7 +81,7 @@ watch(
     class="absolute top-full z-raised mt-1 w-full overflow-hidden rounded-lg bg-neutral-100 shadow-md transition-all duration-200 motion-reduce:duration-[0.01ms]"
     style="transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1)"
   >
-    <div class="w-full" data-testid="autocomplete-dropdown">
+    <div id="autocomplete-dropdown" class="w-full" data-testid="autocomplete-dropdown">
       <div
         v-if="isLoading"
         class="px-4 py-3 text-sm text-neutral-500"

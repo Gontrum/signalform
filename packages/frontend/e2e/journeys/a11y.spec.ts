@@ -40,7 +40,13 @@ const routes: readonly RouteCheck[] = [
   {
     path: '/',
     testid: 'search-container',
-    rules: ['page-has-heading-one', 'heading-order', 'landmark-one-main', 'aria-input-field-name'],
+    rules: [
+      'page-has-heading-one',
+      'heading-order',
+      'landmark-one-main',
+      'aria-input-field-name',
+      'aria-valid-attr-value',
+    ],
   },
   {
     path: '/library',
