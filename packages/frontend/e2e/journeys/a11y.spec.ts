@@ -315,6 +315,33 @@ test.describe('Progress slider — aria-valuetext matches formatted time', () =>
   })
 })
 
+// Regression for the redundant volume live-region fix (docs/review/04-a11y.md,
+// item 10). The native <input type="range"> volume slider already announces
+// its numeric value on change — no extra ARIA needed. The adjacent
+// `.volume-display` span used to also carry `aria-live="polite"`, producing a
+// duplicate/competing announcement (WCAG 4.1.3, Status Messages). axe cannot
+// detect this bug class — it's a structural "two competing announcement
+// sources" issue, not a generic ARIA-attribute-validity check — so this is a
+// targeted Playwright test asserting the redundant live region is gone
+// rather than an axe rule addition.
+test.describe('Volume display — no redundant live region', () => {
+  test('percentage span is aria-hidden, not a competing aria-live region', async ({ page }) => {
+    await setupApiMocks(page, { playbackStatus: playingStatusWithProgressResponse })
+    await page.goto('/')
+    await expect(page.getByTestId('playback-controls')).toBeVisible({ timeout: 5000 })
+
+    const display = page.locator('.volume-display')
+    await expect(display).toBeVisible()
+    await expect(display).not.toHaveAttribute('aria-live', 'polite')
+    await expect(display).toHaveAttribute('aria-hidden', 'true')
+
+    // Single source of truth: the native range input itself carries no
+    // competing aria-live announcement either.
+    const slider = page.getByRole('slider', { name: 'Volume slider' })
+    await expect(slider).not.toHaveAttribute('aria-live')
+  })
+})
+
 // Landmark regression for the missing `<main>` on /now-playing
 // (docs/review/04-a11y.md, item 9). /now-playing is an immersive route that
 // deliberately bypasses AppLayout (see App.vue's isImmersiveRoute check), so

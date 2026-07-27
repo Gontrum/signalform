@@ -81,7 +81,7 @@ const { isLoading, currentVolume, isMuted, handleVolumeChange, handleToggleMute 
     <!-- Volume Percentage -->
     <span
       class="volume-display w-12 text-right text-sm text-neutral-600"
-      aria-live="polite"
+      aria-hidden="true"
       style="font-variant-numeric: tabular-nums"
     >
       {{ currentVolume ?? 50 }}%
