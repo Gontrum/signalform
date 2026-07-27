@@ -16,7 +16,7 @@ const goToQueue = (): void => {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-col bg-white pb-[env(safe-area-inset-bottom)]">
+  <main class="flex h-full min-h-0 flex-col bg-white pb-[env(safe-area-inset-bottom)]">
     <PageHeader :title="t('nowPlaying.playingBadge')" show-back back-icon="down" />
 
     <!-- Panel content -->
@@ -39,5 +39,5 @@ const goToQueue = (): void => {
     >
       {{ t('nowPlaying.viewFullQueue') }}
     </button>
-  </div>
+  </main>
 </template>

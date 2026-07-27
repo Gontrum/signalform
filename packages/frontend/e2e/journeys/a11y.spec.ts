@@ -314,3 +314,24 @@ test.describe('Progress slider — aria-valuetext matches formatted time', () =>
     expect(valueText).not.toBe(valueNow)
   })
 })
+
+// Landmark regression for the missing `<main>` on /now-playing
+// (docs/review/04-a11y.md, item 9). /now-playing is an immersive route that
+// deliberately bypasses AppLayout (see App.vue's isImmersiveRoute check), so
+// it isn't in the `routes` axe-scan loop above and never gets AppLayout's
+// main/navigation/complementary landmarks. NowPlayingView.vue now renders
+// its own <main> root (mirroring SetupWizardView.vue's existing fix), so
+// this is a targeted DOM assertion rather than an axe rule — axe's
+// landmark-one-main rule only fires on conflicting/duplicate landmarks, not
+// on a route that's simply outside its scan scope.
+test.describe('Landmarks — /now-playing has a <main> landmark', () => {
+  test('renders exactly one visible <main> element', async ({ page }) => {
+    await setupApiMocks(page, { playbackStatus: playingStatusWithProgressResponse })
+    await page.goto('/now-playing')
+    await page.waitForSelector('[data-testid="page-header"]')
+
+    const main = page.locator('main')
+    await expect(main).toHaveCount(1)
+    await expect(main).toBeVisible()
+  })
+})
