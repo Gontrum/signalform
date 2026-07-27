@@ -42,6 +42,8 @@ pnpm-debug.log*
 
 # Claude Code agent worktrees
 .claude/worktrees/
+.claude/.reviewer-ran
+.playwright-mcp/
 
 # OS
 Thumbs.db
