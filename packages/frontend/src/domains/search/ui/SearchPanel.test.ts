@@ -5,7 +5,7 @@
  * Uses Given/When/Then pattern with helper functions.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, VueWrapper, flushPromises } from '@vue/test-utils'
 import { nextTick, ref } from 'vue'
 import SearchPanel from './SearchPanel.vue'
@@ -15,19 +15,20 @@ import * as searchApi from '@/platform/api/searchApi'
 import { ok, err } from '@signalform/shared'
 import type { AlbumResult, ArtistResult, TrackResult } from '../core/types'
 
-// Module-level ref so individual tests can flip isPhone before mounting; reset
-// to false in beforeEach so phone-mode leaks never bleed into other tests.
+// Module-level refs so individual tests can flip isPhone/isDesktop before
+// mounting; reset in beforeEach so leaked state never bleeds into other tests.
 const isPhone = ref(false)
+const isDesktop = ref(true)
 
 vi.mock('@/app/useResponsiveLayout', () => ({
   useResponsiveLayout: (): {
     readonly isPhone: typeof isPhone
     readonly isTablet: ReturnType<typeof ref<boolean>>
-    readonly isDesktop: ReturnType<typeof ref<boolean>>
+    readonly isDesktop: typeof isDesktop
   } => ({
     isPhone,
     isTablet: ref(false),
-    isDesktop: ref(true),
+    isDesktop,
   }),
 }))
 
@@ -173,6 +174,7 @@ describe('SearchPanel', () => {
     mockStartLovedRadio.mockResolvedValue({ tracksAdded: 1 })
     mockStartPersonalRadio.mockResolvedValue({ tracksAdded: 1, seedArtists: [] })
     isPhone.value = false
+    isDesktop.value = true
   })
 
   it('renders search input with placeholder', async (): Promise<void> => {
@@ -328,6 +330,65 @@ describe('SearchPanel', () => {
     const context = await whenSearchPanelIsMounted()
 
     await thenInputIsTouchFriendly(context.wrapper)
+  })
+
+  describe('auto-focus on load', () => {
+    // Auto-focus is driven by input modality (CSS `pointer` media feature),
+    // not by viewport-width breakpoints — a narrow desktop browser window is
+    // still a desktop. Stub window.matchMedia directly rather than the
+    // isDesktop/isPhone breakpoint mock used elsewhere in this file.
+    const stubMatchMediaCoarsePointer = (matches: boolean): void => {
+      vi.stubGlobal(
+        'matchMedia',
+        vi.fn((query: string) => ({
+          matches: query.includes('pointer: coarse') ? matches : false,
+          media: query,
+          onchange: null,
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        })),
+      )
+    }
+
+    afterEach(() => {
+      vi.unstubAllGlobals()
+    })
+
+    it('focuses the search input automatically when the primary pointer is fine (e.g. mouse)', async (): Promise<void> => {
+      stubMatchMediaCoarsePointer(false)
+      const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus')
+
+      await whenSearchPanelIsMounted()
+      await flushPromises()
+
+      expect(focusSpy).toHaveBeenCalled()
+      focusSpy.mockRestore()
+    })
+
+    it('does not auto-focus the search input when the primary pointer is coarse (e.g. touchscreen)', async (): Promise<void> => {
+      stubMatchMediaCoarsePointer(true)
+      const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus')
+
+      await whenSearchPanelIsMounted()
+      await flushPromises()
+
+      expect(focusSpy).not.toHaveBeenCalled()
+      focusSpy.mockRestore()
+    })
+
+    it('does not auto-focus the search input when matchMedia is unavailable (safe default)', async (): Promise<void> => {
+      vi.stubGlobal('matchMedia', undefined)
+      const focusSpy = vi.spyOn(HTMLInputElement.prototype, 'focus')
+
+      await whenSearchPanelIsMounted()
+      await flushPromises()
+
+      expect(focusSpy).not.toHaveBeenCalled()
+      focusSpy.mockRestore()
+    })
   })
 
   it('displays results count when suggestions are available', async (): Promise<void> => {

@@ -323,6 +323,22 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     if (configResult.ok) {
       personalRadioEnabled.value = configResult.value.personalRadioEnabled ?? false
     }
+
+    // Auto-focus the search input only when the primary input is not touch —
+    // avoid popping the virtual keyboard on phone/tablet load, which is a bad
+    // mobile UX pattern. Uses the CSS Media Queries Level 4 `pointer` feature
+    // (native platform primitive for input modality) rather than viewport
+    // width, since a narrow desktop browser window is still a desktop. If
+    // matchMedia is unavailable in this embedding context, default to
+    // treating the pointer as coarse (i.e. do NOT steal focus) — silently
+    // grabbing focus is worse than not focusing.
+    const hasCoarsePointer =
+      typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : true
+    if (!hasCoarsePointer) {
+      searchInputEl.value?.focus()
+    }
   })
 
   onUnmounted((): void => {
