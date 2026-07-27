@@ -7,6 +7,7 @@ import AlbumListRow from '@/domains/library/ui/AlbumListRow.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useLibraryBrowser } from '../shell/useLibraryBrowser'
+import type { Source } from '../core/types'
 
 const { isPhone } = useResponsiveLayout()
 
@@ -45,6 +46,48 @@ const {
   hasActiveFilters,
   displayLimit,
 } = useLibraryBrowser(t)
+
+// ARIA APG "Tabs" pattern: only the active tab is Tab-reachable (roving
+// tabindex, bound in the template via :tabindex on both buttons);
+// ArrowRight/ArrowLeft move and activate focus between the two, wrapping at
+// the ends. Mirrors the closest+querySelectorAll+indexOf+focus() style of
+// QueueView's handleQueueItemKeydown, adapted for horizontal navigation,
+// wrap-around, and roving tabindex (which the queue list doesn't need).
+const handleSourceTabKeydown = (event: KeyboardEvent): void => {
+  if (!(event.currentTarget instanceof HTMLElement)) {
+    return
+  }
+
+  const currentTarget = event.currentTarget
+  const tablist = currentTarget.closest('[data-testid="source-selector"]')
+  const tabs = tablist ? Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]')) : []
+  const currentIndex = tabs.indexOf(currentTarget)
+
+  if (currentIndex === -1 || tabs.length === 0) {
+    return
+  }
+
+  let nextIndex: number | undefined
+  if (event.key === 'ArrowRight') {
+    nextIndex = (currentIndex + 1) % tabs.length
+  } else if (event.key === 'ArrowLeft') {
+    nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
+  }
+
+  if (nextIndex === undefined) {
+    return
+  }
+
+  event.preventDefault()
+  const nextTab = tabs[nextIndex]
+  const nextSource = nextTab?.dataset['source']
+  if (nextSource !== 'local' && nextSource !== 'tidal') {
+    return
+  }
+
+  nextTab?.focus()
+  setSource(nextSource satisfies Source)
+}
 </script>
 
 <template>
@@ -64,7 +107,9 @@ const {
           type="button"
           role="tab"
           data-testid="source-local"
+          data-source="local"
           :aria-selected="activeSource === 'local' ? 'true' : 'false'"
+          :tabindex="activeSource === 'local' ? 0 : -1"
           :class="[
             'rounded px-4 py-1.5 text-sm font-medium transition-colors',
             activeSource === 'local'
@@ -74,6 +119,7 @@ const {
           @click="setSource('local')"
           @keydown.enter="setSource('local')"
           @keydown.space.prevent="setSource('local')"
+          @keydown="handleSourceTabKeydown"
         >
           Local
         </button>
@@ -81,7 +127,9 @@ const {
           type="button"
           role="tab"
           data-testid="source-tidal"
+          data-source="tidal"
           :aria-selected="activeSource === 'tidal' ? 'true' : 'false'"
+          :tabindex="activeSource === 'tidal' ? 0 : -1"
           :class="[
             'rounded px-4 py-1.5 text-sm font-medium transition-colors',
             activeSource === 'tidal'
@@ -91,6 +139,7 @@ const {
           @click="setSource('tidal')"
           @keydown.enter="setSource('tidal')"
           @keydown.space.prevent="setSource('tidal')"
+          @keydown="handleSourceTabKeydown"
         >
           Tidal
         </button>
