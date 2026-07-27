@@ -28,7 +28,7 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { setupApiMocks } from '../helpers/mockApi.ts'
-import { populatedAutocompleteResponse } from '../helpers/fixtures.ts'
+import { populatedAutocompleteResponse, singleTrackQueueResponse } from '../helpers/fixtures.ts'
 
 interface RouteCheck {
   readonly path: string
@@ -125,3 +125,42 @@ for (const breakpoint of breakpoints) {
     }
   })
 }
+
+// Behavioral regression for Popover.vue's Escape-to-close + focus-return fix
+// (docs/review/04-a11y.md, item 2). This is not an axe scan — axe cannot
+// detect missing keyboard-close behavior or lost focus, so it's a separate,
+// targeted test rather than a widened rule set on an existing route case
+// above. Driven through the queue overflow menu (Popover consumer in
+// QueueView.vue) since /queue is already an existing route case and
+// setupApiMocks defaults the queue mock to a single track.
+test.describe('Popover — Escape closes and returns focus', () => {
+  test('queue overflow menu closes on Escape and refocuses its trigger', async ({ page }) => {
+    await setupApiMocks(page, { queue: singleTrackQueueResponse })
+    await page.goto('/queue')
+    await page.waitForSelector('[data-testid="queue-view"]')
+
+    const trigger = page.getByTestId('queue-menu')
+    await trigger.click()
+
+    const panel = page.getByTestId('queue-menu-panel')
+    await expect(panel).toBeVisible()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+
+    // The keydown handler that closes the popover lives on the panel div
+    // itself (role="menu"), so Escape only closes it while focus is inside
+    // the panel — the same real keyboard flow docs/review/04-a11y.md
+    // verified manually (Tab from the trigger lands on the first menu item).
+    await page.keyboard.press('Tab')
+    await expect(page.getByTestId('playlists-toggle')).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    await expect(panel).toBeHidden()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+    const focusedTestId = await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid'),
+    )
+    expect(focusedTestId).toBe('queue-menu')
+  })
+})
