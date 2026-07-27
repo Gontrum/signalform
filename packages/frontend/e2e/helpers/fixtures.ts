@@ -212,6 +212,23 @@ export const defaultConfigResponse = {
   language: 'en' as const,
 }
 
+// ── Users response ────────────────────────────────────────────────────────────
+
+/**
+ * Two-user fixture — matches UsersResponseSchema in usersApi.ts. Two users
+ * (and no stored/resolved selection) is what triggers useUserStore's
+ * `needsSelection` getter, which mounts UserSelectDialog (see App.vue).
+ * `activeListenerId` is optional per the schema and simply omitted here —
+ * `undefined` is not a valid JSON value, so an explicit `undefined` field
+ * would fail the mock helper's JsonObject typing.
+ */
+export const twoUsersResponse = {
+  users: [
+    { id: 'user-ada', name: 'Ada', hasLastFmSession: false },
+    { id: 'user-ben', name: 'Ben', hasLastFmSession: false },
+  ],
+}
+
 // ── Autocomplete response ─────────────────────────────────────────────────────
 
 export const emptyAutocompleteResponse = {

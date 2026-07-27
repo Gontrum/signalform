@@ -41,6 +41,19 @@ describe('UserSelectDialog', () => {
     expect(wrapper.text()).toContain('Who are you?')
   })
 
+  it('labels the dialog via aria-labelledby pointing at the visible heading', async () => {
+    const wrapper = await mountDialog()
+
+    const overlay = wrapper.find('[data-testid="user-select-dialog"]')
+    const labelledBy = overlay.attributes('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+
+    const heading = wrapper.find(`#${labelledBy}`)
+    expect(heading.exists()).toBe(true)
+    expect(heading.element.tagName).toBe('H1')
+    expect(heading.text()).toBe('Who are you?')
+  })
+
   it('renders one button per user', async () => {
     const wrapper = await mountDialog()
 

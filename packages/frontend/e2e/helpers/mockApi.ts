@@ -42,6 +42,7 @@ export interface ApiMocks {
   readonly queue?: JsonValue
   readonly playbackStatus?: JsonObject
   readonly config?: JsonObject
+  readonly users?: JsonObject
 }
 
 /**
@@ -108,6 +109,16 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       // Playback status (GET /api/playback/status)
       if (pathname === '/api/playback/status' && method === 'GET' && mocks.playbackStatus) {
         await fulfill200(route, mocks.playbackStatus)
+        return
+      }
+
+      // Users (GET /api/users) — returns mocks.users when supplied, otherwise
+      // falls through to the default 200-empty-body below (App.vue's
+      // userStore.load() then fails UsersResponseSchema parsing and leaves
+      // users empty, so UserSelectDialog never renders — the existing
+      // behaviour for every test that doesn't opt in via this mock).
+      if (pathname === '/api/users' && method === 'GET' && mocks.users) {
+        await fulfill200(route, mocks.users)
         return
       }
 
