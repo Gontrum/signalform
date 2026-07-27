@@ -30,6 +30,26 @@ import AxeBuilder from '@axe-core/playwright'
 import { setupApiMocks } from '../helpers/mockApi.ts'
 import { populatedAutocompleteResponse, singleTrackQueueResponse } from '../helpers/fixtures.ts'
 
+const playingStatusWithProgressResponse = {
+  status: 'playing',
+  currentTime: 65,
+  trackDuration: 240,
+  volume: 70,
+  currentTrack: {
+    id: 'track-1',
+    title: 'Money',
+    artist: 'Pink Floyd',
+    album: 'Dark Side of the Moon',
+    url: 'file:///music/money.flac',
+    source: 'local',
+    // ProgressBar's trackDuration comes from currentTrack.duration (see
+    // usePlaybackStore's setTrack), not the top-level trackDuration field —
+    // kept equal to it here so the expected "1:05 / 4:00" is unambiguous.
+    duration: 240,
+  },
+  queuePreview: [],
+}
+
 interface RouteCheck {
   readonly path: string
   readonly testid: string
@@ -224,5 +244,38 @@ test.describe('Hover-revealed action buttons stay visible on keyboard focus', ()
     // The button has `transition-opacity`, so poll until the animation
     // settles instead of asserting on a single mid-transition frame.
     await expect.poll(() => playButton.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
+  })
+})
+
+// Behavioral regression for the missing `aria-valuetext` fix on the
+// progress-bar slider (docs/review/04-a11y.md, item 6). axe cannot detect
+// this bug class — generic ARIA rules only check that aria-valuenow/min/max
+// are present and valid, not that the announced text matches the formatted
+// time shown on screen — so this is a targeted Playwright test reading the
+// attribute directly, matching how the bug was documented (raw seconds
+// announced instead of "1:05 / 4:00").
+test.describe('Progress slider — aria-valuetext matches formatted time', () => {
+  test('slider aria-valuetext reports the formatted "M:SS / M:SS" time, not raw seconds', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { playbackStatus: playingStatusWithProgressResponse })
+    await page.goto('/')
+    await expect(page.getByTestId('playback-controls')).toBeVisible({ timeout: 5000 })
+
+    // Scoped by accessible name: the page also has a volume `role="slider"`
+    // (a native <input type="range">), so an unqualified role locator would
+    // match both and fail Playwright's strict-mode uniqueness check.
+    const slider = page.getByRole('slider', { name: /Playback position/ })
+    await expect(slider).toBeVisible()
+
+    // 65s / 240s current track duration → "1:05 / 4:00", same format used by
+    // the visible time display and the slider's own aria-label.
+    await expect(slider).toHaveAttribute('aria-valuetext', '1:05 / 4:00')
+
+    // Guard against a future regression where aria-valuetext is re-set to the
+    // raw aria-valuenow number instead of the formatted string.
+    const valueNow = await slider.getAttribute('aria-valuenow')
+    const valueText = await slider.getAttribute('aria-valuetext')
+    expect(valueText).not.toBe(valueNow)
   })
 })

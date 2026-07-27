@@ -344,6 +344,20 @@ describe('ProgressBar Component', () => {
       expect(ariaLabel).toContain('Playback position:')
       expect(ariaLabel).toMatch(/\d+:\d{2}/)
     })
+
+    it('has aria-valuetext with the same formatted time as aria-label, not the raw seconds', async () => {
+      const { wrapper, playbackStore } = createWrapper()
+      setPlaybackStoreState(playbackStore, {
+        currentTime: 65,
+        trackDuration: 240,
+      })
+
+      await wrapper.vm.$nextTick()
+
+      const thumb = wrapper.find('[role="slider"]')
+      expect(thumb.attributes('aria-valuetext')).toBe('1:05 / 4:00')
+      expect(thumb.attributes('aria-valuetext')).not.toBe(thumb.attributes('aria-valuenow'))
+    })
   })
 
   describe('Edge Cases', () => {

@@ -32,6 +32,7 @@
           :aria-valuenow="currentTime"
           :aria-valuemin="0"
           :aria-valuemax="trackDuration || 0"
+          :aria-valuetext="formattedTime"
           :aria-label="`Playback position: ${formattedTime}`"
           @keydown="handleKeyDown"
         />
