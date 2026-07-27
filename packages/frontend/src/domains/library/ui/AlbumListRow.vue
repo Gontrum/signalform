@@ -79,7 +79,7 @@ const onCoverError = (): void => {
     <button
       type="button"
       data-testid="list-row-play-button"
-      class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-500 text-white opacity-0 transition-opacity hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
+      class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-500 text-white opacity-0 transition-opacity hover:bg-accent-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
       :aria-label="`Play ${album.title}`"
       @click.stop="emit('click:play', album.id)"
     >
@@ -92,7 +92,7 @@ const onCoverError = (): void => {
     <button
       type="button"
       data-testid="list-row-add-to-queue-button"
-      class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 opacity-0 transition-opacity hover:border-accent-400 hover:text-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
+      class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 opacity-0 transition-opacity hover:border-accent-400 hover:text-accent-500 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
       :aria-label="`Add ${album.title} to queue`"
       @click.stop="emit('click:add-to-queue', album.id)"
     >

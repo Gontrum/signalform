@@ -164,3 +164,59 @@ test.describe('Popover — Escape closes and returns focus', () => {
     expect(focusedTestId).toBe('queue-menu')
   })
 })
+
+// Behavioral regression for the hover-overlay-buttons-invisible-on-keyboard-
+// focus fix (docs/review/04-a11y.md, item 3). axe cannot detect this bug
+// class — it checks computed contrast/attributes, not "is this focused
+// element visually hidden by opacity" — so this is a targeted Playwright
+// test reading `getComputedStyle(...).opacity` directly, matching how the
+// bug was originally screenshot-verified (real DOM focus + opacity still 0).
+// Covered for both AlbumCard (grid) and AlbumListRow (list), since the
+// report notes the bug was duplicated identically across both components.
+test.describe('Hover-revealed action buttons stay visible on keyboard focus', () => {
+  test('AlbumCard (grid view): hover overlay opacity is 1 once the play button has focus', async ({
+    page,
+  }) => {
+    await setupApiMocks(page)
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="library-view"]')
+    await page.waitForSelector('[data-testid="album-grid"]')
+
+    // Focus the "navigate" region first (deterministic starting point), then
+    // Tab once — the hover overlay is its next sibling in DOM order, so a
+    // real Tab keypress lands on the play button inside it, the same path a
+    // keyboard user takes.
+    await page.getByTestId('album-navigate-button').focus()
+    await page.keyboard.press('Tab')
+
+    const playButton = page.getByTestId('play-album-button')
+    await expect(playButton).toBeFocused()
+
+    // The overlay has `transition-opacity duration-200`, so the computed
+    // opacity animates from 0 to 1 rather than jumping instantly — poll
+    // until the transition settles instead of asserting on a single frame.
+    const overlay = page.getByTestId('album-hover-overlay')
+    await expect.poll(() => overlay.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
+  })
+
+  test('AlbumListRow (list view): play button opacity is 1 once it has focus', async ({ page }) => {
+    await setupApiMocks(page)
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="library-view"]')
+
+    await page.getByTestId('list-view-button').click()
+    await page.waitForSelector('[data-testid="album-list"]')
+
+    // Focus the row first (deterministic starting point), then Tab once —
+    // the play button is the row's next focusable descendant in DOM order.
+    await page.getByTestId('album-list-row').focus()
+    await page.keyboard.press('Tab')
+
+    const playButton = page.getByTestId('list-row-play-button')
+    await expect(playButton).toBeFocused()
+
+    // The button has `transition-opacity`, so poll until the animation
+    // settles instead of asserting on a single mid-transition frame.
+    await expect.poll(() => playButton.evaluate((el) => getComputedStyle(el).opacity)).toBe('1')
+  })
+})

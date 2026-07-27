@@ -109,7 +109,7 @@ const navigate = (): void => {
     -->
     <div
       data-testid="album-hover-overlay"
-      class="absolute inset-x-0 top-0 aspect-square overflow-hidden rounded-lg flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100"
+      class="absolute inset-x-0 top-0 aspect-square overflow-hidden rounded-lg flex items-center justify-center gap-2 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
     >
       <button
         type="button"
