@@ -191,7 +191,8 @@ describe('VolumeControl', () => {
     expect(slider.attributes('aria-label')).toBe('Volume slider')
 
     const volumeDisplay = wrapper.find('.volume-display')
-    expect(volumeDisplay.attributes('aria-live')).toBe('polite')
+    expect(volumeDisplay.attributes('aria-hidden')).toBe('true')
+    expect(volumeDisplay.attributes('aria-live')).toBeUndefined()
   })
 
   it('applies the muted background class to button when muted', async () => {
