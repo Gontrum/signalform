@@ -1,29 +1,16 @@
 /**
- * Permanent axe-core regression spec (Wave 2, Wave-2 shared regression spec).
+ * Permanent axe-core regression spec.
  *
  * Replaces the temporary, uncommitted audit spec that was used to produce
- * docs/review/02-ui.md. Unlike that ad-hoc audit, this spec is intentionally
- * narrow: it only asserts axe rules that are guaranteed green by the fixes
- * already landed (Wave 1's heading/contrast fixes, item 10's Search <h1>,
- * item 9's Settings/Setup Wizard contrast fixes, toggle `aria-label` on
- * /settings, nested-interactive album cards on /library). It is NOT a full,
- * unrestricted `.analyze()` scan — an unrestricted scan on any route still
- * turns up unrelated noise (e.g. the Vue DevTools browser-extension panel
- * triggers `aria-prohibited-attr`/`region`), so each route's `rules` array
- * stays a deliberate allowlist rather than "everything", even now that all
- * of the original Wave 1 Quick-Win a11y items have landed.
- *
- * As each Quick-Win item (see docs/review/00-plan-detailled.md, Wave 1 Quick
- * Wins 1-5) landed, the rule set for the affected route below was widened
- * rather than adding a new spec file.
- *
- * Landed: autocomplete `aria-label` placement — the `/` route case below now
- * types a query and waits for the populated `<ul role="listbox">` dropdown
- * before scanning, with `aria-input-field-name` added to its rule set.
- * Landed: decade-chip contrast — the `/library` route case now clicks a
- * non-default decade chip (which also reveals the "Clear all filters"
- * button) before scanning, with `color-contrast` added to its rule set.
- * All four original Wave 1 Quick-Win a11y items are now closed.
+ * docs/review/02-ui.md. Every route below runs a broad, unrestricted
+ * `.analyze()` scan (all axe rules, not a per-route allowlist) — see
+ * docs/review/05-a11y-coverage.md for why the previous per-route `withRules`
+ * allowlists were replaced: they existed only to dodge noise from the Vue
+ * DevTools browser-extension panel (`aria-prohibited-attr`/`region` on its
+ * floating `.vue-devtools__anchor-btn`), which `AxeBuilder.exclude()` filters
+ * directly. Narrowing the rule set to work around that noise had the side
+ * effect of silently allowing any new, unlisted-rule violation to pass —
+ * `.exclude()` removes the noise without shrinking what's checked.
  */
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
@@ -32,6 +19,7 @@ import {
   populatedAutocompleteResponse,
   emptyAutocompleteResponse,
   singleTrackQueueResponse,
+  twoUsersResponse,
 } from '../helpers/fixtures.ts'
 
 const playingStatusWithProgressResponse = {
@@ -57,43 +45,18 @@ const playingStatusWithProgressResponse = {
 interface RouteCheck {
   readonly path: string
   readonly testid: string
-  readonly rules: readonly string[]
 }
 
 const routes: readonly RouteCheck[] = [
-  {
-    path: '/',
-    testid: 'search-container',
-    rules: [
-      'page-has-heading-one',
-      'heading-order',
-      'landmark-one-main',
-      'aria-input-field-name',
-      'aria-valid-attr-value',
-      'aria-required-parent',
-      'color-contrast',
-    ],
-  },
-  {
-    path: '/library',
-    testid: 'library-view',
-    rules: ['page-has-heading-one', 'heading-order', 'nested-interactive', 'color-contrast'],
-  },
-  {
-    path: '/queue',
-    testid: 'queue-view',
-    rules: ['page-has-heading-one', 'heading-order'],
-  },
-  {
-    path: '/settings',
-    testid: 'settings-view',
-    rules: ['page-has-heading-one', 'heading-order', 'color-contrast', 'button-name'],
-  },
-  {
-    path: '/setup',
-    testid: 'setup-wizard',
-    rules: ['page-has-heading-one', 'heading-order', 'color-contrast'],
-  },
+  { path: '/', testid: 'search-container' },
+  { path: '/library', testid: 'library-view' },
+  { path: '/queue', testid: 'queue-view' },
+  { path: '/settings', testid: 'settings-view' },
+  { path: '/setup', testid: 'setup-wizard' },
+  // Immersive route — bypasses AppLayout (see App.vue's isImmersiveRoute), so
+  // it was previously outside this scan loop entirely. docs/review/04-a11y.md
+  // finding #9 (missing <main>) sat undetected here for exactly that reason.
+  { path: '/now-playing', testid: 'page-header' },
 ]
 
 const breakpoints = [
@@ -107,12 +70,15 @@ for (const breakpoint of breakpoints) {
     test.use({ viewport: { width: breakpoint.width, height: breakpoint.height } })
 
     for (const route of routes) {
-      test(`${route.path} has no violations for [${route.rules.join(', ')}]`, async ({ page }) => {
+      test(`${route.path} has no violations (broad scan, Vue DevTools excluded)`, async ({
+        page,
+      }) => {
         const isSearchRoute = route.path === '/'
-        await setupApiMocks(
-          page,
-          isSearchRoute ? { autocomplete: populatedAutocompleteResponse } : {},
-        )
+        const isNowPlayingRoute = route.path === '/now-playing'
+        await setupApiMocks(page, {
+          ...(isSearchRoute ? { autocomplete: populatedAutocompleteResponse } : {}),
+          ...(isNowPlayingRoute ? { playbackStatus: playingStatusWithProgressResponse } : {}),
+        })
         await page.goto(route.path)
         await page.waitForSelector(`[data-testid="${route.testid}"]`)
         // Settle wait: confirmed still necessary even after fixing App.vue's
@@ -150,17 +116,18 @@ for (const breakpoint of breakpoints) {
           await page.waitForTimeout(300)
         }
 
-        const results = await new AxeBuilder({ page }).withRules([...route.rules]).analyze()
+        const results = await new AxeBuilder({ page })
+          .exclude('.vue-devtools__anchor-btn')
+          .analyze()
 
         expect(results.violations).toEqual([])
 
-        // Exercise the empty-result autocomplete state — this is the state
-        // that needs its `color-contrast` rule checked (the empty-state
-        // message, docs/review/04-a11y.md finding #7). Registering an
-        // override route handler mid-test takes over subsequent requests
-        // without disturbing the populated-state scan above, which already
-        // completed (Playwright dispatches to the most-recently-registered
-        // matching handler).
+        // Exercise the empty-result autocomplete state — a state the scan
+        // above never reaches (docs/review/04-a11y.md finding #7 lived here).
+        // Registering an override route handler mid-test takes over
+        // subsequent requests without disturbing the populated-state scan
+        // above, which already completed (Playwright dispatches to the
+        // most-recently-registered matching handler).
         if (isSearchRoute) {
           await page.route(
             (url) => url.pathname === '/api/search/autocomplete',
@@ -178,7 +145,7 @@ for (const breakpoint of breakpoints) {
           await page.waitForSelector('[data-testid="empty-state"]')
 
           const emptyStateResults = await new AxeBuilder({ page })
-            .withRules(['color-contrast'])
+            .exclude('.vue-devtools__anchor-btn')
             .analyze()
 
           expect(emptyStateResults.violations).toEqual([])
@@ -414,5 +381,87 @@ test.describe('Landmarks — /now-playing has a <main> landmark', () => {
     const main = page.locator('main')
     await expect(main).toHaveCount(1)
     await expect(main).toBeVisible()
+  })
+})
+
+// Behavioral regression for UserSelectDialog's missing focus trap / initial
+// focus / accessible name (docs/review/04-a11y.md, item 1 — the report's
+// most severe finding). axe cannot detect any of this: it validates ARIA
+// attribute presence/validity, not that Tab is actually contained inside the
+// dialog or that focus lands somewhere sensible on open — so this is a
+// targeted, behavioral Playwright test rather than a rule addition to the
+// axe scan loop above. Needs the /api/users mock + two-user fixture added
+// alongside this fix (mockApi.ts, fixtures.ts) — no existing test exercised
+// this dialog before: the default mock setup leaves userStore.users empty
+// (unmocked GET /api/users falls through to the catch-all 200-empty-body,
+// which fails UsersResponseSchema parsing), so `needsSelection` was always
+// false and the dialog never rendered in any prior e2e run.
+test.describe('UserSelectDialog — focus trap, initial focus, accessible name', () => {
+  test('focuses the first option on open', async ({ page }) => {
+    await setupApiMocks(page, { users: twoUsersResponse })
+    await page.goto('/')
+    await page.waitForSelector('[data-testid="user-select-dialog"]')
+
+    const focusedTestId = await page.evaluate(() =>
+      document.activeElement?.getAttribute('data-testid'),
+    )
+    expect(focusedTestId).toBe('user-select-option')
+
+    const focusedText = await page.evaluate(() => document.activeElement?.textContent?.trim())
+    expect(focusedText).toBe('Ada')
+  })
+
+  test('traps Tab/Shift+Tab between the option buttons and never reaches background nav', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { users: twoUsersResponse })
+    await page.goto('/')
+    await page.waitForSelector('[data-testid="user-select-dialog"]')
+
+    // The desktop-viewport MainNavBar (visually hidden behind the overlay,
+    // but not `inert`/`display:none`) is what the report found the untrapped
+    // Tab order leaking into — these are exactly the testids from its
+    // recorded tabTrace.
+    const backgroundTestIds = [
+      'nav-search',
+      'nav-library',
+      'nav-queue',
+      'nav-settings',
+      'search-input',
+    ]
+
+    const activeTestId = (): Promise<string | null | undefined> =>
+      page.evaluate(() => document.activeElement?.getAttribute('data-testid'))
+
+    // Two options → a full forward cycle is 2 Tabs (option 0 -> option 1 ->
+    // wraps back to option 0). Run 4 full cycles (8 Tabs) so a wrap that
+    // only works once (but not on a second pass) would still be caught.
+    for (let i = 0; i < 8; i += 1) {
+      await page.keyboard.press('Tab')
+      const testId = await activeTestId()
+      expect(testId).toBe('user-select-option')
+      expect(backgroundTestIds).not.toContain(testId)
+    }
+
+    // Same for Shift+Tab in reverse.
+    for (let i = 0; i < 8; i += 1) {
+      await page.keyboard.press('Shift+Tab')
+      const testId = await activeTestId()
+      expect(testId).toBe('user-select-option')
+      expect(backgroundTestIds).not.toContain(testId)
+    }
+  })
+
+  test('has an accessible name matching the visible <h1>', async ({ page }) => {
+    await setupApiMocks(page, { users: twoUsersResponse })
+    await page.goto('/')
+    await page.waitForSelector('[data-testid="user-select-dialog"]')
+
+    // 'Who are you?' is the en-locale string for i18n key 'user.selectTitle',
+    // the dialog's visible <h1> — asserting the accessible name resolves to
+    // the same element as the data-testid confirms aria-labelledby is wired
+    // up correctly, not just present.
+    const dialog = page.getByRole('dialog', { name: 'Who are you?' })
+    await expect(dialog).toHaveAttribute('data-testid', 'user-select-dialog')
   })
 })
