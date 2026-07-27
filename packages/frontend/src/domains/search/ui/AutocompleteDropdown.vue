@@ -94,7 +94,7 @@ watch(
 
       <div
         v-else-if="isEmpty && !isLoading"
-        class="px-4 py-3 text-sm italic text-neutral-500"
+        class="px-4 py-3 text-sm italic text-neutral-600"
         role="status"
         aria-live="polite"
         data-testid="empty-state"

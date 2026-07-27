@@ -28,7 +28,11 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 import { setupApiMocks } from '../helpers/mockApi.ts'
-import { populatedAutocompleteResponse, singleTrackQueueResponse } from '../helpers/fixtures.ts'
+import {
+  populatedAutocompleteResponse,
+  emptyAutocompleteResponse,
+  singleTrackQueueResponse,
+} from '../helpers/fixtures.ts'
 
 const playingStatusWithProgressResponse = {
   status: 'playing',
@@ -66,6 +70,7 @@ const routes: readonly RouteCheck[] = [
       'landmark-one-main',
       'aria-input-field-name',
       'aria-valid-attr-value',
+      'color-contrast',
     ],
   },
   {
@@ -147,6 +152,36 @@ for (const breakpoint of breakpoints) {
         const results = await new AxeBuilder({ page }).withRules([...route.rules]).analyze()
 
         expect(results.violations).toEqual([])
+
+        // Exercise the empty-result autocomplete state — this is the state
+        // that needs its `color-contrast` rule checked (the empty-state
+        // message, docs/review/04-a11y.md finding #7). Registering an
+        // override route handler mid-test takes over subsequent requests
+        // without disturbing the populated-state scan above, which already
+        // completed (Playwright dispatches to the most-recently-registered
+        // matching handler).
+        if (isSearchRoute) {
+          await page.route(
+            (url) => url.pathname === '/api/search/autocomplete',
+            async (route) => {
+              await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(emptyAutocompleteResponse),
+              })
+            },
+          )
+
+          await page.getByTestId('search-input').fill('')
+          await page.getByTestId('search-input').fill('xyz')
+          await page.waitForSelector('[data-testid="empty-state"]')
+
+          const emptyStateResults = await new AxeBuilder({ page })
+            .withRules(['color-contrast'])
+            .analyze()
+
+          expect(emptyStateResults.violations).toEqual([])
+        }
       })
     }
   })
