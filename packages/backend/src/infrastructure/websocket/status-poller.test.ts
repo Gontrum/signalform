@@ -1,4 +1,11 @@
-import { describe, expect, test } from "vitest";
+import fastify, { type FastifyInstance } from "fastify";
+import { Server } from "socket.io";
+import { describe, expect, test, vi } from "vitest";
+import { err, ok, type Result } from "@signalform/shared";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from "@signalform/shared";
 import type { LmsPlayerStatus } from "./handlers.js";
 import {
   getRadioQueueState,
@@ -6,12 +13,24 @@ import {
   resetRadioRuntimeState,
   setSuppressedQueueEnd,
 } from "../../features/radio-mode/shell/radio-state.js";
+import { startStatusPolling } from "./status-poller.js";
+import type { TypedSocketIOServer } from "./server.js";
+import {
+  SYSTEM_LMS_DISCONNECTED,
+  SYSTEM_PLAYER_DISCONNECTED,
+  SYSTEM_PLAYER_RECONNECTED,
+} from "./events.js";
+import type {
+  LmsError,
+  PlayerStatus,
+} from "../../adapters/lms-client/index.js";
 
 const makeStatus = (
   overrides: Partial<LmsPlayerStatus> = {},
 ): LmsPlayerStatus => ({
   playerId: "player-1",
   mode: "play",
+  playerConnected: true,
   volume: 50,
   time: 0,
   ...overrides,
@@ -159,5 +178,194 @@ describe("reconcileSuppressedQueueEnd", () => {
     reconcileSuppressedQueueEnd(previousStatus, currentStatus);
 
     expect(getRadioQueueState().suppressedQueueEnd).toBeUndefined();
+  });
+});
+
+// --- startStatusPolling: player-connectivity + LMS-reachability events -----
+// Fix 0 (player.playerConnected transition detection) and Fix 2 (getStatus no
+// longer retries — poll loop is the retry mechanism) regression coverage.
+
+type EmitFn = (event: string, ...args: readonly unknown[]) => void;
+type MockEmit = ReturnType<typeof vi.fn<EmitFn>>;
+
+type PollerLmsClient = {
+  readonly getStatus: () => Promise<{
+    readonly ok: boolean;
+    readonly value?: PlayerStatus;
+    readonly error?: LmsError;
+  }>;
+  readonly getQueue: () => Promise<{
+    readonly ok: boolean;
+    readonly value?: ReadonlyArray<{
+      readonly id: string;
+      readonly position: number;
+      readonly title: string;
+      readonly artist: string;
+      readonly album: string;
+      readonly duration: number;
+      readonly isCurrent: boolean;
+    }>;
+    readonly error?: LmsError;
+  }>;
+  readonly nextTrack: () => Promise<{
+    readonly ok: boolean;
+    readonly error?: unknown;
+  }>;
+  readonly resume: () => Promise<{
+    readonly ok: boolean;
+    readonly error?: unknown;
+  }>;
+};
+
+const makeMockEmit = (): MockEmit => vi.fn<EmitFn>();
+
+const makeMockIo = (
+  mockEmit: MockEmit = makeMockEmit(),
+): { readonly io: TypedSocketIOServer; readonly emit: MockEmit } => {
+  const io = new Server<ClientToServerEvents, ServerToClientEvents>();
+  const roomEmitter = io.to("test-room");
+  vi.spyOn(roomEmitter, "emit").mockImplementation((event, ...args) => {
+    mockEmit(event, ...args);
+    return true;
+  });
+  vi.spyOn(io, "to").mockReturnValue(roomEmitter);
+  return { io, emit: mockEmit };
+};
+
+const makeMockApp = (): FastifyInstance => fastify({ logger: false });
+
+const makePlayerStatus = (
+  overrides: Partial<PlayerStatus> = {},
+): PlayerStatus => ({
+  mode: "play",
+  playerConnected: true,
+  time: 0,
+  duration: 0,
+  volume: 50,
+  currentTrack: null,
+  queuePreview: [],
+  ...overrides,
+});
+
+const createSequentialGetStatus = (
+  responses: ReadonlyArray<Result<PlayerStatus, LmsError>>,
+): ReturnType<typeof vi.fn<PollerLmsClient["getStatus"]>> => {
+  const responseIterator = responses[Symbol.iterator]();
+  const fallbackResponse = responses.at(-1);
+  return vi.fn().mockImplementation(async () => {
+    const nextResponse = responseIterator.next();
+    return nextResponse.done ? fallbackResponse! : nextResponse.value;
+  });
+};
+
+const makeMockLmsClient = (
+  overrides: Partial<PollerLmsClient> = {},
+): PollerLmsClient => ({
+  getStatus: vi.fn().mockResolvedValue(ok(makePlayerStatus())),
+  getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+  nextTrack: vi.fn().mockResolvedValue({ ok: true }),
+  resume: vi.fn().mockResolvedValue({ ok: true }),
+  ...overrides,
+});
+
+describe("startStatusPolling - player connectivity events", () => {
+  test("emits system.playerDisconnected on a true → false transition, without emitting system.lmsDisconnected", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const mockLmsClient = makeMockLmsClient({
+      getStatus: createSequentialGetStatus([
+        ok(makePlayerStatus({ playerConnected: true })),
+        ok(makePlayerStatus({ playerConnected: false })),
+      ]),
+    });
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      5, // fast interval for test
+    );
+
+    await vi.waitFor(() => {
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SYSTEM_PLAYER_DISCONNECTED,
+        expect.objectContaining({ message: "Player disconnected from LMS" }),
+      );
+    });
+
+    stopPolling();
+
+    expect(mockIo.emit).not.toHaveBeenCalledWith(
+      SYSTEM_LMS_DISCONNECTED,
+      expect.anything(),
+    );
+  });
+
+  test("emits system.playerReconnected on a follow-up poll returning playerConnected: true again", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const mockLmsClient = makeMockLmsClient({
+      getStatus: createSequentialGetStatus([
+        ok(makePlayerStatus({ playerConnected: true })),
+        ok(makePlayerStatus({ playerConnected: false })),
+        ok(makePlayerStatus({ playerConnected: true })),
+      ]),
+    });
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      5, // fast interval for test
+    );
+
+    await vi.waitFor(() => {
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SYSTEM_PLAYER_RECONNECTED,
+        expect.objectContaining({ message: "Player reconnected to LMS" }),
+      );
+    });
+
+    stopPolling();
+  });
+
+  test("emits system.lmsDisconnected after the very first failed poll, not after a multi-attempt retry delay (Fix 2 regression)", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const getStatus = vi.fn().mockResolvedValue(
+      err({
+        type: "NetworkError",
+        message: "ECONNREFUSED",
+      }),
+    );
+    const mockLmsClient = makeMockLmsClient({ getStatus });
+
+    // Production-like 1s interval: the very first poll runs immediately on
+    // start (before any interval elapses), so a fast emission here proves
+    // detection is not gated behind getStatus()'s (removed) internal retry
+    // chain (previously up to ~18s across 3 attempts with backoff).
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      1000,
+    );
+
+    await vi.waitFor(
+      () => {
+        expect(mockIo.emit).toHaveBeenCalledWith(
+          SYSTEM_LMS_DISCONNECTED,
+          expect.objectContaining({ message: "LMS connection lost" }),
+        );
+      },
+      { timeout: 500 },
+    );
+
+    stopPolling();
+
+    expect(getStatus).toHaveBeenCalledTimes(1);
   });
 });

@@ -118,6 +118,7 @@ const DEFAULT_LMS_CONFIG: LmsConfig = {
 
 const createStatus = (label: string): PlayerStatus => ({
   mode: "stop",
+  playerConnected: true,
   time: 0,
   duration: 0,
   volume: 50,

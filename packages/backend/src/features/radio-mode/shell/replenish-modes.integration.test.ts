@@ -256,6 +256,7 @@ const createMockLmsClient = (): MockLmsClient => ({
     ok: true,
     value: {
       mode: "play",
+      playerConnected: true,
       time: 120,
       duration: 240,
       volume: 50,
@@ -290,6 +291,7 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
     ok: true,
     value: {
       mode: "play",
+      playerConnected: true,
       time: 120,
       duration: 240,
       volume: 50,

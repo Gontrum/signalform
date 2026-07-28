@@ -651,6 +651,77 @@ describe("LMS Client - Acceptance Tests", () => {
       await thenPlayerVolumeIs(result, 50);
       expect(result.ok && result.value.duration).toBe(371.333);
     });
+
+    // Fix 0: player_connected reflects whether this specific player (e.g. a
+    // UPnPBridge-connected speaker) is still connected to LMS, independent of
+    // LMS's own HTTP reachability.
+    it("returns playerConnected=false when LMS reports player_connected: 0", async () => {
+      const mockResponse = {
+        result: {
+          mode: "play",
+          time: 10,
+          duration: 200,
+          "mixer volume": 50,
+          player_connected: 0,
+        },
+        id: 1,
+        error: null,
+      };
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await whenGettingPlayerStatus();
+
+      await thenResultIsSuccess(result);
+      expect(result.ok && result.value.playerConnected).toBe(false);
+    });
+
+    it("returns playerConnected=true when LMS reports player_connected: 1", async () => {
+      const mockResponse = {
+        result: {
+          mode: "play",
+          time: 10,
+          duration: 200,
+          "mixer volume": 50,
+          player_connected: 1,
+        },
+        id: 1,
+        error: null,
+      };
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await whenGettingPlayerStatus();
+
+      await thenResultIsSuccess(result);
+      expect(result.ok && result.value.playerConnected).toBe(true);
+    });
+
+    it("fails open to playerConnected=true when LMS omits player_connected (older LMS versions)", async () => {
+      await givenLmsPlayerIsStopped();
+
+      const result = await whenGettingPlayerStatus();
+
+      await thenResultIsSuccess(result);
+      expect(result.ok && result.value.playerConnected).toBe(true);
+    });
+
+    // Fix 2: getStatus() runs inside the 1s poll loop, which is itself the
+    // retry mechanism — it must not additionally retry through executeCommandWithRetry
+    // (previously up to ~18s across 3 attempts with backoff).
+    it("does not retry on NetworkError — fails on the first attempt", async () => {
+      await givenLmsConnectionWillFail("ECONNREFUSED");
+
+      const result = await whenGettingPlayerStatus();
+
+      await thenResultIsError(result);
+      await thenErrorTypeIs(result, "NetworkError");
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("Integration: nextTrack() function", () => {

@@ -40,6 +40,8 @@ import {
   PLAYER_UPDATES_ROOM,
   SYSTEM_LMS_DISCONNECTED,
   SYSTEM_LMS_RECONNECTED,
+  SYSTEM_PLAYER_DISCONNECTED,
+  SYSTEM_PLAYER_RECONNECTED,
 } from "./events.js";
 
 /**
@@ -52,6 +54,8 @@ type LmsClient = {
     readonly value?: PlayerStatus;
     readonly error?: LmsError;
   }>;
+  // PlayerStatus (imported above) already carries `playerConnected`, so no
+  // separate inline field is needed here.
   // Needed for emitting player.queue.updated on track change
   readonly getQueue: () => Promise<{
     readonly ok: boolean;
@@ -275,11 +279,55 @@ export const startStatusPolling = (
     const currentStatus: LmsPlayerStatus = {
       playerId,
       mode: statusResult.value.mode,
+      playerConnected: statusResult.value.playerConnected,
       currentTrack: track,
       volume: statusResult.value.volume,
       time: statusResult.value.time,
       queuePreview: statusResult.value.queuePreview,
     };
+
+    // Player-connectivity transition detection: orthogonal to the LMS-reachable
+    // check above. LMS itself answered fine (statusResult.ok) — this looks at
+    // whether *this specific player* (e.g. a UPnPBridge speaker) is still
+    // connected to LMS. previousStatus is null on the very first poll; treat
+    // that as "was connected" so we never fire a disconnect on startup, only on
+    // an actual true → false transition.
+    const wasPlayerConnected = previousStatus?.playerConnected ?? true;
+    if (wasPlayerConnected && !currentStatus.playerConnected) {
+      const systemEventResult = createSystemEventPayload(
+        "Player disconnected from LMS",
+      );
+      if (systemEventResult.ok) {
+        io.to(PLAYER_UPDATES_ROOM).emit(
+          SYSTEM_PLAYER_DISCONNECTED,
+          systemEventResult.value,
+        );
+        app.log.warn(
+          {
+            event: "system_player_disconnected",
+            playerId,
+          },
+          "Player disconnected from LMS - system event emitted",
+        );
+      }
+    } else if (!wasPlayerConnected && currentStatus.playerConnected) {
+      const systemEventResult = createSystemEventPayload(
+        "Player reconnected to LMS",
+      );
+      if (systemEventResult.ok) {
+        io.to(PLAYER_UPDATES_ROOM).emit(
+          SYSTEM_PLAYER_RECONNECTED,
+          systemEventResult.value,
+        );
+        app.log.info(
+          {
+            event: "system_player_reconnected",
+            playerId,
+          },
+          "Player reconnected to LMS - system event emitted",
+        );
+      }
+    }
 
     reconcileSuppressedQueueEnd(previousStatus, currentStatus);
 

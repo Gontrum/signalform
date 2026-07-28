@@ -184,6 +184,7 @@ const createMockLmsClient = (): MockLmsClient => ({
     ok: true,
     value: {
       mode: "play",
+      playerConnected: true,
       time: 120,
       duration: 240,
       volume: 50,
@@ -233,6 +234,7 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
     ok: true,
     value: {
       mode: "play",
+      playerConnected: true,
       time: 120,
       duration: 240,
       volume: 50,
@@ -821,6 +823,7 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
       ok: true,
       value: {
         mode: "stop" as const,
+        playerConnected: true,
         time: 0,
         duration: 0,
         volume: 50,
@@ -3160,6 +3163,7 @@ describe("artist.getSimilar fallback when track.getSimilar returns no results", 
       ok: true,
       value: {
         mode: "play" as const,
+        playerConnected: true,
         time: 10,
         duration: 300,
         volume: 50,

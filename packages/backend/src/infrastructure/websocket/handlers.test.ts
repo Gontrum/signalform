@@ -17,6 +17,7 @@ describe("createPlayerStatusPayload", () => {
   test("creates valid payload from LMS status (playing)", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 0,
@@ -46,6 +47,7 @@ describe("createPlayerStatusPayload", () => {
 
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       currentTrack: track,
       volume: 75,
@@ -64,6 +66,7 @@ describe("createPlayerStatusPayload", () => {
   test("maps pause mode to paused status", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       volume: 50,
       time: 0,
@@ -80,6 +83,7 @@ describe("createPlayerStatusPayload", () => {
   test("maps stop mode to stopped status", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "stop",
       volume: 50,
       time: 0,
@@ -96,6 +100,7 @@ describe("createPlayerStatusPayload", () => {
   test("includes currentTime in payload from lmsStatus.time", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 123.5,
@@ -113,6 +118,7 @@ describe("createPlayerStatusPayload", () => {
     const lmsStatus = {
       playerId: "",
       mode: "play" as const,
+      playerConnected: true,
       volume: 50,
       time: 0,
     };
@@ -129,6 +135,7 @@ describe("createPlayerStatusPayload", () => {
   test("passes through queuePreview in payload when provided", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 0,
@@ -148,6 +155,7 @@ describe("createPlayerStatusPayload", () => {
   test("payload is valid when queuePreview is omitted (backward compat)", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 0,
@@ -167,6 +175,7 @@ describe("hasQueueContextChanged", () => {
   test("returns false on initial poll without previous status", () => {
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 12,
@@ -187,6 +196,7 @@ describe("hasQueueContextChanged", () => {
   test("returns true when current track id changes", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 12,
@@ -227,6 +237,7 @@ describe("hasQueueContextChanged", () => {
 
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 12,
@@ -257,6 +268,7 @@ describe("hasQueueContextChanged", () => {
 
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 12,
@@ -307,6 +319,7 @@ describe("hasStatusChanged", () => {
   test("returns true when prev is null", () => {
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 0,
@@ -320,6 +333,7 @@ describe("hasStatusChanged", () => {
   test("returns true when mode changed", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 10,
@@ -327,6 +341,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       volume: 50,
       time: 10,
@@ -358,6 +373,7 @@ describe("hasStatusChanged", () => {
 
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       currentTrack: track1,
       volume: 50,
@@ -366,6 +382,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       currentTrack: track2,
       volume: 50,
@@ -380,6 +397,7 @@ describe("hasStatusChanged", () => {
   test("returns true when volume changed", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 10,
@@ -387,6 +405,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 75,
       time: 10,
@@ -397,9 +416,45 @@ describe("hasStatusChanged", () => {
     expect(result).toBe(true);
   });
 
+  test("returns true when only playerConnected changed (mode/track/volume/queue identical)", () => {
+    const track: Track = {
+      id: "track-1",
+      title: "Song 1",
+      artist: "Artist 1",
+      album: "Album 1",
+      duration: 180,
+      sources: [],
+    };
+
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      currentTrack: track,
+      volume: 50,
+      time: 10,
+      queuePreview: [{ id: "2", title: "Song A", artist: "Artist" }],
+    };
+
+    const current: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: false,
+      mode: "play",
+      currentTrack: track,
+      volume: 50,
+      time: 10,
+      queuePreview: [{ id: "2", title: "Song A", artist: "Artist" }],
+    };
+
+    const result = hasStatusChanged(prev, current);
+
+    expect(result).toBe(true);
+  });
+
   test("returns false when only time changed (playback advancing) - frontend has local ticker", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 10,
@@ -407,6 +462,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 11,
@@ -420,6 +476,7 @@ describe("hasStatusChanged", () => {
   test("returns false when only time changed (e.g., after seek) - frontend reconciles via fetchCurrentStatus", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 30,
@@ -427,6 +484,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "play",
       volume: 50,
       time: 120,
@@ -440,6 +498,7 @@ describe("hasStatusChanged", () => {
   test("returns true when queuePreview changes (e.g. track added while paused)", () => {
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       volume: 50,
       time: 45,
@@ -448,6 +507,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       volume: 50,
       time: 45,
@@ -474,6 +534,7 @@ describe("hasStatusChanged", () => {
 
     const prev: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       currentTrack: track,
       volume: 50,
@@ -482,6 +543,7 @@ describe("hasStatusChanged", () => {
 
     const current: LmsPlayerStatus = {
       playerId: "player-1",
+      playerConnected: true,
       mode: "pause",
       currentTrack: track,
       volume: 50,

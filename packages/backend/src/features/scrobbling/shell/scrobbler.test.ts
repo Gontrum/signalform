@@ -66,6 +66,7 @@ const makeStatus = (
 ): LmsPlayerStatus => ({
   playerId: "00:00:00:00:00:00",
   mode: "play",
+  playerConnected: true,
   currentTrack: makeTrack(),
   volume: 80,
   time: 10,

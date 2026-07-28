@@ -228,6 +228,7 @@ export type SavedPlaylist = {
  */
 export type PlayerStatus = {
   readonly mode: "play" | "pause" | "stop";
+  readonly playerConnected: boolean;
   readonly time: number; // seconds
   readonly duration: number; // seconds
   readonly volume: number; // 0-100

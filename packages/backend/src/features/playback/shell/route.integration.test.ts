@@ -1346,6 +1346,7 @@ describe("GET /api/playback/status", () => {
     mockLmsClient.getStatus.mockResolvedValue(
       ok({
         mode: "play" as const,
+        playerConnected: true,
         time: 42,
         duration: 240,
         volume: 70,
@@ -1401,6 +1402,7 @@ describe("GET /api/playback/status", () => {
     mockLmsClient.getStatus.mockResolvedValue(
       ok({
         mode: "pause" as const,
+        playerConnected: true,
         time: 10,
         duration: 240,
         volume: 70,
@@ -1422,6 +1424,7 @@ describe("GET /api/playback/status", () => {
     mockLmsClient.getStatus.mockResolvedValue(
       ok({
         mode: "stop" as const,
+        playerConnected: true,
         time: 0,
         duration: 0,
         volume: 70,

@@ -22,6 +22,7 @@ import type { Result } from "@signalform/shared";
 export type LmsPlayerStatus = {
   readonly playerId: string;
   readonly mode: "play" | "pause" | "stop";
+  readonly playerConnected: boolean;
   readonly currentTrack?: Track;
   readonly volume: number;
   readonly time: number;
@@ -159,6 +160,7 @@ export const hasStatusChanged = (
 
   return (
     prev.mode !== current.mode ||
+    prev.playerConnected !== current.playerConnected ||
     prev.currentTrack?.id !== current.currentTrack?.id ||
     prev.volume !== current.volume ||
     getQueuePreviewIdsKey(prev) !== getQueuePreviewIdsKey(current)

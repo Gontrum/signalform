@@ -10,6 +10,8 @@
 export const PLAYER_STATUS_CHANGED = "player.statusChanged" as const;
 export const SYSTEM_LMS_DISCONNECTED = "system.lmsDisconnected" as const;
 export const SYSTEM_LMS_RECONNECTED = "system.lmsReconnected" as const;
+export const SYSTEM_PLAYER_DISCONNECTED = "system.playerDisconnected" as const;
+export const SYSTEM_PLAYER_RECONNECTED = "system.playerReconnected" as const;
 export const PLAYER_QUEUE_UPDATED = "player.queue.updated" as const;
 export const PLAYER_RADIO_STARTED = "player.radio.started" as const;
 export const PLAYER_RADIO_UNAVAILABLE = "player.radio.unavailable" as const;

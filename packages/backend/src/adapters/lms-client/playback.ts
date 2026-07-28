@@ -56,6 +56,7 @@ const statusTrackSchema = z.object({
 const statusPayloadParser = createLmsResultParser(
   z.object({
     mode: z.string(),
+    player_connected: z.union([z.number(), z.string()]).optional(),
     time: z.union([z.number(), z.string()]).optional(),
     duration: z.union([z.number(), z.string()]).optional(),
     "mixer volume": z.union([z.number(), z.string()]).optional(),
@@ -160,10 +161,12 @@ const createPlaybackMethodsImplementation = (
       // tags: u=url, a=artist, l=album, S=contributor_id (artist_id), e=album_id, K=artwork_url
       // count=4: playlist_loop[0]=current track, [1..3]=next 3 tracks (queue preview)
       const command: LmsCommand = ["status", "-", 4, "tags:u,a,l,S,e,K"];
-      const result = await executeCommandWithRetry(
-        command,
-        statusPayloadParser,
-      );
+      // Fix 2: use executeCommand (no retry) here — this call runs inside the 1s
+      // poll loop, which is itself the retry mechanism. Retrying (up to ~18s across
+      // 3 attempts with backoff) would stall both disconnect- and reconnect-detection
+      // for the whole poller, not just this one call. Other one-shot commands in this
+      // file (play, pause, resume, ...) correctly keep executeCommandWithRetry.
+      const result = await executeCommand(command, statusPayloadParser);
 
       if (!result.ok) {
         return result;
@@ -219,10 +222,16 @@ const createPlaybackMethodsImplementation = (
       const normalizedTime = Number(result.value.time ?? 0);
       const normalizedDuration = Number(result.value.duration ?? 0);
       const normalizedVolume = Number(result.value["mixer volume"] ?? 0);
+      // Fix 0: LMS reports whether this specific player is connected to it via
+      // player_connected (1/0), independent of LMS's own HTTP reachability. Fail
+      // open (default connected) if the field is ever absent, e.g. an older
+      // untested LMS version.
+      const playerConnected = Number(result.value.player_connected ?? 1) !== 0;
 
       // Build PlayerStatus
       const status: PlayerStatus = {
         mode: normalizedMode,
+        playerConnected,
         time: Number.isFinite(normalizedTime) ? normalizedTime : 0,
         duration: Number.isFinite(normalizedDuration) ? normalizedDuration : 0,
         volume: Number.isFinite(normalizedVolume) ? normalizedVolume : 0,
