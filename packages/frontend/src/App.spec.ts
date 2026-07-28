@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { ok } from '@signalform/shared'
 import App from './App.vue'
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
@@ -23,7 +23,6 @@ const mockUseLmsHealth = vi.mocked(useLmsHealth)
 const stubLmsHealth = (isDown: boolean): void => {
   mockUseLmsHealth.mockReturnValue({
     isLmsDown: computed(() => isDown),
-    consecutiveFailures: ref(isDown ? 2 : 0),
   })
 }
 

@@ -1,20 +1,24 @@
+/**
+ * useLmsHealth (docs/review/06-resilience-lms.md Fix 3): now driven directly
+ * by the `system.lmsDisconnected`/`system.lmsReconnected` WebSocket events —
+ * see the composable's own doc comment for the rationale for dropping the
+ * previous independent `GET /health` poller.
+ */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { effectScope, type EffectScope } from 'vue'
-import { flushPromises } from '@vue/test-utils'
 
-vi.mock('@/platform/api/healthApi', () => ({
-  fetchLmsHealth: vi.fn(),
+const { websocketOnMock } = vi.hoisted(() => ({
+  websocketOnMock: vi.fn<(event: string, handler: (payload: unknown) => void) => void>(),
+}))
+
+vi.mock('@/app/useWebSocket', () => ({
+  useWebSocket: (): { readonly on: typeof websocketOnMock } => ({
+    on: websocketOnMock,
+  }),
 }))
 
 // Import AFTER the mock
 import { useLmsHealth } from '@/domains/lms/shell/useLmsHealth'
-import { fetchLmsHealth } from '@/platform/api/healthApi'
-
-const mockFetchLmsHealth = vi.mocked(fetchLmsHealth)
-
-const HEALTHY_INTERVAL_MS = 30_000
-const DOWN_INTERVAL_MS = 15_000
-const FAILING_RETRY_INTERVAL_MS = 4_000
 
 /** Run the composable inside its own effect scope so onScopeDispose fires on stop(). */
 const runInScope = (): {
@@ -26,168 +30,99 @@ const runInScope = (): {
   return { scope, result }
 }
 
+const emitLmsDisconnected = (): void => {
+  const handler = websocketOnMock.mock.calls.find(
+    ([event]) => event === 'system.lmsDisconnected',
+  )?.[1]
+  handler?.({ message: 'LMS connection lost', timestamp: Date.now() })
+}
+
+const emitLmsReconnected = (): void => {
+  const handler = websocketOnMock.mock.calls.find(
+    ([event]) => event === 'system.lmsReconnected',
+  )?.[1]
+  handler?.({ message: 'LMS connection restored', timestamp: Date.now() })
+}
+
 describe('useLmsHealth', () => {
   beforeEach(() => {
     vi.useFakeTimers()
-    mockFetchLmsHealth.mockReset()
+    websocketOnMock.mockClear()
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('stays up after a single failed probe', async () => {
-    mockFetchLmsHealth.mockResolvedValue(null)
-
+  it('starts with isLmsDown false', () => {
     const { scope, result } = runInScope()
-    await flushPromises() // initial probe resolves
 
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
-    expect(result.consecutiveFailures.value).toBe(1)
     expect(result.isLmsDown.value).toBe(false)
 
     scope.stop()
   })
 
-  it('goes down after two consecutive failed probes', async () => {
-    mockFetchLmsHealth.mockResolvedValue({ lmsConnected: false })
-
-    const { scope, result } = runInScope()
-    await flushPromises() // first probe -> 1 failure, still up
-
-    expect(result.isLmsDown.value).toBe(false)
-
-    // One failure already -> next probe scheduled after the fast retry interval,
-    // not the 30s healthy interval, so the second failure lands quickly.
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS)
-
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(2)
-    expect(result.consecutiveFailures.value).toBe(2)
-    expect(result.isLmsDown.value).toBe(true)
-
-    scope.stop()
-  })
-
-  it('schedules the second probe after the fast retry interval, not the healthy one', async () => {
-    mockFetchLmsHealth.mockResolvedValue(null)
-
-    const { scope, result } = runInScope()
-    await flushPromises() // first probe -> 1 failure
-
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
-    expect(result.consecutiveFailures.value).toBe(1)
-
-    // Not yet due just before the fast retry interval elapses.
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS - 1)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
-
-    // Second failed probe arrives ~4s in, well before the 30s healthy interval.
-    await vi.advanceTimersByTimeAsync(1)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(2)
-    expect(result.consecutiveFailures.value).toBe(2)
-    expect(result.isLmsDown.value).toBe(true)
-
-    scope.stop()
-  })
-
-  it('uses the down interval once the banner is on, not the fast retry interval', async () => {
-    mockFetchLmsHealth.mockResolvedValue({ lmsConnected: false })
-
-    const { scope, result } = runInScope()
-    await flushPromises() // 1st failure
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS) // 2nd failure -> down
-
-    expect(result.isLmsDown.value).toBe(true)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(2)
-
-    // Down now: the fast retry cadence no longer applies.
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(2)
-
-    // Next probe only after the full down interval has elapsed.
-    await vi.advanceTimersByTimeAsync(DOWN_INTERVAL_MS - FAILING_RETRY_INTERVAL_MS)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(3)
-
-    scope.stop()
-  })
-
-  it('recovers and resets the counter after a successful probe', async () => {
-    mockFetchLmsHealth
-      .mockResolvedValueOnce({ lmsConnected: false })
-      .mockResolvedValueOnce({ lmsConnected: false })
-      .mockResolvedValue({ lmsConnected: true })
-
-    const { scope, result } = runInScope()
-    await flushPromises() // 1st failure
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS) // 2nd failure -> down
-
-    expect(result.isLmsDown.value).toBe(true)
-
-    // Down view -> next probe scheduled after the faster down interval.
-    await vi.advanceTimersByTimeAsync(DOWN_INTERVAL_MS) // success
-
-    expect(result.consecutiveFailures.value).toBe(0)
-    expect(result.isLmsDown.value).toBe(false)
-
-    scope.stop()
-  })
-
-  it('returns to the healthy interval after a successful probe resets the counter', async () => {
-    mockFetchLmsHealth
-      .mockResolvedValueOnce(null) // 1st failure
-      .mockResolvedValue({ lmsConnected: true }) // recovers thereafter
-
-    const { scope, result } = runInScope()
-    await flushPromises() // 1st failure
-    expect(result.consecutiveFailures.value).toBe(1)
-
-    // Fast retry -> successful probe resets the counter to zero.
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS)
-    expect(result.consecutiveFailures.value).toBe(0)
-    const callsAfterRecovery = mockFetchLmsHealth.mock.calls.length
-
-    // Back to healthy: no probe during the former fast-retry window...
-    await vi.advanceTimersByTimeAsync(FAILING_RETRY_INTERVAL_MS)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(callsAfterRecovery)
-
-    // ...the next probe fires only after the full 30s healthy interval.
-    await vi.advanceTimersByTimeAsync(HEALTHY_INTERVAL_MS - FAILING_RETRY_INTERVAL_MS)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(callsAfterRecovery + 1)
-
-    scope.stop()
-  })
-
-  it('probes immediately when the document becomes visible', async () => {
-    mockFetchLmsHealth.mockResolvedValue({ lmsConnected: true })
-
+  it('registers handlers for system.lmsDisconnected and system.lmsReconnected', () => {
     const { scope } = runInScope()
-    await flushPromises() // initial probe
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
 
-    document.dispatchEvent(new Event('visibilitychange'))
-    await flushPromises()
-
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(2)
+    const registeredEvents = websocketOnMock.mock.calls.map(([event]) => event)
+    expect(registeredEvents).toContain('system.lmsDisconnected')
+    expect(registeredEvents).toContain('system.lmsReconnected')
 
     scope.stop()
   })
 
-  it('stops polling and removes the listener after dispose', async () => {
-    mockFetchLmsHealth.mockResolvedValue({ lmsConnected: true })
+  it('becomes true when system.lmsDisconnected fires', () => {
+    const { scope, result } = runInScope()
 
-    const { scope } = runInScope()
-    await flushPromises() // initial probe
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
+    emitLmsDisconnected()
+
+    expect(result.isLmsDown.value).toBe(true)
 
     scope.stop()
+  })
 
-    // No further scheduled probes after unmount.
-    await vi.advanceTimersByTimeAsync(HEALTHY_INTERVAL_MS * 3)
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
+  it('becomes false again when system.lmsReconnected fires', () => {
+    const { scope, result } = runInScope()
 
-    // The visibility listener is gone too.
-    document.dispatchEvent(new Event('visibilitychange'))
-    await flushPromises()
-    expect(mockFetchLmsHealth).toHaveBeenCalledTimes(1)
+    emitLmsDisconnected()
+    expect(result.isLmsDown.value).toBe(true)
+
+    emitLmsReconnected()
+    expect(result.isLmsDown.value).toBe(false)
+
+    scope.stop()
+  })
+
+  it('does not poll: advancing timers with no WS event does not change state', async () => {
+    const { scope, result } = runInScope()
+
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(result.isLmsDown.value).toBe(false)
+    // No HTTP-health-probe timers were ever scheduled — only the two
+    // WS event handlers were registered, nothing else runs on a timer.
+    expect(websocketOnMock).toHaveBeenCalledTimes(2)
+
+    scope.stop()
+  })
+
+  it('does not flap back to false on its own after a disconnect, absent a reconnect event or further timer activity', async () => {
+    const { scope, result } = runInScope()
+
+    emitLmsDisconnected()
+    expect(result.isLmsDown.value).toBe(true)
+
+    await vi.advanceTimersByTimeAsync(120_000)
+
+    expect(result.isLmsDown.value).toBe(true)
+
+    scope.stop()
+  })
+
+  it('disposing the owning scope does not throw (no unregister mechanism yet on useWebSocket — pre-existing limitation, not made worse here)', () => {
+    const { scope } = runInScope()
+
+    expect(() => scope.stop()).not.toThrow()
   })
 })

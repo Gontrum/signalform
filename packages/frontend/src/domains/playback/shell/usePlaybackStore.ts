@@ -71,6 +71,10 @@ export const usePlaybackStore = defineStore('playback', () => {
   // LMS connectivity state (S02: actionable error with retry)
   const lmsError = ref<string | null>(null)
   const isRetryingLms = ref(false)
+  // Player connectivity state (physical/software player lost its own
+  // connection to LMS — distinct root cause from lmsError above, see
+  // docs/review/06-resilience-lms.md Fix 0).
+  const playerError = ref<string | null>(null)
   const hasInitializedSync = ref(false)
   const progressClock = ref<ReturnType<typeof setInterval> | null>(null)
   const playbackSnapshotRevision = ref(0)
@@ -80,6 +84,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const isCurrentlyPlaying = computed(() => isPlaying.value && !isPaused.value)
   const hasError = computed(() => error.value !== null)
   const isLmsDisconnected = computed(() => lmsError.value !== null)
+  const isPlayerDisconnected = computed(() => playerError.value !== null)
   const progressPercent = computed(() =>
     calculateProgressPercent(currentTime.value, trackDuration.value),
   )
@@ -269,7 +274,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   // Subscribe and register handlers immediately at store initialization.
   // The store lives for the entire app lifetime (Pinia keeps it alive across navigation),
   // so handlers must be registered once here — not in component lifecycle hooks.
-  const { on, subscribe, onReconnect } = useWebSocket() // singleton socket — lives for app lifetime
+  const { on, subscribe, onReconnect, connectionState } = useWebSocket() // singleton socket — lives for app lifetime
 
   subscribe()
 
@@ -300,6 +305,15 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   on('system.lmsReconnected', (_payload: SystemEventPayload) => {
     lmsError.value = null
+    syncPlaybackState()
+  })
+
+  on('system.playerDisconnected', (_payload: SystemEventPayload) => {
+    playerError.value = 'Speaker lost connection to server'
+  })
+
+  on('system.playerReconnected', (_payload: SystemEventPayload) => {
+    playerError.value = null
     syncPlaybackState()
   })
 
@@ -613,11 +627,14 @@ export const usePlaybackStore = defineStore('playback', () => {
     queuePreview,
     lmsError,
     isRetryingLms,
+    playerError,
+    connectionState,
     // Getters
     hasCurrentTrack,
     isCurrentlyPlaying,
     hasError,
     isLmsDisconnected,
+    isPlayerDisconnected,
     progressPercent,
     // Actions
     play,

@@ -408,5 +408,32 @@ const selectSleepOff = async (): Promise<void> => {
         </button>
       </template>
     </Banner>
+
+    <!-- WebSocket Transport Banner (resilience fix, docs/review/06-resilience-lms.md Fix 1) -->
+    <Banner
+      v-if="
+        playbackStore.connectionState === 'disconnected' ||
+        playbackStore.connectionState === 'reconnecting'
+      "
+      data-testid="transport-error-banner"
+      variant="warning"
+      class="mt-4 w-full max-w-sm"
+    >
+      {{
+        playbackStore.connectionState === 'reconnecting'
+          ? t('connection.reconnecting')
+          : t('connection.lost')
+      }}
+    </Banner>
+
+    <!-- Player Connectivity Banner (docs/review/06-resilience-lms.md Fix 0) -->
+    <Banner
+      v-if="playbackStore.isPlayerDisconnected"
+      data-testid="player-error-banner"
+      variant="warning"
+      class="mt-4 w-full max-w-sm"
+    >
+      {{ playbackStore.playerError }}
+    </Banner>
   </div>
 </template>

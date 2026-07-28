@@ -1,113 +1,57 @@
-import { computed, onScopeDispose, ref, type ComputedRef, type Ref } from 'vue'
-import { fetchLmsHealth } from '@/platform/api/healthApi'
-import { shouldShowLmsDownBanner } from '@/domains/lms/core/service'
-
-/** Poll interval while the LMS is reachable (no consecutive failures yet). */
-const HEALTHY_POLL_INTERVAL_MS = 30_000
-/** Faster poll interval while the LMS is down, so recovery is noticed quickly. */
-const DOWN_POLL_INTERVAL_MS = 15_000
-/**
- * Short retry interval while failures have started accumulating but the banner
- * threshold is not yet met. Ensures the next failed probe arrives quickly, so
- * the "LMS down" banner can actually appear even when the LMS is only briefly
- * unreachable (e.g. between app-start Wake-on-LAN and the LMS waking up).
- */
-const FAILING_RETRY_INTERVAL_MS = 4_000
+import { computed, ref, type ComputedRef } from 'vue'
+import { useWebSocket } from '@/app/useWebSocket'
+import type { SystemEventPayload } from '@signalform/shared'
 
 type UseLmsHealthResult = {
-  /** True once the LMS has failed enough consecutive probes (see core). */
+  /** True while the backend has told us LMS is unreachable. */
   readonly isLmsDown: ComputedRef<boolean>
-  /** Exposed for tests; number of consecutive failed probes. */
-  readonly consecutiveFailures: Ref<number>
 }
 
 /**
- * Continuously probes backend health to drive the global "LMS down" banner.
+ * Drives the global "LMS down" banner from the same `system.lmsDisconnected`/
+ * `system.lmsReconnected` WebSocket events that `usePlaybackStore` already
+ * consumes for `lmsError`/`isLmsDisconnected` (docs/review/06-resilience-lms.md
+ * Fix 3).
  *
- * A probe counts as a failure when {@link fetchLmsHealth} returns `null`
- * (network error / unparseable body) or reports `lmsConnected === false`.
- * A successful probe resets the failure counter to zero. The banner threshold
- * itself lives in the functional core (`shouldShowLmsDownBanner`).
+ * Previously this composable ran an independent, self-rescheduling
+ * `GET /health` poller (30s/15s/4s intervals depending on state, plus a
+ * `visibilitychange` re-probe) and only flipped `isLmsDown` after two
+ * consecutive failed probes, to avoid flapping on a single transient HTTP
+ * failure. That debounce is no longer needed: the backend's status poller
+ * only emits `system.lmsDisconnected`/`system.lmsReconnected` once per
+ * LMS-down/up transition (not per-probe), so the WS event is already a
+ * debounced, authoritative signal — replicating a failure-counting threshold
+ * on top of it would just add lag without adding safety. Consolidating onto
+ * a single event source also guarantees this banner and the playback
+ * store's LMS banner appear/disappear in the same tick, instead of
+ * potentially disagreeing for a few seconds depending on independent
+ * polling cadences.
  *
- * Polling runs immediately on activation, then on a self-rescheduling timer:
- * every 30s while healthy (no failures), every 4s once failures have started
- * but the banner is not yet on (so the next failure lands fast), and every 15s
- * while down (to notice recovery). Overlapping requests are skipped via an
- * in-flight guard, and a probe fires immediately whenever the document becomes
- * visible again. All timers and listeners are torn down when the owning scope
- * is disposed (component unmount).
+ * A push-based WS event does not need a pull-based "did I miss anything
+ * while backgrounded" re-probe either — `useWebSocket()`'s own
+ * `onReconnect` already resyncs relevant state elsewhere in the app after a
+ * transport reconnect.
+ *
+ * Note: `useWebSocket()`'s `on()` has no unregister mechanism yet (see its
+ * own doc comment) — this composable is called exactly once, from `App.vue`,
+ * which lives for the app's lifetime, so that pre-existing limitation does
+ * not matter in practice here (mirrors how `usePlaybackStore` registers its
+ * own `system.lmsDisconnected`/`Reconnected` handlers once at store setup).
  */
 export const useLmsHealth = (): UseLmsHealthResult => {
-  const consecutiveFailures = ref(0)
-  const isLmsDown = computed(() => shouldShowLmsDownBanner(consecutiveFailures.value))
+  const lmsDown = ref(false)
 
-  const timeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
-  const isProbing = ref(false)
-  const disposed = ref(false)
+  const { on } = useWebSocket()
 
-  const probe = async (): Promise<void> => {
-    // Skip if a probe is already in flight — never stack parallel requests.
-    if (isProbing.value) {
-      return
-    }
-    isProbing.value = true
-    try {
-      const result = await fetchLmsHealth()
-      if (result !== null && result.lmsConnected) {
-        consecutiveFailures.value = 0
-      } else {
-        consecutiveFailures.value += 1
-      }
-    } finally {
-      isProbing.value = false
-    }
-  }
-
-  const clearPending = (): void => {
-    if (timeoutId.value !== null) {
-      clearTimeout(timeoutId.value)
-      timeoutId.value = null
-    }
-  }
-
-  const scheduleNext = (): void => {
-    if (disposed.value) {
-      return
-    }
-    const delay =
-      consecutiveFailures.value === 0
-        ? HEALTHY_POLL_INTERVAL_MS
-        : isLmsDown.value
-          ? DOWN_POLL_INTERVAL_MS
-          : FAILING_RETRY_INTERVAL_MS
-    timeoutId.value = setTimeout(() => void tick(), delay)
-  }
-
-  const tick = async (): Promise<void> => {
-    await probe()
-    scheduleNext()
-  }
-
-  const probeNow = (): void => {
-    clearPending()
-    void tick()
-  }
-
-  const handleVisibilityChange = (): void => {
-    if (document.visibilityState === 'visible') {
-      probeNow()
-    }
-  }
-
-  // Probe immediately on activation, then let the timer take over.
-  void tick()
-  document.addEventListener('visibilitychange', handleVisibilityChange)
-
-  onScopeDispose(() => {
-    disposed.value = true
-    clearPending()
-    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  on('system.lmsDisconnected', (_payload: SystemEventPayload) => {
+    lmsDown.value = true
   })
 
-  return { isLmsDown, consecutiveFailures }
+  on('system.lmsReconnected', (_payload: SystemEventPayload) => {
+    lmsDown.value = false
+  })
+
+  const isLmsDown = computed(() => lmsDown.value)
+
+  return { isLmsDown }
 }

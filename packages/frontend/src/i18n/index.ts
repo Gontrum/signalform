@@ -37,6 +37,8 @@ export type MessageKey =
   | 'nav.queue'
   | 'nav.back'
   | 'lms.downBanner'
+  | 'connection.lost'
+  | 'connection.reconnecting'
   | 'home.title'
   | 'home.searchPlaceholder'
   | 'home.searchPlaceholderHero'
@@ -236,6 +238,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.queue': 'Queue',
     'nav.back': 'Back',
     'lms.downBanner': 'LMS server unreachable — trying to wake it…',
+    'connection.lost': 'Connection to server lost — reconnecting…',
+    'connection.reconnecting': 'Reconnecting to server…',
     'home.title': 'Start',
     'home.searchPlaceholder': 'Search albums, artists or tracks…',
     'home.searchPlaceholderHero': 'Search for music',
@@ -434,6 +438,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nav.queue': 'Warteschlange',
     'nav.back': 'Zurück',
     'lms.downBanner': 'LMS-Server nicht erreichbar — Weckversuch läuft…',
+    'connection.lost': 'Verbindung zum Server verloren — Wiederverbindung läuft…',
+    'connection.reconnecting': 'Verbindung wird wiederhergestellt…',
     'home.title': 'Startseite',
     'home.searchPlaceholder': 'Alben, Künstler oder Titel suchen…',
     'home.searchPlaceholderHero': 'Nach Musik suchen',
