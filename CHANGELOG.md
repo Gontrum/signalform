@@ -15,6 +15,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.19.0] - 2026-07-28
+
+### Added
+
+- player-connectivity detection: the backend now recognizes when the
+  physical player itself loses its connection to LMS (e.g. the speaker's
+  own WiFi drops), distinct from LMS the server being unreachable, and
+  surfaces it as its own banner instead of staying silently invisible
+- a banner for a dropped browser-to-server WebSocket connection (e.g. a
+  client-side WiFi blip), which previously left the UI frozen on stale
+  playback state with no indication anything was wrong
+- keyboard navigation (roving tabindex, arrow keys) for the Local/Tidal
+  library source tabs
+- auto-focus on the desktop search input for non-touch pointers
+
+### Changed
+
+- the "LMS unreachable" banner now runs on the same WebSocket events the
+  rest of the app already receives instead of a second, independently
+  timed `GET /health` polling loop, so it can no longer disagree with the
+  playback error banner on timing
+- the backend's LMS status poller no longer retries within its 1-second
+  polling loop, cutting outage-detection latency from up to ~18s down to
+  ~5s
+- widened the axe accessibility scan to catch violations outside a fixed
+  per-route rule allowlist, and added `/now-playing` to its coverage
+
+### Fixed
+
+- Popover (Sleep Timer, Queue overflow menus): Escape now closes it and
+  returns focus to the trigger, previously reachable only via
+  backdrop click
+- `AlbumCard`/`AlbumListRow`: hover-overlay Play/Add-to-queue buttons are
+  now visible on keyboard focus, not just mouse hover
+- autocomplete dropdown: fixed a broken `aria-controls` reference (axe
+  critical `aria-valid-attr-value`)
+- progress slider: announces the formatted time ("1:05 / 4:00") instead
+  of raw seconds on arrow-key seeking
+- autocomplete empty-state text contrast raised to meet WCAG AA (4.5:1)
+- `/now-playing` now has a `<main>` landmark
+- volume percentage display no longer double-announces changes via a
+  redundant `aria-live`
+- autocomplete's "Search for X" footer item moved inside the listbox
+  (axe `aria-required-parent`)
+- `UserSelectDialog`: added initial focus, a focus trap, and an
+  accessible label — previously required tabbing through the entire
+  hidden app shell to reach
+
+---
+
 ## [0.18.0] - 2026-07-26
 
 ### Added
