@@ -23,7 +23,7 @@ const containerClasses = computed((): string => {
 const messageClasses = computed((): string => {
   switch (props.variant) {
     case 'warning':
-      return 'text-sm font-medium text-warning'
+      return 'text-sm font-medium text-warning-content'
     case 'error':
     default:
       return 'text-sm font-medium text-error'
