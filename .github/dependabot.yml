@@ -29,6 +29,8 @@ updates:
       - "javascript"
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    cooldown:
+      default-days: 1
     groups:
       root-dev-dependencies:
         dependency-type: "development"
@@ -52,6 +54,8 @@ updates:
       - "frontend"
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    cooldown:
+      default-days: 1
     groups:
       frontend-dev-dependencies:
         dependency-type: "development"
@@ -75,6 +79,8 @@ updates:
       - "backend"
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    cooldown:
+      default-days: 1
     groups:
       backend-dev-dependencies:
         dependency-type: "development"
@@ -98,6 +104,8 @@ updates:
       - "shared"
     open-pull-requests-limit: 5
     versioning-strategy: increase
+    cooldown:
+      default-days: 1
     groups:
       shared-dev-dependencies:
         dependency-type: "development"
