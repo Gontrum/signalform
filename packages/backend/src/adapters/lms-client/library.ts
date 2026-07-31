@@ -17,6 +17,8 @@ import type {
   AlbumTrackRaw,
   ArtistAlbumRaw,
   LibraryAlbumRaw,
+  LibraryAlbumFilters,
+  LmsGenreRaw,
 } from "./types.js";
 import { MAX_SEARCH_RESULTS, validateNonEmptyId } from "./helpers.js";
 import {
@@ -47,12 +49,18 @@ export type LibraryMethods = {
   readonly getLibraryAlbums: (
     offset: number,
     limit: number,
+    filters?: LibraryAlbumFilters,
   ) => Promise<
     Result<
       { readonly albums: readonly LibraryAlbumRaw[]; readonly count: number },
       LmsError
     >
   >;
+  readonly getLibraryAlbumCount: (
+    filters?: LibraryAlbumFilters,
+  ) => Promise<Result<number, LmsError>>;
+  readonly getLibraryYears: () => Promise<Result<readonly number[], LmsError>>;
+  readonly getGenres: () => Promise<Result<readonly LmsGenreRaw[], LmsError>>;
   readonly rescanLibrary: () => Promise<Result<void, LmsError>>;
   readonly getRescanProgress: () => Promise<Result<RescanProgress, LmsError>>;
 };
@@ -140,6 +148,33 @@ const libraryAlbumsPayloadParser = createLmsResultParser(
   }),
 );
 
+const albumCountPayloadParser = createLmsResultParser(
+  z.object({
+    count: z.number().optional(),
+  }),
+);
+
+const yearsPayloadParser = createLmsResultParser(
+  z.object({
+    years_loop: z
+      .array(z.object({ year: z.union([z.number(), z.string()]) }))
+      .optional(),
+  }),
+);
+
+const genresPayloadParser = createLmsResultParser(
+  z.object({
+    genres_loop: z
+      .array(
+        z.object({
+          id: z.union([z.number(), z.string()]),
+          genre: z.string(),
+        }),
+      )
+      .optional(),
+  }),
+);
+
 const songsPayloadParser = createLmsResultParser(
   z.object({
     titles_loop: z
@@ -152,6 +187,31 @@ const songsPayloadParser = createLmsResultParser(
       .optional(),
   }),
 );
+
+// Distinct years and genres do not grow with the album count (measured: 71 years,
+// 136 genres on a 799-album library), so one generous request covers any library.
+const MAX_LIBRARY_YEARS = 999;
+const MAX_GENRES = 999;
+
+const NO_FILTERS: LibraryAlbumFilters = {};
+
+// `year: 0` is a meaningful filter (albums without a year), so absence is tested
+// against undefined, never against falsiness.
+const buildAlbumFilterParams = (
+  filters: LibraryAlbumFilters,
+): readonly string[] => {
+  const search = filters.search?.trim() ?? "";
+
+  return [
+    ...(filters.sort !== undefined ? [`sort:${filters.sort}`] : []),
+    ...(filters.genreId !== undefined ? [`genre_id:${filters.genreId}`] : []),
+    ...(search !== "" ? [`search:${search}`] : []),
+    ...(filters.year !== undefined ? [`year:${filters.year}`] : []),
+  ];
+};
+
+const toNumericId = (value: number | string): number =>
+  typeof value === "number" ? value : Number.parseInt(value, 10);
 
 const createLibraryMethodsImplementation = (
   deps: ExecuteDeps,
@@ -399,18 +459,26 @@ const createLibraryMethodsImplementation = (
      *
      * @param offset - Pagination start index
      * @param limit - Maximum albums to return (max 999)
+     * @param filters - Optional server-side sort/genre/search/year filters
      * @returns Result with album list + total count or error
      */
     getLibraryAlbums: async (
       offset: number,
       limit: number,
+      filters: LibraryAlbumFilters = NO_FILTERS,
     ): Promise<
       Result<
         { readonly albums: readonly LibraryAlbumRaw[]; readonly count: number },
         LmsError
       >
     > => {
-      const command: LmsCommand = ["albums", offset, limit, "tags:a,y,l,j"];
+      const command: LmsCommand = [
+        "albums",
+        offset,
+        limit,
+        "tags:a,y,l,j",
+        ...buildAlbumFilterParams(filters),
+      ];
 
       const result = await executeCommand(command, libraryAlbumsPayloadParser);
 
@@ -457,6 +525,71 @@ const createLibraryMethodsImplementation = (
       );
 
       return ok({ albums: enrichedAlbums, count });
+    },
+
+    /**
+     * Count the albums matching a filter combination without fetching rows.
+     *
+     * `albums 0 1 …` returns the full count in its `count` field (~30 ms measured),
+     * which is what the decade and genre views need — deliberately not the songs
+     * bulk query, whose cost grows with the track count.
+     */
+    getLibraryAlbumCount: async (
+      filters: LibraryAlbumFilters = NO_FILTERS,
+    ): Promise<Result<number, LmsError>> => {
+      const command: LmsCommand = [
+        "albums",
+        0,
+        1,
+        ...buildAlbumFilterParams(filters),
+      ];
+
+      const result = await executeCommand(command, albumCountPayloadParser);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(result.value.count ?? 0);
+    },
+
+    /**
+     * Get the distinct release years present in the library (0 = albums without a year).
+     */
+    getLibraryYears: async (): Promise<Result<readonly number[], LmsError>> => {
+      const command: LmsCommand = ["years", 0, MAX_LIBRARY_YEARS];
+
+      const result = await executeCommand(command, yearsPayloadParser);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      const years = (result.value.years_loop ?? [])
+        .map((entry) => toNumericId(entry.year))
+        .filter((year) => Number.isFinite(year));
+
+      return ok(years);
+    },
+
+    /**
+     * Get all genres known to LMS. The response carries no album count — the
+     * counts come from one `albums 0 1 genre_id:X` per genre in the shell.
+     */
+    getGenres: async (): Promise<Result<readonly LmsGenreRaw[], LmsError>> => {
+      const command: LmsCommand = ["genres", 0, MAX_GENRES];
+
+      const result = await executeCommand(command, genresPayloadParser);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      const genres = (result.value.genres_loop ?? [])
+        .map((entry) => ({ id: toNumericId(entry.id), name: entry.genre }))
+        .filter((genre) => Number.isFinite(genre.id));
+
+      return ok(genres);
     },
 
     rescanLibrary: async (): Promise<Result<void, LmsError>> => {

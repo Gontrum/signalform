@@ -129,6 +129,27 @@ export type LibraryAlbumRaw = {
 };
 
 /**
+ * Optional server-side filters for the LMS albums command.
+ * Live probe 2026-07-31: sort/genre_id/search/year combine freely,
+ * and `year:0` selects exactly the albums without a release year.
+ */
+export type LibraryAlbumFilters = {
+  readonly sort?: string; // LMS sort value: "album" | "artistalbum" | "yearalbum" | "new"
+  readonly genreId?: number;
+  readonly search?: string;
+  readonly year?: number; // 0 selects albums without a year
+};
+
+/**
+ * Raw genre item from LMS genres command.
+ * Live probe 2026-07-31: `{ id, genre }` — the response carries no album count.
+ */
+export type LmsGenreRaw = {
+  readonly id: number;
+  readonly name: string; // LMS field is `genre`
+};
+
+/**
  * Raw album item from LMS albums command filtered by artist_id.
  * Used internally by getArtistAlbums — not exported beyond client.
  */

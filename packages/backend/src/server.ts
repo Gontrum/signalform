@@ -73,6 +73,11 @@ const createLmsProxy = (): LmsClient => {
     getArtistAlbums: forwardLmsCall((client) => client.getArtistAlbums),
     getArtistName: forwardLmsCall((client) => client.getArtistName),
     getLibraryAlbums: forwardLmsCall((client) => client.getLibraryAlbums),
+    getLibraryAlbumCount: forwardLmsCall(
+      (client) => client.getLibraryAlbumCount,
+    ),
+    getLibraryYears: forwardLmsCall((client) => client.getLibraryYears),
+    getGenres: forwardLmsCall((client) => client.getGenres),
     getQueue: forwardLmsCall((client) => client.getQueue),
     jumpToTrack: forwardLmsCall((client) => client.jumpToTrack),
     removeFromQueue: forwardLmsCall((client) => client.removeFromQueue),

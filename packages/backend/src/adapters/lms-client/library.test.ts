@@ -174,6 +174,234 @@ describe("getLibraryAlbums", () => {
   });
 });
 
+// ─── getLibraryAlbums — command construction ─────────────────────────────────
+
+describe("getLibraryAlbums command", () => {
+  const emptyAlbumsPayload = ok({ albums_loop: [], count: 0 });
+  const emptySongsPayload = ok({ titles_loop: [] });
+
+  it("sends the unfiltered command when no filters are given", async () => {
+    const executeCommand = vi
+      .fn()
+      .mockResolvedValueOnce(emptyAlbumsPayload)
+      .mockResolvedValueOnce(emptySongsPayload);
+    const { getLibraryAlbums } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    await getLibraryAlbums(0, 250);
+
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual([
+      "albums",
+      0,
+      250,
+      "tags:a,y,l,j",
+    ]);
+  });
+
+  it("appends sort, genre_id, search and year", async () => {
+    const executeCommand = vi
+      .fn()
+      .mockResolvedValueOnce(emptyAlbumsPayload)
+      .mockResolvedValueOnce(emptySongsPayload);
+    const { getLibraryAlbums } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    await getLibraryAlbums(20, 10, {
+      sort: "artistalbum",
+      genreId: 153,
+      search: "tote hosen",
+      year: 2015,
+    });
+
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual([
+      "albums",
+      20,
+      10,
+      "tags:a,y,l,j",
+      "sort:artistalbum",
+      "genre_id:153",
+      "search:tote hosen",
+      "year:2015",
+    ]);
+  });
+
+  it("keeps year:0 — LMS uses it for the albums without a release year", async () => {
+    const executeCommand = vi
+      .fn()
+      .mockResolvedValueOnce(emptyAlbumsPayload)
+      .mockResolvedValueOnce(emptySongsPayload);
+    const { getLibraryAlbums } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    await getLibraryAlbums(0, 50, { year: 0 });
+
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual([
+      "albums",
+      0,
+      50,
+      "tags:a,y,l,j",
+      "year:0",
+    ]);
+  });
+
+  it("drops a blank search instead of sending an empty filter", async () => {
+    const executeCommand = vi
+      .fn()
+      .mockResolvedValueOnce(emptyAlbumsPayload)
+      .mockResolvedValueOnce(emptySongsPayload);
+    const { getLibraryAlbums } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    await getLibraryAlbums(0, 50, { search: "   " });
+
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual([
+      "albums",
+      0,
+      50,
+      "tags:a,y,l,j",
+    ]);
+  });
+});
+
+// ─── getLibraryAlbumCount ────────────────────────────────────────────────────
+
+describe("getLibraryAlbumCount", () => {
+  it("asks for a single row and returns the total count", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok({ count: 81 }));
+    const { getLibraryAlbumCount } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryAlbumCount({ genreId: 153 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe(81);
+    }
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual([
+      "albums",
+      0,
+      1,
+      "genre_id:153",
+    ]);
+    // No songs bulk query — counting must not scale with the track count.
+    expect(executeCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 0 when LMS omits the count field", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok({}));
+    const { getLibraryAlbumCount } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryAlbumCount({ year: 2015 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toBe(0);
+    }
+  });
+
+  it("propagates LMS errors", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { getLibraryAlbumCount } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryAlbumCount();
+
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ─── getLibraryYears ─────────────────────────────────────────────────────────
+
+describe("getLibraryYears", () => {
+  it("returns the distinct years, including 0 for albums without one", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(
+      ok({
+        years_loop: [{ year: 0 }, { year: "1958" }, { year: 2015 }],
+      }),
+    );
+    const { getLibraryYears } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryYears();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([0, 1958, 2015]);
+    }
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual(["years", 0, 999]);
+  });
+
+  it("returns an empty list when LMS omits years_loop", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok({}));
+    const { getLibraryYears } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryYears();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([]);
+    }
+  });
+
+  it("propagates LMS errors", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { getLibraryYears } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryYears();
+
+    expect(result.ok).toBe(false);
+  });
+});
+
+// ─── getGenres ───────────────────────────────────────────────────────────────
+
+describe("getGenres", () => {
+  it("maps the LMS genre field to name and normalises ids", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(
+      ok({
+        genres_loop: [
+          { id: 153, genre: "Rock" },
+          { id: "7", genre: "Ambient" },
+        ],
+      }),
+    );
+    const { getGenres } = createLibraryMethods(makeExecuteDeps(executeCommand));
+
+    const result = await getGenres();
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual([
+        { id: 153, name: "Rock" },
+        { id: 7, name: "Ambient" },
+      ]);
+    }
+    expect(executeCommand.mock.calls[0]?.[0]).toEqual(["genres", 0, 999]);
+  });
+
+  it("propagates LMS errors", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { getGenres } = createLibraryMethods(makeExecuteDeps(executeCommand));
+
+    const result = await getGenres();
+
+    expect(result.ok).toBe(false);
+  });
+});
+
 // ─── getAlbumTracks — sort order ─────────────────────────────────────────────
 
 describe("getAlbumTracks", () => {

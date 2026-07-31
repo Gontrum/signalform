@@ -117,7 +117,7 @@ describe("GET /api/library/albums", () => {
     expect(body.totalCount).toBe(2);
   });
 
-  it("uses default limit=250 and offset=0 when no query params given", async () => {
+  it("uses default limit=250, offset=0 and artist sort when no query params given", async () => {
     mockLmsClient.getLibraryAlbums.mockResolvedValue(ok(makeLibraryResult(0)));
 
     await server.inject({
@@ -125,7 +125,9 @@ describe("GET /api/library/albums", () => {
       url: "/api/library/albums",
     });
 
-    expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledWith(0, 250);
+    expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledWith(0, 250, {
+      sort: "artistalbum",
+    });
   });
 
   it("passes limit and offset from query params to service", async () => {
@@ -136,7 +138,20 @@ describe("GET /api/library/albums", () => {
       url: "/api/library/albums?limit=50&offset=100",
     });
 
-    expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledWith(100, 50);
+    expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledWith(100, 50, {
+      sort: "artistalbum",
+    });
+  });
+
+  it("issues exactly one albums request for a default call", async () => {
+    mockLmsClient.getLibraryAlbums.mockResolvedValue(ok(makeLibraryResult(2)));
+
+    await server.inject({
+      method: "GET",
+      url: "/api/library/albums",
+    });
+
+    expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledOnce();
   });
 
   it("returns 503 when LMS is unreachable", async () => {
