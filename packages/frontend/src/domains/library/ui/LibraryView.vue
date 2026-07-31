@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, ref, useTemplateRef, watch } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import EmptyState from '@/ui/EmptyState.vue'
@@ -44,19 +46,110 @@ const {
   decadeFilter,
   setDecadeFilter,
   adjustedFilter,
-  genres,
+  genreChips,
+  genreRest,
+  searchQuery,
+  setSearchQuery,
   clearAllFilters,
   hasActiveFilters,
 } = useLibraryBrowser(t)
 
-const handleGenreChange = (event: Event): void => {
-  const target = event.target
-  if (!(target instanceof HTMLSelectElement)) {
+const inputValue = (event: Event): string | undefined =>
+  event.target instanceof HTMLInputElement ? event.target.value : undefined
+
+const handleSearchInput = (event: Event): void => {
+  const value = inputValue(event)
+  if (value !== undefined) {
+    setSearchQuery(value)
+  }
+}
+
+const allGenres = computed(() => [...genreChips.value, ...genreRest.value])
+
+// The cold genre endpoint answers alphabetically and without counts, so the
+// first 20 entries are not the biggest ones — showing them as chips would
+// reshuffle the row as soon as the counts arrive.
+const showGenreChips = computed(
+  () =>
+    genreChips.value.length > 0 && genreChips.value.some((genre) => genre.albumCount !== undefined),
+)
+
+const activeGenreName = computed(
+  () => allGenres.value.find((genre) => genre.id === genreFilter.value)?.name ?? '',
+)
+
+const genreQuery = ref(activeGenreName.value)
+watch(activeGenreName, (name) => {
+  genreQuery.value = name
+})
+
+const toggleGenre = (genreId: number): void => {
+  setGenreFilter(genreFilter.value === genreId ? null : genreId)
+}
+
+const handleGenreInput = (event: Event): void => {
+  const value = inputValue(event)
+  if (value === undefined) {
     return
   }
 
-  setGenreFilter(target.value === '' ? null : Number(target.value))
+  genreQuery.value = value
+  const typed = value.trim().toLowerCase()
+
+  if (typed === '') {
+    if (genreFilter.value !== null) {
+      setGenreFilter(null)
+    }
+    return
+  }
+
+  const match = allGenres.value.find((genre) => genre.name.toLowerCase() === typed)
+  if (match !== undefined && match.id !== genreFilter.value) {
+    setGenreFilter(match.id)
+  }
 }
+
+const showsEmptyLibrary = computed(
+  () =>
+    activeSource.value === 'local' &&
+    currentStatus.value === 'success' &&
+    albums.value.length === 0 &&
+    !hasActiveFilters.value,
+)
+
+// Both orderings group by year first, so without the headings the secondary
+// sort inside a year reads as a broken list.
+const showYearHeadings = computed(
+  () =>
+    activeSource.value === 'local' &&
+    (sortBy.value === 'year-newest' || decadeFilter.value !== 'all'),
+)
+
+const yearLabel = (year: number | null): string =>
+  year === null ? t('library.unknownYear') : String(year)
+
+// Comparing against the previous entry of the merged list — not per page — is
+// what keeps a year from being announced twice across a load-more boundary.
+const albumRows = computed(() => {
+  const items = currentAlbumsForDisplay.value
+
+  return items.map((album, index) => {
+    const previous = items[index - 1]
+    const startsYear =
+      showYearHeadings.value &&
+      (previous === undefined || yearLabel(previous.releaseYear) !== yearLabel(album.releaseYear))
+
+    return { album, heading: startsYear ? yearLabel(album.releaseYear) : undefined }
+  })
+})
+
+const loadMoreTrigger = useTemplateRef<HTMLElement>('loadMoreTrigger')
+
+useIntersectionObserver(loadMoreTrigger, (entries) => {
+  if (entries.some((entry) => entry.isIntersecting)) {
+    void loadMore()
+  }
+})
 
 // ARIA APG "Tabs" pattern: only the active tab is Tab-reachable (roving
 // tabindex, bound in the template via :tabindex on both buttons);
@@ -189,6 +282,24 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           aria-live="polite"
           >{{ rescanMessage }}</span
         >
+      </div>
+
+      <!-- Library search (local only) — outside the state branches below so a
+           debounced reload does not unmount the field the user is typing in. -->
+      <div
+        v-if="activeSource === 'local' && currentStatus !== 'error' && !showsEmptyLibrary"
+        class="mb-4"
+      >
+        <input
+          data-testid="library-search-input"
+          type="search"
+          :value="searchQuery"
+          :placeholder="t('library.searchPlaceholder')"
+          :aria-label="t('library.searchLabel')"
+          autocomplete="off"
+          class="min-h-11 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-4 text-base text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+          @input="handleSearchInput"
+        />
       </div>
 
       <div
@@ -324,19 +435,49 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
             </button>
           </div>
 
-          <!-- Genre filter — dropdown until step 5 brings chips + autocomplete -->
-          <select
-            data-testid="genre-filter-select"
-            :value="genreFilter === null ? '' : String(genreFilter)"
-            aria-label="Filter by genre"
-            class="min-h-9 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-600"
-            @change="handleGenreChange"
-          >
-            <option value="">{{ t('library.genre.all') }}</option>
-            <option v-for="genre in genres" :key="genre.id" :value="String(genre.id)">
-              {{ genre.name }}
-            </option>
-          </select>
+          <!-- Genre filter: the most common genres as chips, everything else
+               through the native datalist autocomplete. -->
+          <div v-if="allGenres.length > 0" class="space-y-2">
+            <div
+              v-if="showGenreChips"
+              data-testid="genre-chips"
+              class="flex flex-wrap gap-2"
+              role="group"
+              :aria-label="t('library.genreFilterLabel')"
+            >
+              <button
+                v-for="genre in genreChips"
+                :key="genre.id"
+                type="button"
+                :data-testid="`genre-chip-${genre.id}`"
+                :aria-pressed="genreFilter === genre.id ? 'true' : 'false'"
+                :class="[
+                  'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
+                  genreFilter === genre.id
+                    ? 'border-neutral-900 bg-neutral-900 text-white'
+                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
+                ]"
+                @click="toggleGenre(genre.id)"
+              >
+                {{ genre.name }}
+              </button>
+            </div>
+
+            <input
+              data-testid="genre-filter-input"
+              type="text"
+              list="library-genre-options"
+              :value="genreQuery"
+              :placeholder="t('library.genrePlaceholder')"
+              :aria-label="t('library.genreFilterLabel')"
+              autocomplete="off"
+              class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+              @input="handleGenreInput"
+            />
+            <datalist id="library-genre-options">
+              <option v-for="genre in allGenres" :key="genre.id" :value="genre.name" />
+            </datalist>
+          </div>
 
           <!-- Clear all filters -->
           <button
@@ -412,7 +553,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           data-testid="no-filter-results"
           class="py-12 text-center text-neutral-400"
         >
-          <p class="text-sm">{{ t('library.noGenreMatch') }}</p>
+          <p class="text-sm">{{ t('library.noFilterMatch') }}</p>
         </div>
 
         <!-- Grid view -->
@@ -421,31 +562,47 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           data-testid="album-grid"
           class="grid grid-cols-2 gap-6 lg:grid-cols-3 lg:gap-8"
         >
-          <AlbumCard
-            v-for="album in currentAlbumsForDisplay"
-            :key="album.id"
-            :album="album"
-            @click:navigate="handleNavigate"
-            @click:play="handlePlay"
-            @click:add-to-queue="handleAddToQueue"
-          />
+          <template v-for="row in albumRows" :key="row.album.id">
+            <h2
+              v-if="row.heading !== undefined"
+              data-testid="year-heading"
+              class="col-span-full text-sm font-semibold uppercase tracking-wide text-neutral-500"
+            >
+              {{ row.heading }}
+            </h2>
+            <AlbumCard
+              :album="row.album"
+              @click:navigate="handleNavigate"
+              @click:play="handlePlay"
+              @click:add-to-queue="handleAddToQueue"
+            />
+          </template>
         </div>
 
         <!-- List view -->
         <div v-else data-testid="album-list" class="flex flex-col divide-y divide-neutral-100">
-          <AlbumListRow
-            v-for="album in currentAlbumsForDisplay"
-            :key="album.id"
-            :album="album"
-            @click:navigate="handleNavigate"
-            @click:play="handlePlay"
-            @click:add-to-queue="handleAddToQueue"
-          />
+          <template v-for="row in albumRows" :key="row.album.id">
+            <h2
+              v-if="row.heading !== undefined"
+              data-testid="year-heading"
+              class="pb-1 pt-4 text-sm font-semibold uppercase tracking-wide text-neutral-500"
+            >
+              {{ row.heading }}
+            </h2>
+            <AlbumListRow
+              :album="row.album"
+              @click:navigate="handleNavigate"
+              @click:play="handlePlay"
+              @click:add-to-queue="handleAddToQueue"
+            />
+          </template>
         </div>
 
-        <!-- Load more (local only) — infinite scroll follows in step 5 -->
+        <!-- Load more (local only). The button stays the accessible path; the
+             observer on its wrapper only saves the click while scrolling. -->
         <div
           v-if="activeSource === 'local' && hasMore"
+          ref="loadMoreTrigger"
           class="mt-6 flex flex-col items-center gap-2"
         >
           <button

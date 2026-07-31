@@ -64,7 +64,7 @@ export type MessageKey =
   | 'library.emptyLocal'
   | 'library.emptyTidal'
   | 'library.featuredTidal'
-  | 'library.noGenreMatch'
+  | 'library.noFilterMatch'
   | 'library.rescanButton'
   | 'library.rescanScanning'
   | 'library.rescanStarting'
@@ -79,7 +79,11 @@ export type MessageKey =
   | 'library.sort.titleAz'
   | 'library.sort.yearNewest'
   | 'library.sort.recentlyAdded'
-  | 'library.genre.all'
+  | 'library.searchLabel'
+  | 'library.searchPlaceholder'
+  | 'library.genreFilterLabel'
+  | 'library.genrePlaceholder'
+  | 'library.unknownYear'
   | 'setup.title'
   | 'setup.next'
   | 'setup.back'
@@ -274,7 +278,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.emptyLocal': 'No albums found in your library',
     'library.emptyTidal': 'No albums found in your Tidal library',
     'library.featuredTidal': 'New on Tidal',
-    'library.noGenreMatch': 'No albums match the selected genre',
+    'library.noFilterMatch': 'No albums match the current filters',
     'library.rescanButton': 'Refresh library',
     'library.rescanScanning': 'Scanning…',
     'library.rescanStarting': 'Starting scan…',
@@ -290,7 +294,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.sort.titleAz': 'Album A–Z',
     'library.sort.yearNewest': 'Newest',
     'library.sort.recentlyAdded': 'Recently added',
-    'library.genre.all': 'All genres',
+    'library.searchLabel': 'Search the library',
+    'library.searchPlaceholder': 'Search albums and artists',
+    'library.genreFilterLabel': 'Filter by genre',
+    'library.genrePlaceholder': 'Find a genre',
+    'library.unknownYear': 'Year unknown',
     'queue.dragHint': 'Drag a row, then release on the highlighted insertion target.',
     'queue.dropAfter': 'Release to move after this track.',
     'queue.dropBefore': 'Release to move before this track.',
@@ -483,7 +491,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.emptyLocal': 'Keine Alben in deiner Bibliothek gefunden',
     'library.emptyTidal': 'Keine Alben in deiner Tidal-Bibliothek gefunden',
     'library.featuredTidal': 'Neu bei Tidal',
-    'library.noGenreMatch': 'Keine Alben entsprechen dem ausgewählten Genre',
+    'library.noFilterMatch': 'Keine Alben entsprechen den aktuellen Filtern',
     'library.rescanButton': 'Bibliothek aktualisieren',
     'library.rescanScanning': 'Bibliothek wird durchsucht…',
     'library.rescanStarting': 'Scan wird gestartet…',
@@ -500,7 +508,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.sort.titleAz': 'Album A–Z',
     'library.sort.yearNewest': 'Neueste zuerst',
     'library.sort.recentlyAdded': 'Kürzlich hinzugefügt',
-    'library.genre.all': 'Alle Genres',
+    'library.searchLabel': 'Bibliothek durchsuchen',
+    'library.searchPlaceholder': 'Alben und Künstler suchen',
+    'library.genreFilterLabel': 'Nach Genre filtern',
+    'library.genrePlaceholder': 'Genre finden',
+    'library.unknownYear': 'Jahr unbekannt',
     'queue.dragHint': 'Ziehe eine Zeile und lasse sie auf dem markierten Ziel los.',
     'queue.dropAfter': 'Nach diesem Titel einfügen.',
     'queue.dropBefore': 'Vor diesem Titel einfügen.',

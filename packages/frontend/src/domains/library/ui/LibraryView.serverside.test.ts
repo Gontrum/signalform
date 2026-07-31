@@ -225,92 +225,40 @@ describe('LibraryView — server-driven browsing', () => {
     })
   })
 
+  // Genre chips, the datalist autocomplete and their cold/unreachable states
+  // live in LibraryView.browsing.test.ts.
   describe('genre filter', () => {
-    it('lists the genres in the order the endpoint returned them', async () => {
-      mockGetLibraryGenres.mockResolvedValue({
-        ok: true,
-        value: [
-          { id: 153, name: 'Rock', albumCount: 81 },
-          { id: 7, name: 'Ambient', albumCount: 40 },
-          { id: 91, name: 'Jazz', albumCount: 12 },
-        ],
-      })
-
-      const wrapper = await mountView()
-
-      const options = wrapper.findAll('[data-testid="genre-filter-select"] option')
-      expect(options.map((option) => option.text())).toEqual([
-        'All genres',
-        'Rock',
-        'Ambient',
-        'Jazz',
-      ])
-      expect(options.map((option) => option.attributes('value'))).toEqual(['', '153', '7', '91'])
-    })
-
-    it('lists the cold genre response that carries no album counts', async () => {
-      mockGetLibraryGenres.mockResolvedValue({
-        ok: true,
-        value: [
-          { id: 7, name: 'Ambient' },
-          { id: 91, name: 'Jazz' },
-        ],
-      })
-
-      const wrapper = await mountView()
-
-      expect(
-        wrapper.findAll('[data-testid="genre-filter-select"] option').map((o) => o.text()),
-      ).toEqual(['All genres', 'Ambient', 'Jazz'])
-    })
-
-    it('requests the first page of the selected genre and stores its id', async () => {
+    it('sends the genre stored from a previous visit with the first page', async () => {
       mockGetLibraryGenres.mockResolvedValue({
         ok: true,
         value: [{ id: 153, name: 'Rock', albumCount: 81 }],
       })
-      const wrapper = await mountView()
+      sessionStorage.setItem('library-genre-filter', '153')
 
-      const select = wrapper.find('[data-testid="genre-filter-select"]')
-      await select.setValue('153')
-      await flushPromises()
+      await mountView()
 
       expect(mockGetLibraryAlbums).toHaveBeenLastCalledWith(
         60,
         0,
         expect.objectContaining({ genreId: 153 }),
       )
-      expect(sessionStorage.getItem('library-genre-filter')).toBe('153')
     })
 
-    it('drops the genre from the request when All genres is selected again', async () => {
+    it('drops genre, decade and search together when all filters are cleared', async () => {
       mockGetLibraryGenres.mockResolvedValue({
         ok: true,
         value: [{ id: 153, name: 'Rock', albumCount: 81 }],
       })
       sessionStorage.setItem('library-genre-filter', '153')
+      sessionStorage.setItem('library-decade-filter', '1990s')
       const wrapper = await mountView()
 
-      await wrapper.find('[data-testid="genre-filter-select"]').setValue('')
+      await wrapper.find('[data-testid="clear-all-filters"]').trigger('click')
       await flushPromises()
 
       expect(lastQuery()['genreId']).toBeUndefined()
+      expect(lastQuery()['decade']).toBe('all')
       expect(sessionStorage.getItem('library-genre-filter')).toBeNull()
-    })
-
-    it('keeps the filter usable when the genre endpoint is unreachable', async () => {
-      mockGetLibraryGenres.mockResolvedValue({
-        ok: false,
-        error: { type: 'SERVER_ERROR', status: 503, message: 'LMS not reachable' },
-      })
-
-      const wrapper = await mountView()
-
-      expect(wrapper.find('[data-testid="genre-filter-select"]').exists()).toBe(true)
-      expect(
-        wrapper.findAll('[data-testid="genre-filter-select"] option').map((o) => o.text()),
-      ).toEqual(['All genres'])
-      expect(wrapper.findAll('[data-testid="album-card"]')).toHaveLength(1)
     })
   })
 })
