@@ -40,6 +40,8 @@ pnpm precommit        # Run all checks manually
 1. Sync with upstream: `git fetch upstream && git merge upstream/main`
 2. Create a branch: `git checkout -b feature/my-change`
 3. Commit with conventional format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
+   — imperative, lower case, no trailing period, max 72 chars. The
+   `commit-msg` hook rejects anything else; see AGENTS.md, section "Commits".
 4. Push to your fork and open a Pull Request
 
 Branch naming: `feature/`, `fix/`, `refactor/`, `docs/`, `test/`

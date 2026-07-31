@@ -99,6 +99,20 @@ result`) — that is correct and intentional, not a style violation.
 
 See package-level AGENTS.md for package-specific rules.
 
+## Comments
+
+Default: no comment. Prose that only restates the code is noise — rename
+instead. Write one line only for a non-obvious _why_, a workaround and its
+cause, or an invariant a reader would break. Never: banners, changelog notes,
+commented-out code, JSDoc that repeats the signature.
+
+## Commits
+
+Conventional Commits: `type(scope): subject`, imperative, lower case, max 72
+chars ("add sleep timer", not "added sleep timer"). One logical change per
+commit — a subject needing an "and" is two commits. Body only for a _why_ the
+subject cannot carry. Enforced by the `.husky/commit-msg` hook.
+
 ## Backend: Tidal feature anatomy
 
 See `.claude/skills/new-tidal-feature/SKILL.md` — same content, kept in one
