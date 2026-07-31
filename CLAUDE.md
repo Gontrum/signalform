@@ -27,13 +27,12 @@ implementation code directly in the main context.
 - `@shell-dev` – MUST be used for all Fastify handlers, Vue components, and composables
 - `@reviewer` – MUST be run before every commit that includes agent-written code; architectural checks and full test suite
 
-### Test coverage in agent prompts
+The test requirements for every delegation are in AGENTS.md, section "Testing" —
+deliberately in one place only.
 
-Every `@core-dev` and `@shell-dev` delegation for a new feature or bug fix MUST include
-explicit test requirements. Tests are part of the implementation, not a separate task.
+## Style plugins
 
-Checklist for every agent prompt that adds new behaviour:
-
-- [ ] Specify which test file(s) to update
-- [ ] List the cases to cover (happy path, error paths, edge cases)
-- [ ] Require the agent to run the test suite before returning
+Output-style plugins (ponytail, caveman) govern tone and solution size, never
+the definition of done. Where "lazy" collides with AGENTS.md — skipping tests,
+skipping the agent delegation, skipping input validation — AGENTS.md wins.
+Lazy here means: the smallest diff that still brings its tests along.

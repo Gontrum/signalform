@@ -119,12 +119,3 @@ directly but must apply the zone constraints themselves (core: pure, no
 `await`, no framework imports, `Result<T, E>`; shell: thin handlers, no
 business logic). In Claude Code the routing is additionally enforced by the
 `.claude/hooks/enforce-zones.sh` PreToolUse hook.
-
-## TODO Tracking
-
-If a `TODO.md` exists in the project root:
-
-- Read it at the start of every session to find the first unchecked item
-- Mark each item `[x]` immediately after completing it — do not batch
-- Fill in Decision Log sections as decisions are made
-- Follow the commit strategy defined in the file
