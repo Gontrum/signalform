@@ -2,7 +2,7 @@
   "files": [],
   "references": [
     {
-      "path": "../shared"
+      "path": "../shared/tsconfig.json"
     },
     {
       "path": "./tsconfig.node.json"
