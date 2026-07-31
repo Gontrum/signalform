@@ -1,0 +1,40 @@
+# shellcheck shell=sh
+# Conventional Commits — see AGENTS.md, section "Commits".
+# Tool-agnostic backstop: fires regardless of who or what wrote the message.
+# Husky runs this with 'sh -e', so POSIX sh only.
+
+# First non-comment, non-empty line is the subject.
+subject=$(grep -vE '^(#|$)' "$1" | head -1)
+
+# git generates these itself; not ours to police.
+case "$subject" in
+Merge*|Revert*|fixup!*|squash!*) exit 0 ;;
+esac
+
+fail() {
+  echo "Invalid commit message: $1"
+  echo
+  echo "  got:      $subject"
+  echo "  expected: type(scope): subject   e.g. 'feat(queue): add sleep timer'"
+  echo "  types:    feat fix refactor perf test docs chore build ci style revert"
+  echo
+  echo "Imperative, lower case, no trailing period, max 72 chars."
+  echo "See AGENTS.md, section \"Commits\"."
+  exit 1
+}
+
+if ! printf '%s' "$subject" |
+  grep -qE '^(feat|fix|refactor|perf|test|docs|chore|build|ci|style|revert)(\([a-z0-9,./_ -]+\))?!?: .'; then
+  fail "missing or unknown 'type(scope): ' prefix"
+fi
+
+description=${subject#*: }
+
+case "$description" in
+[[:upper:]]*) fail "description must start lower case" ;;
+*.) fail "description must not end with a period" ;;
+esac
+
+if [ "${#subject}" -gt 72 ]; then
+  fail "subject is ${#subject} chars, max is 72"
+fi
