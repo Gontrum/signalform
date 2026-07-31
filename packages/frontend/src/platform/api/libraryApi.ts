@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Result } from '@signalform/shared'
+import type { DecadeFilter, Result, SortOption } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult, fetchVoidResult } from '@/platform/api/requestResult'
 import { parseErrorBody, mapApiThrownError } from '@/platform/api/apiHelpers'
@@ -11,6 +11,24 @@ export type {
   LibraryAlbumsResponse,
   RescanStatus,
 } from '@/domains/library/core/types'
+
+/** `albumCount` is absent until the server's per-genre counts are warm. */
+export type LibraryGenre = {
+  readonly id: number
+  readonly name: string
+  readonly albumCount?: number
+}
+
+export type LibraryGenresResponse = {
+  readonly genres: readonly LibraryGenre[]
+}
+
+export type LibraryAlbumsQuery = {
+  readonly sort?: SortOption
+  readonly decade?: DecadeFilter
+  readonly genreId?: number
+  readonly search?: string
+}
 
 const LibraryAlbumSchema = z.object({
   id: z.string(),
@@ -24,6 +42,16 @@ const LibraryAlbumSchema = z.object({
 const LibraryAlbumsResponseSchema = z.object({
   albums: z.array(LibraryAlbumSchema),
   totalCount: z.number(),
+})
+
+const LibraryGenreSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  albumCount: z.number().optional(),
+})
+
+const LibraryGenresResponseSchema = z.object({
+  genres: z.array(LibraryGenreSchema),
 })
 
 export type LibraryApiError =
@@ -40,12 +68,32 @@ const mapLibraryParseError = (message: string): LibraryApiError => ({
 
 const mapLibraryThrownError = (error: unknown): LibraryApiError => mapApiThrownError(error)
 
+type QueryEntry = readonly [string, string | undefined]
+
+const toQueryString = (entries: readonly QueryEntry[]): string =>
+  entries
+    .flatMap(([key, value]) =>
+      value === undefined || value === '' ? [] : [`${key}=${encodeURIComponent(value)}`],
+    )
+    .join('&')
+
+const buildAlbumsQuery = (limit: number, offset: number, query: LibraryAlbumsQuery): string =>
+  toQueryString([
+    ['limit', String(limit)],
+    ['offset', String(offset)],
+    ['sort', query.sort],
+    ['decade', query.decade],
+    ['genreId', query.genreId?.toString()],
+    ['search', query.search?.trim()],
+  ])
+
 export const getLibraryAlbums = async (
   limit = 250,
   offset = 0,
+  query: LibraryAlbumsQuery = {},
 ): Promise<Result<LibraryAlbumsResponse, LibraryApiError>> => {
   return await fetchJsonResult(
-    getApiUrl(`/api/library/albums?limit=${limit}&offset=${offset}`),
+    getApiUrl(`/api/library/albums?${buildAlbumsQuery(limit, offset, query)}`),
     {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
@@ -64,6 +112,30 @@ export const getLibraryAlbums = async (
         status: response.status,
         message:
           (await parseErrorBody(response)) ?? `Library fetch failed: HTTP ${response.status}`,
+      }),
+      mapThrownError: mapLibraryThrownError,
+      mapParseError: mapLibraryParseError,
+    },
+  )
+}
+
+/** Get the library genre list for the filter UI. */
+export const getLibraryGenres = async (): Promise<
+  Result<readonly LibraryGenre[], LibraryApiError>
+> => {
+  return await fetchJsonResult<LibraryGenresResponse, readonly LibraryGenre[], LibraryApiError>(
+    getApiUrl('/api/library/genres'),
+    {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    },
+    {
+      schema: LibraryGenresResponseSchema,
+      mapValue: (value: LibraryGenresResponse): readonly LibraryGenre[] => value.genres,
+      mapHttpError: async (response) => ({
+        type: 'SERVER_ERROR',
+        status: response.status,
+        message: (await parseErrorBody(response)) ?? `Genre fetch failed: HTTP ${response.status}`,
       }),
       mapThrownError: mapLibraryThrownError,
       mapParseError: mapLibraryParseError,
