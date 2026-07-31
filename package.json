@@ -11,7 +11,7 @@
     "start:production": "node scripts/start-production-stack.mjs",
     "test": "pnpm -r run test",
     "test:unit": "pnpm -r run test",
-    "test:coverage": "pnpm -r run test -- --coverage",
+    "test:coverage": "pnpm -r run test:coverage",
     "lint": "pnpm -r run lint",
     "lint:fix": "pnpm -r run lint -- --fix",
     "type-check": "pnpm -r run type-check",
@@ -31,7 +31,7 @@
     "check:hover-focus-opacity": "node scripts/check-hover-focus-opacity.mjs",
     "review:collect": "node scripts/review-collect.mjs",
     "test:e2e:ci": "pnpm --filter frontend run build && pnpm --filter frontend run test:e2e:ci",
-    "precommit": "pnpm run test && pnpm run lint && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise && pnpm run check:dupes && pnpm run check:hover-focus-opacity",
+    "precommit": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise && pnpm run check:dupes && pnpm run check:hover-focus-opacity",
     "quality-gates": "pnpm run precommit",
     "version:bump": "node scripts/bump-version.mjs",
     "prepare": "husky"
