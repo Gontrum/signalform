@@ -69,7 +69,10 @@ export type MessageKey =
   | 'library.rescanScanning'
   | 'library.rescanStarting'
   | 'library.rescanServerError'
-  | 'library.displayLimit'
+  | 'library.loadMore'
+  | 'library.loadMoreError'
+  | 'library.filterAdjustedSort'
+  | 'library.filterAdjustedDecade'
   | 'library.errorLocal'
   | 'library.errorTidal'
   | 'library.sort.artistAz'
@@ -276,7 +279,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.rescanScanning': 'Scanning…',
     'library.rescanStarting': 'Starting scan…',
     'library.rescanServerError': 'Could not reach music server',
-    'library.displayLimit': 'Showing {limit} of {total} albums — search to find specific albums',
+    'library.loadMore': 'Load more',
+    'library.loadMoreError': 'Could not load more albums',
+    'library.filterAdjustedSort': 'Sorted by artist — "Recently added" ignores decades',
+    'library.filterAdjustedDecade':
+      'Decade filter cleared — "Recently added" covers the whole library',
     'library.errorLocal': 'Unable to load library',
     'library.errorTidal': 'Could not load Tidal albums',
     'library.sort.artistAz': 'Artist A–Z',
@@ -481,8 +488,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.rescanScanning': 'Bibliothek wird durchsucht…',
     'library.rescanStarting': 'Scan wird gestartet…',
     'library.rescanServerError': 'Musikserver konnte nicht erreicht werden',
-    'library.displayLimit':
-      'Es werden {limit} von {total} Alben angezeigt – nutze die Suche für konkrete Alben',
+    'library.loadMore': 'Mehr laden',
+    'library.loadMoreError': 'Weitere Alben konnten nicht geladen werden',
+    'library.filterAdjustedSort':
+      'Nach Künstler sortiert – „Kürzlich hinzugefügt" kennt keine Dekaden',
+    'library.filterAdjustedDecade':
+      'Dekaden-Filter entfernt – „Kürzlich hinzugefügt" gilt für die ganze Bibliothek',
     'library.errorLocal': 'Bibliothek konnte nicht geladen werden',
     'library.errorTidal': 'Tidal-Alben konnten nicht geladen werden',
     'library.sort.artistAz': 'Künstler A–Z',

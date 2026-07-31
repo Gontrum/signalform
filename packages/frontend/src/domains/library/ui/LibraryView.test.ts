@@ -24,6 +24,7 @@ vi.mock('@/app/useResponsiveLayout', () => ({
 
 vi.mock('@/platform/api/libraryApi', () => ({
   getLibraryAlbums: vi.fn(),
+  getLibraryGenres: vi.fn().mockResolvedValue({ ok: true, value: [] }),
 }))
 
 vi.mock('@/platform/api/playbackApi', () => ({
@@ -64,7 +65,6 @@ const makeTidalAlbums = (count: number): ReadonlyArray<ReturnType<typeof makeTid
 const makeAlbum = (
   id: string,
   overrides?: {
-    readonly genre?: string | null
     readonly title?: string
     readonly artist?: string
     readonly releaseYear?: number | null
@@ -74,14 +74,12 @@ const makeAlbum = (
   readonly title: string
   readonly artist: string
   readonly releaseYear: number | null
-  readonly genre: string | null
   readonly coverArtUrl: string
 } => ({
   id,
   title: overrides?.title ?? `Album ${id}`,
   artist: overrides?.artist ?? `Artist ${id}`,
   releaseYear: overrides?.releaseYear !== undefined ? overrides.releaseYear : 2020,
-  genre: overrides?.genre ?? null,
   coverArtUrl: `http://localhost:9000/music/${id}/cover.jpg`,
 })
 
@@ -159,36 +157,6 @@ describe('LibraryView', () => {
     expect(grid.classes()).toContain('grid-cols-2')
     expect(grid.classes()).toContain('lg:grid-cols-3')
     expect(grid.classes()).toContain('lg:gap-8')
-  })
-
-  // AC6: 300 albums returned → 250 shown, limit message visible
-  it('shows display-limit-message when totalCount > 250', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: { albums: makeAlbums(250), totalCount: 300 },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    const msg = context.wrapper.find('[data-testid="display-limit-message"]')
-    expect(msg.exists()).toBe(true)
-    expect(msg.text()).toContain('250')
-    expect(msg.text()).toContain('300')
-  })
-
-  it('does NOT show display-limit-message when totalCount <= 250', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: { albums: makeAlbums(5), totalCount: 5 },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    expect(context.wrapper.find('[data-testid="display-limit-message"]').exists()).toBe(false)
   })
 
   // AC7: 0 albums → empty state message
@@ -527,158 +495,14 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC2a: title-az sort reorders albums by title
-  it('reorders albums by title when title-az selected', async () => {
+  // AC4b: a filter that leaves 0 albums → no-filter-results, not the empty library state
+  it('shows no-filter-results when the active filter leaves 0 albums', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: {
-        albums: [
-          makeAlbum('1', { title: 'Zebra' }),
-          makeAlbum('2', { title: 'Apple' }),
-          makeAlbum('3', { title: 'Mango' }),
-        ],
-        totalCount: 3,
-      },
+      value: { albums: [], totalCount: 0 },
     })
-
-    const context = await mountView()
-    await flushPromises()
-
-    await context.wrapper.find('[data-testid="sort-chip-title-az"]').trigger('click')
-
-    const cards = context.wrapper.findAll('[data-testid="album-card"]')
-    expect(cards[0]?.text()).toContain('Apple')
-    expect(cards[1]?.text()).toContain('Mango')
-    expect(cards[2]?.text()).toContain('Zebra')
-  })
-
-  // AC2b: year-newest sort — descending, nulls last
-  it('reorders albums by year descending when year-newest selected, nulls last', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: {
-        albums: [
-          makeAlbum('1', { title: 'C-2000', releaseYear: 2000 }),
-          makeAlbum('2', { title: 'A-2020', releaseYear: 2020 }),
-          makeAlbum('3', { title: 'B-null', releaseYear: null }),
-        ],
-        totalCount: 3,
-      },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    await context.wrapper.find('[data-testid="sort-chip-year-newest"]').trigger('click')
-
-    const cards = context.wrapper.findAll('[data-testid="album-card"]')
-    expect(cards[0]?.text()).toContain('A-2020')
-    expect(cards[1]?.text()).toContain('C-2000')
-    expect(cards[2]?.text()).toContain('B-null')
-  })
-
-  // AC2c: recently-added keeps LMS fetch order
-  it('keeps LMS fetch order when recently-added selected', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: {
-        albums: [
-          makeAlbum('1', { title: 'Zebra' }),
-          makeAlbum('2', { title: 'Apple' }),
-          makeAlbum('3', { title: 'Mango' }),
-        ],
-        totalCount: 3,
-      },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    await context.wrapper.find('[data-testid="sort-chip-recently-added"]').trigger('click')
-
-    const cards = context.wrapper.findAll('[data-testid="album-card"]')
-    expect(cards[0]?.text()).toContain('Zebra')
-    expect(cards[1]?.text()).toContain('Apple')
-    expect(cards[2]?.text()).toContain('Mango')
-  })
-
-  // AC3: genre chips render with "All genres" + unique genres
-  it('shows genre-filter-select with All Genres and unique genres sorted A-Z', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: {
-        albums: [
-          makeAlbum('1', { genre: 'Rock' }),
-          makeAlbum('2', { genre: 'Jazz' }),
-          makeAlbum('3', { genre: 'Rock' }),
-        ],
-        totalCount: 3,
-      },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    expect(context.wrapper.find('[data-testid="genre-chip-all"]').exists()).toBe(true)
-    expect(context.wrapper.find('[data-testid="genre-chip-Jazz"]').exists()).toBe(true)
-    expect(context.wrapper.find('[data-testid="genre-chip-Rock"]').exists()).toBe(true)
-    expect(context.wrapper.find('[data-testid="genre-chip-all"]').text()).toContain('All genres')
-  })
-
-  // Bug fix: genre chip row must wrap instead of horizontally scrolling on mobile
-  it('genre-filter-row wraps chips instead of scrolling horizontally', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: {
-        albums: [makeAlbum('1', { genre: 'Rock' }), makeAlbum('2', { genre: 'Jazz' })],
-        totalCount: 2,
-      },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    const genreRow = context.wrapper.find('[data-testid="genre-filter-row"]')
-    expect(genreRow.classes()).not.toContain('overflow-x-auto')
-    expect(genreRow.classes()).toContain('flex-wrap')
-  })
-
-  // AC4: selecting a genre → only matching albums shown
-  it('shows only albums matching selected genre', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: {
-        albums: [
-          makeAlbum('1', { genre: 'Rock' }),
-          makeAlbum('2', { genre: 'Jazz' }),
-          makeAlbum('3', { genre: 'Rock' }),
-        ],
-        totalCount: 3,
-      },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    await context.wrapper.find('[data-testid="genre-chip-Rock"]').trigger('click')
-
-    expect(context.wrapper.findAll('[data-testid="album-card"]')).toHaveLength(2)
-  })
-
-  // AC4b: selecting genre with 0 matches → no-filter-results shown
-  it('shows no-filter-results when genre filter leaves 0 albums', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: { albums: [makeAlbum('1', { genre: 'Rock' })], totalCount: 1 },
-    })
-    sessionStorage.setItem('library-genre-filter', 'Classical')
+    sessionStorage.setItem('library-genre-filter', '153')
 
     const context = await mountView()
     await flushPromises()
@@ -687,37 +511,34 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
   })
 
-  // AC5: clear-filter-button visible when genre active; click clears filter
-  it('shows clear-filter-button when genre active and clicking resets to all albums', async () => {
+  // AC5: clear-filter-button visible when a filter is active; click clears it
+  it('shows clear-filter-button when genre active and clicking clears the filter', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: {
-        albums: [makeAlbum('1', { genre: 'Rock' }), makeAlbum('2', { genre: 'Jazz' })],
-        totalCount: 2,
-      },
+      value: { albums: [makeAlbum('1'), makeAlbum('2')], totalCount: 2 },
     })
+    sessionStorage.setItem('library-genre-filter', '153')
 
     const context = await mountView()
     await flushPromises()
-
-    await context.wrapper.find('[data-testid="genre-chip-Rock"]').trigger('click')
 
     const clearBtn = context.wrapper.find('[data-testid="clear-all-filters"]')
     expect(clearBtn.exists()).toBe(true)
 
     await clearBtn.trigger('click')
+    await flushPromises()
 
     expect(context.wrapper.find('[data-testid="clear-all-filters"]').exists()).toBe(false)
-    expect(context.wrapper.findAll('[data-testid="album-card"]')).toHaveLength(2)
+    expect(sessionStorage.getItem('library-genre-filter')).toBeNull()
   })
 
-  // AC5b: clear-filter-button absent when no genre filter active
+  // AC5b: clear-filter-button absent when no filter active
   it('does NOT show clear-filter-button when no genre filter active', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1', { genre: 'Rock' })], totalCount: 1 },
+      value: { albums: [makeAlbum('1')], totalCount: 1 },
     })
 
     const context = await mountView()
@@ -742,23 +563,7 @@ describe('LibraryView', () => {
     expect(sessionStorage.getItem('library-sort-by')).toBe('title-az')
   })
 
-  // AC6b: sessionStorage updated when genre selected
-  it('updates sessionStorage library-genre-filter when genre selected', async () => {
-    const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
-    vi.mocked(getLibraryAlbums).mockResolvedValue({
-      ok: true,
-      value: { albums: [makeAlbum('1', { genre: 'Rock' })], totalCount: 1 },
-    })
-
-    const context = await mountView()
-    await flushPromises()
-
-    await context.wrapper.find('[data-testid="genre-chip-Rock"]').trigger('click')
-
-    expect(sessionStorage.getItem('library-genre-filter')).toBe('Rock')
-  })
-
-  // AC6c: pre-set sessionStorage sort → sort active on mount
+  // AC6c: pre-set sessionStorage sort → sort sent with the first request
   it('uses stored sort from sessionStorage on mount', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -773,9 +578,14 @@ describe('LibraryView', () => {
     const context = await mountView()
     await flushPromises()
 
-    const cards = context.wrapper.findAll('[data-testid="album-card"]')
-    expect(cards[0]?.text()).toContain('Apple')
-    expect(cards[1]?.text()).toContain('Zebra')
+    expect(getLibraryAlbums).toHaveBeenCalledWith(
+      60,
+      0,
+      expect.objectContaining({ sort: 'title-az' }),
+    )
+    expect(
+      context.wrapper.find('[data-testid="sort-chip-title-az"]').attributes('aria-pressed'),
+    ).toBe('true')
   })
 
   // sort-controls hidden during non-success states
@@ -814,22 +624,19 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(false)
   })
 
-  // AC6d: pre-set genre filter in sessionStorage → genre filter active on mount
+  // AC6d: pre-set genre filter in sessionStorage → genre id sent with the first request
   it('uses stored genre filter from sessionStorage on mount', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: {
-        albums: [makeAlbum('1', { genre: 'Rock' }), makeAlbum('2', { genre: 'Jazz' })],
-        totalCount: 2,
-      },
+      value: { albums: [makeAlbum('1')], totalCount: 1 },
     })
-    sessionStorage.setItem('library-genre-filter', 'Rock')
+    sessionStorage.setItem('library-genre-filter', '153')
 
     const context = await mountView()
     await flushPromises()
 
-    expect(context.wrapper.findAll('[data-testid="album-card"]')).toHaveLength(1)
+    expect(getLibraryAlbums).toHaveBeenCalledWith(60, 0, expect.objectContaining({ genreId: 153 }))
     expect(context.wrapper.find('[data-testid="clear-all-filters"]').exists()).toBe(true)
   })
 

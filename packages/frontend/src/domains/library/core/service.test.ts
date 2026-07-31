@@ -1,338 +1,40 @@
 import { describe, expect, it } from 'vitest'
 import {
   DECADE_KEY,
+  GENRE_CHIP_COUNT,
   GENRE_KEY,
+  PAGE_SIZE,
   SORT_KEY,
   VIEW_MODE_KEY,
   adaptTidalAlbumsForDisplay,
   buildRescanProgressMessage,
   decadeOptions,
-  getAvailableGenres,
-  getDisplayedAlbums,
   parseStoredDecade,
   parseStoredSort,
   parseStoredViewMode,
+  reconcileFilters,
   sortOptions,
+  splitGenres,
 } from './service'
-import type { DecadeFilter, LibraryAlbum, SortOption, TidalAlbumForDisplay } from './types'
-
-const album = (
-  id: string,
-  title: string,
-  artist: string,
-  releaseYear: number | null,
-  genre: string | null,
-): LibraryAlbum => ({
-  id,
-  title,
-  artist,
-  releaseYear,
-  coverArtUrl: `https://covers.test/${id}.jpg`,
-  genre,
-})
-
-const titlesOf = (albums: readonly LibraryAlbum[]): readonly string[] =>
-  albums.map((entry) => entry.title)
-
-const artistsOf = (albums: readonly LibraryAlbum[]): readonly string[] =>
-  albums.map((entry) => entry.artist)
-
-const yearsOf = (albums: readonly LibraryAlbum[]): ReadonlyArray<number | null> =>
-  albums.map((entry) => entry.releaseYear)
-
-const sortedTitlesOf = (albums: readonly LibraryAlbum[]): readonly string[] =>
-  [...titlesOf(albums)].sort()
-
-// Insertion order is deliberately wrong for artist-az, title-az and year-newest alike:
-// a missing sort must not accidentally produce the expected sequence.
-const catalogue: readonly LibraryAlbum[] = [
-  album('1', 'Discovery', 'Daft Punk', 2001, 'Electronic'),
-  album('2', 'Zenith', 'Radiohead', 1997, 'Rock'),
-  album('3', 'Mirage', 'Zola Jesus', 2014, 'Rock'),
-  album('4', 'Unknown Sessions', 'Wolf Parade', null, 'Folk'),
-  album('5', 'Amnesiac', 'Radiohead', 2001, 'Rock'),
-  album('6', 'Mirage', 'Adele', 2016, 'Pop'),
-  album('7', 'Kid A', 'Radiohead', 2000, 'Rock'),
-  album('8', 'Bäst Of', 'Ärzte', 1993, 'Punk'),
-  album('9', 'Basement Tapes', 'Beatles', null, 'Rock'),
-  album('10', 'Turn On The Bright Lights', 'Interpol', 2002, 'Rock'),
-]
-
-const decadeCatalogue: readonly LibraryAlbum[] = [
-  album('d1', 'Y1989', 'Boundary', 1989, 'Rock'),
-  album('d2', 'Y2010', 'Boundary', 2010, 'Rock'),
-  album('d3', 'Ynull', 'Boundary', null, 'Rock'),
-  album('d4', 'Y1999', 'Boundary', 1999, 'Rock'),
-  album('d5', 'Y2020', 'Boundary', 2020, 'Rock'),
-  album('d6', 'Y2000', 'Boundary', 2000, 'Rock'),
-  album('d7', 'Y2024', 'Boundary', 2024, 'Rock'),
-  album('d8', 'Y1990', 'Boundary', 1990, 'Rock'),
-  album('d9', 'Y2009', 'Boundary', 2009, 'Rock'),
-  album('d10', 'Y2019', 'Boundary', 2019, 'Rock'),
-]
-
-describe('getDisplayedAlbums sorting', () => {
-  // Ärzte is excluded here: localeCompare reads the process locale, and sv_SE sorts ä behind z.
-  it('sorts by artist and breaks ties on title', () => {
-    const result = getDisplayedAlbums(catalogue, 'artist-az', null, 'all')
-
-    expect(artistsOf(result).filter((artist) => artist !== 'Ärzte')).toEqual([
-      'Adele',
-      'Beatles',
-      'Daft Punk',
-      'Interpol',
-      'Radiohead',
-      'Radiohead',
-      'Radiohead',
-      'Wolf Parade',
-      'Zola Jesus',
-    ])
-  })
-
-  it('orders the albums of one artist alphabetically by title', () => {
-    const result = getDisplayedAlbums(catalogue, 'artist-az', null, 'all')
-    const radioheadTitles = titlesOf(result.filter((entry) => entry.artist === 'Radiohead'))
-
-    expect(radioheadTitles).toEqual(['Amnesiac', 'Kid A', 'Zenith'])
-  })
-
-  it('sorts by title and breaks ties on artist', () => {
-    const result = getDisplayedAlbums(catalogue, 'title-az', null, 'all')
-
-    expect(titlesOf(result)).toEqual([
-      'Amnesiac',
-      'Basement Tapes',
-      'Bäst Of',
-      'Discovery',
-      'Kid A',
-      'Mirage',
-      'Mirage',
-      'Turn On The Bright Lights',
-      'Unknown Sessions',
-      'Zenith',
-    ])
-  })
-
-  it('resolves two albums of the same title by artist', () => {
-    const result = getDisplayedAlbums(catalogue, 'title-az', null, 'all')
-
-    expect(artistsOf(result.filter((entry) => entry.title === 'Mirage'))).toEqual([
-      'Adele',
-      'Zola Jesus',
-    ])
-  })
-
-  it('sorts by year descending and pushes albums without a year to the end', () => {
-    const result = getDisplayedAlbums(catalogue, 'year-newest', null, 'all')
-
-    expect(yearsOf(result)).toEqual([2016, 2014, 2002, 2001, 2001, 2000, 1997, 1993, null, null])
-  })
-
-  it('breaks an equal year on title', () => {
-    const result = getDisplayedAlbums(catalogue, 'year-newest', null, 'all')
-
-    expect(titlesOf(result.filter((entry) => entry.releaseYear === 2001))).toEqual([
-      'Amnesiac',
-      'Discovery',
-    ])
-  })
-
-  it('breaks two missing years on title', () => {
-    const result = getDisplayedAlbums(catalogue, 'year-newest', null, 'all')
-
-    expect(titlesOf(result.filter((entry) => entry.releaseYear === null))).toEqual([
-      'Basement Tapes',
-      'Unknown Sessions',
-    ])
-  })
-
-  // LibraryAlbum carries no added-at date, so recency is unsortable here until LMS sort:new lands.
-  it('returns the filtered albums in input order for recently-added', () => {
-    const result = getDisplayedAlbums(catalogue, 'recently-added', null, 'all')
-
-    expect(titlesOf(result)).toEqual([
-      'Discovery',
-      'Zenith',
-      'Mirage',
-      'Unknown Sessions',
-      'Amnesiac',
-      'Mirage',
-      'Kid A',
-      'Bäst Of',
-      'Basement Tapes',
-      'Turn On The Bright Lights',
-    ])
-  })
-
-  it('keeps input order for recently-added even after filtering', () => {
-    const result = getDisplayedAlbums(catalogue, 'recently-added', 'Rock', 'all')
-
-    expect(titlesOf(result)).toEqual([
-      'Zenith',
-      'Mirage',
-      'Amnesiac',
-      'Kid A',
-      'Basement Tapes',
-      'Turn On The Bright Lights',
-    ])
-  })
-})
-
-describe('getDisplayedAlbums genre filter', () => {
-  const genreCatalogue: readonly LibraryAlbum[] = [
-    album('g1', 'Rock One', 'Rock Band', 2005, 'Rock'),
-    album('g2', 'Pop Two', 'Pop Duo', 2005, 'Pop'),
-    album('g3', 'No Genre', 'Mystery', 2005, null),
-    album('g4', 'Pop One', 'Pop Trio', 2005, 'Pop'),
-  ]
-
-  it('keeps only exact genre matches', () => {
-    const result = getDisplayedAlbums(genreCatalogue, 'title-az', 'Pop', 'all')
-
-    expect(titlesOf(result)).toEqual(['Pop One', 'Pop Two'])
-  })
-
-  it('drops albums without a genre when a genre filter is set', () => {
-    const result = getDisplayedAlbums(genreCatalogue, 'title-az', 'Rock', 'all')
-
-    expect(titlesOf(result)).toEqual(['Rock One'])
-  })
-
-  it('keeps albums without a genre when no genre filter is set', () => {
-    const result = getDisplayedAlbums(genreCatalogue, 'title-az', null, 'all')
-
-    expect(titlesOf(result)).toEqual(['No Genre', 'Pop One', 'Pop Two', 'Rock One'])
-  })
-
-  it('treats an empty genre filter as no filter', () => {
-    const result = getDisplayedAlbums(genreCatalogue, 'title-az', '', 'all')
-
-    expect(titlesOf(result)).toEqual(['No Genre', 'Pop One', 'Pop Two', 'Rock One'])
-  })
-
-  it('returns nothing for a genre no album carries', () => {
-    const result = getDisplayedAlbums(genreCatalogue, 'title-az', 'Jazz', 'all')
-
-    expect(titlesOf(result)).toEqual([])
-  })
-})
-
-describe('getDisplayedAlbums decade filter', () => {
-  it('includes 2020 and everything above it for 2020s', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, '2020s')
-
-    expect(sortedTitlesOf(result)).toEqual(['Y2020', 'Y2024'])
-  })
-
-  it('includes 2010 but excludes 2020 for 2010s', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, '2010s')
-
-    expect(sortedTitlesOf(result)).toEqual(['Y2010', 'Y2019'])
-  })
-
-  it('includes 2000 but excludes 2010 for 2000s', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, '2000s')
-
-    expect(sortedTitlesOf(result)).toEqual(['Y2000', 'Y2009'])
-  })
-
-  it('includes 1990 but excludes 2000 for 1990s', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, '1990s')
-
-    expect(sortedTitlesOf(result)).toEqual(['Y1990', 'Y1999'])
-  })
-
-  it('includes 1989 but excludes 1990 for older', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, 'older')
-
-    expect(sortedTitlesOf(result)).toEqual(['Y1989'])
-  })
-
-  it('keeps albums without a year for all', () => {
-    const result = getDisplayedAlbums(decadeCatalogue, 'artist-az', null, 'all')
-
-    expect(titlesOf(result)).toContain('Ynull')
-    expect(result).toHaveLength(decadeCatalogue.length)
-  })
-})
-
-describe('getDisplayedAlbums combined filtering and sorting', () => {
-  it('applies genre, decade and sort together', () => {
-    const result = getDisplayedAlbums(catalogue, 'artist-az', 'Rock', '2000s')
-
-    expect(titlesOf(result)).toEqual(['Turn On The Bright Lights', 'Amnesiac', 'Kid A'])
-    expect(artistsOf(result)).toEqual(['Interpol', 'Radiohead', 'Radiohead'])
-  })
-
-  it('excludes an album that matches the decade but not the genre', () => {
-    const result = getDisplayedAlbums(catalogue, 'year-newest', 'Rock', '2000s')
-
-    expect(titlesOf(result)).not.toContain('Discovery')
-    expect(titlesOf(result)).toEqual(['Turn On The Bright Lights', 'Amnesiac', 'Kid A'])
-  })
-
-  it('returns an empty list for an empty input', () => {
-    const result = getDisplayedAlbums([], 'artist-az', 'Rock', '2010s')
-
-    expect(result).toEqual([])
-  })
-
-  it('returns an empty list when genre and decade have no overlap', () => {
-    const result = getDisplayedAlbums(catalogue, 'artist-az', 'Punk', '2020s')
-
-    expect(result).toEqual([])
-  })
-})
-
-describe('getDisplayedAlbums immutability', () => {
-  it.each<SortOption>(['artist-az', 'title-az', 'year-newest'])(
-    'sorts into a new array and leaves the input untouched for %s',
-    (sortBy) => {
-      const input = Object.freeze([...catalogue])
-
-      const result = getDisplayedAlbums(input, sortBy, null, 'all')
-
-      expect(titlesOf(input)).toEqual(titlesOf(catalogue))
-      expect(result).not.toBe(input)
-    },
-  )
-
-  // Unsorted and unfiltered, the input array is handed straight back instead of being copied.
-  it('returns the very same instance for unfiltered recently-added', () => {
-    const input = Object.freeze([...catalogue])
-
-    expect(getDisplayedAlbums(input, 'recently-added', null, 'all')).toBe(input)
-  })
-})
-
-describe('getAvailableGenres', () => {
-  it('deduplicates, sorts alphabetically and drops missing genres', () => {
-    const albums: readonly LibraryAlbum[] = [
-      album('1', 'A', 'A', 2000, 'Rock'),
-      album('2', 'B', 'B', 2000, null),
-      album('3', 'C', 'C', 2000, 'Ambient'),
-      album('4', 'D', 'D', 2000, 'Rock'),
-      album('5', 'E', 'E', 2000, 'Jazz'),
-      album('6', 'F', 'F', 2000, null),
-      album('7', 'G', 'G', 2000, 'Ambient'),
-    ]
-
-    expect(getAvailableGenres(albums)).toEqual(['Ambient', 'Jazz', 'Rock'])
-  })
-
-  it('returns an empty list when no album carries a genre', () => {
-    const albums: readonly LibraryAlbum[] = [
-      album('1', 'A', 'A', 2000, null),
-      album('2', 'B', 'B', 2000, null),
-    ]
-
-    expect(getAvailableGenres(albums)).toEqual([])
-  })
-
-  it('returns an empty list for an empty input', () => {
-    expect(getAvailableGenres([])).toEqual([])
-  })
-})
+import type { DecadeFilter, SortOption, TidalAlbumForDisplay } from './types'
+
+// Compiler-checked against the unions: a value added to SortOption or
+// DecadeFilter fails here first, and the tests below then check it parses.
+const ALL_SORT_OPTIONS: Record<SortOption, true> = {
+  'artist-az': true,
+  'title-az': true,
+  'year-newest': true,
+  'recently-added': true,
+}
+
+const ALL_DECADE_FILTERS: Record<DecadeFilter, true> = {
+  all: true,
+  '2020s': true,
+  '2010s': true,
+  '2000s': true,
+  '1990s': true,
+  older: true,
+}
 
 describe('parseStoredSort', () => {
   it.each<SortOption>(['artist-az', 'title-az', 'year-newest', 'recently-added'])(
@@ -342,12 +44,22 @@ describe('parseStoredSort', () => {
     },
   )
 
+  it('passes through every member of the SortOption union', () => {
+    const values = Object.keys(ALL_SORT_OPTIONS)
+
+    expect(values.map((value) => parseStoredSort(value))).toEqual(values)
+  })
+
   it('falls back to artist-az for a missing value', () => {
     expect(parseStoredSort(null)).toBe('artist-az')
   })
 
   it('falls back to artist-az for an unknown value', () => {
     expect(parseStoredSort('year-oldest')).toBe('artist-az')
+  })
+
+  it('falls back to artist-az for an inherited object property', () => {
+    expect(parseStoredSort('toString')).toBe('artist-az')
   })
 })
 
@@ -359,12 +71,22 @@ describe('parseStoredDecade', () => {
     },
   )
 
+  it('passes through every member of the DecadeFilter union', () => {
+    const values = Object.keys(ALL_DECADE_FILTERS)
+
+    expect(values.map((value) => parseStoredDecade(value))).toEqual(values)
+  })
+
   it('falls back to all for a missing value', () => {
     expect(parseStoredDecade(null)).toBe('all')
   })
 
   it('falls back to all for an unknown value', () => {
     expect(parseStoredDecade('1980s')).toBe('all')
+  })
+
+  it('falls back to all for an inherited object property', () => {
+    expect(parseStoredDecade('constructor')).toBe('all')
   })
 })
 
@@ -383,6 +105,116 @@ describe('parseStoredViewMode', () => {
 
   it('falls back to grid for an unknown value', () => {
     expect(parseStoredViewMode('table')).toBe('grid')
+  })
+})
+
+describe('reconcileFilters', () => {
+  it('drops the decade when the user picks recently-added', () => {
+    expect(reconcileFilters('recently-added', '1990s', 'sort')).toEqual({
+      sort: 'recently-added',
+      decade: 'all',
+      adjusted: 'decade',
+    })
+  })
+
+  it('resets the sort when the user picks a decade while recently-added is active', () => {
+    expect(reconcileFilters('recently-added', '2010s', 'decade')).toEqual({
+      sort: 'artist-az',
+      decade: '2010s',
+      adjusted: 'sort',
+    })
+  })
+
+  it('keeps recently-added when no decade is active', () => {
+    expect(reconcileFilters('recently-added', 'all', 'sort')).toEqual({
+      sort: 'recently-added',
+      decade: 'all',
+    })
+  })
+
+  it('keeps the decade when the sort is not recently-added', () => {
+    expect(reconcileFilters('year-newest', '2000s', 'decade')).toEqual({
+      sort: 'year-newest',
+      decade: '2000s',
+    })
+  })
+
+  it('reports no adjustment for a valid combination', () => {
+    expect(reconcileFilters('title-az', 'older', 'sort').adjusted).toBeUndefined()
+  })
+
+  it.each<readonly [SortOption, DecadeFilter]>([
+    ['artist-az', 'all'],
+    ['artist-az', '2020s'],
+    ['title-az', '1990s'],
+    ['year-newest', 'older'],
+    ['recently-added', 'all'],
+  ])('leaves %s combined with %s untouched regardless of the changed field', (sort, decade) => {
+    expect(reconcileFilters(sort, decade, 'sort')).toEqual({ sort, decade })
+    expect(reconcileFilters(sort, decade, 'decade')).toEqual({ sort, decade })
+  })
+})
+
+describe('splitGenres', () => {
+  // Neither alphabetical nor by album count: an accidental sort cannot pass.
+  const genres: ReadonlyArray<{ readonly name: string; readonly albumCount: number }> = [
+    { name: 'Rock', albumCount: 120 },
+    { name: 'Ambient', albumCount: 7 },
+    { name: 'Jazz', albumCount: 44 },
+    { name: 'Punk', albumCount: 3 },
+  ]
+
+  const namesOf = (entries: ReadonlyArray<{ readonly name: string }>): ReadonlyArray<string> =>
+    entries.map((entry) => entry.name)
+
+  it('keeps the server order in both parts', () => {
+    const { chips, rest } = splitGenres(genres, 2)
+
+    expect(namesOf(chips)).toEqual(['Rock', 'Ambient'])
+    expect(namesOf(rest)).toEqual(['Jazz', 'Punk'])
+  })
+
+  it('leaves the rest empty when there are fewer genres than chips', () => {
+    const { chips, rest } = splitGenres(genres, 10)
+
+    expect(namesOf(chips)).toEqual(['Rock', 'Ambient', 'Jazz', 'Punk'])
+    expect(rest).toEqual([])
+  })
+
+  it('leaves the rest empty when the count matches exactly', () => {
+    const { chips, rest } = splitGenres(genres, genres.length)
+
+    expect(namesOf(chips)).toEqual(['Rock', 'Ambient', 'Jazz', 'Punk'])
+    expect(rest).toEqual([])
+  })
+
+  it('returns two empty parts for an empty list', () => {
+    expect(splitGenres([], GENRE_CHIP_COUNT)).toEqual({ chips: [], rest: [] })
+  })
+
+  it('sends everything to the rest for a chip count of zero', () => {
+    const { chips, rest } = splitGenres(genres, 0)
+
+    expect(chips).toEqual([])
+    expect(namesOf(rest)).toEqual(['Rock', 'Ambient', 'Jazz', 'Punk'])
+  })
+
+  it('splits a long list at the chip count', () => {
+    const many = Array.from({ length: 25 }, (_, index) => `genre-${25 - index}`)
+
+    const { chips, rest } = splitGenres(many, GENRE_CHIP_COUNT)
+
+    expect(chips[0]).toBe('genre-25')
+    expect(chips[GENRE_CHIP_COUNT - 1]).toBe('genre-6')
+    expect(rest).toEqual(['genre-5', 'genre-4', 'genre-3', 'genre-2', 'genre-1'])
+  })
+
+  it('does not touch the input list', () => {
+    const input = Object.freeze([...genres])
+
+    splitGenres(input, 2)
+
+    expect(namesOf(input)).toEqual(['Rock', 'Ambient', 'Jazz', 'Punk'])
   })
 })
 
@@ -410,7 +242,6 @@ describe('adaptTidalAlbumsForDisplay', () => {
         artist: 'Daft Punk',
         coverArtUrl: 'https://covers.test/t1.jpg',
         releaseYear: null,
-        genre: null,
       },
       {
         id: 't2',
@@ -418,7 +249,6 @@ describe('adaptTidalAlbumsForDisplay', () => {
         artist: 'Radiohead',
         coverArtUrl: 'https://covers.test/t2.jpg',
         releaseYear: null,
-        genre: null,
       },
     ])
   })
@@ -483,5 +313,13 @@ describe('constants', () => {
       'library-decade-filter',
       'library-view-mode',
     ])
+  })
+
+  it('pages the album list in steps of 60', () => {
+    expect(PAGE_SIZE).toBe(60)
+  })
+
+  it('shows 20 genres as chips', () => {
+    expect(GENRE_CHIP_COUNT).toBe(20)
   })
 })

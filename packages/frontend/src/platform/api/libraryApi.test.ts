@@ -10,7 +10,6 @@ const makeLibraryResponse = (): LibraryAlbumsResponse => ({
       title: 'The Wall',
       artist: 'Pink Floyd',
       releaseYear: 1979,
-      genre: null,
       coverArtUrl: 'http://localhost:9000/music/abc123/cover.jpg',
     },
   ],
@@ -61,6 +60,34 @@ describe('libraryApi', () => {
           '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2Fabc123%2Fcover.jpg',
         )
         expect(result.value.totalCount).toBe(1)
+      }
+    })
+
+    // The backend stops sending `genre` in step 5; until then it still does,
+    // and neither shape may break the parse.
+    it('parses an album whether or not the server still sends a genre field', async () => {
+      fetchMock.mockResolvedValue(
+        okResponse({
+          albums: [
+            {
+              id: '42',
+              title: 'The Wall',
+              artist: 'Pink Floyd',
+              releaseYear: 1979,
+              coverArtUrl: 'http://localhost:9000/music/abc123/cover.jpg',
+              genre: 'Rock',
+            },
+          ],
+          totalCount: 1,
+        }),
+      )
+
+      const result = await getLibraryAlbums()
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.albums[0]?.title).toBe('The Wall')
+        expect(result.value.albums[0]).not.toHaveProperty('genre')
       }
     })
 

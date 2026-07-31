@@ -1,8 +1,10 @@
+import type { DecadeFilter, SortOption } from '@signalform/shared'
+
+export type { DecadeFilter, SortOption }
+
 export type LoadingStatus = 'loading' | 'success' | 'error'
 export type Source = 'local' | 'tidal'
 export type ViewMode = 'grid' | 'list'
-export type SortOption = 'artist-az' | 'title-az' | 'year-newest' | 'recently-added'
-export type DecadeFilter = 'all' | '2020s' | '2010s' | '2000s' | '1990s' | 'older'
 
 export type LibraryAlbum = {
   readonly id: string
@@ -10,7 +12,6 @@ export type LibraryAlbum = {
   readonly artist: string
   readonly releaseYear: number | null
   readonly coverArtUrl: string
-  readonly genre: string | null
 }
 
 export type LibraryAlbumsResponse = {
@@ -30,4 +31,18 @@ export type TidalAlbumForDisplay = {
   readonly title: string
   readonly artist: string
   readonly coverArtUrl: string
+}
+
+export type FilterField = 'sort' | 'decade'
+
+export type ReconciledFilters = {
+  readonly sort: SortOption
+  readonly decade: DecadeFilter
+  // Names the field that had to give way, so the UI can say why a control moved.
+  readonly adjusted?: FilterField
+}
+
+export type GenreSplit<Genre> = {
+  readonly chips: readonly Genre[]
+  readonly rest: readonly Genre[]
 }

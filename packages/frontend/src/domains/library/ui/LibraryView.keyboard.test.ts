@@ -26,6 +26,7 @@ vi.mock('@/app/useResponsiveLayout', () => ({
 
 vi.mock('@/platform/api/libraryApi', () => ({
   getLibraryAlbums: vi.fn(),
+  getLibraryGenres: vi.fn().mockResolvedValue({ ok: true, value: [] }),
 }))
 
 vi.mock('@/platform/api/playbackApi', () => ({
@@ -53,14 +54,12 @@ const makeAlbum = (
   readonly title: string
   readonly artist: string
   readonly releaseYear: number | null
-  readonly genre: string | null
   readonly coverArtUrl: string
 } => ({
   id,
   title: `Album ${id}`,
   artist: `Artist ${id}`,
   releaseYear: 2020,
-  genre: null,
   coverArtUrl: `http://localhost:9000/music/${id}/cover.jpg`,
 })
 

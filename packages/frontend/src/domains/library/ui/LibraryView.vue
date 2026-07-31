@@ -19,7 +19,10 @@ const {
   setSource,
   currentStatus,
   albums,
-  totalCount,
+  hasMore,
+  isLoadingMore,
+  loadMoreFailed,
+  loadMore,
   tidalAlbumsForDisplay,
   featuredAlbums,
   featuredStatus,
@@ -40,12 +43,20 @@ const {
   setGenreFilter,
   decadeFilter,
   setDecadeFilter,
-  availableGenres,
-  displayedAlbums,
+  adjustedFilter,
+  genres,
   clearAllFilters,
   hasActiveFilters,
-  displayLimit,
 } = useLibraryBrowser(t)
+
+const handleGenreChange = (event: Event): void => {
+  const target = event.target
+  if (!(target instanceof HTMLSelectElement)) {
+    return
+  }
+
+  setGenreFilter(target.value === '' ? null : Number(target.value))
+}
 
 // ARIA APG "Tabs" pattern: only the active tab is Tab-reachable (roving
 // tabindex, bound in the template via :tabindex on both buttons);
@@ -201,7 +212,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
 
       <!-- Empty state (local — 0 albums in library) -->
       <div
-        v-else-if="albums.length === 0 && activeSource === 'local'"
+        v-else-if="albums.length === 0 && activeSource === 'local' && !hasActiveFilters"
         data-testid="empty-state"
         class="py-20"
       >
@@ -260,7 +271,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
             <AlbumCard
               v-for="album in featuredAlbums"
               :key="album.id"
-              :album="{ ...album, releaseYear: null, genre: null }"
+              :album="{ ...album, releaseYear: null }"
               @click:navigate="handleNavigate"
               @click:play="handlePlay"
               @click:add-to-queue="handleAddToQueue"
@@ -313,44 +324,19 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
             </button>
           </div>
 
-          <!-- Genre chips -->
-          <div
-            class="flex flex-wrap gap-2"
-            data-testid="genre-filter-row"
-            role="group"
+          <!-- Genre filter — dropdown until step 5 brings chips + autocomplete -->
+          <select
+            data-testid="genre-filter-select"
+            :value="genreFilter === null ? '' : String(genreFilter)"
             aria-label="Filter by genre"
+            class="min-h-9 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-600"
+            @change="handleGenreChange"
           >
-            <button
-              type="button"
-              :data-testid="`genre-chip-all`"
-              :aria-pressed="genreFilter === null ? 'true' : 'false'"
-              :class="[
-                'min-h-9 flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
-                genreFilter === null
-                  ? 'border-neutral-900 bg-neutral-900 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-              ]"
-              @click="setGenreFilter(null)"
-            >
-              {{ t('library.genre.all') }}
-            </button>
-            <button
-              v-for="genre in availableGenres"
-              :key="genre"
-              type="button"
-              :data-testid="`genre-chip-${genre}`"
-              :aria-pressed="genreFilter === genre ? 'true' : 'false'"
-              :class="[
-                'min-h-9 flex-shrink-0 rounded-full border px-4 text-sm font-medium transition-colors',
-                genreFilter === genre
-                  ? 'border-neutral-900 bg-neutral-900 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-              ]"
-              @click="setGenreFilter(genre)"
-            >
-              {{ genre }}
-            </button>
-          </div>
+            <option value="">{{ t('library.genre.all') }}</option>
+            <option v-for="genre in genres" :key="genre.id" :value="String(genre.id)">
+              {{ genre.name }}
+            </option>
+          </select>
 
           <!-- Clear all filters -->
           <button
@@ -364,17 +350,19 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           </button>
         </div>
 
-        <!-- Header: display-limit message (local only) + view toggle -->
-        <div class="mb-4 flex items-center justify-between">
+        <!-- Header: forced-filter notice (local only) + view toggle -->
+        <div class="mb-4 flex items-center justify-between gap-3">
           <p
-            v-if="activeSource === 'local' && totalCount > displayLimit"
-            data-testid="display-limit-message"
+            v-if="activeSource === 'local' && adjustedFilter !== null"
+            data-testid="filter-adjusted-message"
             class="text-sm text-neutral-500"
+            role="status"
+            aria-live="polite"
           >
             {{
-              t('library.displayLimit')
-                .replace('{limit}', String(displayLimit))
-                .replace('{total}', String(totalCount))
+              adjustedFilter === 'decade'
+                ? t('library.filterAdjustedDecade')
+                : t('library.filterAdjustedSort')
             }}
           </p>
           <div v-else />
@@ -418,9 +406,9 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           </div>
         </div>
 
-        <!-- No filter results (local only — genre filter too narrow) -->
+        <!-- No filter results (local only — filter combination too narrow) -->
         <div
-          v-if="activeSource === 'local' && displayedAlbums.length === 0"
+          v-if="activeSource === 'local' && albums.length === 0"
           data-testid="no-filter-results"
           class="py-12 text-center text-neutral-400"
         >
@@ -453,6 +441,31 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
             @click:play="handlePlay"
             @click:add-to-queue="handleAddToQueue"
           />
+        </div>
+
+        <!-- Load more (local only) — infinite scroll follows in step 5 -->
+        <div
+          v-if="activeSource === 'local' && hasMore"
+          class="mt-6 flex flex-col items-center gap-2"
+        >
+          <button
+            type="button"
+            data-testid="load-more-button"
+            :disabled="isLoadingMore"
+            class="min-h-11 rounded-lg border border-neutral-200 px-6 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="loadMore"
+          >
+            {{ isLoadingMore ? t('home.loading') : t('library.loadMore') }}
+          </button>
+          <p
+            v-if="loadMoreFailed"
+            data-testid="load-more-error"
+            class="text-sm text-neutral-500"
+            role="status"
+            aria-live="polite"
+          >
+            {{ t('library.loadMoreError') }}
+          </p>
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, watch } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import type { MessageKey } from '@/i18n'
@@ -9,27 +9,37 @@ import {
   type TidalAlbum,
 } from '@/platform/api/tidalAlbumsApi'
 import { addAlbumToQueue } from '@/platform/api/queueApi'
-import { getLibraryAlbums, getRescanStatus, triggerLibraryRescan } from '@/platform/api/libraryApi'
+import {
+  getLibraryAlbums,
+  getLibraryGenres,
+  getRescanStatus,
+  triggerLibraryRescan,
+  type LibraryAlbumsQuery,
+  type LibraryGenre,
+} from '@/platform/api/libraryApi'
 import {
   adaptTidalAlbumsForDisplay,
   buildRescanProgressMessage,
   decadeOptions,
   DECADE_KEY,
-  DISPLAY_LIMIT,
+  GENRE_CHIP_COUNT,
   GENRE_KEY,
-  getAvailableGenres,
-  getDisplayedAlbums,
+  PAGE_SIZE,
   parseStoredDecade,
   parseStoredSort,
   parseStoredViewMode,
+  reconcileFilters,
   sortOptions,
+  splitGenres,
   SORT_KEY,
   VIEW_MODE_KEY,
 } from '../core/service'
 import type {
   DecadeFilter,
+  FilterField,
   LibraryAlbum,
   LoadingStatus,
+  ReconciledFilters,
   SortOption,
   Source,
   ViewMode,
@@ -37,12 +47,22 @@ import type {
 
 type Translator = (key: MessageKey) => string
 
+const SEARCH_DEBOUNCE_MS = 300
+
+// Tidal favourites are still fetched in one go — only the local library got
+// server-side pagination.
+const TIDAL_FETCH_LIMIT = 250
+
 type UseLibraryBrowserResult = {
   readonly activeSource: Ref<Source>
   readonly setSource: (source: Source) => void
   readonly currentStatus: ComputedRef<LoadingStatus>
   readonly albums: Ref<readonly LibraryAlbum[]>
   readonly totalCount: Ref<number>
+  readonly hasMore: ComputedRef<boolean>
+  readonly isLoadingMore: Ref<boolean>
+  readonly loadMoreFailed: Ref<boolean>
+  readonly loadMore: () => Promise<void>
   readonly tidalAlbumsForDisplay: ComputedRef<readonly LibraryAlbum[]>
   readonly featuredAlbums: Ref<readonly TidalAlbum[]>
   readonly featuredStatus: Ref<LoadingStatus>
@@ -59,15 +79,27 @@ type UseLibraryBrowserResult = {
   readonly decadeOptions: typeof decadeOptions
   readonly sortBy: Ref<SortOption>
   readonly setSortBy: (sort: SortOption) => void
-  readonly genreFilter: Ref<string | null>
-  readonly setGenreFilter: (genre: string | null) => void
+  readonly genreFilter: Ref<number | null>
+  readonly setGenreFilter: (genreId: number | null) => void
   readonly decadeFilter: Ref<DecadeFilter>
   readonly setDecadeFilter: (decade: DecadeFilter) => void
-  readonly availableGenres: ComputedRef<readonly string[]>
-  readonly displayedAlbums: ComputedRef<readonly LibraryAlbum[]>
+  readonly adjustedFilter: Ref<FilterField | null>
+  readonly genres: Ref<readonly LibraryGenre[]>
+  readonly genreChips: ComputedRef<readonly LibraryGenre[]>
+  readonly genreRest: ComputedRef<readonly LibraryGenre[]>
+  readonly searchQuery: Ref<string>
+  readonly setSearchQuery: (value: string) => void
   readonly clearAllFilters: () => void
   readonly hasActiveFilters: ComputedRef<boolean>
-  readonly displayLimit: number
+}
+
+const parseStoredGenreId = (stored: string | null): number | null => {
+  if (stored === null) {
+    return null
+  }
+
+  const parsed = Number(stored)
+  return Number.isInteger(parsed) ? parsed : null
 }
 
 export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
@@ -77,6 +109,8 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const status = ref<LoadingStatus>('loading')
   const albums = ref<readonly LibraryAlbum[]>([])
   const totalCount = ref(0)
+  const isLoadingMore = ref(false)
+  const loadMoreFailed = ref(false)
 
   const tidalStatus = ref<LoadingStatus>('loading')
   const tidalAlbums = ref<readonly TidalAlbum[]>([])
@@ -89,23 +123,33 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const rescanPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
   const sortBy = ref<SortOption>(parseStoredSort(sessionStorage.getItem(SORT_KEY)))
-  const genreFilter = ref<string | null>(sessionStorage.getItem(GENRE_KEY))
+  const genreFilter = ref<number | null>(parseStoredGenreId(sessionStorage.getItem(GENRE_KEY)))
   const decadeFilter = ref<DecadeFilter>(parseStoredDecade(sessionStorage.getItem(DECADE_KEY)))
   const viewMode = ref<ViewMode>(parseStoredViewMode(localStorage.getItem(VIEW_MODE_KEY)))
+  const adjustedFilter = ref<FilterField | null>(null)
+  const searchQuery = ref('')
 
-  const availableGenres = computed(() => getAvailableGenres(albums.value))
-  const displayedAlbums = computed(() =>
-    getDisplayedAlbums(albums.value, sortBy.value, genreFilter.value, decadeFilter.value),
-  )
+  const genres = ref<readonly LibraryGenre[]>([])
+  const genreSplit = computed(() => splitGenres(genres.value, GENRE_CHIP_COUNT))
+  const genreChips = computed(() => genreSplit.value.chips)
+  const genreRest = computed(() => genreSplit.value.rest)
+
+  // Every album request carries the counter value it started with; a response
+  // whose token is no longer current belongs to a filter the user already left.
+  const requestRef = { current: 0 }
+  const searchTimerRef = { current: null as ReturnType<typeof setTimeout> | null }
+
   const tidalAlbumsForDisplay = computed(() => adaptTidalAlbumsForDisplay(tidalAlbums.value))
   const currentStatus = computed(() =>
     activeSource.value === 'local' ? status.value : tidalStatus.value,
   )
   const currentAlbumsForDisplay = computed(() =>
-    activeSource.value === 'local' ? displayedAlbums.value : tidalAlbumsForDisplay.value,
+    activeSource.value === 'local' ? albums.value : tidalAlbumsForDisplay.value,
   )
+  const hasMore = computed(() => albums.value.length < totalCount.value)
   const hasActiveFilters = computed(
-    () => genreFilter.value !== null || decadeFilter.value !== 'all',
+    () =>
+      genreFilter.value !== null || decadeFilter.value !== 'all' || searchQuery.value.trim() !== '',
   )
 
   const librarySortOptions = sortOptions({
@@ -119,18 +163,75 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     activeSource.value = source
   }
 
-  const loadLocalAlbums = async (): Promise<void> => {
-    status.value = 'loading'
-    const result = await getLibraryAlbums(DISPLAY_LIMIT, 0)
+  const currentQuery = (): LibraryAlbumsQuery => {
+    const search = searchQuery.value.trim()
 
-    if (result.ok) {
-      albums.value = result.value.albums
-      totalCount.value = result.value.totalCount
-      status.value = 'success'
+    return {
+      sort: sortBy.value,
+      decade: decadeFilter.value,
+      genreId: genreFilter.value ?? undefined,
+      search: search === '' ? undefined : search,
+    }
+  }
+
+  const loadLocalAlbums = async (): Promise<void> => {
+    requestRef.current += 1
+    const token = requestRef.current
+
+    status.value = 'loading'
+    albums.value = []
+    totalCount.value = 0
+    isLoadingMore.value = false
+    loadMoreFailed.value = false
+
+    const result = await getLibraryAlbums(PAGE_SIZE, 0, currentQuery())
+    if (token !== requestRef.current) {
       return
     }
 
-    status.value = 'error'
+    if (!result.ok) {
+      status.value = 'error'
+      return
+    }
+
+    albums.value = result.value.albums
+    totalCount.value = result.value.totalCount
+    status.value = 'success'
+  }
+
+  const loadMore = async (): Promise<void> => {
+    if (status.value !== 'success' || isLoadingMore.value || !hasMore.value) {
+      return
+    }
+
+    requestRef.current += 1
+    const token = requestRef.current
+    isLoadingMore.value = true
+    loadMoreFailed.value = false
+
+    const result = await getLibraryAlbums(PAGE_SIZE, albums.value.length, currentQuery())
+    if (token !== requestRef.current) {
+      return
+    }
+
+    isLoadingMore.value = false
+
+    if (!result.ok) {
+      loadMoreFailed.value = true
+      return
+    }
+
+    albums.value = [...albums.value, ...result.value.albums]
+    totalCount.value = result.value.totalCount
+  }
+
+  // A genre list without counts is the server's cold state, not an error: keep
+  // whatever is already on screen rather than blanking the filter.
+  const loadGenres = async (): Promise<void> => {
+    const result = await getLibraryGenres()
+    if (result.ok) {
+      genres.value = result.value
+    }
   }
 
   const stopRescanPoll = (): void => {
@@ -158,6 +259,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
       void (async (): Promise<void> => {
         rescanMessage.value = null
         await loadLocalAlbums()
+        await loadGenres()
       })()
     }, 1500)
   }
@@ -185,7 +287,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
   const loadTidalAlbums = async (): Promise<void> => {
     tidalStatus.value = 'loading'
-    const result = await getTidalAlbums(DISPLAY_LIMIT, 0)
+    const result = await getTidalAlbums(TIDAL_FETCH_LIMIT, 0)
     if (result.ok) {
       tidalAlbums.value = result.value.albums
       tidalStatus.value = 'success'
@@ -208,7 +310,15 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   }
 
   onMounted(async () => {
+    void loadGenres()
     await loadLocalAlbums()
+  })
+
+  onScopeDispose(() => {
+    if (searchTimerRef.current !== null) {
+      clearTimeout(searchTimerRef.current)
+    }
+    stopRescanPoll()
   })
 
   watch(activeSource, async (source) => {
@@ -262,23 +372,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     localStorage.setItem(VIEW_MODE_KEY, mode)
   }
 
-  const setSortBy = (sort: SortOption): void => {
-    sortBy.value = sort
-    sessionStorage.setItem(SORT_KEY, sort)
-  }
-
-  const setGenreFilter = (genre: string | null): void => {
-    genreFilter.value = genre
-    if (genre === null) {
-      sessionStorage.removeItem(GENRE_KEY)
-      return
-    }
-
-    sessionStorage.setItem(GENRE_KEY, genre)
-  }
-
-  const setDecadeFilter = (decade: DecadeFilter): void => {
-    decadeFilter.value = decade
+  const storeDecade = (decade: DecadeFilter): void => {
     if (decade === 'all') {
       sessionStorage.removeItem(DECADE_KEY)
       return
@@ -287,9 +381,62 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     sessionStorage.setItem(DECADE_KEY, decade)
   }
 
+  const applyReconciled = (reconciled: ReconciledFilters): void => {
+    sortBy.value = reconciled.sort
+    sessionStorage.setItem(SORT_KEY, reconciled.sort)
+    decadeFilter.value = reconciled.decade
+    storeDecade(reconciled.decade)
+    adjustedFilter.value = reconciled.adjusted ?? null
+
+    void loadLocalAlbums()
+  }
+
+  const setSortBy = (sort: SortOption): void => {
+    applyReconciled(reconcileFilters(sort, decadeFilter.value, 'sort'))
+  }
+
+  const setDecadeFilter = (decade: DecadeFilter): void => {
+    applyReconciled(reconcileFilters(sortBy.value, decade, 'decade'))
+  }
+
+  const storeGenre = (genreId: number | null): void => {
+    if (genreId === null) {
+      sessionStorage.removeItem(GENRE_KEY)
+      return
+    }
+
+    sessionStorage.setItem(GENRE_KEY, String(genreId))
+  }
+
+  const setGenreFilter = (genreId: number | null): void => {
+    genreFilter.value = genreId
+    storeGenre(genreId)
+
+    void loadLocalAlbums()
+  }
+
+  const setSearchQuery = (value: string): void => {
+    searchQuery.value = value
+
+    if (searchTimerRef.current !== null) {
+      clearTimeout(searchTimerRef.current)
+    }
+
+    searchTimerRef.current = setTimeout(() => {
+      searchTimerRef.current = null
+      void loadLocalAlbums()
+    }, SEARCH_DEBOUNCE_MS)
+  }
+
   const clearAllFilters = (): void => {
-    setGenreFilter(null)
-    setDecadeFilter('all')
+    genreFilter.value = null
+    storeGenre(null)
+    decadeFilter.value = 'all'
+    storeDecade('all')
+    searchQuery.value = ''
+    adjustedFilter.value = null
+
+    void loadLocalAlbums()
   }
 
   return {
@@ -298,6 +445,10 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     currentStatus,
     albums,
     totalCount,
+    hasMore,
+    isLoadingMore,
+    loadMoreFailed,
+    loadMore,
     tidalAlbumsForDisplay,
     featuredAlbums,
     featuredStatus,
@@ -318,10 +469,13 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     setGenreFilter,
     decadeFilter,
     setDecadeFilter,
-    availableGenres,
-    displayedAlbums,
+    adjustedFilter,
+    genres,
+    genreChips,
+    genreRest,
+    searchQuery,
+    setSearchQuery,
     clearAllFilters,
     hasActiveFilters,
-    displayLimit: DISPLAY_LIMIT,
   }
 }

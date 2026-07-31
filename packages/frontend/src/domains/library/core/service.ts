@@ -1,17 +1,51 @@
 import type {
   DecadeFilter,
+  FilterField,
+  GenreSplit,
   LibraryAlbum,
+  ReconciledFilters,
   SortOption,
   TidalAlbumForDisplay,
   ViewMode,
 } from './types'
 
-export const DISPLAY_LIMIT = 250
+// One infinite-scroll step: 250 covers at once are too much for a phone,
+// 60 fill several screen heights and arrive quickly.
+export const PAGE_SIZE = 60
+
+export const GENRE_CHIP_COUNT = 20
 
 export const SORT_KEY = 'library-sort-by'
 export const GENRE_KEY = 'library-genre-filter'
 export const DECADE_KEY = 'library-decade-filter'
 export const VIEW_MODE_KEY = 'library-view-mode'
+
+const DEFAULT_SORT: SortOption = 'artist-az'
+const DEFAULT_DECADE: DecadeFilter = 'all'
+
+// The keys are checked against the union, so a new SortOption breaks the build
+// here instead of silently parsing as the default.
+const SORT_OPTION_VALUES = {
+  'artist-az': true,
+  'title-az': true,
+  'year-newest': true,
+  'recently-added': true,
+} as const satisfies Record<SortOption, true>
+
+const DECADE_FILTER_VALUES = {
+  all: true,
+  '2020s': true,
+  '2010s': true,
+  '2000s': true,
+  '1990s': true,
+  older: true,
+} as const satisfies Record<DecadeFilter, true>
+
+const isSortOption = (value: string): value is SortOption =>
+  Object.hasOwn(SORT_OPTION_VALUES, value)
+
+const isDecadeFilter = (value: string): value is DecadeFilter =>
+  Object.hasOwn(DECADE_FILTER_VALUES, value)
 
 export const sortOptions = (
   labels: Record<SortOption, string>,
@@ -38,23 +72,36 @@ export const parseStoredViewMode = (stored: string | null): ViewMode =>
   stored === 'list' ? 'list' : 'grid'
 
 export const parseStoredSort = (stored: string | null): SortOption =>
-  stored === 'title-az' || stored === 'year-newest' || stored === 'recently-added'
-    ? stored
-    : 'artist-az'
+  stored !== null && isSortOption(stored) ? stored : DEFAULT_SORT
 
 export const parseStoredDecade = (stored: string | null): DecadeFilter =>
-  stored === '2020s' ||
-  stored === '2010s' ||
-  stored === '2000s' ||
-  stored === '1990s' ||
-  stored === 'older'
-    ? stored
-    : 'all'
+  stored !== null && isDecadeFilter(stored) ? stored : DEFAULT_DECADE
 
-export const getAvailableGenres = (albums: readonly LibraryAlbum[]): readonly string[] =>
-  Array.from(
-    new Set(albums.map((album) => album.genre).filter((genre): genre is string => genre !== null)),
-  ).sort((left, right) => left.localeCompare(right))
+// The backend rejects 'recently-added' plus a decade with 400 (resolvePagination):
+// one orders by date added, the other selects by release year.
+export const reconcileFilters = (
+  sort: SortOption,
+  decade: DecadeFilter,
+  changed: FilterField,
+): ReconciledFilters => {
+  if (sort !== 'recently-added' || decade === 'all') {
+    return { sort, decade }
+  }
+
+  return changed === 'sort'
+    ? { sort, decade: DEFAULT_DECADE, adjusted: 'decade' }
+    : { sort: DEFAULT_SORT, decade, adjusted: 'sort' }
+}
+
+// The server already ranks the genres by album count; re-sorting would drop that.
+export const splitGenres = <Genre>(
+  genres: readonly Genre[],
+  chipCount: number,
+): GenreSplit<Genre> => {
+  const count = Math.max(chipCount, 0)
+
+  return { chips: genres.slice(0, count), rest: genres.slice(count) }
+}
 
 export const adaptTidalAlbumsForDisplay = (
   albums: readonly TidalAlbumForDisplay[],
@@ -62,76 +109,7 @@ export const adaptTidalAlbumsForDisplay = (
   albums.map((album) => ({
     ...album,
     releaseYear: null,
-    genre: null,
   }))
-
-export const getDisplayedAlbums = (
-  albums: readonly LibraryAlbum[],
-  sortBy: SortOption,
-  genreFilter: string | null,
-  decadeFilter: DecadeFilter,
-): readonly LibraryAlbum[] => {
-  const filteredByGenre = genreFilter
-    ? albums.filter((album) => album.genre === genreFilter)
-    : albums
-
-  const filtered =
-    decadeFilter !== 'all'
-      ? filteredByGenre.filter((album) => {
-          const year = album.releaseYear
-          if (year === null) {
-            return false
-          }
-
-          if (decadeFilter === '2020s') {
-            return year >= 2020
-          }
-          if (decadeFilter === '2010s') {
-            return year >= 2010 && year < 2020
-          }
-          if (decadeFilter === '2000s') {
-            return year >= 2000 && year < 2010
-          }
-          if (decadeFilter === '1990s') {
-            return year >= 1990 && year < 2000
-          }
-
-          return year < 1990
-        })
-      : filteredByGenre
-
-  if (sortBy === 'artist-az') {
-    return [...filtered].sort(
-      (left, right) =>
-        left.artist.localeCompare(right.artist) || left.title.localeCompare(right.title),
-    )
-  }
-
-  if (sortBy === 'title-az') {
-    return [...filtered].sort(
-      (left, right) =>
-        left.title.localeCompare(right.title) || left.artist.localeCompare(right.artist),
-    )
-  }
-
-  if (sortBy === 'year-newest') {
-    return [...filtered].sort((left, right) => {
-      if (left.releaseYear === null && right.releaseYear === null) {
-        return left.title.localeCompare(right.title)
-      }
-      if (left.releaseYear === null) {
-        return 1
-      }
-      if (right.releaseYear === null) {
-        return -1
-      }
-
-      return right.releaseYear - left.releaseYear || left.title.localeCompare(right.title)
-    })
-  }
-
-  return filtered
-}
 
 export const buildRescanProgressMessage = (scanningLabel: string, step: string): string =>
   `${scanningLabel} (${step.replace(/_/g, ' ')})`

@@ -36,7 +36,6 @@ const LibraryAlbumSchema = z.object({
   artist: z.string(),
   releaseYear: z.number().nullable(),
   coverArtUrl: z.string(),
-  genre: z.string().nullable(),
 })
 
 const LibraryAlbumsResponseSchema = z.object({
