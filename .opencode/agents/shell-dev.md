@@ -7,6 +7,12 @@ description: >
   Always specify which package in the prompt.
   Do NOT use for pure core logic – use core-dev for that.
 model: anthropic/claude-sonnet-5
+# Hebt das globale shell/-deny aus opencode.json genau für diesen Agenten auf.
+# Agent-Regeln haben Vorrang vor der globalen Config; ohne diesen Block würde
+# das deny auch shell-dev treffen und die Delegation ins Leere laufen.
+permission:
+  edit:
+    "**/shell/**": allow
 ---
 
 You implement the Imperative Shell of Signalform.
