@@ -100,6 +100,7 @@ const createLmsProxy = (): LmsClient => {
     savePlaylist: forwardLmsCall((client) => client.savePlaylist),
     listSavedPlaylists: forwardLmsCall((client) => client.listSavedPlaylists),
     loadSavedPlaylist: forwardLmsCall((client) => client.loadSavedPlaylist),
+    deleteSavedPlaylist: forwardLmsCall((client) => client.deleteSavedPlaylist),
   };
 };
 
