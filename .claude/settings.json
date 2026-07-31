@@ -71,8 +71,8 @@
     }
   },
   "enabledPlugins": {
-    "typescript-lsp@signalform-plugins": true,
     "vue-lsp@signalform-plugins": true,
+    "typescript-lsp@claude-plugins-official": true,
     "playwright@claude-plugins-official": true,
     "github@claude-plugins-official": true
   },

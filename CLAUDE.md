@@ -6,7 +6,9 @@ This file adds Claude-specific tooling on top of the rules imported above.
 
 ## LSP
 
-TypeScript (vtsls) and Vue (vue-language-server v2) are active.
+TypeScript (`typescript-language-server`, via the official LSP plugin) and Vue
+(`vue-language-server` v2, via this repo's own marketplace) are active. Both
+binaries come from the workspace devDependencies — no global install needed.
 Prefer LSP over grep for all navigation:
 
 - `findReferences` before any rename
