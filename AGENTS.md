@@ -74,10 +74,9 @@ correct value can produce (e.g. which item survives a `limit` cutoff). Build
 the test fixtures so insertion order does **not** already match the expected
 output order. If insertion order and correct output order coincide, a broken
 or entirely missing sort/merge passes anyway — the test is green but proves
-nothing. See `docs/review/07-mutation.md` for a measured example: mutation
-testing on `artist-scorer.ts` killed 24/30 mutants, but 5 of the 6 survivors
-were exactly this pattern (order-only assertions over coincidentally
-pre-sorted fixtures).
+nothing. This is measured, not theoretical: a 2026-07 mutation-testing run on
+`artist-scorer.ts` killed 24/30 mutants, and 5 of the 6 survivors were exactly
+this pattern — order-only assertions over coincidentally pre-sorted fixtures.
 
 Tests must be written in the same agent delegation as the code they cover. When
 delegating to `@core-dev` or `@shell-dev`, always include explicit test requirements
@@ -98,6 +97,23 @@ for the new behaviour.
 result`) — that is correct and intentional, not a style violation.
 
 See package-level AGENTS.md for package-specific rules.
+
+## Comments
+
+Default: no comment. Prose that only restates the code is noise — rename
+instead. Write one line only for a non-obvious _why_, a workaround and its
+cause, or an invariant a reader would break. Never: banners, changelog notes,
+commented-out code, JSDoc that repeats the signature.
+
+## Commits
+
+Trunk-based: commit to `main`. Never create a branch unless the user explicitly
+asks for one — enforced by the `.claude/hooks/no-branch.sh` PreToolUse hook.
+
+Conventional Commits: `type(scope): subject`, imperative, lower case, max 72
+chars ("add sleep timer", not "added sleep timer"). One logical change per
+commit — a subject needing an "and" is two commits. Body only for a _why_ the
+subject cannot carry. Enforced by the `.husky/commit-msg` hook.
 
 ## Backend: Tidal feature anatomy
 

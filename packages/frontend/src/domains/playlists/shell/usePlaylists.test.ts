@@ -7,6 +7,7 @@ vi.mock('@/platform/api/playlistsApi', () => ({
   savePlaylist: vi.fn(),
   listPlaylists: vi.fn(),
   loadPlaylist: vi.fn(),
+  deletePlaylist: vi.fn(),
 }))
 
 const fetchQueueMock = vi.fn<() => Promise<void>>()
@@ -16,11 +17,17 @@ vi.mock('@/domains/queue/shell/useQueueStore', () => ({
 
 // Import AFTER mocks
 import { usePlaylists } from './usePlaylists'
-import { savePlaylist, listPlaylists, loadPlaylist } from '@/platform/api/playlistsApi'
+import {
+  savePlaylist,
+  listPlaylists,
+  loadPlaylist,
+  deletePlaylist,
+} from '@/platform/api/playlistsApi'
 
 const mockSavePlaylist = vi.mocked(savePlaylist)
 const mockListPlaylists = vi.mocked(listPlaylists)
 const mockLoadPlaylist = vi.mocked(loadPlaylist)
+const mockDeletePlaylist = vi.mocked(deletePlaylist)
 
 const mountComposable = async (): Promise<{
   readonly result: ReturnType<typeof usePlaylists>
@@ -43,6 +50,7 @@ describe('usePlaylists', () => {
     mockListPlaylists.mockResolvedValue([])
     mockSavePlaylist.mockResolvedValue(true)
     mockLoadPlaylist.mockResolvedValue(true)
+    mockDeletePlaylist.mockResolvedValue(true)
     fetchQueueMock.mockResolvedValue(undefined)
   })
 
@@ -104,6 +112,83 @@ describe('usePlaylists', () => {
 
     expect(fetchQueueMock).not.toHaveBeenCalled()
     expect(result.error.value).toBe(true)
+  })
+
+  it('remove(id) calls deletePlaylist then refreshes the list', async () => {
+    mockListPlaylists.mockResolvedValue([
+      { id: 'a', name: 'One' },
+      { id: 'b', name: 'Two' },
+    ])
+    const { result } = await mountComposable()
+    mockListPlaylists.mockClear()
+    mockListPlaylists.mockResolvedValue([{ id: 'b', name: 'Two' }])
+
+    await result.remove('a')
+
+    expect(mockDeletePlaylist).toHaveBeenCalledWith('a')
+    expect(mockListPlaylists).toHaveBeenCalledTimes(1)
+    expect(result.playlists.value).toEqual([{ id: 'b', name: 'Two' }])
+    expect(result.error.value).toBe(false)
+  })
+
+  it('sets error and keeps the list when remove fails', async () => {
+    mockListPlaylists.mockResolvedValue([{ id: 'a', name: 'One' }])
+    mockDeletePlaylist.mockResolvedValue(false)
+    const { result } = await mountComposable()
+    mockListPlaylists.mockClear()
+
+    await result.remove('a')
+
+    expect(mockListPlaylists).not.toHaveBeenCalled()
+    expect(result.playlists.value).toEqual([{ id: 'a', name: 'One' }])
+    expect(result.error.value).toBe(true)
+  })
+
+  it('sets error and does not crash when deletePlaylist throws', async () => {
+    mockDeletePlaylist.mockRejectedValue(new Error('network'))
+    const { result } = await mountComposable()
+    mockListPlaylists.mockClear()
+
+    await result.remove('a')
+
+    expect(mockListPlaylists).not.toHaveBeenCalled()
+    expect(result.error.value).toBe(true)
+  })
+
+  it('clears a stale error when a later save succeeds', async () => {
+    mockSavePlaylist.mockResolvedValueOnce(false)
+    const { result } = await mountComposable()
+
+    await result.save('Boom')
+    expect(result.error.value).toBe(true)
+
+    await result.save('Fine')
+
+    expect(result.error.value).toBe(false)
+  })
+
+  it('clears a stale error when a later load succeeds', async () => {
+    mockLoadPlaylist.mockResolvedValueOnce(false)
+    const { result } = await mountComposable()
+
+    await result.load('pl-1')
+    expect(result.error.value).toBe(true)
+
+    await result.load('pl-1')
+
+    expect(result.error.value).toBe(false)
+  })
+
+  it('clears a stale error when a later remove succeeds', async () => {
+    mockDeletePlaylist.mockResolvedValueOnce(false)
+    const { result } = await mountComposable()
+
+    await result.remove('a')
+    expect(result.error.value).toBe(true)
+
+    await result.remove('a')
+
+    expect(result.error.value).toBe(false)
   })
 
   it('sets error and does not crash when listPlaylists throws', async () => {

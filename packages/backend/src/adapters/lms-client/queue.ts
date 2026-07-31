@@ -49,6 +49,7 @@ export type QueueMethods = {
     Result<readonly SavedPlaylist[], LmsError>
   >;
   readonly loadSavedPlaylist: (id: string) => Promise<Result<void, LmsError>>;
+  readonly deleteSavedPlaylist: (id: string) => Promise<Result<void, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -309,6 +310,25 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         "cmd:load",
         `playlist_id:${id}`,
       ];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
+    },
+
+    /**
+     * Delete a saved playlist from LMS.
+     *
+     * Command: ["playlists", "delete", "playlist_id:{id}"]
+     *
+     * @param id - Saved playlist ID
+     * @returns Result with void or error
+     */
+    deleteSavedPlaylist: async (
+      id: string,
+    ): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = ["playlists", "delete", `playlist_id:${id}`];
       const result = await executeCommand(command);
       if (!result.ok) {
         return result;

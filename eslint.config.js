@@ -95,7 +95,7 @@ export default [
       // Rationale: Vitest idiomatically uses `let server` + `beforeEach`/`afterEach` for
       // shared setup state. Calling afterEach inside each test body is an anti-pattern.
       // We rely on code review to ensure `let` is only used in describe-level setup/teardown,
-      // not inside test bodies. See docs/contributors/TESTING.md for examples.
+      // not inside test bodies. See docs/contributing/testing.md for examples.
       "functional/no-let": "off",
 
       // Still enforce prefer-const to catch unnecessary let usage inside test bodies.

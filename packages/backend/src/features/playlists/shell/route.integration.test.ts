@@ -33,6 +33,9 @@ type MockLmsClient = LmsClient & {
   readonly loadSavedPlaylist: ReturnType<
     typeof vi.fn<LmsClient["loadSavedPlaylist"]>
   >;
+  readonly deleteSavedPlaylist: ReturnType<
+    typeof vi.fn<LmsClient["deleteSavedPlaylist"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -45,6 +48,9 @@ const createMockLmsClient = (): MockLmsClient => ({
     .mockResolvedValue(ok([])),
   loadSavedPlaylist: vi
     .fn<LmsClient["loadSavedPlaylist"]>()
+    .mockResolvedValue(ok(undefined)),
+  deleteSavedPlaylist: vi
+    .fn<LmsClient["deleteSavedPlaylist"]>()
     .mockResolvedValue(ok(undefined)),
 });
 
@@ -91,6 +97,15 @@ describe("Playlists Routes", () => {
     });
   };
 
+  const whenDeletingPlaylist = async (
+    idSegment: string,
+  ): Promise<LightMyRequestResponse> => {
+    return await server.inject({
+      method: "DELETE",
+      url: `/api/playlists/${idSegment}`,
+    });
+  };
+
   // THEN helpers
   // ---------------------------------------------------------------------------
 
@@ -104,6 +119,14 @@ describe("Playlists Routes", () => {
 
   const thenLoadWasNotCalled = (): void => {
     expect(mockLmsClient.loadSavedPlaylist).not.toHaveBeenCalled();
+  };
+
+  const thenDeleteWasCalledWith = (id: string): void => {
+    expect(mockLmsClient.deleteSavedPlaylist).toHaveBeenCalledWith(id);
+  };
+
+  const thenDeleteWasNotCalled = (): void => {
+    expect(mockLmsClient.deleteSavedPlaylist).not.toHaveBeenCalled();
   };
 
   describe("POST /api/playlists", () => {
@@ -223,6 +246,55 @@ describe("Playlists Routes", () => {
       const response = await whenLoadingPlaylist({ id: "42" });
 
       expect(response.statusCode).toBeGreaterThanOrEqual(500);
+    });
+  });
+
+  describe("DELETE /api/playlists/:id", () => {
+    it("returns 204 and deletes the playlist for a valid id", async () => {
+      const response = await whenDeletingPlaylist("42");
+
+      expect(response.statusCode).toBe(204);
+      thenDeleteWasCalledWith("42");
+    });
+
+    it("decodes a percent-encoded id before deleting", async () => {
+      const response = await whenDeletingPlaylist("Road%20Trip%2F2026");
+
+      expect(response.statusCode).toBe(204);
+      thenDeleteWasCalledWith("Road Trip/2026");
+    });
+
+    it("trims the id before deleting", async () => {
+      const response = await whenDeletingPlaylist("%205%20");
+
+      expect(response.statusCode).toBe(204);
+      thenDeleteWasCalledWith("5");
+    });
+
+    it("returns 400 when the id is whitespace only", async () => {
+      const response = await whenDeletingPlaylist("%20");
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body)).toEqual({
+        error: "Playlist id is required",
+      });
+      thenDeleteWasNotCalled();
+    });
+
+    it("returns 503 with a user-friendly message when LMS is unreachable", async () => {
+      mockLmsClient.deleteSavedPlaylist.mockResolvedValue(
+        err({ type: "NetworkError", message: "connection refused" }),
+      );
+
+      const response = await whenDeletingPlaylist("42");
+
+      expect(response.statusCode).toBe(503);
+      expect(JSON.parse(response.body)).toEqual({
+        error: "LMS_UNREACHABLE",
+        message:
+          "Cannot connect to music server. Please check that Lyrion Music Server is running.",
+      });
+      thenDeleteWasCalledWith("42");
     });
   });
 });

@@ -2,7 +2,8 @@
  * Playlists Routes
  *
  * Save the current LMS now-playing queue as a named playlist, list saved
- * playlists, and load a saved playlist back into the queue.
+ * playlists, load a saved playlist back into the queue, and delete a saved
+ * playlist.
  *
  * Handlers: validate → call core → call LMS → respond.
  */
@@ -20,11 +21,13 @@ const extractName = (body: unknown): unknown => {
   return (body as { readonly name: unknown }).name;
 };
 
-const extractId = (body: unknown): unknown => {
-  if (typeof body !== "object" || body === null || !("id" in body)) {
+// Called with both `request.body` (POST /load) and `request.params`
+// (DELETE /:id), so the parameter stays source-agnostic.
+const extractId = (source: unknown): unknown => {
+  if (typeof source !== "object" || source === null || !("id" in source)) {
     return undefined;
   }
-  return (body as { readonly id: unknown }).id;
+  return (source as { readonly id: unknown }).id;
 };
 
 export const createPlaylistsRoute = (
@@ -142,6 +145,48 @@ export const createPlaylistsRoute = (
       }
 
       request.log.info({ id }, "Playlist loaded");
+      return reply.code(204).send();
+    },
+  );
+
+  /**
+   * DELETE /api/playlists/:id
+   *
+   * Delete a saved playlist.
+   * Param: id — non-empty string (Fastify decodes percent-encoded segments)
+   * 204 | 400 | 5xx
+   */
+  fastify.delete<{ readonly Params: unknown }>(
+    "/api/playlists/:id",
+    async (
+      request: FastifyRequest<{ readonly Params: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      request.log.debug(
+        { endpoint: "/api/playlists/:id", method: "DELETE" },
+        "Delete playlist request received",
+      );
+
+      const rawId = extractId(request.params);
+      if (typeof rawId !== "string" || rawId.trim() === "") {
+        request.log.warn("Invalid delete playlist request: missing id");
+        return reply.code(400).send({ error: "Playlist id is required" });
+      }
+      const id = rawId.trim();
+
+      const result = await lmsClient.deleteSavedPlaylist(id);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS delete playlist failed",
+          { id },
+        );
+      }
+
+      request.log.info({ id }, "Playlist deleted");
       return reply.code(204).send();
     },
   );

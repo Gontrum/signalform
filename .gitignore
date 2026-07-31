@@ -40,6 +40,10 @@ pnpm-debug.log*
 .cache/
 .tmp/
 
+# Working notes: plans, roadmaps, audit reports. Deliberately untracked —
+# dated snapshots in the repo rot into misinformation. See docs/README.md.
+.scratch/
+
 # Claude Code agent worktrees
 .claude/worktrees/
 .claude/.reviewer-ran

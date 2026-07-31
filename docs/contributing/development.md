@@ -89,7 +89,7 @@ then open `chrome://inspect`.
 
 ### Tests
 
-See [TESTING.md](TESTING.md#debugging-tests).
+See [testing.md](testing.md#debugging-tests).
 
 ---
 

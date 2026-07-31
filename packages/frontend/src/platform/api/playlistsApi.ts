@@ -47,6 +47,17 @@ export const listPlaylists = async (): Promise<readonly SavedPlaylist[]> => {
   return parsed.success ? parsed.data.playlists : []
 }
 
+export const deletePlaylist = async (id: string): Promise<boolean> => {
+  const response = await fetch(
+    getApiUrl(`/api/playlists/${encodeURIComponent(id)}`),
+    withUserHeader({
+      method: 'DELETE',
+      signal: AbortSignal.timeout(15000),
+    }),
+  )
+  return response.ok
+}
+
 export const loadPlaylist = async (id: string): Promise<boolean> => {
   const response = await fetch(
     getApiUrl('/api/playlists/load'),

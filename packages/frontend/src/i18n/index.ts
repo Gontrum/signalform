@@ -197,7 +197,12 @@ export type MessageKey =
   | 'playlists.namePlaceholder'
   | 'playlists.save'
   | 'playlists.load'
+  | 'playlists.delete'
+  | 'playlists.deleteConfirm'
+  | 'playlists.deleteAria'
+  | 'playlists.deleteConfirmAria'
   | 'playlists.empty'
+  | 'playlists.error'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -398,7 +403,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.namePlaceholder': 'Playlist name',
     'playlists.save': 'Save queue',
     'playlists.load': 'Load',
+    'playlists.delete': 'Delete',
+    'playlists.deleteConfirm': 'Tap again to delete',
+    'playlists.deleteAria': 'Delete playlist {name}',
+    'playlists.deleteConfirmAria': 'Tap again to delete playlist {name}',
     'playlists.empty': 'No saved playlists yet',
+    'playlists.error': 'Something went wrong. Please try again.',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -604,7 +614,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.namePlaceholder': 'Playlist-Name',
     'playlists.save': 'Queue speichern',
     'playlists.load': 'Laden',
+    'playlists.delete': 'Löschen',
+    'playlists.deleteConfirm': 'Zum Löschen erneut tippen',
+    'playlists.deleteAria': 'Playlist {name} löschen',
+    'playlists.deleteConfirmAria': 'Zum Löschen der Playlist {name} erneut tippen',
     'playlists.empty': 'Noch keine gespeicherten Playlists',
+    'playlists.error': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
   },
 }
 

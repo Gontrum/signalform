@@ -83,6 +83,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   savePlaylist: vi.fn(),
   listSavedPlaylists: vi.fn(),
   loadSavedPlaylist: vi.fn(),
+  deleteSavedPlaylist: vi.fn(),
   getTidalAlbumParentItems: vi.fn(),
   rescanLibrary: vi.fn(),
   getRescanProgress: vi.fn(),

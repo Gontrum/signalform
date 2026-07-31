@@ -40,6 +40,8 @@ pnpm precommit        # Run all checks manually
 1. Sync with upstream: `git fetch upstream && git merge upstream/main`
 2. Create a branch: `git checkout -b feature/my-change`
 3. Commit with conventional format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
+   — imperative, lower case, no trailing period, max 72 chars. The
+   `commit-msg` hook rejects anything else; see AGENTS.md, section "Commits".
 4. Push to your fork and open a Pull Request
 
 Branch naming: `feature/`, `fix/`, `refactor/`, `docs/`, `test/`
@@ -72,15 +74,18 @@ for the full reference.
 ## Building a release
 
 Release management is maintainer-only. See
-[docs/RELEASING.md](docs/RELEASING.md) for the canonical release process.
+[docs/releasing.md](docs/releasing.md) for the canonical release process.
 
 ## Further reading
 
+Full map with reading order: [docs/README.md](docs/README.md).
+
 - [docs/architecture.md](docs/architecture.md) -- Architecture, FCIS principles, dependency rules
-- [docs/contributing/TESTING.md](docs/contributing/TESTING.md) -- Testing guide and conventions
-- [docs/contributing/TEST-TEMPLATES.md](docs/contributing/TEST-TEMPLATES.md) -- Copy-paste test templates
-- [docs/contributing/FEATURE-EXAMPLE.md](docs/contributing/FEATURE-EXAMPLE.md) -- Full-stack feature walkthrough
-- [docs/contributing/DEVELOPMENT-WORKFLOW.md](docs/contributing/DEVELOPMENT-WORKFLOW.md) -- Dev commands, debugging, configuration
+- [docs/contributing/development.md](docs/contributing/development.md) -- Dev commands, debugging, configuration
+- [docs/contributing/testing.md](docs/contributing/testing.md) -- Testing guide and conventions
+- [docs/contributing/test-templates.md](docs/contributing/test-templates.md) -- Copy-paste test templates
+- [docs/contributing/feature-example.md](docs/contributing/feature-example.md) -- Full-stack feature walkthrough
+- [docs/contributing/troubleshooting.md](docs/contributing/troubleshooting.md) -- Recurring local failures
 
 ## Getting help
 

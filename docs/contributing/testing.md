@@ -89,5 +89,5 @@ pnpm test:e2e --debug        # Step-through
 
 ## Templates
 
-See [TEST-TEMPLATES.md](TEST-TEMPLATES.md) for copy-paste templates for all
+See [test-templates.md](test-templates.md) for copy-paste templates for all
 three test types.

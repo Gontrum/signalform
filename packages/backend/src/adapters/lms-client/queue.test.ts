@@ -498,6 +498,40 @@ describe("loadSavedPlaylist", () => {
   });
 });
 
+// ─── deleteSavedPlaylist ──────────────────────────────────────────────────────
+
+describe("deleteSavedPlaylist", () => {
+  it("sends the playlists delete command with the playlist_id", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
+    const { deleteSavedPlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await deleteSavedPlaylist("42");
+
+    expect(result.ok).toBe(true);
+    expect(executeCommand).toHaveBeenCalledWith([
+      "playlists",
+      "delete",
+      "playlist_id:42",
+    ]);
+  });
+
+  it("propagates NetworkError from executeCommand", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(err(networkError));
+    const { deleteSavedPlaylist } = createQueueMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await deleteSavedPlaylist("42");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.type).toBe("NetworkError");
+    }
+  });
+});
+
 // ─── getQueue index parsing ───────────────────────────────────────────────────
 
 describe("getQueue", () => {

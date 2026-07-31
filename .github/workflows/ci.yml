@@ -64,7 +64,7 @@ jobs:
       - name: Run shellcheck
         # Die .claude/.husky-Hooks tragen das Agent-Routing und die Commit-Gates.
         # Ein Syntaxfehler dort fällt sonst erst auf, wenn ein Gate lautlos ausfällt.
-        run: shellcheck install.sh scripts/build-release.sh .claude/hooks/*.sh .husky/pre-commit .husky/pre-push
+        run: shellcheck install.sh scripts/build-release.sh .claude/hooks/*.sh .husky/pre-commit .husky/pre-push .husky/commit-msg
 
   static-analysis:
     runs-on: ubuntu-latest
