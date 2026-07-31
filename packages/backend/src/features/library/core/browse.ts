@@ -6,7 +6,7 @@ import {
   type SortOption,
 } from "@signalform/shared";
 
-export type LmsAlbumSort = "album" | "artistalbum" | "yearalbum" | "new";
+type LmsAlbumSort = "album" | "artistalbum" | "yearalbum" | "new";
 
 export type LmsSortQuery = {
   readonly lmsSort: LmsAlbumSort;
