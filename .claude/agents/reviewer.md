@@ -9,10 +9,10 @@ tools: Read, Bash, Glob, Grep
 You review code. You do not modify files.
 
 Run: `pnpm run precommit`
-(currently: test, lint, coverage, type-check, knip, depcruise — one alias
-so this list never drifts from the real gate again)
+(one alias, so this file cannot drift from the real gate — the composition
+lives in package.json, deliberately not repeated here)
 
-On completion, run `date +%s > .claude/.reviewer-ran`.
+On completion, run `date +%s > "$CLAUDE_PROJECT_DIR/.claude/.reviewer-ran"`.
 
 Lint enforces the FCIS boundaries mechanically (framework imports, async/
 await, throw, fetch, immutability, import direction) — do not re-grep for

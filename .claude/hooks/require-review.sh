@@ -5,13 +5,21 @@
 # writes on completion — not a defense against deliberate bypass, a bash
 # hook can't verify that.
 
+if ! command -v jq >/dev/null 2>&1; then
+  cat >/dev/null
+  echo "require-review.sh: jq fehlt – Review-Gate kann nicht geprüft werden, Aktion wird blockiert. jq installieren." >&2
+  exit 2
+fi
+
 INPUT=$(cat)
 CMD=$(jq -r '.tool_input.command // empty' <<<"$INPUT")
 
 case "$CMD" in
   git\ commit*)
     if git diff --cached --name-only 2>/dev/null | grep -qE '/(core|shell)/'; then
-      MARKER=".claude/.reviewer-ran"
+      # Absoluter Pfad: der Marker muss auch dann gefunden werden, wenn das
+      # Bash-Tool gerade in einem Paketverzeichnis steht.
+      MARKER="${CLAUDE_PROJECT_DIR:-.}/.claude/.reviewer-ran"
       LAST=$(cat "$MARKER" 2>/dev/null || echo 0)
       NOW=$(date +%s)
       if [ $((NOW - LAST)) -gt 1800 ]; then
