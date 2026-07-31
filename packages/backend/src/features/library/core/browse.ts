@@ -32,12 +32,12 @@ const SORT_QUERIES = {
 export const mapSortToLmsQuery = (sort: SortOption): LmsSortQuery =>
   SORT_QUERIES[sort];
 
-export type BackwardPage = {
+export type LmsPage = {
   readonly offset: number;
   readonly limit: number;
 };
 
-const EMPTY_PAGE: BackwardPage = { offset: 0, limit: 0 };
+const EMPTY_PAGE: LmsPage = { offset: 0, limit: 0 };
 
 // Page 0 is the newest slice and therefore the *last* rows of the ascending LMS
 // result — the caller reverses the fetched rows before returning them.
@@ -45,12 +45,34 @@ export const computeBackwardPage = (
   totalCount: number,
   limit: number,
   page: number,
-): BackwardPage => {
+): LmsPage => {
   const end = totalCount - page * limit;
   const offset = Math.max(end - limit, 0);
   const pageLimit = Math.min(end, totalCount) - offset;
 
   return pageLimit > 0 ? { offset, limit: pageLimit } : EMPTY_PAGE;
+};
+
+// A capped sort (`sort:new`) silently returns nothing past its cap, so the page
+// is trimmed to what LMS can still deliver instead of asking beyond it.
+export const clampPage = (
+  offset: number,
+  limit: number,
+  hardLimit?: number,
+): LmsPage => {
+  if (limit <= 0 || offset < 0) {
+    return EMPTY_PAGE;
+  }
+
+  if (hardLimit === undefined) {
+    return { offset, limit };
+  }
+
+  const remaining = hardLimit - offset;
+
+  return remaining > 0
+    ? { offset, limit: Math.min(limit, remaining) }
+    : EMPTY_PAGE;
 };
 
 type YearBounds = {
