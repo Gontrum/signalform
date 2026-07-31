@@ -1,3 +1,4 @@
+# shellcheck shell=sh
 # FCIS boundary: core/ files must not import framework dependencies.
 # Tool-agnostic backstop — fires regardless of which AI tool made the change.
 # Husky runs this with 'sh -e', so POSIX sh only (no bash process substitution).

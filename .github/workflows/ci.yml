@@ -62,7 +62,9 @@ jobs:
         run: pnpm -r build
 
       - name: Run shellcheck
-        run: shellcheck install.sh scripts/build-release.sh
+        # Die .claude/.husky-Hooks tragen das Agent-Routing und die Commit-Gates.
+        # Ein Syntaxfehler dort fällt sonst erst auf, wenn ein Gate lautlos ausfällt.
+        run: shellcheck install.sh scripts/build-release.sh .claude/hooks/*.sh .husky/pre-commit .husky/pre-push
 
   static-analysis:
     runs-on: ubuntu-latest
