@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DecadeFilter, SortOption } from "@signalform/shared";
 import {
   computeBackwardPage,
-  findDecadeRange,
+  mapOffsetAcrossYears,
   mapSortToLmsQuery,
+  selectDecadeYears,
+  type YearCount,
 } from "./browse.js";
 
 const ALL_SORTS: readonly SortOption[] = [
@@ -131,135 +133,220 @@ describe("computeBackwardPage", () => {
   });
 });
 
-// Ascending year column as LMS returns it (`sort:yearalbum`), unknown years as 0 up front.
-const YEARS: readonly number[] = [
-  0, 0, 0, 0, 0, 1969, 1989, 1990, 1999, 2000, 2009, 2010, 2019, 2020, 2031,
+// Distinct years as the LMS `years` command returns them: no order guaranteed,
+// 0 for albums without a year, and 200 as a real-world typo that stays a typo.
+const DISTINCT_YEARS: readonly number[] = [
+  2010, 0, 1995, 2031, 1989, 2020, 200, 2009, 1990, 2000, 1999, 2019, 2015, 0,
+  1969, 2025, 2005,
 ];
 
-const slice = (
-  years: readonly number[],
-  range: { readonly offset: number; readonly count: number },
-): readonly number[] => years.slice(range.offset, range.offset + range.count);
-
-describe("findDecadeRange", () => {
-  it("returns the whole library including the unknown-year block for 'all'", () => {
-    const range = findDecadeRange(YEARS, "all");
-
-    expect(range).toEqual({ offset: 0, count: 15 });
-    expect(slice(YEARS, range)).toEqual([...YEARS]);
+describe("selectDecadeYears", () => {
+  it("asks for no year filter at all for 'all'", () => {
+    expect(selectDecadeYears(DISTINCT_YEARS, "all")).toBeUndefined();
   });
 
-  it("includes 1989 but not 1990 in 'older'", () => {
-    const range = findDecadeRange(YEARS, "older");
-
-    expect(range).toEqual({ offset: 5, count: 2 });
-    expect(slice(YEARS, range)).toEqual([1969, 1989]);
-    expect(YEARS[range.offset + range.count]).toBe(1990);
+  it("includes 1989 and the broken year 200 but not 1990 in 'older'", () => {
+    expect(selectDecadeYears(DISTINCT_YEARS, "older")).toEqual([
+      1989, 1969, 200,
+    ]);
   });
 
-  it("excludes the unknown-year block from 'older'", () => {
-    const range = findDecadeRange(YEARS, "older");
+  it("excludes the unknown year 0 from 'older'", () => {
+    const older = selectDecadeYears(DISTINCT_YEARS, "older");
 
-    expect(slice(YEARS, range)).not.toContain(0);
-    expect(YEARS[range.offset - 1]).toBe(0);
+    expect(older).not.toContain(0);
+    expect(older?.at(-1)).toBe(200);
   });
 
   it("includes 1990 and 1999 but not 2000 in '1990s'", () => {
-    const range = findDecadeRange(YEARS, "1990s");
-
-    expect(range).toEqual({ offset: 7, count: 2 });
-    expect(slice(YEARS, range)).toEqual([1990, 1999]);
-    expect(YEARS[range.offset - 1]).toBe(1989);
-    expect(YEARS[range.offset + range.count]).toBe(2000);
+    expect(selectDecadeYears(DISTINCT_YEARS, "1990s")).toEqual([
+      1999, 1995, 1990,
+    ]);
   });
 
   it("includes 2000 and 2009 but not 2010 in '2000s'", () => {
-    const range = findDecadeRange(YEARS, "2000s");
-
-    expect(range).toEqual({ offset: 9, count: 2 });
-    expect(slice(YEARS, range)).toEqual([2000, 2009]);
-    expect(YEARS[range.offset - 1]).toBe(1999);
-    expect(YEARS[range.offset + range.count]).toBe(2010);
+    expect(selectDecadeYears(DISTINCT_YEARS, "2000s")).toEqual([
+      2009, 2005, 2000,
+    ]);
   });
 
   it("includes 2010 and 2019 but not 2020 in '2010s'", () => {
-    const range = findDecadeRange(YEARS, "2010s");
-
-    expect(range).toEqual({ offset: 11, count: 2 });
-    expect(slice(YEARS, range)).toEqual([2010, 2019]);
-    expect(YEARS[range.offset - 1]).toBe(2009);
-    expect(YEARS[range.offset + range.count]).toBe(2020);
+    expect(selectDecadeYears(DISTINCT_YEARS, "2010s")).toEqual([
+      2019, 2015, 2010,
+    ]);
   });
 
-  it("is open ended upwards for '2020s'", () => {
-    const range = findDecadeRange(YEARS, "2020s");
-
-    expect(range).toEqual({ offset: 13, count: 2 });
-    expect(slice(YEARS, range)).toEqual([2020, 2031]);
-    expect(YEARS[range.offset - 1]).toBe(2019);
+  it("includes 2020 and stays open ended upwards for '2020s'", () => {
+    expect(selectDecadeYears(DISTINCT_YEARS, "2020s")).toEqual([
+      2031, 2025, 2020,
+    ]);
   });
 
-  it("covers a full block of repeated years, not just the first entry", () => {
-    const years = [1985, 1995, 1995, 1995, 2001];
+  it("sorts newest first regardless of the order the years arrive in", () => {
+    const shuffled = [1990, 1999, 1995];
 
-    const range = findDecadeRange(years, "1990s");
-
-    expect(range).toEqual({ offset: 1, count: 3 });
-    expect(slice(years, range)).toEqual([1995, 1995, 1995]);
+    expect(selectDecadeYears(shuffled, "1990s")).toEqual([1999, 1995, 1990]);
+    expect(selectDecadeYears([...shuffled].reverse(), "1990s")).toEqual([
+      1999, 1995, 1990,
+    ]);
   });
 
-  it("counts the unknown-year block only under 'all'", () => {
-    const years = [0, 0, 0];
+  it("leaves the input untouched", () => {
+    const years = [1990, 1999, 1995];
 
-    expect(findDecadeRange(years, "all")).toEqual({ offset: 0, count: 3 });
+    selectDecadeYears(years, "1990s");
 
-    const decadeCounts = ALL_DECADES.filter((decade) => decade !== "all").map(
-      (decade) => findDecadeRange(years, decade).count,
+    expect(years).toEqual([1990, 1999, 1995]);
+  });
+
+  it("returns nothing for a decade without a single year", () => {
+    expect(selectDecadeYears([0, 1985, 2005], "1990s")).toEqual([]);
+    expect(selectDecadeYears([0, 1985, 2005], "2020s")).toEqual([]);
+  });
+
+  it("returns nothing for every decade of an empty library", () => {
+    const perDecade = ALL_DECADES.filter((decade) => decade !== "all").map(
+      (decade) => selectDecadeYears([], decade),
     );
 
-    expect(decadeCounts).toEqual([0, 0, 0, 0, 0]);
+    expect(perDecade).toEqual([[], [], [], [], []]);
   });
 
-  it("returns an empty range inside the array for a decade without albums", () => {
-    const years = [0, 0, 1985, 2005];
-
-    const range = findDecadeRange(years, "1990s");
-
-    expect(range).toEqual({ offset: 3, count: 0 });
-    expect(slice(years, range)).toEqual([]);
-    expect(range.offset).toBeLessThanOrEqual(years.length);
-  });
-
-  it("returns an empty range for a decade past the newest album", () => {
-    const years = [1985, 1995];
-
-    const range = findDecadeRange(years, "2020s");
-
-    expect(range).toEqual({ offset: 2, count: 0 });
-    expect(slice(years, range)).toEqual([]);
-  });
-
-  it("returns an empty range for every filter on an empty library", () => {
-    const ranges = ALL_DECADES.map((decade) => findDecadeRange([], decade));
-
-    expect(ranges).toEqual(ALL_DECADES.map(() => ({ offset: 0, count: 0 })));
-  });
-
-  it("splits the library into decades that tile it without gaps or overlap", () => {
+  it("assigns every known year to exactly one decade and year 0 to none", () => {
     const decades: readonly DecadeFilter[] = [
-      "older",
-      "1990s",
-      "2000s",
-      "2010s",
       "2020s",
+      "2010s",
+      "2000s",
+      "1990s",
+      "older",
     ];
 
-    const covered = decades.flatMap((decade) =>
-      slice(YEARS, findDecadeRange(YEARS, decade)),
+    const covered = decades.flatMap(
+      (decade) => selectDecadeYears(DISTINCT_YEARS, decade) ?? [],
     );
 
     expect(covered).toEqual([
-      1969, 1989, 1990, 1999, 2000, 2009, 2010, 2019, 2020, 2031,
+      2031, 2025, 2020, 2019, 2015, 2010, 2009, 2005, 2000, 1999, 1995, 1990,
+      1989, 1969, 200,
     ]);
+    expect(covered).not.toContain(0);
+  });
+});
+
+describe("mapOffsetAcrossYears", () => {
+  const YEAR_COUNTS: readonly YearCount[] = [
+    { year: 2015, count: 9 },
+    { year: 2014, count: 5 },
+    { year: 2013, count: 20 },
+  ];
+
+  it("stays inside one year when the page ends before the year does", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 3, 4)).toEqual([
+      { year: 2015, offset: 3, limit: 4 },
+    ]);
+  });
+
+  it("continues in the next year when the page crosses a year boundary", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 7, 6)).toEqual([
+      { year: 2015, offset: 7, limit: 2 },
+      { year: 2014, offset: 0, limit: 4 },
+    ]);
+  });
+
+  it("spans a whole year that is shorter than the page", () => {
+    const shortMiddleYear: readonly YearCount[] = [
+      { year: 2015, count: 9 },
+      { year: 2014, count: 2 },
+      { year: 2013, count: 20 },
+    ];
+
+    expect(mapOffsetAcrossYears(shortMiddleYear, 8, 6)).toEqual([
+      { year: 2015, offset: 8, limit: 1 },
+      { year: 2014, offset: 0, limit: 2 },
+      { year: 2013, offset: 0, limit: 3 },
+    ]);
+  });
+
+  it("starts at the top of the next year when the offset sits on a boundary", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 9, 3)).toEqual([
+      { year: 2014, offset: 0, limit: 3 },
+    ]);
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 14, 2)).toEqual([
+      { year: 2013, offset: 0, limit: 2 },
+    ]);
+  });
+
+  it("skips empty years instead of emitting empty sections", () => {
+    const withEmptyYears: readonly YearCount[] = [
+      { year: 2016, count: 0 },
+      { year: 2015, count: 3 },
+      { year: 2014, count: 0 },
+      { year: 2013, count: 4 },
+    ];
+
+    expect(mapOffsetAcrossYears(withEmptyYears, 1, 5)).toEqual([
+      { year: 2015, offset: 1, limit: 2 },
+      { year: 2013, offset: 0, limit: 3 },
+    ]);
+  });
+
+  it("skips an empty year the offset lands on", () => {
+    const withEmptyYear: readonly YearCount[] = [
+      { year: 2016, count: 2 },
+      { year: 2015, count: 0 },
+      { year: 2014, count: 3 },
+    ];
+
+    expect(mapOffsetAcrossYears(withEmptyYear, 2, 2)).toEqual([
+      { year: 2014, offset: 0, limit: 2 },
+    ]);
+  });
+
+  it("shortens the last section instead of reading past the end", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 30, 6)).toEqual([
+      { year: 2013, offset: 16, limit: 4 },
+    ]);
+  });
+
+  it("returns nothing past the end of all years", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 34, 6)).toEqual([]);
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 500, 6)).toEqual([]);
+  });
+
+  it("returns nothing for an empty year list", () => {
+    expect(mapOffsetAcrossYears([], 0, 50)).toEqual([]);
+  });
+
+  it("returns nothing for a non-positive limit", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 3, 0)).toEqual([]);
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, 3, -5)).toEqual([]);
+  });
+
+  it("returns nothing for a negative offset", () => {
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, -1, 5)).toEqual([]);
+    expect(mapOffsetAcrossYears(YEAR_COUNTS, -50, 5)).toEqual([]);
+  });
+
+  it("visits every album of every year exactly once and in order", () => {
+    const pageSize = 4;
+    const totalCount = YEAR_COUNTS.reduce((sum, { count }) => sum + count, 0);
+    const pageCount = Math.ceil(totalCount / pageSize) + 1;
+
+    const visited = Array.from({ length: pageCount }, (_unused, page) =>
+      mapOffsetAcrossYears(YEAR_COUNTS, page * pageSize, pageSize),
+    )
+      .flat()
+      .flatMap(({ year, offset, limit }) =>
+        Array.from(
+          { length: limit },
+          (_row, index) => `${year}#${offset + index}`,
+        ),
+      );
+
+    const expected = YEAR_COUNTS.flatMap(({ year, count }) =>
+      Array.from({ length: count }, (_album, index) => `${year}#${index}`),
+    );
+
+    expect(visited).toEqual(expected);
   });
 });

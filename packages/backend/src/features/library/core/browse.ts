@@ -47,18 +47,13 @@ export const computeBackwardPage = (
   return pageLimit > 0 ? { offset, limit: pageLimit } : EMPTY_PAGE;
 };
 
-export type DecadeRange = {
-  readonly offset: number;
-  readonly count: number;
-};
-
 type YearBounds = {
   readonly min: number;
   readonly max: number;
 };
 
-// LMS reports albums without a release year as 0; they lead the ascending
-// column and count as "unknown", never as pre-1990 releases.
+// LMS reports albums without a release year as 0; they count as "unknown",
+// never as pre-1990 releases.
 const FIRST_KNOWN_YEAR = 1;
 
 const DECADE_BOUNDS = {
@@ -69,23 +64,79 @@ const DECADE_BOUNDS = {
   older: { min: FIRST_KNOWN_YEAR, max: 1990 },
 } as const satisfies Record<Exclude<DecadeFilter, "all">, YearBounds>;
 
-const firstIndexFrom = (years: readonly number[], bound: number): number => {
-  const index = years.findIndex((year) => year >= bound);
+const newestFirst = (left: number, right: number): number => right - left;
 
-  return index === -1 ? years.length : index;
-};
-
-export const findDecadeRange = (
+// `undefined` means "no year filter at all" — for 'all' the caller fetches the
+// list in one query instead of iterating over every year of the library.
+export const selectDecadeYears = (
   years: readonly number[],
   decade: DecadeFilter,
-): DecadeRange => {
+): readonly number[] | undefined => {
   if (decade === "all") {
-    return { offset: 0, count: years.length };
+    return undefined;
   }
 
   const bounds = DECADE_BOUNDS[decade];
-  const offset = firstIndexFrom(years, bounds.min);
-  const end = firstIndexFrom(years, bounds.max);
 
-  return { offset, count: Math.max(end - offset, 0) };
+  return years
+    .filter((year) => year >= bounds.min && year < bounds.max)
+    .sort(newestFirst);
+};
+
+export type YearCount = {
+  readonly year: number;
+  readonly count: number;
+};
+
+export type YearSlice = {
+  readonly year: number;
+  readonly offset: number;
+  readonly limit: number;
+};
+
+const NO_SLICES: readonly YearSlice[] = [];
+
+type SliceCursor = {
+  readonly pendingOffset: number;
+  readonly pendingLimit: number;
+  readonly slices: readonly YearSlice[];
+};
+
+const takeFromYear = (
+  cursor: SliceCursor,
+  { year, count }: YearCount,
+): SliceCursor => {
+  if (cursor.pendingLimit <= 0 || count <= 0) {
+    return cursor;
+  }
+
+  if (cursor.pendingOffset >= count) {
+    return { ...cursor, pendingOffset: cursor.pendingOffset - count };
+  }
+
+  const limit = Math.min(count - cursor.pendingOffset, cursor.pendingLimit);
+
+  return {
+    pendingOffset: 0,
+    pendingLimit: cursor.pendingLimit - limit,
+    slices: [...cursor.slices, { year, offset: cursor.pendingOffset, limit }],
+  };
+};
+
+// The years arrive in delivery order (newest first for a decade), so a global
+// page offset walks them in sequence and may straddle any number of years.
+export const mapOffsetAcrossYears = (
+  yearCounts: readonly YearCount[],
+  offset: number,
+  limit: number,
+): readonly YearSlice[] => {
+  if (limit <= 0 || offset < 0) {
+    return NO_SLICES;
+  }
+
+  return yearCounts.reduce<SliceCursor>(takeFromYear, {
+    pendingOffset: offset,
+    pendingLimit: limit,
+    slices: NO_SLICES,
+  }).slices;
 };
