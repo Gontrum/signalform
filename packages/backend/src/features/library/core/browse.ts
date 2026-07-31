@@ -1,4 +1,10 @@
-import type { DecadeFilter, SortOption } from "@signalform/shared";
+import {
+  err,
+  ok,
+  type DecadeFilter,
+  type Result,
+  type SortOption,
+} from "@signalform/shared";
 
 export type LmsAlbumSort = "album" | "artistalbum" | "yearalbum" | "new";
 
@@ -139,4 +145,42 @@ export const mapOffsetAcrossYears = (
     pendingLimit: limit,
     slices: NO_SLICES,
   }).slices;
+};
+
+export const countAcrossYears = (yearCounts: readonly YearCount[]): number =>
+  yearCounts.reduce((total, { count }) => total + Math.max(count, 0), 0);
+
+export type PaginationError = {
+  readonly message: string;
+};
+
+// Every album of a single year shares that year, so `sort:yearalbum` would say
+// nothing inside one — the album title orders it instead.
+const INTRA_YEAR_SORT: LmsAlbumSort = "album";
+
+// The one place that answers how a sort and a decade filter combine:
+// `paginateBackward` means both "apply computeBackwardPage" and "reverse the
+// fetched rows"; a decade filter switches it off because the descending year
+// order from selectDecadeYears already provides the direction.
+export const resolvePagination = (
+  sort: SortOption,
+  decade: DecadeFilter,
+): Result<LmsSortQuery, PaginationError> => {
+  const query = mapSortToLmsQuery(sort);
+
+  if (decade === "all") {
+    return ok(query);
+  }
+
+  if (sort === "recently-added") {
+    return err({
+      message: `Sort 'recently-added' cannot be combined with the decade filter '${decade}': it orders by date added and is capped at ${RECENTLY_ADDED_LIMIT} albums, while the decade filter selects by release year`,
+    });
+  }
+
+  return ok({
+    ...query,
+    lmsSort: query.lmsSort === "yearalbum" ? INTRA_YEAR_SORT : query.lmsSort,
+    paginateBackward: false,
+  });
 };

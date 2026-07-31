@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DecadeFilter, SortOption } from "@signalform/shared";
 import {
   computeBackwardPage,
+  countAcrossYears,
   mapOffsetAcrossYears,
   mapSortToLmsQuery,
+  resolvePagination,
   selectDecadeYears,
   type YearCount,
 } from "./browse.js";
@@ -348,5 +350,158 @@ describe("mapOffsetAcrossYears", () => {
     );
 
     expect(visited).toEqual(expected);
+  });
+});
+
+describe("countAcrossYears", () => {
+  it("returns 0 for an empty year list", () => {
+    expect(countAcrossYears([])).toBe(0);
+  });
+
+  it("sums the counts of all years", () => {
+    expect(
+      countAcrossYears([
+        { year: 2015, count: 9 },
+        { year: 2014, count: 5 },
+        { year: 2013, count: 20 },
+      ]),
+    ).toBe(34);
+  });
+
+  it("adds nothing for years without albums", () => {
+    const withEmptyYears: readonly YearCount[] = [
+      { year: 2016, count: 0 },
+      { year: 2015, count: 7 },
+      { year: 2014, count: 0 },
+    ];
+
+    expect(countAcrossYears(withEmptyYears)).toBe(7);
+    expect(countAcrossYears([{ year: 2016, count: 0 }])).toBe(0);
+  });
+
+  it("ignores negative counts instead of subtracting them", () => {
+    expect(
+      countAcrossYears([
+        { year: 2015, count: 4 },
+        { year: 2014, count: -3 },
+      ]),
+    ).toBe(4);
+  });
+
+  it("matches the number of albums the pages actually hand out", () => {
+    const yearCounts: readonly YearCount[] = [
+      { year: 2015, count: 9 },
+      { year: 2014, count: 0 },
+      { year: 2013, count: 5 },
+    ];
+    const total = countAcrossYears(yearCounts);
+
+    const handedOut = Array.from({ length: total + 2 }, (_unused, page) =>
+      mapOffsetAcrossYears(yearCounts, page * 3, 3),
+    )
+      .flat()
+      .reduce((sum, slice) => sum + slice.limit, 0);
+
+    expect(total).toBe(14);
+    expect(handedOut).toBe(total);
+  });
+});
+
+describe("resolvePagination", () => {
+  it("keeps the plain sort mapping when no decade is selected", () => {
+    expect(resolvePagination("artist-az", "all")).toEqual({
+      ok: true,
+      value: { lmsSort: "artistalbum", paginateBackward: false },
+    });
+    expect(resolvePagination("title-az", "all")).toEqual({
+      ok: true,
+      value: { lmsSort: "album", paginateBackward: false },
+    });
+    expect(resolvePagination("year-newest", "all")).toEqual({
+      ok: true,
+      value: { lmsSort: "yearalbum", paginateBackward: true },
+    });
+    expect(resolvePagination("recently-added", "all")).toEqual({
+      ok: true,
+      value: { lmsSort: "new", paginateBackward: false, hardLimit: 100 },
+    });
+  });
+
+  it("never diverges from the sort table for 'all'", () => {
+    const plans = ALL_SORTS.map((sort) => resolvePagination(sort, "all"));
+
+    expect(plans).toEqual(
+      ALL_SORTS.map((sort) => ({ ok: true, value: mapSortToLmsQuery(sort) })),
+    );
+  });
+
+  it("passes artist and title sorts through unchanged inside a decade", () => {
+    expect(resolvePagination("artist-az", "2010s")).toEqual({
+      ok: true,
+      value: { lmsSort: "artistalbum", paginateBackward: false },
+    });
+    expect(resolvePagination("title-az", "1990s")).toEqual({
+      ok: true,
+      value: { lmsSort: "album", paginateBackward: false },
+    });
+  });
+
+  it("orders by album title inside a decade instead of by year", () => {
+    expect(resolvePagination("year-newest", "2020s")).toEqual({
+      ok: true,
+      value: { lmsSort: "album", paginateBackward: false },
+    });
+    expect(resolvePagination("year-newest", "older")).toEqual({
+      ok: true,
+      value: { lmsSort: "album", paginateBackward: false },
+    });
+  });
+
+  it("rejects recently-added for every decade", () => {
+    const decades = ALL_DECADES.filter((decade) => decade !== "all");
+
+    const rejected = decades.map(
+      (decade) => resolvePagination("recently-added", decade).ok,
+    );
+
+    expect(rejected).toEqual([false, false, false, false, false]);
+  });
+
+  it("explains why recently-added and a decade cannot be combined", () => {
+    const result = resolvePagination("recently-added", "2000s");
+    const message = result.ok ? "" : result.error.message;
+
+    expect(result.ok).toBe(false);
+    expect(message).toContain("recently-added");
+    expect(message).toContain("2000s");
+    expect(message).toContain("100");
+  });
+
+  it("paginates backward for year-newest without a decade filter only", () => {
+    const backwardCombinations = ALL_SORTS.flatMap((sort) =>
+      ALL_DECADES.map((decade) => ({
+        sort,
+        decade,
+        plan: resolvePagination(sort, decade),
+      })),
+    )
+      .filter(({ plan }) => plan.ok && plan.value.paginateBackward)
+      .map(({ sort, decade }) => [sort, decade]);
+
+    expect(backwardCombinations).toEqual([["year-newest", "all"]]);
+  });
+
+  it("keeps the recently-added cap only where the sort survives", () => {
+    const capped = ALL_SORTS.flatMap((sort) =>
+      ALL_DECADES.map((decade) => ({
+        sort,
+        decade,
+        plan: resolvePagination(sort, decade),
+      })),
+    )
+      .filter(({ plan }) => plan.ok && plan.value.hardLimit !== undefined)
+      .map(({ sort, decade }) => [sort, decade]);
+
+    expect(capped).toEqual([["recently-added", "all"]]);
   });
 });
