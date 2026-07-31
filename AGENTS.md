@@ -107,6 +107,9 @@ commented-out code, JSDoc that repeats the signature.
 
 ## Commits
 
+Trunk-based: commit to `main`. Never create a branch unless the user explicitly
+asks for one — enforced by the `.claude/hooks/no-branch.sh` PreToolUse hook.
+
 Conventional Commits: `type(scope): subject`, imperative, lower case, max 72
 chars ("add sleep timer", not "added sleep timer"). One logical change per
 commit — a subject needing an "and" is two commits. Body only for a _why_ the
