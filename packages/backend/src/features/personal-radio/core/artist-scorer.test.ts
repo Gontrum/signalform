@@ -126,4 +126,31 @@ describe("scoreArtistsFromHistory", () => {
     expect(result).toContain("Beta");
     expect(result[result.length - 1]).toBe("Gamma");
   });
+
+  test("merge bumps only the matching artist's score, not siblings", () => {
+    const result = scoreArtistsFromHistory({
+      lovedArtists: ["B", "A"], // both start at 3 pts; B is inserted first
+      recentTopArtists: ["A"], // only A should be bumped to 6; B must stay at 3
+      overallTopArtists: [],
+      limit: 1,
+    });
+    // A must have strictly more points than B (6 vs 3) to win the limit:1 cutoff.
+    // A broken merge that bumps every entry (or none) leaves A and B tied at
+    // 6 or 3 — the stable sort would then keep B (inserted first) as the winner,
+    // so this fails loudly instead of silently passing on order alone.
+    expect(result).toEqual(["A"]);
+  });
+
+  test("sort is driven by score, not insertion order", () => {
+    const result = scoreArtistsFromHistory({
+      lovedArtists: ["Zeta"], // score 3, inserted first
+      recentTopArtists: [],
+      overallTopArtists: ["Alpha", "Alpha", "Alpha", "Alpha"], // score 4, inserted last
+      limit: 1,
+    });
+    // Alpha (4) must outrank Zeta (3) despite being inserted later. A removed,
+    // no-op, or reversed-arithmetic comparator falls back to insertion order
+    // and would keep Zeta here instead.
+    expect(result).toEqual(["Alpha"]);
+  });
 });

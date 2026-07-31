@@ -68,6 +68,17 @@ part of the definition of done — not a follow-up step.
 - **Frontend UI**: add cases to the relevant `*.test.ts` component test for every new
   interactive element.
 
+**Sort, scoring, and merge logic**: never assert only the resulting order or
+length — assert the computed values themselves, or a consequence that only the
+correct value can produce (e.g. which item survives a `limit` cutoff). Build
+the test fixtures so insertion order does **not** already match the expected
+output order. If insertion order and correct output order coincide, a broken
+or entirely missing sort/merge passes anyway — the test is green but proves
+nothing. See `docs/review/07-mutation.md` for a measured example: mutation
+testing on `artist-scorer.ts` killed 24/30 mutants, but 5 of the 6 survivors
+were exactly this pattern (order-only assertions over coincidentally
+pre-sorted fixtures).
+
 Tests must be written in the same agent delegation as the code they cover. When
 delegating to `@core-dev` or `@shell-dev`, always include explicit test requirements
 in the prompt. Never consider a task complete until `pnpm test` passes with new coverage
@@ -108,12 +119,3 @@ directly but must apply the zone constraints themselves (core: pure, no
 `await`, no framework imports, `Result<T, E>`; shell: thin handlers, no
 business logic). In Claude Code the routing is additionally enforced by the
 `.claude/hooks/enforce-zones.sh` PreToolUse hook.
-
-## TODO Tracking
-
-If a `TODO.md` exists in the project root:
-
-- Read it at the start of every session to find the first unchecked item
-- Mark each item `[x]` immediately after completing it — do not batch
-- Fill in Decision Log sections as decisions are made
-- Follow the commit strategy defined in the file

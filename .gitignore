@@ -45,6 +45,16 @@ pnpm-debug.log*
 .claude/.reviewer-ran
 .playwright-mcp/
 
+# Third-party agent skills, installed per machine (caveman & Co.).
+# Projekteigene Skills — .claude/skills/new-tidal-feature, .agents/skills/fcis —
+# sind bewusst getrackt. Fremde Skills gehören nicht als Vendor-Kopie ins Repo:
+# sie hängen an keinem Update-Pfad und sind eine reine Stilentscheidung.
+.agents/skills/caveman*/
+.agents/skills/cavecrew/
+.claude/skills/caveman*
+.claude/skills/cavecrew
+skills-lock.json
+
 # OS
 Thumbs.db
 signalform-config/

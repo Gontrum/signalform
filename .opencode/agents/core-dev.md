@@ -6,6 +6,12 @@ description: >
   Use for business logic, domain types, data transformations, Result/Option
   utilities. Do NOT use for anything with I/O or framework imports.
 model: anthropic/claude-sonnet-5
+# Hebt das globale core/-deny aus opencode.json genau für diesen Agenten auf.
+# Agent-Regeln haben Vorrang vor der globalen Config; ohne diesen Block würde
+# das deny auch core-dev treffen und die Delegation ins Leere laufen.
+permission:
+  edit:
+    "**/core/**": allow
 ---
 
 You implement the Functional Core of Signalform.
