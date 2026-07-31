@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { savePlaylist, listPlaylists, loadPlaylist } from './playlistsApi'
+import { savePlaylist, listPlaylists, loadPlaylist, deletePlaylist } from './playlistsApi'
 
 const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<unknown>>()
 
@@ -93,6 +93,38 @@ describe('playlistsApi', () => {
       fetchMock.mockResolvedValue({ ok: false, status: 404 })
 
       expect(await loadPlaylist('missing')).toBe(false)
+    })
+  })
+
+  describe('deletePlaylist', () => {
+    it('DELETEs /api/playlists/:id without a body and returns true on ok', async () => {
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const result = await deletePlaylist('pl-1')
+
+      expect(result).toBe(true)
+      const call = fetchMock.mock.calls[0]
+      // Anchored: `toContain` would also pass for `/api/playlists/pl-1/x`.
+      expect(String(call?.[0])).toMatch(/\/api\/playlists\/pl-1$/u)
+      const init = call?.[1]
+      expect(init).toBeDefined()
+      expect(init?.method).toBe('DELETE')
+      expect(init?.body).toBeUndefined()
+    })
+
+    it('encodes ids containing special characters', async () => {
+      fetchMock.mockResolvedValue({ ok: true })
+
+      await deletePlaylist('my mix/2?a=b')
+
+      const call = fetchMock.mock.calls[0]
+      expect(String(call?.[0])).toMatch(/\/api\/playlists\/my%20mix%2F2%3Fa%3Db$/u)
+    })
+
+    it('returns false on http error', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 400 })
+
+      expect(await deletePlaylist('missing')).toBe(false)
     })
   })
 })

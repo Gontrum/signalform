@@ -1,6 +1,11 @@
 import { onMounted, ref } from 'vue'
 import type { Ref } from 'vue'
-import { listPlaylists, loadPlaylist, savePlaylist } from '@/platform/api/playlistsApi'
+import {
+  deletePlaylist,
+  listPlaylists,
+  loadPlaylist,
+  savePlaylist,
+} from '@/platform/api/playlistsApi'
 import type { SavedPlaylist } from '@/platform/api/playlistsApi'
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
 
@@ -12,6 +17,7 @@ type UsePlaylistsResult = {
   readonly fetchList: () => Promise<void>
   readonly save: (name: string) => Promise<void>
   readonly load: (id: string) => Promise<void>
+  readonly remove: (id: string) => Promise<void>
 }
 
 export const usePlaylists = (): UsePlaylistsResult => {
@@ -38,6 +44,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
+    error.value = false
     isSaving.value = true
     try {
       const saved = await savePlaylist(name)
@@ -54,10 +61,25 @@ export const usePlaylists = (): UsePlaylistsResult => {
   }
 
   const load = async (id: string): Promise<void> => {
+    error.value = false
     try {
       const loaded = await loadPlaylist(id)
       if (loaded) {
         await queueStore.fetchQueue()
+      } else {
+        error.value = true
+      }
+    } catch {
+      error.value = true
+    }
+  }
+
+  const remove = async (id: string): Promise<void> => {
+    error.value = false
+    try {
+      const removed = await deletePlaylist(id)
+      if (removed) {
+        await fetchList()
       } else {
         error.value = true
       }
@@ -78,5 +100,6 @@ export const usePlaylists = (): UsePlaylistsResult => {
     fetchList,
     save,
     load,
+    remove,
   }
 }

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { usePlaylists } from '../shell/usePlaylists'
 
 const i18nStore = useI18nStore()
 const t = i18nStore.t
 
-const { playlists, isSaving, save, load } = usePlaylists()
+const { playlists, isSaving, error, save, load, remove } = usePlaylists()
 
 const name = ref('')
 
@@ -25,6 +25,53 @@ const handleSave = async (): Promise<void> => {
 const handleLoad = async (id: string): Promise<void> => {
   await load(id)
 }
+
+// Deleting a playlist is irreversible, so it needs a double tap within a
+// 3-second window before it fires. Keyed by playlist id because one button is
+// rendered per row; a shared boolean would arm every row at once.
+const pendingDeleteId = ref<string | undefined>(undefined)
+// Not a ref: the handle is only ever read by clearTimeout, never by the
+// template, so reactivity would buy nothing.
+let pendingDeleteTimer: ReturnType<typeof setTimeout> | undefined = undefined
+
+const clearPendingDeleteTimer = (): void => {
+  if (pendingDeleteTimer !== undefined) {
+    clearTimeout(pendingDeleteTimer)
+    pendingDeleteTimer = undefined
+  }
+}
+
+const handleDelete = async (id: string): Promise<void> => {
+  if (pendingDeleteId.value === id) {
+    clearPendingDeleteTimer()
+    pendingDeleteId.value = undefined
+    await remove(id)
+    return
+  }
+
+  clearPendingDeleteTimer()
+  pendingDeleteId.value = id
+  pendingDeleteTimer = setTimeout(() => {
+    pendingDeleteId.value = undefined
+    pendingDeleteTimer = undefined
+  }, 3000)
+}
+
+const deleteLabel = (id: string): string =>
+  pendingDeleteId.value === id ? t('playlists.deleteConfirm') : t('playlists.delete')
+
+// The visible label is the same on every row, so the accessible name has to
+// carry the playlist name — otherwise a screen reader announces "Delete" for
+// all of them and the armed row is indistinguishable.
+const deleteAriaLabel = (id: string, playlistName: string): string =>
+  (pendingDeleteId.value === id
+    ? t('playlists.deleteConfirmAria')
+    : t('playlists.deleteAria')
+  ).replace('{name}', playlistName)
+
+onUnmounted(() => {
+  clearPendingDeleteTimer()
+})
 </script>
 
 <template>
@@ -58,6 +105,10 @@ const handleLoad = async (id: string): Promise<void> => {
       </button>
     </div>
 
+    <p v-if="error" data-testid="playlists-error" role="alert" class="mb-3 text-sm text-error">
+      {{ t('playlists.error') }}
+    </p>
+
     <p v-if="playlists.length === 0" data-testid="playlists-empty" class="text-sm text-neutral-500">
       {{ t('playlists.empty') }}
     </p>
@@ -77,6 +128,20 @@ const handleLoad = async (id: string): Promise<void> => {
           @click="handleLoad(playlist.id)"
         >
           {{ t('playlists.load') }}
+        </button>
+        <button
+          type="button"
+          data-testid="playlist-delete-button"
+          :aria-label="deleteAriaLabel(playlist.id, playlist.name)"
+          :class="[
+            'min-h-11 shrink-0 rounded-lg border px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-inset',
+            pendingDeleteId === playlist.id
+              ? 'border-error/30 bg-error/10 text-error hover:bg-error/10 focus:ring-error'
+              : 'border-neutral-200 bg-white text-error hover:bg-error/10 focus:ring-accent-500',
+          ]"
+          @click="handleDelete(playlist.id)"
+        >
+          {{ deleteLabel(playlist.id) }}
         </button>
       </li>
     </ul>
