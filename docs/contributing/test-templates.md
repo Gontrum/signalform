@@ -3,7 +3,7 @@
 Copy-paste templates for the three test types used in Signalform.
 All templates follow the actual conventions used in this codebase.
 
-See [TESTING.md](TESTING.md) for the full rationale behind these conventions.
+See [testing.md](testing.md) for the full rationale behind these conventions.
 
 ---
 

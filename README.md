@@ -234,6 +234,7 @@ Signalform can be installed as a PWA on iPhone and iPad via Safari → Share →
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture overview, and contribution guidelines.
+A map of all documentation is in [docs/README.md](docs/README.md).
 
 ## License
 
