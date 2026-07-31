@@ -24,6 +24,8 @@ export type {
 
 export type { QueueState, QueueItem, QueueTrack } from "./types/queue.js";
 
+export type { SortOption, DecadeFilter } from "./types/library.js";
+
 export type {
   SourceType,
   SourceHierarchy,
