@@ -11,7 +11,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Mobile app improvements
 - Additional streaming service integrations
-- Enhanced playlist management (rename, delete, edit tracks)
+- Enhanced playlist management (rename, edit tracks)
+
+---
+
+## [0.20.0] - 2026-07-31
+
+### Added
+
+- saved playlists can be deleted again: a per-row delete button in the
+  Playlists panel backed by a new `DELETE /api/playlists/:id` route.
+  Deleting is irreversible, so the button uses the same
+  double-tap-within-3s confirmation as the destructive Settings actions
+
+### Fixed
+
+- the Playlists panel no longer fails silently: a failed save, load, or
+  delete now renders an error message instead of leaving the list
+  unchanged with no feedback
+
+### Changed
+
+- `docs/` reorganized into one navigable map; the durable runtime-connection
+  model moved into `architecture.md` and the dated audit reports were
+  dropped (all findings verified closed, git history keeps them)
+- repo tooling: conventional commit messages and trunk-based flow are now
+  enforced by git hooks, the pre-commit suite no longer runs the tests
+  twice, dependabot npm updates wait one day, and the LSP config points at
+  language servers that actually exist
 
 ---
 
