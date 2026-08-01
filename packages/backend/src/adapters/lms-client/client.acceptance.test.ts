@@ -3623,6 +3623,17 @@ describe("LMS Client - Acceptance Tests", () => {
         await thenLibraryCommandWasSentWith(50, 250);
       });
 
+      it("costs exactly one LMS request per page", async () => {
+        await givenLmsWillReturnLibraryAlbums(
+          [{ id: 42, album: "The Wall", artist: "Pink Floyd" }],
+          799,
+        );
+
+        await whenGettingLibraryAlbums(0, 250);
+
+        await thenExactlyOneRequestWasSent();
+      });
+
       it("returns empty albums list when LMS returns empty albums_loop", async () => {
         await givenLmsWillReturnLibraryAlbums([], 0);
 
@@ -3631,39 +3642,6 @@ describe("LMS Client - Acceptance Tests", () => {
         await thenLibraryResultIsOk(result);
         await thenLibraryAlbumsHaveLength(result, 0);
         await thenLibraryTotalCountIs(result, 0);
-      });
-
-      it("enriches albums with genre from songs bulk query", async () => {
-        await givenLmsWillReturnLibraryAlbums(
-          [{ id: 42, album: "The Wall", artist: "Pink Floyd" }],
-          1,
-          [{ album_id: "42", genre: "Rock" }],
-        );
-
-        const result = await whenGettingLibraryAlbums(0, 10);
-
-        await thenLibraryResultIsOk(result);
-        await thenFirstAlbumHasGenre(result, "Rock");
-      });
-
-      it("returns albums without genre when songs query fails (graceful degradation)", async () => {
-        await givenSongsQueryWillFailAfterAlbums(
-          [{ id: 42, album: "The Wall", artist: "Pink Floyd" }],
-          1,
-        );
-
-        const result = await whenGettingLibraryAlbums(0, 10);
-
-        await thenLibraryResultIsOk(result);
-        await thenFirstAlbumHasGenre(result, undefined);
-      });
-
-      it("sends songs command with correct tags (tags:g,e, offset=0, limit=20000)", async () => {
-        await givenLmsWillReturnLibraryAlbums([], 0);
-
-        await whenGettingLibraryAlbums(0, 250);
-
-        await thenSongsCommandWasSentWith();
       });
 
       it("returns NetworkError when LMS is unreachable", async () => {
@@ -3676,10 +3654,7 @@ describe("LMS Client - Acceptance Tests", () => {
       });
 
       // GIVEN helpers for getLibraryAlbums (Rule 11)
-      // NOTE: getLibraryAlbums makes TWO fetch calls:
-      //   1. albums command (primary data)
-      //   2. songs bulk query (genre enrichment via album_id→genre mapping)
-      // Both must be mocked; songsGenres defaults to [] (no genre data).
+      // getLibraryAlbums makes exactly one fetch call — the albums command.
       const givenLmsWillReturnLibraryAlbums = async (
         albums: ReadonlyArray<{
           readonly id: number;
@@ -3689,45 +3664,16 @@ describe("LMS Client - Acceptance Tests", () => {
           readonly artwork_track_id?: string;
         }>,
         count: number,
-        songsGenres: ReadonlyArray<{
-          readonly album_id: string;
-          readonly genre: string;
-        }> = [],
       ): Promise<void> => {
         const albumsResponse = {
           result: { albums_loop: albums, count },
           id: 1,
           error: null,
         };
-        const songsResponse = {
-          result: { titles_loop: songsGenres, count: songsGenres.length },
-          id: 2,
-          error: null,
-        };
-        fetchMock
-          .mockResolvedValueOnce({ ok: true, json: async () => albumsResponse })
-          .mockResolvedValueOnce({ ok: true, json: async () => songsResponse });
-      };
-
-      // Simulates albums succeeding but songs bulk query failing (graceful degradation).
-      const givenSongsQueryWillFailAfterAlbums = async (
-        albums: ReadonlyArray<{
-          readonly id: number;
-          readonly album: string;
-          readonly artist?: string;
-          readonly year?: number;
-          readonly artwork_track_id?: string;
-        }>,
-        count: number,
-      ): Promise<void> => {
-        const albumsResponse = {
-          result: { albums_loop: albums, count },
-          id: 1,
-          error: null,
-        };
-        fetchMock
-          .mockResolvedValueOnce({ ok: true, json: async () => albumsResponse })
-          .mockRejectedValueOnce(new Error("songs query failed"));
+        fetchMock.mockResolvedValueOnce({
+          ok: true,
+          json: async () => albumsResponse,
+        });
       };
 
       // WHEN helpers for getLibraryAlbums (Rule 11)
@@ -3803,29 +3749,8 @@ describe("LMS Client - Acceptance Tests", () => {
         expect(command[3]).toContain("j"); // artwork_track_id
       };
 
-      const thenSongsCommandWasSentWith = async (): Promise<void> => {
-        const body = getJsonRpcRequestBodyAt(1);
-        const command = body.params[1];
-        expect(command[0]).toBe("songs");
-        expect(command[1]).toBe(0); // offset: always 0 (full library scan)
-        expect(command[2]).toBe(20000); // limit: full library scan
-        expect(command[3]).toContain("g"); // genre tag
-        expect(command[3]).toContain("e"); // album_id tag
-      };
-
-      const thenFirstAlbumHasGenre = async (
-        result: Result<
-          {
-            readonly albums: readonly import("./types.js").LibraryAlbumRaw[];
-            readonly count: number;
-          },
-          LmsError
-        >,
-        expectedGenre: string | undefined,
-      ): Promise<void> => {
-        if (result.ok) {
-          expect(result.value.albums[0]?.genre).toBe(expectedGenre);
-        }
+      const thenExactlyOneRequestWasSent = async (): Promise<void> => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
       };
 
       const thenLibraryResultIsError = async (

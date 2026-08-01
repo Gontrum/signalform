@@ -113,7 +113,6 @@ const libraryAlbumSchema = z.object({
   artist: z.string().optional(),
   year: z.number().optional(),
   artwork_track_id: z.string().optional(),
-  genre: z.string().optional(),
 });
 
 const albumTracksPayloadParser = createLmsResultParser(
@@ -169,19 +168,6 @@ const genresPayloadParser = createLmsResultParser(
         z.object({
           id: z.union([z.number(), z.string()]),
           genre: z.string(),
-        }),
-      )
-      .optional(),
-  }),
-);
-
-const songsPayloadParser = createLmsResultParser(
-  z.object({
-    titles_loop: z
-      .array(
-        z.object({
-          album_id: z.string().optional(),
-          genre: z.string().optional(),
         }),
       )
       .optional(),
@@ -457,6 +443,9 @@ const createLibraryMethodsImplementation = (
      * tags: a=artist_name, y=year, l=album_title, j=artwork_track_id (for cover art)
      * Returns albums with count for pagination.
      *
+     * Invariant: exactly one LMS request per call. Any per-album enrichment
+     * would reintroduce a query whose cost grows with the library size.
+     *
      * @param offset - Pagination start index
      * @param limit - Maximum albums to return (max 999)
      * @param filters - Optional server-side sort/genre/search/year filters
@@ -489,42 +478,7 @@ const createLibraryMethodsImplementation = (
       const albums = result.value.albums_loop ?? [];
       const count = result.value.count ?? 0;
 
-      // Enrich albums with genre via songs bulk query.
-      // LMS albums command does not return genre (tags:g/G have no effect on albums command).
-      // songs command with tags:g,e returns {album_id, genre} per track — 11k songs ~0.9s locally.
-      // Graceful degradation: if songs query fails, albums are returned without genre (genre=null).
-      // Tech Debt: 20000 is a safe upper limit for most home libraries (~0.9s for 11k songs).
-      // Libraries with >20000 songs will get incomplete genre data (silent, graceful degradation).
-      // Fix: pass songs limit as config option or use LMS count from a prior query. Deferred to Story 7.6.
-      const songsCommand: LmsCommand = ["songs", 0, 20000, "tags:g,e"];
-      const songsResult = await executeCommand(
-        songsCommand,
-        songsPayloadParser,
-      );
-
-      // Build album_id → genre lookup using reduce (no Map mutation — functional/immutable-data).
-      // Only first genre per album is kept (most songs on an album share the same genre).
-      const genreRecord: Readonly<Record<string, string>> = songsResult.ok
-        ? (songsResult.value.titles_loop ?? []).reduce<
-            Readonly<Record<string, string>>
-          >((acc, song) => {
-            const albumId = song.album_id;
-            const genre = song.genre?.trim();
-            if (!albumId || !genre || albumId in acc) {
-              return acc;
-            }
-            return { ...acc, [albumId]: genre };
-          }, {})
-        : {};
-
-      const enrichedAlbums: readonly LibraryAlbumRaw[] = albums.map(
-        (album) => ({
-          ...album,
-          genre: genreRecord[String(album.id)],
-        }),
-      );
-
-      return ok({ albums: enrichedAlbums, count });
+      return ok({ albums, count });
     },
 
     /**

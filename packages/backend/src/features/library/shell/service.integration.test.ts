@@ -27,7 +27,6 @@ const makeRawAlbum = (
   artist: "Pink Floyd",
   year: 1979,
   artwork_track_id: "abc123",
-  genre: undefined,
   ...overrides,
 });
 
@@ -167,47 +166,6 @@ describe("getLibraryAlbums service", () => {
     if (result.ok) {
       expect(result.value.albums).toHaveLength(0);
       expect(result.value.totalCount).toBe(0);
-    }
-  });
-
-  // Story 7.3: genre mapping tests (Task 0 — AC genre pipeline)
-  it("maps raw.genre string to genre field in domain album", async () => {
-    const client = makeMockClient([makeRawAlbum({ genre: "Rock" })], 1);
-
-    const result = await getLibraryAlbums(0, 250, client, defaultConfig);
-
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBe("Rock");
-    }
-  });
-
-  it("maps raw.genre empty string to genre null", async () => {
-    const client = makeMockClient([makeRawAlbum({ genre: "" })], 1);
-
-    const result = await getLibraryAlbums(0, 250, client, defaultConfig);
-
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBeNull();
-    }
-  });
-
-  it("maps absent raw.genre to genre null", async () => {
-    const client = makeMockClient([makeRawAlbum({ genre: undefined })], 1);
-
-    const result = await getLibraryAlbums(0, 250, client, defaultConfig);
-
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBeNull();
-    }
-  });
-
-  it("trims whitespace from raw.genre before mapping", async () => {
-    const client = makeMockClient([makeRawAlbum({ genre: "  Jazz  " })], 1);
-
-    const result = await getLibraryAlbums(0, 250, client, defaultConfig);
-
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBe("Jazz");
     }
   });
 
@@ -380,7 +338,6 @@ describe("getLibraryAlbums service", () => {
         expect(second?.artist).toBe(first?.artist);
         expect(second?.coverArtUrl).toBe(first?.coverArtUrl);
         expect(second?.releaseYear).toBe(first?.releaseYear);
-        expect(second?.genre).toBe(first?.genre);
       }
     });
   });

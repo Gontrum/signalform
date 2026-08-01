@@ -232,7 +232,8 @@ describe("GET /api/library/albums", () => {
     expect(isRecord(album) ? album["coverArtUrl"] : undefined).toContain(
       "abc123",
     );
-    expect(isRecord(album) ? album["genre"] : undefined).toBeNull();
+    // Genre is served by GET /api/library/genres — the album payload must not carry it.
+    expect(isRecord(album) && "genre" in album).toBe(false);
   });
 
   it("returns 400 when limit is a non-integer float", async () => {

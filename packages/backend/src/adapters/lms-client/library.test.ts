@@ -5,7 +5,7 @@
  * route integration tests mock the entire LmsClient.
  *
  * Focus:
- * - getLibraryAlbums: graceful degradation when songs-genre query fails
+ * - getLibraryAlbums: command construction and the one-request-per-page invariant
  * - getAlbumTracks: URL-primary + tracknum-fallback sort order
  * - getRescanProgress: JsonParseError propagation
  */
@@ -36,91 +36,63 @@ const networkError: LmsError = {
   message: "ECONNREFUSED",
 };
 
-// ─── getLibraryAlbums — genre enrichment ─────────────────────────────────────
+// ─── getLibraryAlbums ────────────────────────────────────────────────────────
 
 describe("getLibraryAlbums", () => {
-  it("returns albums with genre when songs query succeeds", async () => {
-    const executeCommand = vi
-      .fn()
-      // First call: albums
-      .mockResolvedValueOnce(
-        ok({
-          albums_loop: [
-            {
-              id: 1,
-              album: "Dark Side",
-              artist: "Pink Floyd",
-              year: 1973,
-              artwork_track_id: "art1",
-            },
-          ],
-          count: 1,
-        }),
-      )
-      // Second call: songs (genre enrichment)
-      .mockResolvedValueOnce(
-        ok({
-          titles_loop: [{ album_id: "1", genre: "Rock" }],
-        }),
-      );
+  it("costs exactly one LMS request per page", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(
+      ok({
+        albums_loop: [
+          {
+            id: 1,
+            album: "Dark Side",
+            artist: "Pink Floyd",
+            year: 1973,
+            artwork_track_id: "art1",
+          },
+          {
+            id: 2,
+            album: "The Wall",
+            artist: "Pink Floyd",
+            year: 1979,
+            artwork_track_id: "art2",
+          },
+        ],
+        count: 799,
+      }),
+    );
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
     );
 
     const result = await getLibraryAlbums(0, 250);
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBe("Rock");
-      expect(result.value.count).toBe(1);
-    }
-  });
-
-  it("returns albums without genre (genre=undefined) when songs query fails — graceful degradation", async () => {
-    const executeCommand = vi
-      .fn()
-      // First call: albums succeeds
-      .mockResolvedValueOnce(
-        ok({
-          albums_loop: [
-            {
-              id: 1,
-              album: "Dark Side",
-              artist: "Pink Floyd",
-              year: 1973,
-              artwork_track_id: "art1",
-            },
-            {
-              id: 2,
-              album: "The Wall",
-              artist: "Pink Floyd",
-              year: 1979,
-              artwork_track_id: "art2",
-            },
-          ],
-          count: 2,
-        }),
-      )
-      // Second call: songs fails (network error, timeout, or parse error)
-      .mockResolvedValueOnce(err(networkError));
-    const { getLibraryAlbums } = createLibraryMethods(
-      makeExecuteDeps(executeCommand),
-    );
-
-    const result = await getLibraryAlbums(0, 250);
-
-    // Must still return ok — the songs failure is graceful degradation
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.albums).toHaveLength(2);
-      expect(result.value.count).toBe(2);
-      // Genre should be absent (undefined), not throw
-      expect(result.value.albums[0]?.genre).toBeUndefined();
-      expect(result.value.albums[1]?.genre).toBeUndefined();
+      expect(result.value.count).toBe(799);
+    }
+    // Per-album enrichment would scale with the library — one request, always.
+    expect(executeCommand).toHaveBeenCalledTimes(1);
+    expect(executeCommand.mock.calls[0]?.[0]?.[0]).toBe("albums");
+  });
+
+  it("returns an empty list when LMS omits albums_loop", async () => {
+    const executeCommand = vi.fn().mockResolvedValue(ok({ count: 0 }));
+    const { getLibraryAlbums } = createLibraryMethods(
+      makeExecuteDeps(executeCommand),
+    );
+
+    const result = await getLibraryAlbums(0, 250);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.albums).toEqual([]);
+      expect(result.value.count).toBe(0);
     }
   });
 
-  it("propagates error when albums query itself fails", async () => {
+  it("propagates error when the albums query fails", async () => {
     const executeCommand = vi.fn().mockResolvedValue(err(networkError));
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
@@ -132,45 +104,7 @@ describe("getLibraryAlbums", () => {
     if (!result.ok) {
       expect(result.error.type).toBe("NetworkError");
     }
-    // Songs query should not be attempted when albums fails
     expect(executeCommand).toHaveBeenCalledTimes(1);
-  });
-
-  it("only assigns first genre per album when multiple songs share the same album_id", async () => {
-    const executeCommand = vi
-      .fn()
-      .mockResolvedValueOnce(
-        ok({
-          albums_loop: [
-            {
-              id: 5,
-              album: "Mixed",
-              artist: "Various",
-              year: 2020,
-              artwork_track_id: "art5",
-            },
-          ],
-          count: 1,
-        }),
-      )
-      .mockResolvedValueOnce(
-        ok({
-          titles_loop: [
-            { album_id: "5", genre: "Rock" },
-            { album_id: "5", genre: "Pop" }, // Second genre for same album → ignored
-          ],
-        }),
-      );
-    const { getLibraryAlbums } = createLibraryMethods(
-      makeExecuteDeps(executeCommand),
-    );
-
-    const result = await getLibraryAlbums(0, 250);
-
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.albums[0]?.genre).toBe("Rock"); // First genre wins
-    }
   });
 });
 
@@ -178,13 +112,9 @@ describe("getLibraryAlbums", () => {
 
 describe("getLibraryAlbums command", () => {
   const emptyAlbumsPayload = ok({ albums_loop: [], count: 0 });
-  const emptySongsPayload = ok({ titles_loop: [] });
 
   it("sends the unfiltered command when no filters are given", async () => {
-    const executeCommand = vi
-      .fn()
-      .mockResolvedValueOnce(emptyAlbumsPayload)
-      .mockResolvedValueOnce(emptySongsPayload);
+    const executeCommand = vi.fn().mockResolvedValue(emptyAlbumsPayload);
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
     );
@@ -200,10 +130,7 @@ describe("getLibraryAlbums command", () => {
   });
 
   it("appends sort, genre_id, search and year", async () => {
-    const executeCommand = vi
-      .fn()
-      .mockResolvedValueOnce(emptyAlbumsPayload)
-      .mockResolvedValueOnce(emptySongsPayload);
+    const executeCommand = vi.fn().mockResolvedValue(emptyAlbumsPayload);
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
     );
@@ -228,10 +155,7 @@ describe("getLibraryAlbums command", () => {
   });
 
   it("keeps year:0 — LMS uses it for the albums without a release year", async () => {
-    const executeCommand = vi
-      .fn()
-      .mockResolvedValueOnce(emptyAlbumsPayload)
-      .mockResolvedValueOnce(emptySongsPayload);
+    const executeCommand = vi.fn().mockResolvedValue(emptyAlbumsPayload);
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
     );
@@ -248,10 +172,7 @@ describe("getLibraryAlbums command", () => {
   });
 
   it("drops a blank search instead of sending an empty filter", async () => {
-    const executeCommand = vi
-      .fn()
-      .mockResolvedValueOnce(emptyAlbumsPayload)
-      .mockResolvedValueOnce(emptySongsPayload);
+    const executeCommand = vi.fn().mockResolvedValue(emptyAlbumsPayload);
     const { getLibraryAlbums } = createLibraryMethods(
       makeExecuteDeps(executeCommand),
     );

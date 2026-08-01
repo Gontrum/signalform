@@ -125,7 +125,6 @@ export type LibraryAlbumRaw = {
   readonly artist?: string; // tag: a — artist name
   readonly year?: number; // tag: y — release year (0 if untagged → map to null)
   readonly artwork_track_id?: string; // tag: j — hex track ID for cover art URL
-  readonly genre?: string; // enriched from songs bulk query (not from albums command — LMS albums command does not return genre)
 };
 
 /**

@@ -10,7 +10,6 @@ type LibraryAlbumInput = {
   readonly artist?: string;
   readonly year?: number;
   readonly artwork_track_id?: string;
-  readonly genre?: string;
 };
 
 const buildLibraryCoverArtUrl = (
@@ -30,7 +29,6 @@ const mapLibraryAlbum = (
   title: raw.album,
   artist: raw.artist ?? "",
   releaseYear: raw.year && raw.year > 0 ? raw.year : null,
-  genre: raw.genre && raw.genre.trim().length > 0 ? raw.genre.trim() : null,
   coverArtUrl: buildLibraryCoverArtUrl(raw, baseUrl),
 });
 
