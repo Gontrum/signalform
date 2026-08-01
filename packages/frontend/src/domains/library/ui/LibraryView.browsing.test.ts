@@ -317,6 +317,19 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
       expect(mockGetLibraryAlbums.mock.calls.length).toBe(callsBefore)
     })
 
+    it('does not reload when the typed name is the genre already filtered on', async () => {
+      mockGetLibraryGenres.mockResolvedValue(manyGenres)
+      sessionStorage.setItem('library-genre-filter', '900')
+      const wrapper = await mountView()
+      const callsBefore = mockGetLibraryAlbums.mock.calls.length
+
+      await wrapper.find('[data-testid="genre-filter-input"]').setValue('zydeco')
+      await flushPromises()
+
+      expect(mockGetLibraryAlbums.mock.calls.length).toBe(callsBefore)
+      expect(sessionStorage.getItem('library-genre-filter')).toBe('900')
+    })
+
     it('clears the genre filter when the field is emptied', async () => {
       mockGetLibraryGenres.mockResolvedValue(manyGenres)
       sessionStorage.setItem('library-genre-filter', '900')

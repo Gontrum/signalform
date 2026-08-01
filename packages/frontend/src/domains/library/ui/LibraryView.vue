@@ -9,6 +9,14 @@ import AlbumListRow from '@/domains/library/ui/AlbumListRow.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useLibraryBrowser } from '../shell/useLibraryBrowser'
+import {
+  buildAlbumRows,
+  findGenreName,
+  nextGenreFilter,
+  showsEmptyLibrary as showsEmptyLocalLibrary,
+  showsGenreChips,
+  showsYearHeadings,
+} from '../core/service'
 import type { Source } from '../core/types'
 
 const { isPhone } = useResponsiveLayout()
@@ -66,17 +74,9 @@ const handleSearchInput = (event: Event): void => {
 
 const allGenres = computed(() => [...genreChips.value, ...genreRest.value])
 
-// The cold genre endpoint answers alphabetically and without counts, so the
-// first 20 entries are not the biggest ones — showing them as chips would
-// reshuffle the row as soon as the counts arrive.
-const showGenreChips = computed(
-  () =>
-    genreChips.value.length > 0 && genreChips.value.some((genre) => genre.albumCount !== undefined),
-)
+const showGenreChips = computed(() => showsGenreChips(genreChips.value))
 
-const activeGenreName = computed(
-  () => allGenres.value.find((genre) => genre.id === genreFilter.value)?.name ?? '',
-)
+const activeGenreName = computed(() => findGenreName(allGenres.value, genreFilter.value))
 
 const genreQuery = ref(activeGenreName.value)
 watch(activeGenreName, (name) => {
@@ -94,54 +94,31 @@ const handleGenreInput = (event: Event): void => {
   }
 
   genreQuery.value = value
-  const typed = value.trim().toLowerCase()
 
-  if (typed === '') {
-    if (genreFilter.value !== null) {
-      setGenreFilter(null)
-    }
-    return
-  }
-
-  const match = allGenres.value.find((genre) => genre.name.toLowerCase() === typed)
-  if (match !== undefined && match.id !== genreFilter.value) {
-    setGenreFilter(match.id)
+  const step = nextGenreFilter(allGenres.value, value, genreFilter.value)
+  if (step.action === 'clear') {
+    setGenreFilter(null)
+  } else if (step.action === 'set') {
+    setGenreFilter(step.genreId)
   }
 }
 
-const showsEmptyLibrary = computed(
-  () =>
-    activeSource.value === 'local' &&
-    currentStatus.value === 'success' &&
-    albums.value.length === 0 &&
-    !hasActiveFilters.value,
+const showsEmptyLibrary = computed(() =>
+  showsEmptyLocalLibrary(
+    activeSource.value,
+    currentStatus.value,
+    albums.value.length,
+    hasActiveFilters.value,
+  ),
 )
 
-// Both orderings group by year first, so without the headings the secondary
-// sort inside a year reads as a broken list.
-const showYearHeadings = computed(
-  () =>
-    activeSource.value === 'local' &&
-    (sortBy.value === 'year-newest' || decadeFilter.value !== 'all'),
+const showYearHeadings = computed(() =>
+  showsYearHeadings(activeSource.value, sortBy.value, decadeFilter.value),
 )
 
-const yearLabel = (year: number | null): string =>
-  year === null ? t('library.unknownYear') : String(year)
-
-// Comparing against the previous entry of the merged list — not per page — is
-// what keeps a year from being announced twice across a load-more boundary.
-const albumRows = computed(() => {
-  const items = currentAlbumsForDisplay.value
-
-  return items.map((album, index) => {
-    const previous = items[index - 1]
-    const startsYear =
-      showYearHeadings.value &&
-      (previous === undefined || yearLabel(previous.releaseYear) !== yearLabel(album.releaseYear))
-
-    return { album, heading: startsYear ? yearLabel(album.releaseYear) : undefined }
-  })
-})
+const albumRows = computed(() =>
+  buildAlbumRows(currentAlbumsForDisplay.value, showYearHeadings.value, t('library.unknownYear')),
+)
 
 const loadMoreTrigger = useTemplateRef<HTMLElement>('loadMoreTrigger')
 

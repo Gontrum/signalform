@@ -66,3 +66,6 @@ export {
 
 // Tidal utilities
 export { isTidalAlbumId } from "./tidalUtils.js";
+
+// Library ordering
+export { ordersByYearFirst } from "./libraryOrdering.js";

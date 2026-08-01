@@ -1,10 +1,13 @@
+import { ordersByYearFirst } from '@signalform/shared'
 import type {
   DecadeFilter,
   FilterField,
   GenreSplit,
   LibraryAlbum,
+  LoadingStatus,
   ReconciledFilters,
   SortOption,
+  Source,
   TidalAlbumForDisplay,
   ViewMode,
 } from './types'
@@ -113,3 +116,83 @@ export const adaptTidalAlbumsForDisplay = (
 
 export const buildRescanProgressMessage = (scanningLabel: string, step: string): string =>
   `${scanningLabel} (${step.replace(/_/g, ' ')})`
+
+// Both orderings group by year first, so without the headings the secondary
+// sort inside a year reads as a broken list. Tidal has no such ordering.
+export const showsYearHeadings = (
+  source: Source,
+  sort: SortOption,
+  decade: DecadeFilter,
+): boolean => source === 'local' && ordersByYearFirst(sort, decade)
+
+const yearLabel = (year: number | null, unknownYearLabel: string): string =>
+  year === null ? unknownYearLabel : String(year)
+
+// Comparing against the previous entry of the merged list — not per page — is
+// what keeps a year from being announced twice across a load-more boundary.
+export const buildAlbumRows = (
+  albums: readonly LibraryAlbum[],
+  showHeadings: boolean,
+  unknownYearLabel: string,
+): ReadonlyArray<{ readonly album: LibraryAlbum; readonly heading?: string }> =>
+  albums.map((album, index) => {
+    const previous = albums[index - 1]
+    const label = yearLabel(album.releaseYear, unknownYearLabel)
+    const startsYear =
+      showHeadings &&
+      (previous === undefined || yearLabel(previous.releaseYear, unknownYearLabel) !== label)
+
+    return { album, heading: startsYear ? label : undefined }
+  })
+
+export const findGenreName = <Genre extends { readonly id: number; readonly name: string }>(
+  genres: readonly Genre[],
+  genreId: number | null,
+): string => genres.find((genre) => genre.id === genreId)?.name ?? ''
+
+const matchGenreByName = <Genre extends { readonly name: string }>(
+  genres: readonly Genre[],
+  typed: string,
+): Genre | undefined => {
+  const needle = typed.trim().toLowerCase()
+
+  return needle === '' ? undefined : genres.find((genre) => genre.name.toLowerCase() === needle)
+}
+
+export type GenreFilterStep =
+  | { readonly action: 'clear' }
+  | { readonly action: 'set'; readonly genreId: number }
+  | { readonly action: 'keep' }
+
+const KEEP: GenreFilterStep = { action: 'keep' }
+
+// A free-text field: every keystroke asks again, so anything but a new answer
+// has to stay silent — re-setting the genre already filtered on would restart
+// the album query on each typed character.
+export const nextGenreFilter = <Genre extends { readonly id: number; readonly name: string }>(
+  genres: readonly Genre[],
+  typed: string,
+  current: number | null,
+): GenreFilterStep => {
+  if (typed.trim() === '') {
+    return current === null ? KEEP : { action: 'clear' }
+  }
+
+  const match = matchGenreByName(genres, typed)
+
+  return match === undefined || match.id === current ? KEEP : { action: 'set', genreId: match.id }
+}
+
+// The cold genre endpoint answers alphabetically and without counts, so the
+// first 20 entries are not the biggest ones — showing them as chips would
+// reshuffle the row as soon as the counts arrive.
+export const showsGenreChips = <Genre extends { readonly albumCount?: number }>(
+  chips: readonly Genre[],
+): boolean => chips.some((genre) => genre.albumCount !== undefined)
+
+export const showsEmptyLibrary = (
+  source: Source,
+  status: LoadingStatus,
+  albumCount: number,
+  hasActiveFilters: boolean,
+): boolean => source === 'local' && status === 'success' && albumCount === 0 && !hasActiveFilters
