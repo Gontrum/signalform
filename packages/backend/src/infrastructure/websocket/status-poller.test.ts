@@ -258,6 +258,19 @@ const createSequentialGetStatus = (
   });
 };
 
+const makeLmsTrack = (
+  overrides: Partial<NonNullable<PlayerStatus["currentTrack"]>> = {},
+): NonNullable<PlayerStatus["currentTrack"]> => ({
+  id: "4711",
+  title: "So What",
+  artist: "Miles Davis",
+  album: "Kind of Blue",
+  url: "http://lms.local/stream/4711.flac",
+  source: "local",
+  type: "track",
+  ...overrides,
+});
+
 const makeMockLmsClient = (
   overrides: Partial<PollerLmsClient> = {},
 ): PollerLmsClient => ({
@@ -367,5 +380,207 @@ describe("startStatusPolling - player connectivity events", () => {
     stopPolling();
 
     expect(getStatus).toHaveBeenCalledTimes(1);
+  });
+});
+
+const isLogEventNamed = (logFields: unknown, event: string): boolean =>
+  typeof logFields === "object" &&
+  logFields !== null &&
+  "event" in logFields &&
+  logFields.event === event;
+
+describe("startStatusPolling - player connectivity diagnostics", () => {
+  test("logs the playback position of the last connected poll on disconnect, not the position reported after the drop", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const warnSpy = vi.spyOn(mockApp.log, "warn");
+    const mockLmsClient = makeMockLmsClient({
+      getStatus: createSequentialGetStatus([
+        ok(
+          makePlayerStatus({
+            playerConnected: true,
+            time: 42,
+            duration: 200,
+            currentTrack: makeLmsTrack({ id: "4711" }),
+          }),
+        ),
+        // Deliberately different from the poll before: if the implementation read
+        // currentStatus, the assertion below would see time 0 / no track instead.
+        ok(
+          makePlayerStatus({
+            playerConnected: false,
+            mode: "stop",
+            time: 0,
+            duration: 0,
+            currentTrack: null,
+          }),
+        ),
+      ]),
+    });
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      5,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SYSTEM_PLAYER_DISCONNECTED,
+        expect.anything(),
+      );
+    });
+
+    stopPolling();
+
+    expect(
+      warnSpy.mock.calls.filter((call) =>
+        isLogEventNamed(call[0], "system_player_disconnected"),
+      ),
+    ).toHaveLength(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "system_player_disconnected",
+        playerId: "player-1",
+        trackId: "4711",
+        time: 42,
+        duration: 200,
+      }),
+      expect.any(String),
+    );
+  });
+
+  test("logs the track and position the player came back with on reconnect", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const infoSpy = vi.spyOn(mockApp.log, "info");
+    const mockLmsClient = makeMockLmsClient({
+      getStatus: createSequentialGetStatus([
+        ok(
+          makePlayerStatus({
+            playerConnected: true,
+            time: 42,
+            duration: 200,
+            currentTrack: makeLmsTrack({ id: "4711" }),
+          }),
+        ),
+        ok(
+          makePlayerStatus({
+            playerConnected: false,
+            mode: "stop",
+            time: 0,
+            duration: 0,
+            currentTrack: null,
+          }),
+        ),
+        // LMS advanced the playlist while the player was gone — the reconnect
+        // line must report this new position, not the one from the drop.
+        ok(
+          makePlayerStatus({
+            playerConnected: true,
+            time: 7,
+            duration: 180,
+            currentTrack: makeLmsTrack({
+              id: "4712",
+              title: "Freddie Freeloader",
+              url: "http://lms.local/stream/4712.flac",
+            }),
+          }),
+        ),
+      ]),
+    });
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      5,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SYSTEM_PLAYER_RECONNECTED,
+        expect.anything(),
+      );
+    });
+
+    stopPolling();
+
+    expect(
+      infoSpy.mock.calls.filter((call) =>
+        isLogEventNamed(call[0], "system_player_reconnected"),
+      ),
+    ).toHaveLength(1);
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "system_player_reconnected",
+        playerId: "player-1",
+        trackId: "4712",
+        time: 7,
+      }),
+      expect.any(String),
+    );
+  });
+
+  test("omits track fields on disconnect when nothing was playing instead of logging placeholder values", async () => {
+    const mockIo = makeMockIo();
+    const mockApp = makeMockApp();
+    const warnSpy = vi.spyOn(mockApp.log, "warn");
+    const mockLmsClient = makeMockLmsClient({
+      getStatus: createSequentialGetStatus([
+        ok(
+          makePlayerStatus({
+            playerConnected: true,
+            mode: "stop",
+            time: 0,
+            duration: 0,
+            currentTrack: null,
+          }),
+        ),
+        ok(
+          makePlayerStatus({
+            playerConnected: false,
+            mode: "stop",
+            time: 0,
+            duration: 0,
+            currentTrack: null,
+          }),
+        ),
+      ]),
+    });
+
+    const stopPolling = startStatusPolling(
+      mockIo.io,
+      mockLmsClient,
+      mockApp,
+      "player-1",
+      5,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockIo.emit).toHaveBeenCalledWith(
+        SYSTEM_PLAYER_DISCONNECTED,
+        expect.anything(),
+      );
+    });
+
+    stopPolling();
+
+    expect(
+      warnSpy.mock.calls.filter((call) =>
+        isLogEventNamed(call[0], "system_player_disconnected"),
+      ),
+    ).toHaveLength(1);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "system_player_disconnected",
+        trackId: undefined,
+        duration: undefined,
+      }),
+      expect.any(String),
+    );
   });
 });

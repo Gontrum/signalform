@@ -302,10 +302,17 @@ export const startStatusPolling = (
           SYSTEM_PLAYER_DISCONNECTED,
           systemEventResult.value,
         );
+        // Playback position is read from previousStatus on purpose: currentStatus
+        // is the poll *after* the drop and no longer says what was playing when
+        // the player vanished. Switching this to currentStatus silently guts the
+        // "did LMS resume or skip ahead?" diagnosis this pair of lines exists for.
         app.log.warn(
           {
             event: "system_player_disconnected",
             playerId,
+            trackId: previousStatus?.currentTrack?.id,
+            time: previousStatus?.time,
+            duration: previousStatus?.currentTrack?.duration,
           },
           "Player disconnected from LMS - system event emitted",
         );
@@ -323,6 +330,8 @@ export const startStatusPolling = (
           {
             event: "system_player_reconnected",
             playerId,
+            trackId: currentStatus.currentTrack?.id,
+            time: currentStatus.time,
           },
           "Player reconnected to LMS - system event emitted",
         );
