@@ -29,10 +29,21 @@ const {
   setSource,
   currentStatus,
   albums,
-  hasMore,
-  isLoadingMore,
-  loadMoreFailed,
-  loadMore,
+  browseMode,
+  setBrowseMode,
+  artists,
+  loadMoreCurrent,
+  handleNavigateArtist,
+  showsAlbumControls,
+  showsBrowseModeToggle,
+  showsArtistBrowser,
+  showsEmptyArtists,
+  showsLoadMore,
+  isLoadingMoreCurrent,
+  loadMoreCurrentFailed,
+  errorMessage,
+  loadMoreErrorMessage,
+  searchPlaceholder,
   tidalAlbumsForDisplay,
   featuredAlbums,
   featuredStatus,
@@ -124,7 +135,7 @@ const loadMoreTrigger = useTemplateRef<HTMLElement>('loadMoreTrigger')
 
 useIntersectionObserver(loadMoreTrigger, (entries) => {
   if (entries.some((entry) => entry.isIntersecting)) {
-    void loadMore()
+    void loadMoreCurrent()
   }
 })
 
@@ -149,6 +160,16 @@ const CHIP_INACTIVE_CLASS =
 const chipClass = (isActive: boolean): readonly string[] => [
   CHIP_CLASS,
   isActive ? CHIP_ACTIVE_CLASS : CHIP_INACTIVE_CLASS,
+]
+
+// Same two-way switch as the view toggle, but with word labels and a 44px
+// target, since this one carries text instead of a 32px icon.
+const BROWSE_MODE_CLASS =
+  'min-h-11 rounded px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
+
+const browseModeClass = (isActive: boolean): readonly string[] => [
+  BROWSE_MODE_CLASS,
+  isActive ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-900',
 ]
 
 // A fresh scroller starts at scrollLeft 0, which hides the active chip whenever
@@ -282,6 +303,36 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </button>
       </div>
 
+      <!-- Albums / Artists switch (local only — Tidal has no artist browser,
+           so the toggle disappears with the tab and the mode is restored on
+           the way back). -->
+      <div
+        v-if="showsBrowseModeToggle"
+        data-testid="browse-mode-toggle"
+        role="group"
+        :aria-label="t('library.browseModeLabel')"
+        class="mb-3 flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit sm:mb-4"
+      >
+        <button
+          type="button"
+          data-testid="browse-mode-albums"
+          :aria-pressed="browseMode === 'albums'"
+          :class="browseModeClass(browseMode === 'albums')"
+          @click="setBrowseMode('albums')"
+        >
+          {{ t('library.browseAlbums') }}
+        </button>
+        <button
+          type="button"
+          data-testid="browse-mode-artists"
+          :aria-pressed="browseMode === 'artists'"
+          :class="browseModeClass(browseMode === 'artists')"
+          @click="setBrowseMode('artists')"
+        >
+          {{ t('library.browseArtists') }}
+        </button>
+      </div>
+
       <!-- Rescan library button (local only) -->
       <div v-if="activeSource === 'local'" class="mb-3 flex items-center gap-3 sm:mb-6">
         <button
@@ -326,7 +377,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           data-testid="library-search-input"
           type="search"
           :value="searchQuery"
-          :placeholder="t('library.searchPlaceholder')"
+          :placeholder="searchPlaceholder"
           :aria-label="t('library.searchLabel')"
           autocomplete="off"
           class="min-h-11 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-4 text-base text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
@@ -334,9 +385,11 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         />
       </div>
 
-      <!-- Sort & Filter controls (local only) — chip-based for mobile friendliness -->
+      <!-- Sort & Filter controls (local albums only) — chip-based for mobile
+           friendliness. In artist mode none of the three has a counterpart in
+           the query, so the block is gone rather than inert. -->
       <div
-        v-if="activeSource === 'local'"
+        v-if="showsAlbumControls"
         data-testid="sort-controls"
         class="mb-3 space-y-2 sm:mb-4 sm:space-y-3"
       >
@@ -464,9 +517,34 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         data-testid="error-state"
         class="py-20 text-center text-neutral-500"
       >
-        <p class="text-lg">
-          {{ activeSource === 'tidal' ? t('library.errorTidal') : t('library.errorLocal') }}
-        </p>
+        <p class="text-lg">{{ errorMessage }}</p>
+      </div>
+
+      <!-- Artist browser (local only). Text only, on purpose: LMS holds no
+           artist artwork, so a thumbnail per row would mean one extra request
+           per artist for an image that mostly does not exist. This list is the
+           right shape for the data — do not "upgrade" it to a cover grid. -->
+      <div v-else-if="showsArtistBrowser" data-testid="artist-browser">
+        <div
+          v-if="showsEmptyArtists"
+          data-testid="artists-empty-state"
+          class="py-12 text-center text-neutral-400"
+        >
+          <p class="text-sm">{{ t('library.artistsEmpty') }}</p>
+        </div>
+
+        <ul v-else data-testid="artist-list" class="flex flex-col divide-y divide-neutral-100">
+          <li v-for="artist in artists" :key="artist.id">
+            <button
+              type="button"
+              data-testid="artist-row"
+              class="flex min-h-11 w-full items-center rounded-lg px-3 text-left text-sm font-medium text-neutral-900 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+              @click="handleNavigateArtist(artist.name)"
+            >
+              <span class="truncate">{{ artist.name }}</span>
+            </button>
+          </li>
+        </ul>
       </div>
 
       <!-- Empty state (local — 0 albums in library) -->
@@ -627,33 +705,30 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
             />
           </template>
         </div>
+      </div>
 
-        <!-- Load more (local only). The button stays the accessible path; the
-             observer on its wrapper only saves the click while scrolling. -->
-        <div
-          v-if="activeSource === 'local' && hasMore"
-          ref="loadMoreTrigger"
-          class="mt-6 flex flex-col items-center gap-2"
+      <!-- Load more (local only) — one block for albums and artists, since the
+           two paginate identically. The button stays the accessible path; the
+           observer on its wrapper only saves the click while scrolling. -->
+      <div v-if="showsLoadMore" ref="loadMoreTrigger" class="mt-6 flex flex-col items-center gap-2">
+        <button
+          type="button"
+          data-testid="load-more-button"
+          :disabled="isLoadingMoreCurrent"
+          class="min-h-11 rounded-lg border border-neutral-200 px-6 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+          @click="loadMoreCurrent"
         >
-          <button
-            type="button"
-            data-testid="load-more-button"
-            :disabled="isLoadingMore"
-            class="min-h-11 rounded-lg border border-neutral-200 px-6 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-            @click="loadMore"
-          >
-            {{ isLoadingMore ? t('home.loading') : t('library.loadMore') }}
-          </button>
-          <p
-            v-if="loadMoreFailed"
-            data-testid="load-more-error"
-            class="text-sm text-neutral-500"
-            role="status"
-            aria-live="polite"
-          >
-            {{ t('library.loadMoreError') }}
-          </p>
-        </div>
+          {{ isLoadingMoreCurrent ? t('home.loading') : t('library.loadMore') }}
+        </button>
+        <p
+          v-if="loadMoreCurrentFailed"
+          data-testid="load-more-error"
+          class="text-sm text-neutral-500"
+          role="status"
+          aria-live="polite"
+        >
+          {{ loadMoreErrorMessage }}
+        </p>
       </div>
     </div>
   </div>

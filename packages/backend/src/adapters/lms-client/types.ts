@@ -146,6 +146,23 @@ export type LibraryAlbumFilters = {
 };
 
 /**
+ * Raw artist item from LMS artists command.
+ * The LMS field is `artist`; the domain layer renames it to `name`.
+ */
+export type LibraryArtistRaw = {
+  readonly id: number;
+  readonly artist: string;
+};
+
+/**
+ * Optional server-side filter for the LMS artists command.
+ * No sort: LMS returns artists alphabetically and offers no other order.
+ */
+export type LibraryArtistFilters = {
+  readonly search?: string;
+};
+
+/**
  * Raw genre item from LMS genres command.
  * Live probe 2026-07-31: `{ id, genre }` — the response carries no album count.
  */

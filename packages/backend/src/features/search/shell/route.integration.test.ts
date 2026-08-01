@@ -74,6 +74,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   addToQueue: vi.fn(),
   getLibraryAlbums: vi.fn(),
   getLibraryAlbumCount: vi.fn(),
+  getLibraryArtists: vi.fn(),
   getLibraryYears: vi.fn(),
   getGenres: vi.fn(),
   getTidalAlbums: vi.fn(),

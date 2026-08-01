@@ -11,10 +11,13 @@ import {
 import { addAlbumToQueue } from '@/platform/api/queueApi'
 import {
   getLibraryAlbums,
+  getLibraryArtists,
   getLibraryGenres,
   getRescanStatus,
   triggerLibraryRescan,
   type LibraryAlbumsQuery,
+  type LibraryArtist,
+  type LibraryArtistsQuery,
   type LibraryGenre,
 } from '@/platform/api/libraryApi'
 import {
@@ -47,6 +50,10 @@ import type {
 
 type Translator = (key: MessageKey) => string
 
+// Belongs next to Source and ViewMode in core/types.ts — parked here until the
+// core zone can take it.
+type BrowseMode = 'albums' | 'artists'
+
 const SEARCH_DEBOUNCE_MS = 300
 
 // Tidal favourites are still fetched in one go — only the local library got
@@ -62,6 +69,23 @@ type UseLibraryBrowserResult = {
   readonly isLoadingMore: Ref<boolean>
   readonly loadMoreFailed: Ref<boolean>
   readonly loadMore: () => Promise<void>
+  readonly browseMode: Ref<BrowseMode>
+  readonly setBrowseMode: (mode: BrowseMode) => void
+  readonly artists: Ref<readonly LibraryArtist[]>
+  readonly artistsHasMore: ComputedRef<boolean>
+  readonly loadMoreArtists: () => Promise<void>
+  readonly loadMoreCurrent: () => Promise<void>
+  readonly handleNavigateArtist: (name: string) => void
+  readonly showsAlbumControls: ComputedRef<boolean>
+  readonly showsBrowseModeToggle: ComputedRef<boolean>
+  readonly showsArtistBrowser: ComputedRef<boolean>
+  readonly showsEmptyArtists: ComputedRef<boolean>
+  readonly showsLoadMore: ComputedRef<boolean>
+  readonly isLoadingMoreCurrent: ComputedRef<boolean>
+  readonly loadMoreCurrentFailed: ComputedRef<boolean>
+  readonly errorMessage: ComputedRef<string>
+  readonly loadMoreErrorMessage: ComputedRef<string>
+  readonly searchPlaceholder: ComputedRef<string>
   readonly tidalAlbumsForDisplay: ComputedRef<readonly LibraryAlbum[]>
   readonly featuredAlbums: Ref<readonly TidalAlbum[]>
   readonly featuredStatus: Ref<LoadingStatus>
@@ -140,6 +164,13 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const isLoadingMore = ref(false)
   const loadMoreFailed = ref(false)
 
+  const browseMode = ref<BrowseMode>('albums')
+  const artists = ref<readonly LibraryArtist[]>([])
+  const artistsStatus = ref<LoadingStatus>('loading')
+  const artistsHasMoreState = ref(false)
+  const isLoadingMoreArtists = ref(false)
+  const loadMoreArtistsFailed = ref(false)
+
   const tidalStatus = ref<LoadingStatus>('loading')
   const tidalAlbums = ref<readonly TidalAlbum[]>([])
 
@@ -171,8 +202,11 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const searchTimerRef = { current: null as ReturnType<typeof setTimeout> | null }
 
   const tidalAlbumsForDisplay = computed(() => adaptTidalAlbumsForDisplay(tidalAlbums.value))
+  const localStatus = computed(() =>
+    browseMode.value === 'artists' ? artistsStatus.value : status.value,
+  )
   const currentStatus = computed(() =>
-    activeSource.value === 'local' ? status.value : tidalStatus.value,
+    activeSource.value === 'local' ? localStatus.value : tidalStatus.value,
   )
   const currentAlbumsForDisplay = computed(() =>
     activeSource.value === 'local' ? albums.value : tidalAlbumsForDisplay.value,
@@ -180,9 +214,54 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   // Only the two loaders may move it; a consumer that could write it would be
   // promising a page the server never announced.
   const hasMore = computed(() => hasMoreState.value)
+  const artistsHasMore = computed(() => artistsHasMoreState.value)
   const hasActiveFilters = computed(
     () =>
       genreFilter.value !== null || decadeFilter.value !== 'all' || searchQuery.value.trim() !== '',
+  )
+
+  // Sort, decade and genre have no counterpart in the artist listing, so the
+  // whole album control block goes away instead of standing there inert.
+  const showsAlbumControls = computed(
+    () => activeSource.value === 'local' && browseMode.value === 'albums',
+  )
+  const showsBrowseModeToggle = computed(() => activeSource.value === 'local')
+  const showsArtistBrowser = computed(
+    () => activeSource.value === 'local' && browseMode.value === 'artists',
+  )
+  const showsEmptyArtists = computed(
+    () =>
+      showsArtistBrowser.value && artistsStatus.value === 'success' && artists.value.length === 0,
+  )
+  const showsLoadMore = computed(
+    () =>
+      activeSource.value === 'local' &&
+      currentStatus.value === 'success' &&
+      (browseMode.value === 'artists' ? artistsHasMoreState.value : hasMoreState.value),
+  )
+  const isLoadingMoreCurrent = computed(() =>
+    browseMode.value === 'artists' ? isLoadingMoreArtists.value : isLoadingMore.value,
+  )
+  const loadMoreCurrentFailed = computed(() =>
+    browseMode.value === 'artists' ? loadMoreArtistsFailed.value : loadMoreFailed.value,
+  )
+
+  const errorMessage = computed(() => {
+    if (activeSource.value === 'tidal') {
+      return t('library.errorTidal')
+    }
+
+    return browseMode.value === 'artists' ? t('library.errorArtists') : t('library.errorLocal')
+  })
+  const loadMoreErrorMessage = computed(() =>
+    t(browseMode.value === 'artists' ? 'library.loadMoreArtistsError' : 'library.loadMoreError'),
+  )
+  const searchPlaceholder = computed(() =>
+    t(
+      browseMode.value === 'artists'
+        ? 'library.searchArtistsPlaceholder'
+        : 'library.searchPlaceholder',
+    ),
   )
 
   const librarySortOptions = sortOptions({
@@ -256,6 +335,93 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
     albums.value = [...albums.value, ...result.value.albums]
     hasMoreState.value = result.value.hasMore
+  }
+
+  const currentArtistsQuery = (): LibraryArtistsQuery => {
+    const search = searchQuery.value.trim()
+
+    return { search: search === '' ? undefined : search }
+  }
+
+  // Shares the album counter on purpose: a mode switch must invalidate whatever
+  // the other list still has in flight.
+  const loadArtists = async (): Promise<void> => {
+    requestRef.current += 1
+    const token = requestRef.current
+
+    artistsStatus.value = 'loading'
+    artists.value = []
+    artistsHasMoreState.value = false
+    isLoadingMoreArtists.value = false
+    loadMoreArtistsFailed.value = false
+
+    const result = await getLibraryArtists(PAGE_SIZE, 0, currentArtistsQuery())
+    if (token !== requestRef.current) {
+      return
+    }
+
+    if (!result.ok) {
+      artistsStatus.value = 'error'
+      return
+    }
+
+    artists.value = result.value.artists
+    artistsHasMoreState.value = result.value.hasMore
+    artistsStatus.value = 'success'
+  }
+
+  const loadMoreArtists = async (): Promise<void> => {
+    if (
+      artistsStatus.value !== 'success' ||
+      isLoadingMoreArtists.value ||
+      !artistsHasMoreState.value
+    ) {
+      return
+    }
+
+    requestRef.current += 1
+    const token = requestRef.current
+    isLoadingMoreArtists.value = true
+    loadMoreArtistsFailed.value = false
+
+    const result = await getLibraryArtists(PAGE_SIZE, artists.value.length, currentArtistsQuery())
+    if (token !== requestRef.current) {
+      return
+    }
+
+    isLoadingMoreArtists.value = false
+
+    if (!result.ok) {
+      loadMoreArtistsFailed.value = true
+      return
+    }
+
+    artists.value = [...artists.value, ...result.value.artists]
+    artistsHasMoreState.value = result.value.hasMore
+  }
+
+  // Both loaders start at offset 0 and drop their list, so every caller of this
+  // gets the pagination reset for free.
+  const reloadCurrentList = (): void => {
+    if (browseMode.value === 'artists') {
+      void loadArtists()
+      return
+    }
+
+    void loadLocalAlbums()
+  }
+
+  const setBrowseMode = (mode: BrowseMode): void => {
+    if (mode === browseMode.value) {
+      return
+    }
+
+    browseMode.value = mode
+    reloadCurrentList()
+  }
+
+  const loadMoreCurrent = async (): Promise<void> => {
+    await (browseMode.value === 'artists' ? loadMoreArtists() : loadMore())
   }
 
   // A genre list without counts is the server's cold state, not an error: keep
@@ -386,6 +552,11 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     void router.push({ name: 'album-detail', params: { albumId } })
   }
 
+  // The artist detail view is reached by name, the same way search does it.
+  const handleNavigateArtist = (name: string): void => {
+    void router.push({ name: 'unified-artist', query: { name } })
+  }
+
   const handlePlay = async (albumId: string): Promise<void> => {
     const result = await playAlbum(albumId)
     if (!result.ok) {
@@ -448,7 +619,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
     searchTimerRef.current = setTimeout(() => {
       searchTimerRef.current = null
-      void loadLocalAlbums()
+      reloadCurrentList()
     }, SEARCH_DEBOUNCE_MS)
   }
 
@@ -472,6 +643,23 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     isLoadingMore,
     loadMoreFailed,
     loadMore,
+    browseMode,
+    setBrowseMode,
+    artists,
+    artistsHasMore,
+    loadMoreArtists,
+    loadMoreCurrent,
+    handleNavigateArtist,
+    showsAlbumControls,
+    showsBrowseModeToggle,
+    showsArtistBrowser,
+    showsEmptyArtists,
+    showsLoadMore,
+    isLoadingMoreCurrent,
+    loadMoreCurrentFailed,
+    errorMessage,
+    loadMoreErrorMessage,
+    searchPlaceholder,
     tidalAlbumsForDisplay,
     featuredAlbums,
     featuredStatus,

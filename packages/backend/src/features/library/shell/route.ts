@@ -7,6 +7,7 @@ import type {
 } from "../../../adapters/lms-client/index.js";
 import {
   getLibraryAlbums,
+  getLibraryArtists,
   getLibraryGenres,
   getLibraryRescanProgress,
   startLibraryRescan,
@@ -34,6 +35,14 @@ const LibraryQuerySchema = z.object({
   sort: z.enum(SORT_OPTIONS).default("artist-az"),
   decade: z.enum(DECADE_FILTERS).default("all"),
   genreId: z.coerce.number().int().min(0).optional(),
+  search: z.string().optional(),
+});
+
+// No sort or filter beyond the search term: LMS delivers artists alphabetically
+// and that is the only order this list has.
+const LibraryArtistsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(999).default(250),
+  offset: z.coerce.number().int().min(0).default(0),
   search: z.string().optional(),
 });
 
@@ -71,6 +80,34 @@ export const createLibraryRoute = (
           : reply
               .code(503)
               .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
+      }
+
+      return reply.code(200).send(result.value);
+    },
+  );
+
+  fastify.get<{ readonly Querystring: unknown }>(
+    "/api/library/artists",
+    async (
+      request: FastifyRequest<{ readonly Querystring: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const validation = LibraryArtistsQuerySchema.safeParse(request.query);
+      if (!validation.success) {
+        return reply
+          .code(400)
+          .send({ message: "Invalid query parameters", code: "INVALID_INPUT" });
+      }
+
+      const { limit, offset, search } = validation.data;
+      const result = await getLibraryArtists(offset, limit, lmsClient, {
+        search,
+      });
+
+      if (!result.ok) {
+        return reply
+          .code(503)
+          .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
       }
 
       return reply.code(200).send(result.value);

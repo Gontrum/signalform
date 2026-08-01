@@ -159,6 +159,7 @@ const createMockLmsClient = (label: string): LmsClient => ({
   getArtistName: vi.fn(async () => ok(`${label} artist`)),
   getLibraryAlbums: vi.fn(async () => ok({ albums: [], count: 0 })),
   getLibraryAlbumCount: vi.fn(async () => ok(0)),
+  getLibraryArtists: vi.fn(async () => ok({ artists: [], count: 0 })),
   getLibraryYears: vi.fn(async () => ok([])),
   getGenres: vi.fn(async () => ok([])),
   getQueue: vi.fn(async () => ok([])),

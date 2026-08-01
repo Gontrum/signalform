@@ -23,6 +23,21 @@ export type LibraryGenresResponse = {
   readonly genres: readonly LibraryGenre[]
 }
 
+/** LMS has no artist images, so the artist list is name-only by design. */
+export type LibraryArtist = {
+  readonly id: string
+  readonly name: string
+}
+
+export type LibraryArtistsResponse = {
+  readonly artists: readonly LibraryArtist[]
+  readonly hasMore: boolean
+}
+
+export type LibraryArtistsQuery = {
+  readonly search?: string
+}
+
 export type LibraryAlbumsQuery = {
   readonly sort?: SortOption
   readonly decade?: DecadeFilter
@@ -40,6 +55,16 @@ const LibraryAlbumSchema = z.object({
 
 const LibraryAlbumsResponseSchema = z.object({
   albums: z.array(LibraryAlbumSchema),
+  hasMore: z.boolean(),
+})
+
+const LibraryArtistSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+})
+
+const LibraryArtistsResponseSchema = z.object({
+  artists: z.array(LibraryArtistSchema),
   hasMore: z.boolean(),
 })
 
@@ -111,6 +136,38 @@ export const getLibraryAlbums = async (
         status: response.status,
         message:
           (await parseErrorBody(response)) ?? `Library fetch failed: HTTP ${response.status}`,
+      }),
+      mapThrownError: mapLibraryThrownError,
+      mapParseError: mapLibraryParseError,
+    },
+  )
+}
+
+const buildArtistsQuery = (limit: number, offset: number, query: LibraryArtistsQuery): string =>
+  toQueryString([
+    ['limit', String(limit)],
+    ['offset', String(offset)],
+    ['search', query.search?.trim()],
+  ])
+
+/** Artists come back in the order LMS delivered them — alphabetical, no sort options. */
+export const getLibraryArtists = async (
+  limit = 250,
+  offset = 0,
+  query: LibraryArtistsQuery = {},
+): Promise<Result<LibraryArtistsResponse, LibraryApiError>> => {
+  return await fetchJsonResult(
+    getApiUrl(`/api/library/artists?${buildArtistsQuery(limit, offset, query)}`),
+    {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    },
+    {
+      schema: LibraryArtistsResponseSchema,
+      mapHttpError: async (response) => ({
+        type: 'SERVER_ERROR',
+        status: response.status,
+        message: (await parseErrorBody(response)) ?? `Artist fetch failed: HTTP ${response.status}`,
       }),
       mapThrownError: mapLibraryThrownError,
       mapParseError: mapLibraryParseError,

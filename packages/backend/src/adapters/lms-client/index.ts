@@ -20,6 +20,7 @@ export type {
   ArtistAlbumRaw,
   LibraryAlbumRaw,
   LibraryAlbumFilters,
+  LibraryArtistRaw,
   LmsGenreRaw,
   TidalAlbumRaw,
   TidalTrackRaw,

@@ -84,6 +84,13 @@ export type MessageKey =
   | 'library.genreFilterLabel'
   | 'library.genrePlaceholder'
   | 'library.unknownYear'
+  | 'library.browseModeLabel'
+  | 'library.browseAlbums'
+  | 'library.browseArtists'
+  | 'library.artistsEmpty'
+  | 'library.errorArtists'
+  | 'library.loadMoreArtistsError'
+  | 'library.searchArtistsPlaceholder'
   | 'setup.title'
   | 'setup.next'
   | 'setup.back'
@@ -310,6 +317,13 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.genreFilterLabel': 'Filter by genre',
     'library.genrePlaceholder': 'Find a genre',
     'library.unknownYear': 'Year unknown',
+    'library.browseModeLabel': 'Browse by',
+    'library.browseAlbums': 'Albums',
+    'library.browseArtists': 'Artists',
+    'library.artistsEmpty': 'No artists found',
+    'library.errorArtists': 'Unable to load artists',
+    'library.loadMoreArtistsError': 'Could not load more artists',
+    'library.searchArtistsPlaceholder': 'Search artists',
     'queue.dragHint': 'Drag a row, then release on the highlighted insertion target.',
     'queue.dropAfter': 'Release to move after this track.',
     'queue.dropBefore': 'Release to move before this track.',
@@ -535,6 +549,13 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.genreFilterLabel': 'Nach Genre filtern',
     'library.genrePlaceholder': 'Genre finden',
     'library.unknownYear': 'Jahr unbekannt',
+    'library.browseModeLabel': 'Anzeigen nach',
+    'library.browseAlbums': 'Alben',
+    'library.browseArtists': 'Künstler',
+    'library.artistsEmpty': 'Keine Künstler gefunden',
+    'library.errorArtists': 'Künstler konnten nicht geladen werden',
+    'library.loadMoreArtistsError': 'Weitere Künstler konnten nicht geladen werden',
+    'library.searchArtistsPlaceholder': 'Künstler suchen',
     'queue.dragHint': 'Ziehe eine Zeile und lasse sie auf dem markierten Ziel los.',
     'queue.dropAfter': 'Nach diesem Titel einfügen.',
     'queue.dropBefore': 'Vor diesem Titel einfügen.',

@@ -7,6 +7,7 @@ import {
 } from "@signalform/shared";
 import type {
   LibraryAlbumRaw,
+  LibraryArtistRaw,
   LmsClient,
   LmsConfig,
   LmsGenreRaw,
@@ -88,6 +89,9 @@ const createTtlCache = <T>(maxSize: number): TtlCache<T> => {
 const albumCache = createTtlCache<LibraryAlbumsResponse>(
   MAX_LIBRARY_CACHE_SIZE,
 );
+const artistCache = createTtlCache<LibraryArtistsResponse>(
+  MAX_LIBRARY_CACHE_SIZE,
+);
 const yearsCache = createTtlCache<readonly number[]>(SINGLETON_CACHE_SIZE);
 const yearCountCache = createTtlCache<number>(MAX_COUNT_CACHE_SIZE);
 const genresCache =
@@ -111,13 +115,14 @@ const GENRES_CACHE_KEY = "genres";
 const GENRE_WARMUP_CACHE_KEY = "genre-counts";
 
 /**
- * Clears every cached library entry — albums, years, per-year counts, genres
- * and genre counts.
+ * Clears every cached library entry — albums, artists, years, per-year counts,
+ * genres and genre counts.
  * @internal Exposed for test isolation; production code invalidates through
  * the rescan functions below.
  */
 export const clearLibraryCache = (): void => {
   albumCache.clear();
+  artistCache.clear();
   yearsCache.clear();
   yearCountCache.clear();
   genresCache.clear();
@@ -589,6 +594,64 @@ export const getLibraryAlbums = async (
 
   albumCache.set(cacheKey, pageResult.value);
   return pageResult;
+};
+
+type LibraryArtist = {
+  readonly id: string;
+  readonly name: string;
+};
+
+export type LibraryArtistsResponse = {
+  readonly artists: readonly LibraryArtist[];
+  readonly hasMore: boolean;
+};
+
+export type LibraryArtistOptions = {
+  readonly search?: string;
+};
+
+// Every parameter that changes the answer belongs in the key — an album cache
+// key that omitted the search term once served unfiltered pages to searches.
+const artistCacheKey = (
+  offset: number,
+  limit: number,
+  search?: string,
+): string => `${offset}:${limit}:${search ?? ""}`;
+
+const toLibraryArtist = (raw: LibraryArtistRaw): LibraryArtist => ({
+  id: String(raw.id),
+  name: raw.artist,
+});
+
+/**
+ * One page of the library's artists, in the alphabetical order LMS delivers.
+ */
+export const getLibraryArtists = async (
+  offset: number,
+  limit: number,
+  lmsClient: LmsClient,
+  options: LibraryArtistOptions = {},
+): Promise<Result<LibraryArtistsResponse, LibraryServiceError>> => {
+  const search = normalizeSearch(options.search);
+
+  const cacheKey = artistCacheKey(offset, limit, search);
+  const cached = artistCache.get(cacheKey);
+  if (cached !== undefined) {
+    return ok(cached);
+  }
+
+  const result = await lmsClient.getLibraryArtists(offset, limit, { search });
+  if (!result.ok) {
+    return err(mapLibraryLmsError(result.error.message));
+  }
+
+  const response: LibraryArtistsResponse = {
+    artists: result.value.artists.map(toLibraryArtist),
+    hasMore: hasMoreAfter(result.value.count, offset, limit),
+  };
+
+  artistCache.set(cacheKey, response);
+  return ok(response);
 };
 
 const fetchGenreList = async (

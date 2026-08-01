@@ -18,6 +18,8 @@ import type {
   ArtistAlbumRaw,
   LibraryAlbumRaw,
   LibraryAlbumFilters,
+  LibraryArtistRaw,
+  LibraryArtistFilters,
   LmsGenreRaw,
 } from "./types.js";
 import { MAX_SEARCH_RESULTS, validateNonEmptyId } from "./helpers.js";
@@ -58,6 +60,16 @@ export type LibraryMethods = {
   readonly getLibraryAlbumCount: (
     filters?: LibraryAlbumFilters,
   ) => Promise<Result<number, LmsError>>;
+  readonly getLibraryArtists: (
+    offset: number,
+    limit: number,
+    filters?: LibraryArtistFilters,
+  ) => Promise<
+    Result<
+      { readonly artists: readonly LibraryArtistRaw[]; readonly count: number },
+      LmsError
+    >
+  >;
   readonly getLibraryYears: () => Promise<Result<readonly number[], LmsError>>;
   readonly getGenres: () => Promise<Result<readonly LmsGenreRaw[], LmsError>>;
   readonly rescanLibrary: () => Promise<Result<void, LmsError>>;
@@ -146,6 +158,17 @@ const libraryAlbumsPayloadParser = createLmsResultParser(
   }),
 );
 
+// `artist` stays optional here so one untagged row cannot fail the whole page —
+// rows without a name are dropped below instead.
+const libraryArtistsPayloadParser = createLmsResultParser(
+  z.object({
+    artists_loop: z
+      .array(z.object({ id: z.number(), artist: z.string().optional() }))
+      .optional(),
+    count: z.number().optional(),
+  }),
+);
+
 const albumCountPayloadParser = createLmsResultParser(
   z.object({
     count: z.number().optional(),
@@ -194,6 +217,22 @@ const buildAlbumFilterParams = (
     ...(filters.year !== undefined ? [`year:${filters.year}`] : []),
   ];
 };
+
+const NO_ARTIST_FILTERS: LibraryArtistFilters = {};
+
+const buildArtistFilterParams = (
+  filters: LibraryArtistFilters,
+): readonly string[] => {
+  const search = filters.search?.trim() ?? "";
+
+  return search !== "" ? [`search:${search}`] : [];
+};
+
+const hasArtistName = (row: {
+  readonly id: number;
+  readonly artist?: string;
+}): row is LibraryArtistRaw =>
+  row.artist !== undefined && row.artist.trim() !== "";
 
 const toNumericId = (value: number | string): number =>
   typeof value === "number" ? value : Number.parseInt(value, 10);
@@ -484,6 +523,51 @@ const createLibraryMethodsImplementation = (
       }
 
       return ok(result.value.count ?? 0);
+    },
+
+    /**
+     * Get a page of the local library's artists, optionally narrowed by a search term.
+     *
+     * LMS returns artists alphabetically and offers no other order — the count
+     * field carries the unpaginated total for the caller's pagination.
+     *
+     * @param offset - Pagination start index
+     * @param limit - Maximum artists to return
+     * @param filters - Optional server-side search filter
+     * @returns Result with artist list + total count or error
+     */
+    getLibraryArtists: async (
+      offset: number,
+      limit: number,
+      filters: LibraryArtistFilters = NO_ARTIST_FILTERS,
+    ): Promise<
+      Result<
+        {
+          readonly artists: readonly LibraryArtistRaw[];
+          readonly count: number;
+        },
+        LmsError
+      >
+    > => {
+      const command: LmsCommand = [
+        "artists",
+        offset,
+        limit,
+        ...buildArtistFilterParams(filters),
+      ];
+
+      const result = await executeCommand(command, libraryArtistsPayloadParser);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      // A row without an `artist` tag would reach the UI as a nameless,
+      // unopenable entry — skip it rather than fail the page for it.
+      const artists = (result.value.artists_loop ?? []).filter(hasArtistName);
+      const count = result.value.count ?? 0;
+
+      return ok({ artists, count });
     },
 
     /**
