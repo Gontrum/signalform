@@ -75,6 +75,43 @@ export const clampPage = (
     : EMPTY_PAGE;
 };
 
+// An untagged album arrives as year 0, or without the field when the query
+// omits the year tag — both mean the same block.
+const UNKNOWN_YEAR = 0;
+
+export type YearTagged = {
+  readonly year?: number;
+};
+
+const yearOf = (row: YearTagged): number => row.year ?? UNKNOWN_YEAR;
+
+const appendToYearBlocks = <T extends YearTagged>(
+  blocks: readonly (readonly T[])[],
+  row: T,
+): readonly (readonly T[])[] => {
+  const openBlock = blocks[blocks.length - 1];
+  const blockYear = openBlock?.[0];
+
+  return openBlock !== undefined &&
+    blockYear !== undefined &&
+    yearOf(blockYear) === yearOf(row)
+    ? [...blocks.slice(0, -1), [...openBlock, row]]
+    : [...blocks, [row]];
+};
+
+const groupByAdjacentYear = <T extends YearTagged>(
+  rows: readonly T[],
+): readonly (readonly T[])[] =>
+  rows.reduce<readonly (readonly T[])[]>(appendToYearBlocks, []);
+
+// `sort:yearalbum` orders ascending by year *and* by album title within a year.
+// Only the year order must flip for "newest first", so whole year blocks move
+// while the album order inside each one stays untouched. The input is a single
+// page, so it may start and end mid-year — adjacency is all that groups a year.
+export const reverseYearBlocks = <T extends YearTagged>(
+  rows: readonly T[],
+): readonly T[] => [...groupByAdjacentYear(rows)].reverse().flat();
+
 type YearBounds = {
   readonly min: number;
   readonly max: number;
