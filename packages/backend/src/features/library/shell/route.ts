@@ -5,7 +5,12 @@ import type {
   LmsClient,
   LmsConfig,
 } from "../../../adapters/lms-client/index.js";
-import { getLibraryAlbums, getLibraryGenres } from "./service.js";
+import {
+  getLibraryAlbums,
+  getLibraryGenres,
+  getLibraryRescanProgress,
+  startLibraryRescan,
+} from "./service.js";
 
 const SORT_OPTIONS = [
   "artist-az",
@@ -87,7 +92,7 @@ export const createLibraryRoute = (
 
   // POST /api/library/rescan — trigger LMS library rescan
   fastify.post("/api/library/rescan", async (_request, reply) => {
-    const result = await lmsClient.rescanLibrary();
+    const result = await startLibraryRescan(lmsClient);
     if (!result.ok) {
       return reply
         .code(503)
@@ -98,7 +103,7 @@ export const createLibraryRoute = (
 
   // GET /api/library/rescan/status — get rescan progress
   fastify.get("/api/library/rescan/status", async (_request, reply) => {
-    const result = await lmsClient.getRescanProgress();
+    const result = await getLibraryRescanProgress(lmsClient);
     if (!result.ok) {
       return reply
         .code(503)

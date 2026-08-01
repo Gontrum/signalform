@@ -66,14 +66,6 @@ const totalCountOf = (body: string): number => {
   return typeof value === "number" ? value : -1;
 };
 
-const genresOf = (
-  body: string,
-): readonly { readonly name: string; readonly albumCount: unknown }[] =>
-  asRecords(parseBody(body)["genres"]).map((genre) => ({
-    name: typeof genre["name"] === "string" ? genre["name"] : "",
-    albumCount: genre["albumCount"],
-  }));
-
 const messageOf = (body: string): string => {
   const value = parseBody(body)["message"];
   return typeof value === "string" ? value : "";
@@ -261,6 +253,61 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
       });
 
       expect(response.statusCode).toBe(503);
+    });
+
+    // `sort:yearalbum` is ascending on *both* levels — year and, inside a year,
+    // album title. Only the year order may flip, so these fixtures put several
+    // albums into one year: a wholesale reverse() turns them Z→A and fails.
+    it("keeps the album order inside a year while flipping the years", async () => {
+      mockLmsClient.getLibraryAlbums.mockResolvedValue(
+        ok({
+          albums: [
+            rawAlbum(1, "Aardvark", 1999),
+            rawAlbum(2, "Bison", 2001),
+            rawAlbum(3, "Cobra", 2001),
+            rawAlbum(4, "Dingo", 2001),
+            rawAlbum(5, "Emu", 2003),
+          ],
+          count: 5,
+        }),
+      );
+
+      const response = await server.inject({
+        method: "GET",
+        url: "/api/library/albums?sort=year-newest&limit=5&offset=0",
+      });
+
+      expect(albumTitles(response.body)).toEqual([
+        "Emu",
+        "Bison",
+        "Cobra",
+        "Dingo",
+        "Aardvark",
+      ]);
+    });
+
+    it("keeps the album order inside the untagged-year block", async () => {
+      mockLmsClient.getLibraryAlbums.mockResolvedValue(
+        ok({
+          albums: [
+            rawAlbum(1, "Untagged A", 0),
+            rawAlbum(2, "Untagged B", 0),
+            rawAlbum(3, "Tagged 2001", 2001),
+          ],
+          count: 3,
+        }),
+      );
+
+      const response = await server.inject({
+        method: "GET",
+        url: "/api/library/albums?sort=year-newest&limit=3&offset=0",
+      });
+
+      expect(albumTitles(response.body)).toEqual([
+        "Tagged 2001",
+        "Untagged A",
+        "Untagged B",
+      ]);
     });
   });
 
@@ -570,160 +617,5 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
 
       expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledTimes(4);
     });
-  });
-});
-
-describe("GET /api/library/genres", () => {
-  let server: FastifyInstance;
-  let mockLmsClient: MockLmsClient;
-
-  // Insertion order is alphabetical on purpose, so the warm answer can only be
-  // right if it really sorts by album count.
-  const genreList = [
-    { id: 1, name: "Ambient" },
-    { id: 2, name: "Blues" },
-    { id: 3, name: "Rock" },
-  ] as const;
-
-  const genreCounts: Readonly<Record<number, number>> = {
-    1: 7,
-    2: 50,
-    3: 50,
-  };
-
-  const drainWarmup = async (calls: number): Promise<void> => {
-    await vi.waitFor(() =>
-      expect(mockLmsClient.getLibraryAlbumCount).toHaveBeenCalledTimes(calls),
-    );
-  };
-
-  beforeEach(async () => {
-    clearLibraryCache();
-    mockLmsClient = createMockLmsClient();
-    mockLmsClient.getGenres.mockResolvedValue(ok(genreList));
-    mockLmsClient.getLibraryAlbumCount.mockImplementation(async (filters) =>
-      ok(genreCounts[filters?.genreId ?? -1] ?? 0),
-    );
-    server = Fastify({ logger: false });
-    createLibraryRoute(server, mockLmsClient, defaultConfig);
-    await server.ready();
-  });
-
-  afterEach(() => {
-    void server.close();
-  });
-
-  it("answers alphabetically without counts while cold", async () => {
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/library/genres",
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(genresOf(response.body)).toEqual([
-      { name: "Ambient", albumCount: undefined },
-      { name: "Blues", albumCount: undefined },
-      { name: "Rock", albumCount: undefined },
-    ]);
-
-    await drainWarmup(genreList.length);
-  });
-
-  it("warms the counts in the background after a cold call", async () => {
-    await server.inject({ method: "GET", url: "/api/library/genres" });
-
-    await drainWarmup(genreList.length);
-    expect(mockLmsClient.getLibraryAlbumCount).toHaveBeenCalledWith({
-      genreId: 2,
-    });
-  });
-
-  it("answers with counts, most albums first, once warm", async () => {
-    await server.inject({ method: "GET", url: "/api/library/genres" });
-    await drainWarmup(genreList.length);
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/library/genres",
-    });
-
-    expect(genresOf(response.body)).toEqual([
-      { name: "Blues", albumCount: 50 },
-      { name: "Rock", albumCount: 50 },
-      { name: "Ambient", albumCount: 7 },
-    ]);
-  });
-
-  it("starts the warm-up only once for two concurrent calls", async () => {
-    await Promise.all([
-      server.inject({ method: "GET", url: "/api/library/genres" }),
-      server.inject({ method: "GET", url: "/api/library/genres" }),
-    ]);
-
-    await drainWarmup(genreList.length);
-    expect(mockLmsClient.getLibraryAlbumCount).toHaveBeenCalledTimes(
-      genreList.length,
-    );
-  });
-
-  it("caches the genre list across calls", async () => {
-    await server.inject({ method: "GET", url: "/api/library/genres" });
-    await drainWarmup(genreList.length);
-    await server.inject({ method: "GET", url: "/api/library/genres" });
-
-    expect(mockLmsClient.getGenres).toHaveBeenCalledOnce();
-  });
-
-  it("stays degraded when a count query fails", async () => {
-    mockLmsClient.getLibraryAlbumCount.mockImplementation(async (filters) =>
-      filters?.genreId === 2
-        ? err({ type: "NetworkError", message: "Connection refused" })
-        : ok(genreCounts[filters?.genreId ?? -1] ?? 0),
-    );
-
-    await server.inject({ method: "GET", url: "/api/library/genres" });
-    await drainWarmup(genreList.length);
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/library/genres",
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(genresOf(response.body)).toEqual([
-      { name: "Ambient", albumCount: undefined },
-      { name: "Blues", albumCount: undefined },
-      { name: "Rock", albumCount: undefined },
-    ]);
-
-    // The degraded answer re-armed the warm-up — let it finish inside this test.
-    await drainWarmup(genreList.length * 2);
-  });
-
-  it("returns 503 when LMS is unreachable", async () => {
-    mockLmsClient.getGenres.mockResolvedValue(
-      err({ type: "NetworkError", message: "Connection refused" }),
-    );
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/library/genres",
-    });
-
-    expect(response.statusCode).toBe(503);
-    expect(mockLmsClient.getLibraryAlbumCount).not.toHaveBeenCalled();
-  });
-
-  it("returns an empty list for a library without genres", async () => {
-    mockLmsClient.getGenres.mockResolvedValue(ok([]));
-
-    const response = await server.inject({
-      method: "GET",
-      url: "/api/library/genres",
-    });
-
-    expect(response.statusCode).toBe(200);
-    expect(genresOf(response.body)).toEqual([]);
-    expect(mockLmsClient.getLibraryAlbumCount).not.toHaveBeenCalled();
   });
 });

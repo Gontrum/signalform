@@ -10,6 +10,7 @@ import type {
   LmsClient,
   LmsConfig,
   LmsGenreRaw,
+  RescanProgress,
 } from "../../../adapters/lms-client/index.js";
 import {
   buildLibraryAlbumsResponse,
@@ -21,6 +22,7 @@ import {
   countAcrossYears,
   mapOffsetAcrossYears,
   resolvePagination,
+  reverseYearBlocks,
   selectDecadeYears,
   type LmsPage,
   type LmsSortQuery,
@@ -91,15 +93,27 @@ const genresCache =
   createTtlCache<readonly LmsGenreRaw[]>(SINGLETON_CACHE_SIZE);
 const genreCountCache = createTtlCache<number>(MAX_COUNT_CACHE_SIZE);
 
+// "A warm-up already ran" is itself cached, so the one-pass-per-window rule
+// expires together with the counts that pass produced.
+const genreWarmupCache = createTtlCache<true>(SINGLETON_CACHE_SIZE);
+
 const genreWarmupRef = { current: undefined as Promise<void> | undefined };
+
+// A warm-up outlives the cache it writes into: this counter lets a pass that
+// started before an invalidation recognise that its results are stale.
+const cacheGenerationRef = { current: 0 };
+
+const rescanPendingRef = { current: false };
 
 const YEARS_CACHE_KEY = "years";
 const GENRES_CACHE_KEY = "genres";
+const GENRE_WARMUP_CACHE_KEY = "genre-counts";
 
 /**
  * Clears every cached library entry — albums, years, per-year counts, genres
  * and genre counts.
- * @internal Exposed for test isolation and cache invalidation only.
+ * @internal Exposed for test isolation; production code invalidates through
+ * the rescan functions below.
  */
 export const clearLibraryCache = (): void => {
   albumCache.clear();
@@ -107,7 +121,47 @@ export const clearLibraryCache = (): void => {
   yearCountCache.clear();
   genresCache.clear();
   genreCountCache.clear();
+  genreWarmupCache.clear();
   genreWarmupRef.current = undefined;
+  rescanPendingRef.current = false;
+  cacheGenerationRef.current += 1;
+};
+
+/**
+ * Starts an LMS rescan and arms the deferred invalidation.
+ *
+ * The scan itself runs asynchronously, so clearing here is not enough: every
+ * request during the scan refills the caches with pre-scan data. The second
+ * clear happens in getLibraryRescanProgress once LMS reports the scan done.
+ */
+export const startLibraryRescan = async (
+  lmsClient: LmsClient,
+): Promise<Result<void, LibraryServiceError>> => {
+  const result = await lmsClient.rescanLibrary();
+  if (!result.ok) {
+    return err(mapLibraryLmsError(result.error.message));
+  }
+
+  // Arm after clearing — clearLibraryCache disarms.
+  clearLibraryCache();
+  rescanPendingRef.current = true;
+
+  return ok(undefined);
+};
+
+export const getLibraryRescanProgress = async (
+  lmsClient: LmsClient,
+): Promise<Result<RescanProgress, LibraryServiceError>> => {
+  const result = await lmsClient.getRescanProgress();
+  if (!result.ok) {
+    return err(mapLibraryLmsError(result.error.message));
+  }
+
+  if (rescanPendingRef.current && !result.value.scanning) {
+    clearLibraryCache();
+  }
+
+  return ok(result.value);
 };
 
 export type LibraryBrowseOptions = {
@@ -304,9 +358,10 @@ const fetchPageWithoutDecade = async (
     return err(mapLibraryLmsError(result.error.message));
   }
 
-  // LMS only sorts years ascending, so the newest page arrives back to front.
+  // LMS only sorts years ascending, so the newest page arrives back to front —
+  // per year block, because the album order inside a year is already correct.
   const rows = query.paginateBackward
-    ? [...result.value.albums].reverse()
+    ? reverseYearBlocks(result.value.albums)
     : result.value.albums;
 
   return ok(
@@ -482,17 +537,18 @@ const fetchGenreList = async (
 const warmGenreCounts = async (
   lmsClient: LmsClient,
   genres: readonly LmsGenreRaw[],
+  generation: number,
 ): Promise<void> => {
   await mapWithConcurrency(genres, async (genre) => {
     const result = await lmsClient.getLibraryAlbumCount({ genreId: genre.id });
-    if (result.ok) {
+    if (result.ok && cacheGenerationRef.current === generation) {
       genreCountCache.set(String(genre.id), result.value);
     }
   });
 };
 
-// One warm-up at a time: concurrent callers share the running pass instead of
-// firing a second request per genre at LMS.
+// One warm-up at a time, and one per cache window: a genre whose count keeps
+// failing must not make every genre request start another full pass.
 const startGenreCountWarmup = (
   lmsClient: LmsClient,
   genres: readonly LmsGenreRaw[],
@@ -501,18 +557,38 @@ const startGenreCountWarmup = (
     return;
   }
 
-  genreWarmupRef.current = warmGenreCounts(lmsClient, genres)
+  const generation = cacheGenerationRef.current;
+
+  genreWarmupRef.current = warmGenreCounts(lmsClient, genres, generation)
     .catch(() => undefined)
     .finally(() => {
-      genreWarmupRef.current = undefined;
+      if (cacheGenerationRef.current === generation) {
+        genreWarmupCache.set(GENRE_WARMUP_CACHE_KEY, true);
+        genreWarmupRef.current = undefined;
+      }
     });
 };
+
+const hasWarmedGenreCounts = (): boolean =>
+  genreWarmupCache.get(GENRE_WARMUP_CACHE_KEY) === true;
+
+const withCachedCount = (genre: LmsGenreRaw): LibraryGenre => ({
+  id: genre.id,
+  name: genre.name,
+  albumCount: genreCountCache.get(String(genre.id)),
+});
 
 const byNameAsc = (left: LibraryGenre, right: LibraryGenre): number =>
   left.name.localeCompare(right.name);
 
+// A genre whose count never arrived ranks below one that genuinely has none.
+const MISSING_COUNT_RANK = -1;
+
+const countRankOf = (genre: LibraryGenre): number =>
+  genre.albumCount ?? MISSING_COUNT_RANK;
+
 const byAlbumCountDesc = (left: LibraryGenre, right: LibraryGenre): number =>
-  (right.albumCount ?? 0) - (left.albumCount ?? 0) || byNameAsc(left, right);
+  countRankOf(right) - countRankOf(left) || byNameAsc(left, right);
 
 export const getLibraryGenres = async (
   lmsClient: LmsClient,
@@ -523,18 +599,15 @@ export const getLibraryGenres = async (
   }
 
   const genres = genresResult.value;
-  const counted: readonly LibraryGenre[] = genres.map((genre) => ({
-    id: genre.id,
-    name: genre.name,
-    albumCount: genreCountCache.get(String(genre.id)),
-  }));
 
-  if (counted.some((genre) => genre.albumCount === undefined)) {
+  if (!hasWarmedGenreCounts()) {
     startGenreCountWarmup(lmsClient, genres);
 
     // Degraded answer: the names are usable immediately, the counts follow.
     return ok(genres.map(({ id, name }) => ({ id, name })).sort(byNameAsc));
   }
 
-  return ok([...counted].sort(byAlbumCountDesc));
+  // Whatever the single pass produced is the answer for this cache window;
+  // genres it could not count sort to the end.
+  return ok(genres.map(withCachedCount).sort(byAlbumCountDesc));
 };
