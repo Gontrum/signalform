@@ -57,7 +57,7 @@ Available helpers: `ok()`, `err()`, `isOk()`, `isErr()`, `map()`, `flatMap()`, `
 Import shared types for tracks, player state, and queue management:
 
 ```typescript
-import type { Track, PlayerStatus, QueueState } from "@signalform/shared";
+import type { Track, QueueState } from "@signalform/shared";
 
 const track: Track = {
   id: "1",
@@ -72,7 +72,7 @@ const track: Track = {
 Available types:
 
 - **Track Types**: `Track`, `TrackSource`, `AudioQuality`, `SourceType`
-- **Player Types**: `PlayerStatus`, `PlaybackState`, `RepeatMode`
+- **Playback Types**: `RepeatMode`, `ShuffleMode`
 - **Queue Types**: `QueueState`, `QueueItem`
 - **Source Types**: `SourceHierarchy`, `DEFAULT_SOURCE_HIERARCHY`
 

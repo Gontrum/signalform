@@ -121,7 +121,7 @@ side effects. No framework imports, no I/O.
 ```
 packages/shared/src/
 ├── result/          Result<T, E> type and helpers (ok, err, map, ...)
-├── types/           Track, PlayerStatus, QueueState, SourceType, WebSocket events
+├── types/           Track, QueueState, SourceType, RepeatMode, WebSocket events
 ├── validation/      Zod schemas for WebSocket payloads
 ├── formatting/      formatSeconds, formatProgress
 ├── tidalUtils.ts    isTidalAlbumId pure helper

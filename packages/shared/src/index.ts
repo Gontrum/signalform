@@ -16,11 +16,7 @@ export {
 // Domain types
 export type { Track, TrackSource, AudioQuality } from "./types/track.js";
 
-export type {
-  PlayerStatus,
-  PlaybackState,
-  RepeatMode,
-} from "./types/player.js";
+export type { ShuffleMode, RepeatMode } from "./types/playback.js";
 
 export type { QueueState, QueueItem, QueueTrack } from "./types/queue.js";
 
@@ -69,3 +65,6 @@ export { isTidalAlbumId } from "./tidalUtils.js";
 
 // Library ordering
 export { ordersByYearFirst } from "./libraryOrdering.js";
+
+// Playback mode cycles
+export { nextShuffleMode, nextRepeatMode } from "./playbackModes.js";
