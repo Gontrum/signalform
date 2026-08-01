@@ -8,12 +8,16 @@ import type { Page, Route, Request } from '@playwright/test'
 import {
   emptyAutocompleteResponse,
   libraryAlbumsResponse,
+  libraryGenresResponse,
   singleTrackQueueResponse,
   defaultConfigResponse,
 } from './fixtures.ts'
 
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray
-type JsonObject = { readonly [key: string]: JsonValue }
+// `| undefined` on the index signature only: fixtures may omit optional fields
+// (e.g. a genre without `albumCount`), and JSON.stringify drops them the same
+// way the backend omits them.
+type JsonObject = { readonly [key: string]: JsonValue | undefined }
 type JsonArray = readonly JsonValue[]
 
 const fulfill200 = async (route: Route, body: JsonValue): Promise<void> => {
@@ -39,6 +43,7 @@ export interface ApiMocks {
   readonly autocomplete?: JsonObject
   readonly albumDetail?: JsonObject
   readonly libraryAlbums?: JsonObject
+  readonly libraryGenres?: JsonObject
   readonly queue?: JsonValue
   readonly playbackStatus?: JsonObject
   readonly config?: JsonObject
@@ -97,6 +102,13 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       // Library albums (GET /api/library/albums)
       if (pathname === '/api/library/albums' && method === 'GET') {
         await fulfill200(route, mocks.libraryAlbums ?? libraryAlbumsResponse)
+        return
+      }
+
+      // Library genres (GET /api/library/genres) — without this the genre chips
+      // and their datalist never render, so no a11y scan ever reaches them.
+      if (pathname === '/api/library/genres' && method === 'GET') {
+        await fulfill200(route, mocks.libraryGenres ?? libraryGenresResponse)
         return
       }
 

@@ -128,6 +128,46 @@ export const libraryAlbumsResponse = {
   totalCount: 1,
 }
 
+/**
+ * Matches LibraryGenresResponse from libraryApi: server order is descending by
+ * `albumCount`, and `albumCount` is absent while the counts are still cold.
+ *
+ * More than GENRE_CHIP_COUNT (20) entries on purpose — only the first 20 become
+ * chips, the rest exist solely in the `<datalist>`, so a shorter fixture would
+ * never exercise that split.
+ */
+export const libraryGenresResponse = {
+  genres: [
+    { id: 101, name: 'Rock', albumCount: 412 },
+    { id: 102, name: 'Electronic', albumCount: 318 },
+    { id: 103, name: 'Jazz', albumCount: 264 },
+    { id: 104, name: 'Pop', albumCount: 231 },
+    { id: 105, name: 'Alternative', albumCount: 198 },
+    { id: 106, name: 'Hip-Hop', albumCount: 176 },
+    { id: 107, name: 'Classical', albumCount: 154 },
+    { id: 108, name: 'Ambient', albumCount: 141 },
+    { id: 109, name: 'Indie Rock', albumCount: 128 },
+    { id: 110, name: 'Soul', albumCount: 119 },
+    { id: 111, name: 'Funk', albumCount: 104 },
+    { id: 112, name: 'Techno', albumCount: 97 },
+    { id: 113, name: 'House', albumCount: 88 },
+    { id: 114, name: 'Folk', albumCount: 76 },
+    { id: 115, name: 'Metal', albumCount: 71 },
+    { id: 116, name: 'Reggae', albumCount: 63 },
+    { id: 117, name: 'Blues', albumCount: 58 },
+    { id: 118, name: 'Punk', albumCount: 51 },
+    { id: 119, name: 'Country', albumCount: 44 },
+    { id: 120, name: 'Disco', albumCount: 37 },
+    { id: 121, name: 'Drum & Bass', albumCount: 29 },
+    { id: 122, name: 'Trip-Hop', albumCount: 22 },
+    { id: 123, name: 'Shoegaze', albumCount: 15 },
+    { id: 124, name: 'Post-Rock', albumCount: 9 },
+    { id: 125, name: 'Krautrock' },
+    { id: 126, name: 'Dub Techno' },
+    { id: 127, name: 'Neoclassical' },
+  ],
+}
+
 // ── Queue fixtures ────────────────────────────────────────────────────────────
 
 /**
