@@ -8,6 +8,7 @@ vi.mock('@/platform/api/playlistsApi', () => ({
   listPlaylists: vi.fn(),
   loadPlaylist: vi.fn(),
   deletePlaylist: vi.fn(),
+  renamePlaylist: vi.fn(),
 }))
 
 const fetchQueueMock = vi.fn<() => Promise<void>>()
@@ -22,12 +23,14 @@ import {
   listPlaylists,
   loadPlaylist,
   deletePlaylist,
+  renamePlaylist,
 } from '@/platform/api/playlistsApi'
 
 const mockSavePlaylist = vi.mocked(savePlaylist)
 const mockListPlaylists = vi.mocked(listPlaylists)
 const mockLoadPlaylist = vi.mocked(loadPlaylist)
 const mockDeletePlaylist = vi.mocked(deletePlaylist)
+const mockRenamePlaylist = vi.mocked(renamePlaylist)
 
 const mountComposable = async (): Promise<{
   readonly result: ReturnType<typeof usePlaylists>
@@ -51,6 +54,7 @@ describe('usePlaylists', () => {
     mockSavePlaylist.mockResolvedValue(true)
     mockLoadPlaylist.mockResolvedValue(true)
     mockDeletePlaylist.mockResolvedValue(true)
+    mockRenamePlaylist.mockResolvedValue(true)
     fetchQueueMock.mockResolvedValue(undefined)
   })
 
@@ -189,6 +193,81 @@ describe('usePlaylists', () => {
     await result.remove('a')
 
     expect(result.error.value).toBe(false)
+  })
+
+  describe('rename', () => {
+    const twoPlaylists = [
+      { id: 'a', name: 'Old name' },
+      { id: 'b', name: 'Untouched' },
+    ] as const
+
+    it('sends the id and the new name, then shows the new name in the list', async () => {
+      mockListPlaylists.mockResolvedValue(twoPlaylists)
+      const { result } = await mountComposable()
+      mockListPlaylists.mockClear()
+      mockListPlaylists.mockResolvedValue([
+        { id: 'a', name: 'New name' },
+        { id: 'b', name: 'Untouched' },
+      ])
+
+      await result.rename('a', 'New name')
+
+      expect(mockRenamePlaylist).toHaveBeenCalledWith('a', 'New name')
+      expect(mockListPlaylists).toHaveBeenCalledTimes(1)
+      expect(result.playlists.value).toEqual([
+        { id: 'a', name: 'New name' },
+        { id: 'b', name: 'Untouched' },
+      ])
+      expect(result.error.value).toBe(false)
+    })
+
+    it('sets error and keeps the old name when the server rejects the rename', async () => {
+      mockListPlaylists.mockResolvedValue(twoPlaylists)
+      mockRenamePlaylist.mockResolvedValue(false)
+      const { result } = await mountComposable()
+      mockListPlaylists.mockClear()
+
+      await result.rename('a', 'New name')
+
+      expect(mockListPlaylists).not.toHaveBeenCalled()
+      expect(result.playlists.value).toEqual(twoPlaylists)
+      expect(result.error.value).toBe(true)
+    })
+
+    it('sets error and keeps the old name when renamePlaylist throws', async () => {
+      mockListPlaylists.mockResolvedValue(twoPlaylists)
+      mockRenamePlaylist.mockRejectedValue(new Error('network'))
+      const { result } = await mountComposable()
+      mockListPlaylists.mockClear()
+
+      await result.rename('a', 'New name')
+
+      expect(mockListPlaylists).not.toHaveBeenCalled()
+      expect(result.playlists.value).toEqual(twoPlaylists)
+      expect(result.error.value).toBe(true)
+    })
+
+    it('ignores whitespace-only names instead of letting the server reject them', async () => {
+      const { result } = await mountComposable()
+      mockListPlaylists.mockClear()
+
+      await result.rename('a', '   ')
+
+      expect(mockRenamePlaylist).not.toHaveBeenCalled()
+      expect(mockListPlaylists).not.toHaveBeenCalled()
+    })
+
+    it('clears a stale error when a later rename succeeds', async () => {
+      mockRenamePlaylist.mockResolvedValueOnce(false)
+      const { result } = await mountComposable()
+
+      await result.rename('a', 'New name')
+      expect(result.error.value).toBe(true)
+
+      await result.rename('a', 'New name')
+
+      expect(result.error.value).toBe(false)
+    })
   })
 
   it('sets error and does not crash when listPlaylists throws', async () => {

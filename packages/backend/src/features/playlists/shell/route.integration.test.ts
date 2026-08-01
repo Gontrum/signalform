@@ -36,6 +36,9 @@ type MockLmsClient = LmsClient & {
   readonly deleteSavedPlaylist: ReturnType<
     typeof vi.fn<LmsClient["deleteSavedPlaylist"]>
   >;
+  readonly renamePlaylist: ReturnType<
+    typeof vi.fn<LmsClient["renamePlaylist"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -51,6 +54,9 @@ const createMockLmsClient = (): MockLmsClient => ({
     .mockResolvedValue(ok(undefined)),
   deleteSavedPlaylist: vi
     .fn<LmsClient["deleteSavedPlaylist"]>()
+    .mockResolvedValue(ok(undefined)),
+  renamePlaylist: vi
+    .fn<LmsClient["renamePlaylist"]>()
     .mockResolvedValue(ok(undefined)),
 });
 
@@ -127,6 +133,25 @@ describe("Playlists Routes", () => {
 
   const thenDeleteWasNotCalled = (): void => {
     expect(mockLmsClient.deleteSavedPlaylist).not.toHaveBeenCalled();
+  };
+
+  const whenRenamingPlaylist = async (
+    idSegment: string,
+    body: Record<string, unknown>,
+  ): Promise<LightMyRequestResponse> => {
+    return await server.inject({
+      method: "PATCH",
+      url: `/api/playlists/${idSegment}`,
+      payload: body,
+    });
+  };
+
+  const thenRenameWasCalledWith = (id: string, name: string): void => {
+    expect(mockLmsClient.renamePlaylist).toHaveBeenCalledWith(id, name);
+  };
+
+  const thenRenameWasNotCalled = (): void => {
+    expect(mockLmsClient.renamePlaylist).not.toHaveBeenCalled();
   };
 
   describe("POST /api/playlists", () => {
@@ -295,6 +320,109 @@ describe("Playlists Routes", () => {
           "Cannot connect to music server. Please check that Lyrion Music Server is running.",
       });
       thenDeleteWasCalledWith("42");
+    });
+  });
+
+  describe("PATCH /api/playlists/:id", () => {
+    it("returns 200 and renames the playlist for a valid name", async () => {
+      const response = await whenRenamingPlaylist("42", { name: "Evening" });
+
+      expect(response.statusCode).toBe(200);
+      expect(JSON.parse(response.body)).toEqual({ id: "42", name: "Evening" });
+      thenRenameWasCalledWith("42", "Evening");
+    });
+
+    it("trims the name before renaming", async () => {
+      const response = await whenRenamingPlaylist("42", {
+        name: "  Evening  ",
+      });
+
+      expect(response.statusCode).toBe(200);
+      thenRenameWasCalledWith("42", "Evening");
+    });
+
+    it("decodes a percent-encoded id before renaming", async () => {
+      const response = await whenRenamingPlaylist("Road%20Trip%2F2026", {
+        name: "Evening",
+      });
+
+      expect(response.statusCode).toBe(200);
+      thenRenameWasCalledWith("Road Trip/2026", "Evening");
+    });
+
+    it("returns 400 when the name is missing", async () => {
+      const response = await whenRenamingPlaylist("42", {});
+
+      expect(response.statusCode).toBe(400);
+      thenRenameWasNotCalled();
+    });
+
+    it("returns 400 when the name is empty", async () => {
+      const response = await whenRenamingPlaylist("42", { name: "" });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body)).toEqual({
+        error: "Playlist name cannot be empty",
+      });
+      thenRenameWasNotCalled();
+    });
+
+    it("returns 400 when the name is whitespace only", async () => {
+      const response = await whenRenamingPlaylist("42", { name: "   " });
+
+      expect(response.statusCode).toBe(400);
+      thenRenameWasNotCalled();
+    });
+
+    it("returns 400 when the name exceeds 200 characters", async () => {
+      const response = await whenRenamingPlaylist("42", {
+        name: "a".repeat(201),
+      });
+
+      expect(response.statusCode).toBe(400);
+      thenRenameWasNotCalled();
+    });
+
+    it("accepts a name of exactly 200 characters", async () => {
+      const name = "a".repeat(200);
+
+      const response = await whenRenamingPlaylist("42", { name });
+
+      expect(response.statusCode).toBe(200);
+      thenRenameWasCalledWith("42", name);
+    });
+
+    it("returns 400 when the id is whitespace only", async () => {
+      const response = await whenRenamingPlaylist("%20", { name: "Evening" });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body)).toEqual({
+        error: "Playlist id is required",
+      });
+      thenRenameWasNotCalled();
+    });
+
+    it("returns 503 with a user-friendly message when LMS is unreachable", async () => {
+      mockLmsClient.renamePlaylist.mockResolvedValue(
+        err({ type: "NetworkError", message: "connection refused" }),
+      );
+
+      const response = await whenRenamingPlaylist("42", { name: "Evening" });
+
+      expect(response.statusCode).toBe(503);
+      expect(JSON.parse(response.body)).toEqual({
+        error: "LMS_UNREACHABLE",
+        message:
+          "Cannot connect to music server. Please check that Lyrion Music Server is running.",
+      });
+      thenRenameWasCalledWith("42", "Evening");
+    });
+
+    it("succeeds for an unknown id, mirroring DELETE — LMS acknowledges silently", async () => {
+      const response = await whenRenamingPlaylist("9999", { name: "Evening" });
+
+      expect(response.statusCode).toBe(200);
+      thenRenameWasCalledWith("9999", "Evening");
     });
   });
 });

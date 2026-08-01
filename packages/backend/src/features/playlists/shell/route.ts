@@ -2,8 +2,8 @@
  * Playlists Routes
  *
  * Save the current LMS now-playing queue as a named playlist, list saved
- * playlists, load a saved playlist back into the queue, and delete a saved
- * playlist.
+ * playlists, load a saved playlist back into the queue, rename a saved
+ * playlist, and delete a saved playlist.
  *
  * Handlers: validate → call core → call LMS → respond.
  */
@@ -22,7 +22,7 @@ const extractName = (body: unknown): unknown => {
 };
 
 // Called with both `request.body` (POST /load) and `request.params`
-// (DELETE /:id), so the parameter stays source-agnostic.
+// (DELETE and PATCH /:id), so the parameter stays source-agnostic.
 const extractId = (source: unknown): unknown => {
   if (typeof source !== "object" || source === null || !("id" in source)) {
     return undefined;
@@ -188,6 +188,65 @@ export const createPlaylistsRoute = (
 
       request.log.info({ id }, "Playlist deleted");
       return reply.code(204).send();
+    },
+  );
+
+  /**
+   * PATCH /api/playlists/:id
+   *
+   * Rename a saved playlist — a single attribute changes, the playlist is not
+   * replaced, hence PATCH rather than PUT.
+   * Param: id — non-empty string (Fastify decodes percent-encoded segments)
+   * Body: { name: string } — same rule as POST /api/playlists
+   * 200 { id, name } | 400 | 5xx
+   *
+   * An unknown id is passed through to LMS, which acknowledges it silently —
+   * same behaviour as DELETE /api/playlists/:id.
+   */
+  fastify.patch<{ readonly Params: unknown; readonly Body: unknown }>(
+    "/api/playlists/:id",
+    async (
+      request: FastifyRequest<{
+        readonly Params: unknown;
+        readonly Body: unknown;
+      }>,
+      reply: FastifyReply,
+    ) => {
+      request.log.debug(
+        { endpoint: "/api/playlists/:id", method: "PATCH" },
+        "Rename playlist request received",
+      );
+
+      const rawId = extractId(request.params);
+      if (typeof rawId !== "string" || rawId.trim() === "") {
+        request.log.warn("Invalid rename playlist request: missing id");
+        return reply.code(400).send({ error: "Playlist id is required" });
+      }
+      const id = rawId.trim();
+
+      const parsed = parsePlaylistName(extractName(request.body));
+      if (!parsed.ok) {
+        request.log.warn(
+          { message: parsed.error.message },
+          "Invalid rename playlist request",
+        );
+        return reply.code(400).send({ error: parsed.error.message });
+      }
+
+      const result = await lmsClient.renamePlaylist(id, parsed.value);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS rename playlist failed",
+          { id, name: parsed.value },
+        );
+      }
+
+      request.log.info({ id, name: parsed.value }, "Playlist renamed");
+      return reply.code(200).send({ id, name: parsed.value });
     },
   );
 };

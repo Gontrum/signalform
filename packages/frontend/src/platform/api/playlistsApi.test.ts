@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { savePlaylist, listPlaylists, loadPlaylist, deletePlaylist } from './playlistsApi'
+import {
+  savePlaylist,
+  listPlaylists,
+  loadPlaylist,
+  deletePlaylist,
+  renamePlaylist,
+} from './playlistsApi'
 
 const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<unknown>>()
 
@@ -93,6 +99,41 @@ describe('playlistsApi', () => {
       fetchMock.mockResolvedValue({ ok: false, status: 404 })
 
       expect(await loadPlaylist('missing')).toBe(false)
+    })
+  })
+
+  describe('renamePlaylist', () => {
+    it('PATCHes /api/playlists/:id with { name } and returns true on ok', async () => {
+      fetchMock.mockResolvedValue({ ok: true })
+
+      const result = await renamePlaylist('pl-1', 'Road trip vol. 2')
+
+      expect(result).toBe(true)
+      const call = fetchMock.mock.calls[0]
+      expect(String(call?.[0])).toMatch(/\/api\/playlists\/pl-1$/u)
+      expect(call?.[1]?.method).toBe('PATCH')
+      expect(bodyOf(call?.[1])).toEqual({ name: 'Road trip vol. 2' })
+    })
+
+    it('encodes ids containing special characters', async () => {
+      fetchMock.mockResolvedValue({ ok: true })
+
+      await renamePlaylist('my mix/2?a=b', 'New')
+
+      const call = fetchMock.mock.calls[0]
+      expect(String(call?.[0])).toMatch(/\/api\/playlists\/my%20mix%2F2%3Fa%3Db$/u)
+    })
+
+    it('returns false when the server rejects the name', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 400 })
+
+      expect(await renamePlaylist('pl-1', '   ')).toBe(false)
+    })
+
+    it('returns false when LMS is unreachable', async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 503 })
+
+      expect(await renamePlaylist('pl-1', 'New')).toBe(false)
     })
   })
 

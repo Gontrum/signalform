@@ -4,6 +4,7 @@ import {
   deletePlaylist,
   listPlaylists,
   loadPlaylist,
+  renamePlaylist,
   savePlaylist,
 } from '@/platform/api/playlistsApi'
 import type { SavedPlaylist } from '@/platform/api/playlistsApi'
@@ -18,6 +19,7 @@ type UsePlaylistsResult = {
   readonly save: (name: string) => Promise<void>
   readonly load: (id: string) => Promise<void>
   readonly remove: (id: string) => Promise<void>
+  readonly rename: (id: string, name: string) => Promise<void>
 }
 
 export const usePlaylists = (): UsePlaylistsResult => {
@@ -88,6 +90,24 @@ export const usePlaylists = (): UsePlaylistsResult => {
     }
   }
 
+  const rename = async (id: string, name: string): Promise<void> => {
+    if (name.trim().length === 0) {
+      return
+    }
+
+    error.value = false
+    try {
+      const renamed = await renamePlaylist(id, name)
+      if (renamed) {
+        await fetchList()
+      } else {
+        error.value = true
+      }
+    } catch {
+      error.value = true
+    }
+  }
+
   onMounted(() => {
     void fetchList()
   })
@@ -101,5 +121,6 @@ export const usePlaylists = (): UsePlaylistsResult => {
     save,
     load,
     remove,
+    rename,
   }
 }

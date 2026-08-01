@@ -50,6 +50,10 @@ export type QueueMethods = {
   >;
   readonly loadSavedPlaylist: (id: string) => Promise<Result<void, LmsError>>;
   readonly deleteSavedPlaylist: (id: string) => Promise<Result<void, LmsError>>;
+  readonly renamePlaylist: (
+    id: string,
+    newName: string,
+  ) => Promise<Result<void, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -329,6 +333,35 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
       id: string,
     ): Promise<Result<void, LmsError>> => {
       const command: LmsCommand = ["playlists", "delete", `playlist_id:${id}`];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
+    },
+
+    /**
+     * Rename a saved playlist.
+     *
+     * Command: ["playlists", "rename", "playlist_id:{id}", "newname:{newName}"]
+     *
+     * @param id - Saved playlist ID
+     * @param newName - New playlist name (validation happens in the core layer)
+     * @returns Result with void or error
+     */
+    renamePlaylist: async (
+      id: string,
+      newName: string,
+    ): Promise<Result<void, LmsError>> => {
+      // Parameter names follow the LMS CLI convention (`playlist_id:`, `newname:`)
+      // and were never verified against a live server — check the LMS CLI docs
+      // here first if renaming misbehaves.
+      const command: LmsCommand = [
+        "playlists",
+        "rename",
+        `playlist_id:${id}`,
+        `newname:${newName}`,
+      ];
       const result = await executeCommand(command);
       if (!result.ok) {
         return result;

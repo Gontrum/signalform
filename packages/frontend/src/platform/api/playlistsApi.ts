@@ -58,6 +58,21 @@ export const deletePlaylist = async (id: string): Promise<boolean> => {
   return response.ok
 }
 
+export const renamePlaylist = async (id: string, name: string): Promise<boolean> => {
+  const response = await fetch(
+    getApiUrl(`/api/playlists/${encodeURIComponent(id)}`),
+    withUserHeader({
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+      signal: AbortSignal.timeout(15000),
+    }),
+  )
+  return response.ok
+}
+
 export const loadPlaylist = async (id: string): Promise<boolean> => {
   const response = await fetch(
     getApiUrl('/api/playlists/load'),

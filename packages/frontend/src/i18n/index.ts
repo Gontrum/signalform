@@ -214,6 +214,11 @@ export type MessageKey =
   | 'playlists.deleteConfirm'
   | 'playlists.deleteAria'
   | 'playlists.deleteConfirmAria'
+  | 'playlists.rename'
+  | 'playlists.renameAria'
+  | 'playlists.renameInputAria'
+  | 'playlists.renameConfirm'
+  | 'playlists.renameCancel'
   | 'playlists.empty'
   | 'playlists.error'
 
@@ -434,6 +439,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.deleteConfirm': 'Tap again to delete',
     'playlists.deleteAria': 'Delete playlist {name}',
     'playlists.deleteConfirmAria': 'Tap again to delete playlist {name}',
+    'playlists.rename': 'Rename',
+    'playlists.renameAria': 'Rename playlist {name}',
+    'playlists.renameInputAria': 'New name for playlist {name}',
+    'playlists.renameConfirm': 'Save name',
+    'playlists.renameCancel': 'Cancel',
     'playlists.empty': 'No saved playlists yet',
     'playlists.error': 'Something went wrong. Please try again.',
   },
@@ -659,6 +669,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.deleteConfirm': 'Zum Löschen erneut tippen',
     'playlists.deleteAria': 'Playlist {name} löschen',
     'playlists.deleteConfirmAria': 'Zum Löschen der Playlist {name} erneut tippen',
+    'playlists.rename': 'Umbenennen',
+    'playlists.renameAria': 'Playlist {name} umbenennen',
+    'playlists.renameInputAria': 'Neuer Name für Playlist {name}',
+    'playlists.renameConfirm': 'Name speichern',
+    'playlists.renameCancel': 'Abbrechen',
     'playlists.empty': 'Noch keine gespeicherten Playlists',
     'playlists.error': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
   },
