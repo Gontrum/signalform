@@ -588,17 +588,21 @@ describe('LibraryView', () => {
     ).toBe('true')
   })
 
-  // sort-controls hidden during non-success states
-  it('does NOT show sort-controls during loading state', async () => {
+  // These three once asserted the opposite. Hiding the controls in every
+  // non-success state made the error state a dead end: the stored filter combo
+  // that caused the error was the one control the user could no longer reach.
+  // Recovery by clicking is covered in LibraryView.recovery.test.ts.
+  it('keeps sort-controls reachable during loading state', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
 
     const context = await mountView()
 
-    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(false)
+    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(true)
+    expect(context.wrapper.find('[data-testid="loading-state"]').exists()).toBe(true)
   })
 
-  it('does NOT show sort-controls during error state', async () => {
+  it('keeps sort-controls reachable during error state', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: false,
@@ -608,10 +612,11 @@ describe('LibraryView', () => {
     const context = await mountView()
     await flushPromises()
 
-    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(false)
+    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(true)
+    expect(context.wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
   })
 
-  it('does NOT show sort-controls during empty state', async () => {
+  it('keeps sort-controls reachable during empty state', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
@@ -621,7 +626,8 @@ describe('LibraryView', () => {
     const context = await mountView()
     await flushPromises()
 
-    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(false)
+    expect(context.wrapper.find('[data-testid="sort-controls"]').exists()).toBe(true)
+    expect(context.wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
   })
 
   // AC6d: pre-set genre filter in sessionStorage → genre id sent with the first request

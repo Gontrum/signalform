@@ -200,8 +200,9 @@ const sortRow = useTemplateRef<HTMLElement>('sortRow')
 const decadeRow = useTemplateRef<HTMLElement>('decadeRow')
 const genreRow = useTemplateRef<HTMLElement>('genreRow')
 
-// Each reload swaps the whole filter block for the spinner, so the rows remount
-// on every filter change and every reveal is a fresh element at scrollLeft 0.
+// The rows outlive every reload, so this fires once per row when it first
+// appears — which is the only moment a restored filter can sit past the fold;
+// afterwards the active chip is the one the user just tapped.
 watch(sortRow, revealActiveChip, { flush: 'post' })
 watch(decadeRow, revealActiveChip, { flush: 'post' })
 watch(genreRow, revealActiveChip, { flush: 'post' })
@@ -339,12 +340,11 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         >
       </div>
 
-      <!-- Library search (local only) — outside the state branches below so a
-           debounced reload does not unmount the field the user is typing in. -->
-      <div
-        v-if="activeSource === 'local' && currentStatus !== 'error' && !showsEmptyLibrary"
-        class="mb-3 sm:mb-4"
-      >
+      <!-- Search and filters (local only) — outside the state branches below.
+           A debounced reload must not unmount the field the user is typing in,
+           and an error or an empty result must not take away the very controls
+           that change the query: only the album list is replaced below. -->
+      <div v-if="activeSource === 'local'" class="mb-3 sm:mb-4">
         <input
           data-testid="library-search-input"
           type="search"
@@ -355,6 +355,122 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           class="min-h-11 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-4 text-base text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           @input="handleSearchInput"
         />
+      </div>
+
+      <!-- Sort & Filter controls (local only) — chip-based for mobile friendliness -->
+      <div
+        v-if="activeSource === 'local'"
+        data-testid="sort-controls"
+        class="mb-3 space-y-2 sm:mb-4 sm:space-y-3"
+      >
+        <!-- Sort chips -->
+        <div
+          ref="sortRow"
+          data-testid="sort-chip-row"
+          :class="CHIP_ROW_CLASS"
+          role="group"
+          aria-label="Sort order"
+        >
+          <button
+            v-for="opt in sortOptions"
+            :key="opt.value"
+            type="button"
+            :data-testid="`sort-chip-${opt.value}`"
+            :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
+            :class="chipClass(sortBy === opt.value)"
+            @click="setSortBy(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <!-- Decade filter chips -->
+        <div
+          ref="decadeRow"
+          data-testid="decade-chip-row"
+          :class="CHIP_ROW_CLASS"
+          role="group"
+          aria-label="Filter by decade"
+        >
+          <button
+            v-for="opt in decadeOptions"
+            :key="opt.value"
+            type="button"
+            :data-testid="`decade-chip-${opt.value}`"
+            :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
+            :class="chipClass(decadeFilter === opt.value)"
+            @click="setDecadeFilter(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <!-- Genre filter: the most common genres as chips, everything else
+             through the native datalist autocomplete. -->
+        <div v-if="allGenres.length > 0" class="space-y-2">
+          <div
+            v-if="showGenreChips"
+            ref="genreRow"
+            data-testid="genre-chips"
+            :class="CHIP_ROW_CLASS"
+            role="group"
+            :aria-label="t('library.genreFilterLabel')"
+          >
+            <button
+              v-for="genre in genreChips"
+              :key="genre.id"
+              type="button"
+              :data-testid="`genre-chip-${genre.id}`"
+              :aria-pressed="genreFilter === genre.id ? 'true' : 'false'"
+              :class="chipClass(genreFilter === genre.id)"
+              @click="toggleGenre(genre.id)"
+            >
+              {{ genre.name }}
+            </button>
+          </div>
+
+          <input
+            data-testid="genre-filter-input"
+            type="text"
+            list="library-genre-options"
+            :value="genreQuery"
+            :placeholder="t('library.genrePlaceholder')"
+            :aria-label="t('library.genreFilterLabel')"
+            autocomplete="off"
+            class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+            @input="handleGenreInput"
+          />
+          <datalist id="library-genre-options">
+            <option v-for="genre in allGenres" :key="genre.id" :value="genre.name" />
+          </datalist>
+        </div>
+
+        <!-- Clear all filters -->
+        <button
+          v-if="hasActiveFilters"
+          type="button"
+          data-testid="clear-all-filters"
+          class="text-sm text-accent-700 hover:text-accent-900 underline"
+          @click="clearAllFilters"
+        >
+          × Clear all filters
+        </button>
+
+        <!-- Why a chip moved on its own. Belongs to the chips, not to the
+             album list: the correction happens in the error state too. -->
+        <p
+          v-if="adjustedFilter !== null"
+          data-testid="filter-adjusted-message"
+          class="text-sm text-neutral-500"
+          role="status"
+          aria-live="polite"
+        >
+          {{
+            adjustedFilter === 'decade'
+              ? t('library.filterAdjustedDecade')
+              : t('library.filterAdjustedSort')
+          }}
+        </p>
       </div>
 
       <div
@@ -377,11 +493,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
       </div>
 
       <!-- Empty state (local — 0 albums in library) -->
-      <div
-        v-else-if="albums.length === 0 && activeSource === 'local' && !hasActiveFilters"
-        data-testid="empty-state"
-        class="py-20"
-      >
+      <div v-else-if="showsEmptyLibrary" data-testid="empty-state" class="py-20">
         <EmptyState :title="t('library.emptyLocal')">
           <template #icon>
             <svg
@@ -446,125 +558,9 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </div>
       </div>
 
-      <!-- Main content: sort/filter (local only) + view toggle + album grid/list -->
+      <!-- Main content: view toggle + album grid/list -->
       <div v-else>
-        <!-- Sort & Filter controls (local only) — chip-based for mobile friendliness -->
-        <div
-          v-if="activeSource === 'local'"
-          data-testid="sort-controls"
-          class="mb-3 space-y-2 sm:mb-4 sm:space-y-3"
-        >
-          <!-- Sort chips -->
-          <div
-            ref="sortRow"
-            data-testid="sort-chip-row"
-            :class="CHIP_ROW_CLASS"
-            role="group"
-            aria-label="Sort order"
-          >
-            <button
-              v-for="opt in sortOptions"
-              :key="opt.value"
-              type="button"
-              :data-testid="`sort-chip-${opt.value}`"
-              :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
-              :class="chipClass(sortBy === opt.value)"
-              @click="setSortBy(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-
-          <!-- Decade filter chips -->
-          <div
-            ref="decadeRow"
-            data-testid="decade-chip-row"
-            :class="CHIP_ROW_CLASS"
-            role="group"
-            aria-label="Filter by decade"
-          >
-            <button
-              v-for="opt in decadeOptions"
-              :key="opt.value"
-              type="button"
-              :data-testid="`decade-chip-${opt.value}`"
-              :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
-              :class="chipClass(decadeFilter === opt.value)"
-              @click="setDecadeFilter(opt.value)"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-
-          <!-- Genre filter: the most common genres as chips, everything else
-               through the native datalist autocomplete. -->
-          <div v-if="allGenres.length > 0" class="space-y-2">
-            <div
-              v-if="showGenreChips"
-              ref="genreRow"
-              data-testid="genre-chips"
-              :class="CHIP_ROW_CLASS"
-              role="group"
-              :aria-label="t('library.genreFilterLabel')"
-            >
-              <button
-                v-for="genre in genreChips"
-                :key="genre.id"
-                type="button"
-                :data-testid="`genre-chip-${genre.id}`"
-                :aria-pressed="genreFilter === genre.id ? 'true' : 'false'"
-                :class="chipClass(genreFilter === genre.id)"
-                @click="toggleGenre(genre.id)"
-              >
-                {{ genre.name }}
-              </button>
-            </div>
-
-            <input
-              data-testid="genre-filter-input"
-              type="text"
-              list="library-genre-options"
-              :value="genreQuery"
-              :placeholder="t('library.genrePlaceholder')"
-              :aria-label="t('library.genreFilterLabel')"
-              autocomplete="off"
-              class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-              @input="handleGenreInput"
-            />
-            <datalist id="library-genre-options">
-              <option v-for="genre in allGenres" :key="genre.id" :value="genre.name" />
-            </datalist>
-          </div>
-
-          <!-- Clear all filters -->
-          <button
-            v-if="hasActiveFilters"
-            type="button"
-            data-testid="clear-all-filters"
-            class="text-sm text-accent-700 hover:text-accent-900 underline"
-            @click="clearAllFilters"
-          >
-            × Clear all filters
-          </button>
-        </div>
-
-        <!-- Header: forced-filter notice (local only) + view toggle -->
-        <div class="mb-3 flex items-center justify-between gap-3 sm:mb-4">
-          <p
-            v-if="activeSource === 'local' && adjustedFilter !== null"
-            data-testid="filter-adjusted-message"
-            class="text-sm text-neutral-500"
-            role="status"
-            aria-live="polite"
-          >
-            {{
-              adjustedFilter === 'decade'
-                ? t('library.filterAdjustedDecade')
-                : t('library.filterAdjustedSort')
-            }}
-          </p>
-          <div v-else />
-
+        <div class="mb-3 flex items-center justify-end gap-3 sm:mb-4">
           <!-- View toggle (shared — single instance for both sources) -->
           <div data-testid="view-toggle" class="flex rounded-lg border border-neutral-200 p-1">
             <button

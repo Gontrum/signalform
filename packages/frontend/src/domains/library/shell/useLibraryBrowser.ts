@@ -102,6 +102,34 @@ const parseStoredGenreId = (stored: string | null): number | null => {
   return Number.isInteger(parsed) ? parsed : null
 }
 
+const storeDecade = (decade: DecadeFilter): void => {
+  if (decade === 'all') {
+    sessionStorage.removeItem(DECADE_KEY)
+    return
+  }
+
+  sessionStorage.setItem(DECADE_KEY, decade)
+}
+
+// Storage predates the server-side browse rules and holds combinations the
+// backend now answers with 400, so the restored pair goes through the same
+// reconciliation as a clicked one — before the first request, not after it.
+// 'sort' names the winner: the stored sort is the more prominent choice and
+// 'all' is the decade value that hides nothing.
+const restoreFilters = (): ReconciledFilters => {
+  const reconciled = reconcileFilters(
+    parseStoredSort(sessionStorage.getItem(SORT_KEY)),
+    parseStoredDecade(sessionStorage.getItem(DECADE_KEY)),
+    'sort',
+  )
+
+  if (reconciled.adjusted !== undefined) {
+    storeDecade(reconciled.decade)
+  }
+
+  return reconciled
+}
+
 export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const router = useRouter()
 
@@ -122,10 +150,13 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const rescanMessage = ref<string | null>(null)
   const rescanPollTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-  const sortBy = ref<SortOption>(parseStoredSort(sessionStorage.getItem(SORT_KEY)))
+  const restored = restoreFilters()
+  const sortBy = ref<SortOption>(restored.sort)
   const genreFilter = ref<number | null>(parseStoredGenreId(sessionStorage.getItem(GENRE_KEY)))
-  const decadeFilter = ref<DecadeFilter>(parseStoredDecade(sessionStorage.getItem(DECADE_KEY)))
+  const decadeFilter = ref<DecadeFilter>(restored.decade)
   const viewMode = ref<ViewMode>(parseStoredViewMode(localStorage.getItem(VIEW_MODE_KEY)))
+  // Deliberately not seeded from `restored.adjusted`: announcing a correction
+  // the user never triggered explains nothing on arrival.
   const adjustedFilter = ref<FilterField | null>(null)
   const searchQuery = ref('')
 
@@ -370,15 +401,6 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const setViewMode = (mode: ViewMode): void => {
     viewMode.value = mode
     localStorage.setItem(VIEW_MODE_KEY, mode)
-  }
-
-  const storeDecade = (decade: DecadeFilter): void => {
-    if (decade === 'all') {
-      sessionStorage.removeItem(DECADE_KEY)
-      return
-    }
-
-    sessionStorage.setItem(DECADE_KEY, decade)
   }
 
   const applyReconciled = (reconciled: ReconciledFilters): void => {
