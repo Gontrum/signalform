@@ -404,7 +404,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
               :data-testid="`sort-chip-${opt.value}`"
               :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
               :class="[
-                'min-h-9 rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
                 sortBy === opt.value
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
@@ -424,7 +424,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
               :data-testid="`decade-chip-${opt.value}`"
               :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
               :class="[
-                'min-h-9 rounded-full border px-4 text-sm font-medium transition-colors',
+                'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
                 decadeFilter === opt.value
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',

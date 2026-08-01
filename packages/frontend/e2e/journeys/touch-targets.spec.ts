@@ -58,4 +58,25 @@ test.describe('Touch Target Sizes (tablet 768px)', () => {
       }
     }
   })
+
+  // Height only, like the nav links above: chips are pill-shaped and their
+  // width follows the label, so only the height is a fixed design decision.
+  test('library filter chips meet 44px minimum height', async ({ page }) => {
+    await setupApiMocks(page, {})
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="sort-controls"]')
+
+    const chips = page.locator('[data-testid="sort-controls"] button')
+    const count = await chips.count()
+    expect(count).toBeGreaterThan(0)
+
+    for (let i = 0; i < count; i++) {
+      const chip = chips.nth(i)
+      const box = await chip.boundingBox()
+      if (box) {
+        const testid = await chip.getAttribute('data-testid')
+        expect(box.height, `Chip ${testid ?? i} height`).toBeGreaterThanOrEqual(MIN_TARGET_PX)
+      }
+    }
+  })
 })
