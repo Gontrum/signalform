@@ -16,10 +16,13 @@ const delay = async (ms: number): Promise<void> =>
     setTimeout(resolve, ms)
   })
 
-const isOkStatus = async (url: string): Promise<boolean> => {
+// Deliberately not `response.ok`: /health is a readiness probe and answers 503
+// while LMS is unreachable, which is the normal E2E case (the specs mock their
+// backend calls). Only a refused connection means the process is not up yet.
+const isRespondingToHttp = async (url: string): Promise<boolean> => {
   try {
-    const response = await fetch(url)
-    return response.ok
+    await fetch(url)
+    return true
   } catch {
     return false
   }
@@ -29,7 +32,7 @@ const waitForReady = async (url: string, label: string): Promise<void> => {
   const startedAt = Date.now()
 
   while (Date.now() - startedAt < START_TIMEOUT_MS) {
-    if (await isOkStatus(url)) {
+    if (await isRespondingToHttp(url)) {
       return
     }
 
@@ -98,8 +101,8 @@ const killStaleFrontendIfOwnedByRepo = async (): Promise<boolean> => {
   }
 
   const command = getProcessCommand(frontendPid)
-  const isRepoViteProcess = command.includes(path.join(REPO_ROOT, 'packages', 'frontend')) &&
-    command.includes('vite')
+  const isRepoViteProcess =
+    command.includes(path.join(REPO_ROOT, 'packages', 'frontend')) && command.includes('vite')
 
   if (!isRepoViteProcess) {
     return true
@@ -116,15 +119,17 @@ const killStaleFrontendIfOwnedByRepo = async (): Promise<boolean> => {
     await delay(POLL_INTERVAL_MS)
   }
 
-  throw new Error(`Timed out waiting for stale frontend process on port ${String(FRONTEND_PORT)} to stop`)
+  throw new Error(
+    `Timed out waiting for stale frontend process on port ${String(FRONTEND_PORT)} to stop`,
+  )
 }
 
 export default async (): Promise<void> => {
   const lmsTarget = process.env['LMS_URL'] ?? 'http://localhost:9000'
   assertSafeTestLmsTarget(lmsTarget, 'frontend-playwright-global-setup-dev')
 
-  const frontendReady = await isOkStatus(`http://127.0.0.1:${FRONTEND_PORT}/`)
-  const backendReady = await isOkStatus(`http://127.0.0.1:${BACKEND_PORT}/health`)
+  const frontendReady = await isRespondingToHttp(`http://127.0.0.1:${FRONTEND_PORT}/`)
+  const backendReady = await isRespondingToHttp(`http://127.0.0.1:${BACKEND_PORT}/health`)
 
   if (frontendReady && backendReady) {
     return
@@ -133,7 +138,11 @@ export default async (): Promise<void> => {
   if (frontendReady && !backendReady) {
     const shouldReuseExistingFrontend = await killStaleFrontendIfOwnedByRepo()
     if (shouldReuseExistingFrontend) {
-      const backend = spawnDevServer('pnpm', ['--filter', '@signalform/backend', 'run', 'dev'], path.resolve(process.cwd(), '../..'))
+      const backend = spawnDevServer(
+        'pnpm',
+        ['--filter', '@signalform/backend', 'run', 'dev'],
+        path.resolve(process.cwd(), '../..'),
+      )
 
       try {
         await waitForReady(`http://127.0.0.1:${BACKEND_PORT}/health`, 'backend dev server')
@@ -163,7 +172,11 @@ export default async (): Promise<void> => {
 
   const repoRoot = path.resolve(process.cwd(), '../..')
   const frontend = spawnDevServer('pnpm', ['--filter', 'frontend', 'run', 'dev'], repoRoot)
-  const backend = spawnDevServer('pnpm', ['--filter', '@signalform/backend', 'run', 'dev'], repoRoot)
+  const backend = spawnDevServer(
+    'pnpm',
+    ['--filter', '@signalform/backend', 'run', 'dev'],
+    repoRoot,
+  )
 
   try {
     await Promise.all([
