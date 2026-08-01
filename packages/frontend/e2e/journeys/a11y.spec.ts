@@ -216,13 +216,24 @@ test.describe('Autocomplete footer — keyboard navigation survives the DOM move
 // QueueView.vue) since /queue is already an existing route case and
 // setupApiMocks defaults the queue mock to a single track.
 test.describe('Popover — Escape closes and returns focus', () => {
-  test('queue overflow menu closes on Escape and refocuses its trigger', async ({ page }) => {
+  test('queue overflow menu, opened by keyboard, closes on Escape and refocuses its trigger', async ({
+    page,
+  }) => {
     await setupApiMocks(page, { queue: singleTrackQueueResponse })
     await page.goto('/queue')
     await page.waitForSelector('[data-testid="queue-view"]')
 
+    // Opened by keyboard, not by click: Popover.vue remembers
+    // `document.activeElement` at open time and refocuses it on close. On
+    // macOS WebKit a mouse click on a <button> deliberately does not focus it
+    // (platform convention), so a click-opened popover records <body> and has
+    // nothing to return focus to. The promise this test guards — Escape
+    // returns focus to the trigger — is the keyboard user's promise, so drive
+    // it with the keyboard and it holds in all three browsers.
     const trigger = page.getByTestId('queue-menu')
-    await trigger.click()
+    await trigger.focus()
+    await expect(trigger).toBeFocused()
+    await trigger.press('Enter')
 
     const panel = page.getByTestId('queue-menu-panel')
     await expect(panel).toBeVisible()
@@ -239,11 +250,7 @@ test.describe('Popover — Escape closes and returns focus', () => {
 
     await expect(panel).toBeHidden()
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-
-    const focusedTestId = await page.evaluate(() =>
-      document.activeElement?.getAttribute('data-testid'),
-    )
-    expect(focusedTestId).toBe('queue-menu')
+    await expect(trigger).toBeFocused()
   })
 })
 
