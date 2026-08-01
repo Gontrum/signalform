@@ -1,0 +1,179 @@
+import fastify, { type FastifyInstance } from "fastify";
+import { Server } from "socket.io";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { ok, type Result } from "@signalform/shared";
+import type {
+  ClientToServerEvents,
+  ServerToClientEvents,
+} from "@signalform/shared";
+import { startStatusPolling } from "./status-poller.js";
+import type { TypedSocketIOServer } from "./server.js";
+import { resetRadioRuntimeState } from "../../features/radio-mode/shell/radio-state.js";
+import type {
+  LmsError,
+  PlayerStatus,
+  SearchResult,
+} from "../../adapters/lms-client/index.js";
+
+const POLL_INTERVAL_MS = 1;
+
+const TRACK_DURATION = 200;
+
+type PollerLmsClient = Parameters<typeof startStatusPolling>[1];
+
+const makeMockIo = (): TypedSocketIOServer => {
+  const io = new Server<ClientToServerEvents, ServerToClientEvents>();
+  const roomEmitter = io.to("test-room");
+  vi.spyOn(roomEmitter, "emit").mockReturnValue(true);
+  vi.spyOn(io, "to").mockReturnValue(roomEmitter);
+  return io;
+};
+
+const makeMockApp = (): FastifyInstance => fastify({ logger: false });
+
+const makeTrack = (id: string): SearchResult => ({
+  id,
+  title: "So What",
+  artist: "Miles Davis",
+  album: "Kind of Blue",
+  url: "tidal://track/1",
+  source: "tidal",
+  type: "track",
+});
+
+const playingAt = (
+  time: number,
+  overrides: Partial<PlayerStatus> = {},
+): Result<PlayerStatus, LmsError> =>
+  ok({
+    mode: "play",
+    playerConnected: true,
+    time,
+    duration: TRACK_DURATION,
+    volume: 50,
+    currentTrack: makeTrack("track-a"),
+    queuePreview: [],
+    ...overrides,
+  });
+
+/** Replays the given responses, then repeats the last one for every further poll. */
+const sequentialGetStatus = (
+  responses: ReadonlyArray<Result<PlayerStatus, LmsError>>,
+): PollerLmsClient["getStatus"] => {
+  const remaining = responses[Symbol.iterator]();
+  const fallback = responses.at(-1);
+  return vi.fn().mockImplementation(async () => {
+    const next = remaining.next();
+    return next.done ? fallback : next.value;
+  });
+};
+
+const makeMockLmsClient = (
+  getStatus: PollerLmsClient["getStatus"],
+): PollerLmsClient => ({
+  getStatus,
+  getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
+  nextTrack: vi.fn().mockResolvedValue({ ok: true }),
+  resume: vi.fn().mockResolvedValue({ ok: true }),
+});
+
+const waitForPolls = async (
+  getStatus: PollerLmsClient["getStatus"],
+  count: number,
+): Promise<void> => {
+  await vi.waitFor(() => {
+    expect(vi.mocked(getStatus).mock.calls.length).toBeGreaterThanOrEqual(
+      count,
+    );
+  });
+};
+
+describe("startStatusPolling - track-end stall recovery", () => {
+  beforeEach(() => {
+    resetRadioRuntimeState();
+  });
+
+  test("forces a single track advance after three frozen polls at the track end", async () => {
+    const frozen = playingAt(TRACK_DURATION);
+    const getStatus = sequentialGetStatus([
+      frozen,
+      frozen,
+      frozen,
+      // getStatus() issued by the recovery itself, then the advanced track.
+      playingAt(0, { currentTrack: makeTrack("track-b") }),
+    ]);
+    const mockLmsClient = makeMockLmsClient(getStatus);
+
+    const stopPolling = startStatusPolling(
+      makeMockIo(),
+      mockLmsClient,
+      makeMockApp(),
+      "player-1",
+      POLL_INTERVAL_MS,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockLmsClient.nextTrack).toHaveBeenCalledTimes(1);
+    });
+    await waitForPolls(getStatus, 10);
+    stopPolling();
+
+    expect(mockLmsClient.nextTrack).toHaveBeenCalledTimes(1);
+    // Recovery poll reported "play", so no resume was needed.
+    expect(mockLmsClient.resume).not.toHaveBeenCalled();
+  });
+
+  test("does not intervene while the position keeps moving at the track end", async () => {
+    const getStatus = sequentialGetStatus([
+      playingAt(199.5),
+      playingAt(199.75),
+      playingAt(200),
+      playingAt(200.25),
+      playingAt(200.5),
+      playingAt(200.75),
+      // Track ends normally: LMS moves on without any help from the poller.
+      playingAt(0, { currentTrack: makeTrack("track-b") }),
+    ]);
+    const mockLmsClient = makeMockLmsClient(getStatus);
+
+    const stopPolling = startStatusPolling(
+      makeMockIo(),
+      mockLmsClient,
+      makeMockApp(),
+      "player-1",
+      POLL_INTERVAL_MS,
+    );
+
+    await waitForPolls(getStatus, 8);
+    stopPolling();
+
+    expect(mockLmsClient.nextTrack).not.toHaveBeenCalled();
+    expect(mockLmsClient.resume).not.toHaveBeenCalled();
+  });
+
+  test("resumes when the player is not playing after the forced advance", async () => {
+    const frozen = playingAt(TRACK_DURATION);
+    const getStatus = sequentialGetStatus([
+      frozen,
+      frozen,
+      frozen,
+      playingAt(0, { mode: "stop", currentTrack: makeTrack("track-b") }),
+    ]);
+    const mockLmsClient = makeMockLmsClient(getStatus);
+
+    const stopPolling = startStatusPolling(
+      makeMockIo(),
+      mockLmsClient,
+      makeMockApp(),
+      "player-1",
+      POLL_INTERVAL_MS,
+    );
+
+    await vi.waitFor(() => {
+      expect(mockLmsClient.resume).toHaveBeenCalledTimes(1);
+    });
+    stopPolling();
+
+    expect(mockLmsClient.nextTrack).toHaveBeenCalledTimes(1);
+  });
+});

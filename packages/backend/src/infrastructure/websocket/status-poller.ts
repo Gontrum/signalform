@@ -36,6 +36,11 @@ import {
 } from "./handlers.js";
 import { nextPollDelayMs } from "./poll-backoff.js";
 import {
+  advanceStallState,
+  shouldForceTrackAdvance,
+  type TrackStallState,
+} from "./stall-detection.js";
+import {
   PLAYER_STATUS_CHANGED,
   PLAYER_QUEUE_UPDATED,
   PLAYER_UPDATES_ROOM,
@@ -136,12 +141,6 @@ export const startStatusPolling = (
   ) => Promise<void>,
 ): (() => void) => {
   const pollingAbortController = new AbortController();
-
-  type TrackStallState = {
-    readonly trackId: string;
-    readonly stallCount: number;
-    readonly lastTime: number;
-  };
 
   const scheduleNextPoll = async (
     nextPreviousStatus: LmsPlayerStatus | null,
@@ -430,41 +429,23 @@ export const startStatusPolling = (
         })()
       : previousStatus;
 
-    // Track-end stall detection: LMS sometimes freezes at the very end of a track
-    // when the next track fails to buffer (e.g., Tidal format mismatch mp4 <> flc).
-    // After 3 consecutive polls with time ≈ duration and no progress, force advance.
     const duration = statusResult.value.duration;
-    const stalledTrackId = currentStatus.currentTrack?.id;
-    const isAtTrackEnd =
-      currentStatus.mode === "play" &&
-      duration > 0 &&
-      currentStatus.time >= duration - 0.5 &&
-      stalledTrackId !== undefined;
+    const nextStallState: TrackStallState | undefined = advanceStallState(
+      stallState,
+      {
+        mode: currentStatus.mode,
+        time: currentStatus.time,
+        duration,
+        trackId: currentStatus.currentTrack?.id,
+      },
+    );
 
-    const nextStallState: TrackStallState | undefined =
-      isAtTrackEnd && stalledTrackId
-        ? stallState?.trackId === stalledTrackId
-          ? {
-              trackId: stalledTrackId,
-              stallCount:
-                Math.abs(currentStatus.time - stallState.lastTime) < 0.1
-                  ? stallState.stallCount + 1
-                  : 1,
-              lastTime: currentStatus.time,
-            }
-          : {
-              trackId: stalledTrackId,
-              stallCount: 1,
-              lastTime: currentStatus.time,
-            }
-        : undefined;
-
-    if (nextStallState !== undefined && nextStallState.stallCount >= 3) {
+    if (shouldForceTrackAdvance(nextStallState)) {
       app.log.warn(
         {
           event: "stall_detected_at_track_end",
           playerId,
-          trackId: stalledTrackId,
+          trackId: nextStallState.trackId,
           time: currentStatus.time,
           duration,
           stallCount: nextStallState.stallCount,
