@@ -2,8 +2,9 @@
  * Playback Mode Route Integration Tests
  *
  * Sibling of route.integration.test.ts (see AGENTS.md size rule):
- * POST /api/playback/shuffle, POST /api/playback/repeat, and the mode fields
- * the status endpoint carries along.
+ * POST /api/playback/shuffle, POST /api/playback/repeat, the mode fields
+ * the status endpoint carries along, and the guarantee that starting an
+ * album leaves the repeat mode untouched.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -265,5 +266,125 @@ describe("Playback mode routes", () => {
         repeat: "track",
       });
     });
+  });
+});
+
+// Repeat belongs to the user since the shuffle/repeat feature — starting an
+// album must no longer force it off. Asserted on the JSON-RPC commands that
+// actually reach LMS, so reintroducing any repeat command fails here.
+describe("POST /api/playback/play-album and the repeat mode", () => {
+  const fetchMock =
+    vi.fn<(input: unknown, init: unknown) => Promise<unknown>>();
+  let server: FastifyInstance;
+
+  const tidalAlbumTracks = [
+    { id: "4.0.0", name: "Opener", url: "tidal://track/1", isaudio: 1 },
+    { id: "4.0.1", name: "Closer", url: "tidal://track/2", isaudio: 1 },
+  ];
+
+  const isRecord = (
+    value: unknown,
+  ): value is Readonly<Record<string, unknown>> =>
+    typeof value === "object" && value !== null;
+
+  const commandOfRequestInit = (init: unknown): readonly unknown[] => {
+    const body = isRecord(init) ? init["body"] : undefined;
+    const parsed: unknown =
+      typeof body === "string" ? JSON.parse(body) : undefined;
+    const params = isRecord(parsed) ? parsed["params"] : undefined;
+    const command = Array.isArray(params) ? params[1] : undefined;
+    return Array.isArray(command) ? command : [];
+  };
+
+  const commandsSentToLms = (): readonly (readonly unknown[])[] =>
+    fetchMock.mock.calls.map((call) => commandOfRequestInit(call[1]));
+
+  const repeatCommandsSentToLms = (): readonly (readonly unknown[])[] =>
+    commandsSentToLms().filter(
+      (command) => command[0] === "playlist" && command[1] === "repeat",
+    );
+
+  const lmsReplies = (result: Readonly<Record<string, unknown>>): unknown => ({
+    ok: true,
+    json: async (): Promise<unknown> => ({ result, id: 1, error: null }),
+  });
+
+  const givenLmsAcceptsEveryCommand = (): void => {
+    fetchMock.mockImplementation(async (_input, init) =>
+      commandOfRequestInit(init)[0] === "tidal"
+        ? lmsReplies({
+            loop_loop: tidalAlbumTracks,
+            count: tidalAlbumTracks.length,
+          })
+        : lmsReplies({}),
+    );
+  };
+
+  const givenLmsIsUnreachable = (): void => {
+    fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
+  };
+
+  const whenPlayingAlbum = async (
+    albumId: string,
+  ): Promise<LightMyRequestResponse> =>
+    await server.inject({
+      method: "POST",
+      url: "/api/playback/play-album",
+      payload: { albumId },
+    });
+
+  beforeEach(async () => {
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
+    server = Fastify({ logger: false });
+    createPlaybackRoute(
+      server,
+      createLmsClient({ ...mockLmsConfig, retryBaseDelayMs: 0 }),
+      mockLmsConfig,
+      createMockIo(),
+      "test-player-id",
+    );
+    await server.ready();
+  });
+
+  afterEach(async () => {
+    await server.close();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends only the album load command for a local album", async () => {
+    givenLmsAcceptsEveryCommand();
+
+    const response = await whenPlayingAlbum("42");
+
+    expect(response.statusCode).toBe(200);
+    expect(commandsSentToLms()).toEqual([
+      ["playlistcontrol", "cmd:load", "album_id:42"],
+    ]);
+    expect(repeatCommandsSentToLms()).toEqual([]);
+  });
+
+  it("sends only the queue commands for a Tidal album", async () => {
+    givenLmsAcceptsEveryCommand();
+
+    const response = await whenPlayingAlbum("4.0");
+
+    expect(response.statusCode).toBe(200);
+    expect(commandsSentToLms()).toEqual([
+      ["tidal", "items", 0, 999, "item_id:4.0", "want_url:1"],
+      ["playlist", "clear"],
+      ["playlist", "play", "tidal://track/1"],
+      ["playlist", "add", "tidal://track/2"],
+    ]);
+    expect(repeatCommandsSentToLms()).toEqual([]);
+  });
+
+  it("returns 503 and touches no mode when LMS is unreachable", async () => {
+    givenLmsIsUnreachable();
+
+    const response = await whenPlayingAlbum("42");
+
+    expect(response.statusCode).toBe(503);
+    expect(repeatCommandsSentToLms()).toEqual([]);
   });
 });

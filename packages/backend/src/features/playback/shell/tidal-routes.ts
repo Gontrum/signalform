@@ -266,20 +266,6 @@ export const registerTidalRoutes = (
         );
       }
 
-      // Disable repeat so album plays through once
-      const repeatResult = await lmsClient.disableRepeat();
-      if (!repeatResult.ok) {
-        request.log.warn(
-          {
-            albumId,
-            lmsErrorType: repeatResult.error.type,
-            lmsErrorMessage: repeatResult.error.message,
-          },
-          "Failed to disable repeat mode — album may loop",
-        );
-        // Non-fatal: album is already playing
-      }
-
       const duration = Date.now() - startTime;
       request.log.info({ albumId, duration }, "Album playback started");
       return reply.code(200).send({});

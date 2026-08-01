@@ -40,7 +40,6 @@ type MockLmsClient = LmsClient & {
     typeof vi.fn<LmsClient["getCurrentTime"]>
   >;
   readonly playAlbum: ReturnType<typeof vi.fn<LmsClient["playAlbum"]>>;
-  readonly disableRepeat: ReturnType<typeof vi.fn<LmsClient["disableRepeat"]>>;
   readonly getAlbumTracks: ReturnType<
     typeof vi.fn<LmsClient["getAlbumTracks"]>
   >;
@@ -85,9 +84,6 @@ const createMockLmsClient = (): MockLmsClient => ({
   setSleep: vi.fn<LmsClient["setSleep"]>().mockResolvedValue(ok(undefined)),
   getSleep: vi.fn<LmsClient["getSleep"]>().mockResolvedValue(ok(0)),
   playAlbum: vi.fn<LmsClient["playAlbum"]>().mockResolvedValue(ok(undefined)),
-  disableRepeat: vi
-    .fn<LmsClient["disableRepeat"]>()
-    .mockResolvedValue(ok(undefined)),
   getAlbumTracks: vi
     .fn<LmsClient["getAlbumTracks"]>()
     .mockResolvedValue(ok([])),

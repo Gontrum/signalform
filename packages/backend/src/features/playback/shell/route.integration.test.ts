@@ -39,7 +39,6 @@ type MockLmsClient = LmsClient & {
   readonly playTidalAlbum: ReturnType<
     typeof vi.fn<LmsClient["playTidalAlbum"]>
   >;
-  readonly disableRepeat: ReturnType<typeof vi.fn<LmsClient["disableRepeat"]>>;
   readonly getArtistAlbums: ReturnType<
     typeof vi.fn<LmsClient["getArtistAlbums"]>
   >;
@@ -81,9 +80,6 @@ const createMockLmsClient = (): MockLmsClient => ({
   playTidalAlbum: vi
     .fn<LmsClient["playTidalAlbum"]>()
     .mockResolvedValue(ok(undefined)),
-  disableRepeat: vi
-    .fn<LmsClient["disableRepeat"]>()
-    .mockResolvedValue(ok(undefined)),
   getArtistAlbums: vi.fn<LmsClient["getArtistAlbums"]>(),
   addToQueue: vi.fn<LmsClient["addToQueue"]>().mockResolvedValue(ok(undefined)),
   getQueue: vi.fn<LmsClient["getQueue"]>().mockResolvedValue(ok([])),
@@ -103,7 +99,6 @@ const resetMockLmsClient = (mockClient: MockLmsClient): void => {
   mockClient.getCurrentTime.mockReset();
   mockClient.playAlbum.mockReset().mockResolvedValue(ok(undefined));
   mockClient.playTidalAlbum.mockReset().mockResolvedValue(ok(undefined));
-  mockClient.disableRepeat.mockReset().mockResolvedValue(ok(undefined));
   mockClient.getArtistAlbums.mockReset();
   mockClient.addToQueue.mockReset().mockResolvedValue(ok(undefined));
   mockClient.getQueue.mockReset().mockResolvedValue(ok([]));
@@ -441,7 +436,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       await thenResponseStatusIs(response, 200);
       expect(mockLmsClient.playTidalAlbum).toHaveBeenCalledWith("4.0");
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
-      expect(mockLmsClient.disableRepeat).toHaveBeenCalled();
     });
 
     // Story 8.7: AC2 — Tidal ArtistDetailView albumId "6.0.1.0" routes to playTidalAlbum
@@ -453,7 +447,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       await thenResponseStatusIs(response, 200);
       expect(mockLmsClient.playTidalAlbum).toHaveBeenCalledWith("6.0.1.0");
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
-      expect(mockLmsClient.disableRepeat).toHaveBeenCalled();
     });
 
     // Story 8.9 AC1/AC3: Search-artist album IDs (e.g. "7_sabrina carpenter.2.0.1.4") use playTidalAlbum

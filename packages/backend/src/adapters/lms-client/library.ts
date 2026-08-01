@@ -2,7 +2,7 @@
  * LMS Library Domain Methods
  *
  * Factory function for library-related LMS client methods:
- * playAlbum, playTidalAlbum, disableRepeat, getAlbumTracks,
+ * playAlbum, playTidalAlbum, getAlbumTracks,
  * getArtistAlbums, getArtistName, getLibraryAlbums, rescanLibrary, getRescanProgress.
  *
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
@@ -36,7 +36,6 @@ import {
 export type LibraryMethods = {
   readonly playAlbum: (albumId: string) => Promise<Result<void, LmsError>>;
   readonly playTidalAlbum: (albumId: string) => Promise<Result<void, LmsError>>;
-  readonly disableRepeat: () => Promise<Result<void, LmsError>>;
   readonly getAlbumTracks: (
     albumId: string,
   ) => Promise<Result<readonly AlbumTrackRaw[], LmsError>>;
@@ -294,26 +293,6 @@ const createLibraryMethodsImplementation = (
       );
       if (!appendResult.ok) {
         return appendResult;
-      }
-
-      return ok(undefined);
-    },
-
-    /**
-     * Disable playlist repeat mode.
-     *
-     * Uses LMS command: ['playlist', 'repeat', '0']
-     * Explicitly sets repeat off after loading an album so playback
-     * stops naturally at the end of the album instead of looping.
-     *
-     * @returns Result with void or error
-     */
-    disableRepeat: async (): Promise<Result<void, LmsError>> => {
-      const command: LmsCommand = ["playlist", "repeat", "0"];
-      const result = await executeCommand(command);
-
-      if (!result.ok) {
-        return result;
       }
 
       return ok(undefined);

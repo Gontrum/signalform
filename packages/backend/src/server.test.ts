@@ -154,7 +154,6 @@ const createMockLmsClient = (label: string): LmsClient => ({
   setRepeat: vi.fn(async () => ok(undefined)),
   playAlbum: vi.fn(async () => ok(undefined)),
   playTidalAlbum: vi.fn(async () => ok(undefined)),
-  disableRepeat: vi.fn(async () => ok(undefined)),
   getAlbumTracks: vi.fn(async () => ok([])),
   getArtistAlbums: vi.fn(async () => ok([])),
   getArtistName: vi.fn(async () => ok(`${label} artist`)),

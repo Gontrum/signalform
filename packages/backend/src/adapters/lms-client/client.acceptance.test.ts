@@ -2833,35 +2833,6 @@ describe("LMS Client - Acceptance Tests", () => {
       });
     });
 
-    describe("disableRepeat()", () => {
-      it("sends playlist repeat 0 command to LMS", async () => {
-        await givenLmsWillAcceptAlbumCommand();
-
-        const result = await whenDisablingRepeat();
-
-        await thenResultIsSuccess(result);
-        await thenDisableRepeatCommandWasSent();
-      });
-
-      it("returns NetworkError when LMS is unreachable", async () => {
-        await givenLmsConnectionWillFail("ECONNREFUSED");
-
-        const result = await whenDisablingRepeat();
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "NetworkError");
-      });
-
-      it("returns LmsApiError when LMS rejects repeat command", async () => {
-        await givenLmsWillReturnApiError(-32600, "Player not available");
-
-        const result = await whenDisablingRepeat();
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "LmsApiError");
-      });
-    });
-
     // Story 8.7: playTidalAlbum — fetch tracks, clear, play, add
     describe("playTidalAlbum()", () => {
       it("fetches tracks via tidal items, clears queue, plays first track, adds rest", async () => {
@@ -3165,11 +3136,6 @@ describe("LMS Client - Acceptance Tests", () => {
     return await client.playAlbum(albumId);
   };
 
-  const whenDisablingRepeat = async (): Promise<Result<void, LmsError>> => {
-    const client = createLmsClient(defaultConfig);
-    return await client.disableRepeat();
-  };
-
   // THEN helpers for Album Playback (Rule 8)
   const thenPlaylistControlCommandWasSentWithAlbumId = async (
     albumId: string,
@@ -3178,11 +3144,6 @@ describe("LMS Client - Acceptance Tests", () => {
     expect(body.params[1][0]).toBe("playlistcontrol");
     expect(body.params[1][1]).toBe("cmd:load");
     expect(body.params[1][2]).toBe(`album_id:${albumId}`);
-  };
-
-  const thenDisableRepeatCommandWasSent = async (): Promise<void> => {
-    const body = getJsonRpcRequestBodyAt(0);
-    expect(body.params[1]).toEqual(["playlist", "repeat", "0"]);
   };
 
   // GIVEN/WHEN/THEN helpers for playTidalAlbum (Rule 8 — Story 8.7)

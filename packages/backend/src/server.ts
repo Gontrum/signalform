@@ -70,7 +70,6 @@ const createLmsProxy = (): LmsClient => {
     setRepeat: forwardLmsCall((client) => client.setRepeat),
     playAlbum: forwardLmsCall((client) => client.playAlbum),
     playTidalAlbum: forwardLmsCall((client) => client.playTidalAlbum),
-    disableRepeat: forwardLmsCall((client) => client.disableRepeat),
     getAlbumTracks: forwardLmsCall((client) => client.getAlbumTracks),
     getArtistAlbums: forwardLmsCall((client) => client.getArtistAlbums),
     getArtistName: forwardLmsCall((client) => client.getArtistName),
