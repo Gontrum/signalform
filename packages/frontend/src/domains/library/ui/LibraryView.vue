@@ -151,6 +151,61 @@ useIntersectionObserver(loadMoreTrigger, (entries) => {
   }
 })
 
+// Below sm the three chip rows are single-line scrollers instead of wrapping —
+// 20 genre chips otherwise stack seven rows deep and push the album grid off a
+// phone screen entirely. The horizontal padding is inside the scroller and
+// cancelled by the negative margin so the row clips at the screen edge: the
+// half-cut chip there is the "there is more" affordance. A fade would sink the
+// last chip's contrast and a scrollbar is invisible at rest on iOS and macOS.
+// py-1 keeps the focus ring (ring-2 + ring-offset-2 = 4px) out of the clip.
+const CHIP_ROW_CLASS =
+  '-mx-4 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:py-0'
+
+const CHIP_CLASS =
+  'min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
+
+const CHIP_ACTIVE_CLASS = 'border-neutral-900 bg-neutral-900 text-white'
+
+const CHIP_INACTIVE_CLASS =
+  'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900'
+
+const chipClass = (isActive: boolean): readonly string[] => [
+  CHIP_CLASS,
+  isActive ? CHIP_ACTIVE_CLASS : CHIP_INACTIVE_CLASS,
+]
+
+// A fresh scroller starts at scrollLeft 0, which hides the active chip whenever
+// it sits past the fold ("Older" is the last decade). No CSS property picks an
+// initial scroll offset, so nudge it here — scrollLeft only, never
+// scrollIntoView, so no ancestor and no vertical scroll position is touched.
+const CHIP_REVEAL_GUTTER_PX = 16
+
+const revealActiveChip = (row: HTMLElement | null): void => {
+  if (row === null) {
+    return
+  }
+
+  const chip = row.querySelector<HTMLElement>('[aria-pressed="true"]')
+  if (chip === null) {
+    return
+  }
+
+  const overshoot = chip.getBoundingClientRect().right - row.getBoundingClientRect().right
+  if (overshoot > 0) {
+    row.scrollLeft += overshoot + CHIP_REVEAL_GUTTER_PX
+  }
+}
+
+const sortRow = useTemplateRef<HTMLElement>('sortRow')
+const decadeRow = useTemplateRef<HTMLElement>('decadeRow')
+const genreRow = useTemplateRef<HTMLElement>('genreRow')
+
+// Each reload swaps the whole filter block for the spinner, so the rows remount
+// on every filter change and every reveal is a fresh element at scrollLeft 0.
+watch(sortRow, revealActiveChip, { flush: 'post' })
+watch(decadeRow, revealActiveChip, { flush: 'post' })
+watch(genreRow, revealActiveChip, { flush: 'post' })
+
 // ARIA APG "Tabs" pattern: only the active tab is Tab-reachable (roving
 // tabindex, bound in the template via :tabindex on both buttons);
 // ArrowRight/ArrowLeft move and activate focus between the two, wrapping at
@@ -199,13 +254,13 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
     <PageHeader v-if="isPhone" :title="t('nav.library')" />
     <h1 v-else class="sr-only">{{ t('nav.library') }}</h1>
 
-    <div class="px-4 py-4 sm:px-6">
+    <div class="px-4 py-2 sm:px-6 sm:py-4">
       <!-- Source selector (AC1 — Story 8.1) -->
       <div
         data-testid="source-selector"
         role="tablist"
         aria-label="Music source"
-        class="mb-6 flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit"
+        class="mb-3 flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit sm:mb-6"
       >
         <button
           type="button"
@@ -250,7 +305,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
       </div>
 
       <!-- Rescan library button (local only) -->
-      <div v-if="activeSource === 'local'" class="mb-6 flex items-center gap-3">
+      <div v-if="activeSource === 'local'" class="mb-3 flex items-center gap-3 sm:mb-6">
         <button
           type="button"
           data-testid="rescan-library-button"
@@ -288,7 +343,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
            debounced reload does not unmount the field the user is typing in. -->
       <div
         v-if="activeSource === 'local' && currentStatus !== 'error' && !showsEmptyLibrary"
-        class="mb-4"
+        class="mb-3 sm:mb-4"
       >
         <input
           data-testid="library-search-input"
@@ -394,21 +449,26 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
       <!-- Main content: sort/filter (local only) + view toggle + album grid/list -->
       <div v-else>
         <!-- Sort & Filter controls (local only) — chip-based for mobile friendliness -->
-        <div v-if="activeSource === 'local'" data-testid="sort-controls" class="mb-4 space-y-3">
+        <div
+          v-if="activeSource === 'local'"
+          data-testid="sort-controls"
+          class="mb-3 space-y-2 sm:mb-4 sm:space-y-3"
+        >
           <!-- Sort chips -->
-          <div class="flex flex-wrap gap-2" role="group" aria-label="Sort order">
+          <div
+            ref="sortRow"
+            data-testid="sort-chip-row"
+            :class="CHIP_ROW_CLASS"
+            role="group"
+            aria-label="Sort order"
+          >
             <button
               v-for="opt in sortOptions"
               :key="opt.value"
               type="button"
               :data-testid="`sort-chip-${opt.value}`"
               :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
-              :class="[
-                'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
-                sortBy === opt.value
-                  ? 'border-neutral-900 bg-neutral-900 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-              ]"
+              :class="chipClass(sortBy === opt.value)"
               @click="setSortBy(opt.value)"
             >
               {{ opt.label }}
@@ -416,19 +476,20 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           </div>
 
           <!-- Decade filter chips -->
-          <div class="flex flex-wrap gap-2" role="group" aria-label="Filter by decade">
+          <div
+            ref="decadeRow"
+            data-testid="decade-chip-row"
+            :class="CHIP_ROW_CLASS"
+            role="group"
+            aria-label="Filter by decade"
+          >
             <button
               v-for="opt in decadeOptions"
               :key="opt.value"
               type="button"
               :data-testid="`decade-chip-${opt.value}`"
               :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
-              :class="[
-                'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
-                decadeFilter === opt.value
-                  ? 'border-neutral-900 bg-neutral-900 text-white'
-                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-              ]"
+              :class="chipClass(decadeFilter === opt.value)"
               @click="setDecadeFilter(opt.value)"
             >
               {{ opt.label }}
@@ -440,8 +501,9 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           <div v-if="allGenres.length > 0" class="space-y-2">
             <div
               v-if="showGenreChips"
+              ref="genreRow"
               data-testid="genre-chips"
-              class="flex flex-wrap gap-2"
+              :class="CHIP_ROW_CLASS"
               role="group"
               :aria-label="t('library.genreFilterLabel')"
             >
@@ -451,12 +513,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
                 type="button"
                 :data-testid="`genre-chip-${genre.id}`"
                 :aria-pressed="genreFilter === genre.id ? 'true' : 'false'"
-                :class="[
-                  'min-h-11 rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2',
-                  genreFilter === genre.id
-                    ? 'border-neutral-900 bg-neutral-900 text-white'
-                    : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900',
-                ]"
+                :class="chipClass(genreFilter === genre.id)"
                 @click="toggleGenre(genre.id)"
               >
                 {{ genre.name }}
@@ -492,7 +549,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </div>
 
         <!-- Header: forced-filter notice (local only) + view toggle -->
-        <div class="mb-4 flex items-center justify-between gap-3">
+        <div class="mb-3 flex items-center justify-between gap-3 sm:mb-4">
           <p
             v-if="activeSource === 'local' && adjustedFilter !== null"
             data-testid="filter-adjusted-message"

@@ -81,4 +81,60 @@ test.describe('Phone Layout (375px)', () => {
       expect(overflow).toBeLessThanOrEqual(1)
     })
   }
+
+  // The library filter block once measured 580px on a phone and pushed the album
+  // grid to y=908 in an 844px viewport — not one cover was visible, and every
+  // unit and E2E test stayed green because none of them measured actual height.
+  // These two cases are that missing measurement.
+  const sixAlbums = {
+    albums: Array.from({ length: 6 }, (_, index) => ({
+      id: String(index + 1),
+      title: `Album ${index + 1}`,
+      artist: 'Local Artist',
+      trackCount: 3,
+      coverArtUrl: 'http://localhost:3000/music/1/cover.jpg',
+      releaseYear: 2020,
+      genre: null,
+    })),
+    totalCount: 6,
+  }
+
+  test('library album grid starts inside the viewport on phone', async ({ page }) => {
+    await setupApiMocks(page, { libraryAlbums: sixAlbums })
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="album-grid"]')
+
+    const view = page.locator('[data-testid="library-view"]')
+    const viewBox = await view.boundingBox()
+    const cardBox = await page.locator('[data-testid="album-card"]').first().boundingBox()
+    expect(viewBox).not.toBeNull()
+    expect(cardBox).not.toBeNull()
+
+    // Nothing has been scrolled — this is what the user sees on arrival.
+    expect(await view.evaluate((el) => el.scrollTop)).toBe(0)
+
+    const viewBottom = (viewBox?.y ?? 0) + (viewBox?.height ?? 0)
+    const cardBottom = (cardBox?.y ?? 0) + (cardBox?.height ?? 0)
+    expect(cardBox?.y ?? 0).toBeGreaterThanOrEqual(viewBox?.y ?? 0)
+    expect(cardBottom).toBeLessThanOrEqual(viewBottom)
+  })
+
+  test('library filter chips stay on one scrollable line on phone', async ({ page }) => {
+    await setupApiMocks(page, { libraryAlbums: sixAlbums })
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="genre-chips"]')
+
+    for (const testId of ['sort-chip-row', 'decade-chip-row', 'genre-chips']) {
+      const row = page.locator(`[data-testid="${testId}"]`)
+      const box = await row.boundingBox()
+      // A second wrapped line would put this past 88px (two 44px chips).
+      expect(box?.height, `${testId} height`).toBeLessThan(70)
+    }
+
+    // All 20 genre chips stay reachable — the row scrolls instead of wrapping.
+    const genreOverflow = await page
+      .locator('[data-testid="genre-chips"]')
+      .evaluate((el) => el.scrollWidth - el.clientWidth)
+    expect(genreOverflow).toBeGreaterThan(0)
+  })
 })
