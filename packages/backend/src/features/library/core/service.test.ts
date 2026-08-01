@@ -15,7 +15,7 @@ describe("buildLibraryAlbumsResponse", () => {
           artwork_track_id: "abc123",
         },
       ],
-      767,
+      true,
       baseUrl,
     );
 
@@ -26,13 +26,13 @@ describe("buildLibraryAlbumsResponse", () => {
       releaseYear: 1979,
       coverArtUrl: `${baseUrl}/music/abc123/cover.jpg`,
     });
-    expect(response.totalCount).toBe(767);
+    expect(response.hasMore).toBe(true);
   });
 
   it("exposes exactly the domain album fields, without a genre", () => {
     const response = buildLibraryAlbumsResponse(
       [{ id: 42, album: "The Wall" }],
-      1,
+      false,
       baseUrl,
     );
 
@@ -51,7 +51,7 @@ describe("buildLibraryAlbumsResponse", () => {
         { id: 7, album: "Kid A" },
         { id: "b-7", album: "Amnesiac" },
       ],
-      2,
+      false,
       baseUrl,
     );
 
@@ -61,7 +61,7 @@ describe("buildLibraryAlbumsResponse", () => {
   it("falls back to an empty artist when LMS omits it", () => {
     const response = buildLibraryAlbumsResponse(
       [{ id: 1, album: "Untitled" }],
-      1,
+      false,
       baseUrl,
     );
 
@@ -75,7 +75,7 @@ describe("buildLibraryAlbumsResponse", () => {
         { id: 2, album: "Zero Year", year: 0 },
         { id: 3, album: "Real Year", year: 1979 },
       ],
-      3,
+      false,
       baseUrl,
     );
 
@@ -89,7 +89,7 @@ describe("buildLibraryAlbumsResponse", () => {
   it("builds the cover art url from the album id when no artwork track exists", () => {
     const response = buildLibraryAlbumsResponse(
       [{ id: 99, album: "Coverless" }],
-      1,
+      false,
       baseUrl,
     );
 
@@ -104,7 +104,7 @@ describe("buildLibraryAlbumsResponse", () => {
         { id: 3, album: "Zoo", artist: "Zed", year: 2001 },
         { id: 1, album: "Anthem", artist: "Ada", year: 1999 },
       ],
-      2,
+      false,
       baseUrl,
     );
 
@@ -126,11 +126,23 @@ describe("buildLibraryAlbumsResponse", () => {
     ]);
   });
 
-  it("returns an empty album list with the reported total count", () => {
-    const response = buildLibraryAlbumsResponse([], 0, baseUrl);
+  it("passes hasMore through unchanged instead of deriving it from the albums", () => {
+    const albums = [{ id: 1, album: "Solo" }];
+
+    expect(buildLibraryAlbumsResponse(albums, false, baseUrl).hasMore).toBe(
+      false,
+    );
+    expect(buildLibraryAlbumsResponse(albums, true, baseUrl).hasMore).toBe(
+      true,
+    );
+    expect(buildLibraryAlbumsResponse([], true, baseUrl).hasMore).toBe(true);
+  });
+
+  it("returns an empty album list with the reported hasMore flag", () => {
+    const response = buildLibraryAlbumsResponse([], false, baseUrl);
 
     expect(response.albums).toEqual([]);
-    expect(response.totalCount).toBe(0);
+    expect(response.hasMore).toBe(false);
   });
 });
 

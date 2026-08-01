@@ -20,6 +20,7 @@ import {
   clampPage,
   computeBackwardPage,
   countAcrossYears,
+  hasMoreAfter,
   mapOffsetAcrossYears,
   resolvePagination,
   reverseYearBlocks,
@@ -272,6 +273,17 @@ const fetchYearCount = async (
   return ok({ year, count: result.value });
 };
 
+const fetchFilteredCount = async (
+  lmsClient: LmsClient,
+  filters: AlbumFilters,
+): Promise<Result<number, LibraryServiceError>> => {
+  const result = await lmsClient.getLibraryAlbumCount(filters);
+
+  return result.ok
+    ? ok(result.value)
+    : err(mapLibraryLmsError(result.error.message));
+};
+
 type PagePlan = {
   readonly page: LmsPage;
   readonly totalCount?: number;
@@ -290,9 +302,9 @@ const planPage = async (
     return ok({ page: clampPage(offset, limit, query.hardLimit) });
   }
 
-  const countResult = await lmsClient.getLibraryAlbumCount(filters);
+  const countResult = await fetchFilteredCount(lmsClient, filters);
   if (!countResult.ok) {
-    return err(mapLibraryLmsError(countResult.error.message));
+    return countResult;
   }
 
   const backward = computeBackwardPage(
@@ -312,22 +324,24 @@ const fetchCountOnlyPage = async (
   query: LmsSortQuery,
   filters: AlbumFilters,
   knownTotal: number | undefined,
+  offset: number,
+  limit: number,
 ): Promise<Result<LibraryAlbumsResponse, LibraryServiceError>> => {
-  if (knownTotal !== undefined) {
-    return ok({
-      albums: [],
-      totalCount: capTotal(knownTotal, query.hardLimit),
-    });
-  }
-
-  const countResult = await lmsClient.getLibraryAlbumCount(filters);
-  if (!countResult.ok) {
-    return err(mapLibraryLmsError(countResult.error.message));
+  const totalResult: Result<number, LibraryServiceError> =
+    knownTotal === undefined
+      ? await fetchFilteredCount(lmsClient, filters)
+      : ok(knownTotal);
+  if (!totalResult.ok) {
+    return totalResult;
   }
 
   return ok({
     albums: [],
-    totalCount: capTotal(countResult.value, query.hardLimit),
+    hasMore: hasMoreAfter(
+      capTotal(totalResult.value, query.hardLimit),
+      offset,
+      limit,
+    ),
   });
 };
 
@@ -347,7 +361,14 @@ const fetchPageWithoutDecade = async (
   const { page, totalCount } = planResult.value;
 
   if (page.limit <= 0) {
-    return await fetchCountOnlyPage(lmsClient, query, filters, totalCount);
+    return await fetchCountOnlyPage(
+      lmsClient,
+      query,
+      filters,
+      totalCount,
+      offset,
+      limit,
+    );
   }
 
   const result = await lmsClient.getLibraryAlbums(page.offset, page.limit, {
@@ -367,10 +388,58 @@ const fetchPageWithoutDecade = async (
   return ok(
     buildLibraryAlbumsResponse(
       rows,
-      capTotal(totalCount ?? result.value.count, query.hardLimit),
+      hasMoreAfter(
+        capTotal(totalCount ?? result.value.count, query.hardLimit),
+        offset,
+        limit,
+      ),
       baseUrlOf(config),
     ),
   );
+};
+
+const NO_COUNTS: readonly YearCount[] = [];
+
+// Counting every year of a decade is the most expensive path in the library —
+// `older` is open ended, and the count cache key holds the search term, so each
+// debounced keystroke would pay for it. Since the answer only needs "is there
+// another page", counting stops as soon as the years counted so far prove it;
+// otherwise the exhausted years are the exact total. Groups keep the request
+// concurrency identical to mapWithConcurrency.
+const countYearsUntilPageDecided = async (
+  lmsClient: LmsClient,
+  filters: AlbumFilters,
+  groups: readonly (readonly number[])[],
+  offset: number,
+  limit: number,
+  counted: readonly YearCount[],
+): Promise<Result<readonly YearCount[], LibraryServiceError>> => {
+  const [group, ...remaining] = groups;
+  if (group === undefined) {
+    return ok(counted);
+  }
+
+  const groupResult = collectResults(
+    await Promise.all(
+      group.map(async (year) => await fetchYearCount(lmsClient, filters, year)),
+    ),
+  );
+  if (!groupResult.ok) {
+    return groupResult;
+  }
+
+  const yearCounts = [...counted, ...groupResult.value];
+
+  return hasMoreAfter(countAcrossYears(yearCounts), offset, limit)
+    ? ok(yearCounts)
+    : await countYearsUntilPageDecided(
+        lmsClient,
+        filters,
+        remaining,
+        offset,
+        limit,
+        yearCounts,
+      );
 };
 
 const fetchDecadePage = async (
@@ -382,15 +451,20 @@ const fetchDecadePage = async (
   offset: number,
   limit: number,
 ): Promise<Result<LibraryAlbumsResponse, LibraryServiceError>> => {
-  const countsResult = collectResults(
-    await mapWithConcurrency(years, (year) =>
-      fetchYearCount(lmsClient, filters, year),
-    ),
+  const countsResult = await countYearsUntilPageDecided(
+    lmsClient,
+    filters,
+    chunk(years, MAX_LMS_CONCURRENCY),
+    offset,
+    limit,
+    NO_COUNTS,
   );
   if (!countsResult.ok) {
     return countsResult;
   }
 
+  // The years are consumed in delivery order, so the counted prefix carries
+  // every year the requested window can reach.
   const yearCounts = countsResult.value;
   const slices = mapOffsetAcrossYears(yearCounts, offset, limit);
 
@@ -423,7 +497,7 @@ const fetchDecadePage = async (
   return ok(
     buildLibraryAlbumsResponse(
       albums,
-      countAcrossYears(yearCounts),
+      hasMoreAfter(countAcrossYears(yearCounts), offset, limit),
       baseUrlOf(config),
     ),
   );

@@ -34,11 +34,11 @@ const mapLibraryAlbum = (
 
 export const buildLibraryAlbumsResponse = (
   albums: readonly LibraryAlbumInput[],
-  totalCount: number,
+  hasMore: boolean,
   baseUrl: string,
 ): LibraryAlbumsResponse => ({
   albums: albums.map((raw) => mapLibraryAlbum(raw, baseUrl)),
-  totalCount,
+  hasMore,
 });
 
 export const mapLibraryLmsError = (message: string): LibraryServiceError => ({

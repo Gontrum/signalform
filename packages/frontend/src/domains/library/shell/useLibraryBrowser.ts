@@ -58,7 +58,6 @@ type UseLibraryBrowserResult = {
   readonly setSource: (source: Source) => void
   readonly currentStatus: ComputedRef<LoadingStatus>
   readonly albums: Ref<readonly LibraryAlbum[]>
-  readonly totalCount: Ref<number>
   readonly hasMore: ComputedRef<boolean>
   readonly isLoadingMore: Ref<boolean>
   readonly loadMoreFailed: Ref<boolean>
@@ -136,7 +135,8 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const activeSource = ref<Source>('local')
   const status = ref<LoadingStatus>('loading')
   const albums = ref<readonly LibraryAlbum[]>([])
-  const totalCount = ref(0)
+  // Authoritative from the server: a full page is not a promise of another one.
+  const hasMoreState = ref(false)
   const isLoadingMore = ref(false)
   const loadMoreFailed = ref(false)
 
@@ -177,7 +177,9 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const currentAlbumsForDisplay = computed(() =>
     activeSource.value === 'local' ? albums.value : tidalAlbumsForDisplay.value,
   )
-  const hasMore = computed(() => albums.value.length < totalCount.value)
+  // Only the two loaders may move it; a consumer that could write it would be
+  // promising a page the server never announced.
+  const hasMore = computed(() => hasMoreState.value)
   const hasActiveFilters = computed(
     () =>
       genreFilter.value !== null || decadeFilter.value !== 'all' || searchQuery.value.trim() !== '',
@@ -211,7 +213,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
     status.value = 'loading'
     albums.value = []
-    totalCount.value = 0
+    hasMoreState.value = false
     isLoadingMore.value = false
     loadMoreFailed.value = false
 
@@ -226,12 +228,12 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     }
 
     albums.value = result.value.albums
-    totalCount.value = result.value.totalCount
+    hasMoreState.value = result.value.hasMore
     status.value = 'success'
   }
 
   const loadMore = async (): Promise<void> => {
-    if (status.value !== 'success' || isLoadingMore.value || !hasMore.value) {
+    if (status.value !== 'success' || isLoadingMore.value || !hasMoreState.value) {
       return
     }
 
@@ -253,7 +255,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     }
 
     albums.value = [...albums.value, ...result.value.albums]
-    totalCount.value = result.value.totalCount
+    hasMoreState.value = result.value.hasMore
   }
 
   // A genre list without counts is the server's cold state, not an error: keep
@@ -466,7 +468,6 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     setSource,
     currentStatus,
     albums,
-    totalCount,
     hasMore,
     isLoadingMore,
     loadMoreFailed,

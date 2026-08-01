@@ -13,7 +13,7 @@ const makeLibraryResponse = (): LibraryAlbumsResponse => ({
       coverArtUrl: 'http://localhost:9000/music/abc123/cover.jpg',
     },
   ],
-  totalCount: 1,
+  hasMore: false,
 })
 
 const fetchMock = vi.fn()
@@ -59,7 +59,42 @@ describe('libraryApi', () => {
         expect(result.value.albums[0]?.coverArtUrl).toBe(
           '/api/playback/cover?src=http%3A%2F%2Flocalhost%3A9000%2Fmusic%2Fabc123%2Fcover.jpg',
         )
-        expect(result.value.totalCount).toBe(1)
+        expect(result.value.hasMore).toBe(false)
+      }
+    })
+
+    it('keeps hasMore true when the server says another page exists', async () => {
+      fetchMock.mockResolvedValue(okResponse({ ...makeLibraryResponse(), hasMore: true }))
+
+      const result = await getLibraryAlbums()
+
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.value.hasMore).toBe(true)
+      }
+    })
+
+    // A missing flag must not slip through as `false`: that would silently strand
+    // the user on page one of a library that has more.
+    it('rejects a response without hasMore instead of defaulting it', async () => {
+      fetchMock.mockResolvedValue(okResponse({ albums: [] }))
+
+      const result = await getLibraryAlbums()
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('PARSE_ERROR')
+      }
+    })
+
+    it('rejects a hasMore that is not a boolean', async () => {
+      fetchMock.mockResolvedValue(okResponse({ albums: [], hasMore: 1 }))
+
+      const result = await getLibraryAlbums()
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('PARSE_ERROR')
       }
     })
 
@@ -78,7 +113,7 @@ describe('libraryApi', () => {
               genre: 'Rock',
             },
           ],
-          totalCount: 1,
+          hasMore: false,
         }),
       )
 

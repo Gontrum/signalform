@@ -15,7 +15,9 @@ export type LibraryAlbum = {
 
 export type LibraryAlbumsResponse = {
   readonly albums: ReadonlyArray<LibraryAlbum>;
-  readonly totalCount: number; // from LMS count field
+  // Not a total: a decade filter would have to count every year of the decade
+  // before the first page could ship. One album past the window is enough.
+  readonly hasMore: boolean;
 };
 
 export type LibraryServiceError = {

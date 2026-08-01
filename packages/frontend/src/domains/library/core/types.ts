@@ -16,7 +16,9 @@ export type LibraryAlbum = {
 
 export type LibraryAlbumsResponse = {
   readonly albums: ReadonlyArray<LibraryAlbum>
-  readonly totalCount: number
+  // No total: under a decade filter the server would have to count every year of
+  // the decade before shipping the first page. One album past the window suffices.
+  readonly hasMore: boolean
 }
 
 export type RescanStatus = {

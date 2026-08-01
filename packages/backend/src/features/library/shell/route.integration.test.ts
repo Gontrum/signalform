@@ -24,7 +24,7 @@ type MockLmsClient = LmsClient & {
 
 type AlbumsBody = {
   readonly albums: readonly unknown[];
-  readonly totalCount: number;
+  readonly hasMore: boolean;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -56,13 +56,13 @@ const parseAlbumsBody = (body: string): AlbumsBody => {
     isRecord(parsed) && Array.isArray(parsed["albums"])
       ? parsed["albums"]
       : null;
-  const totalCount =
-    isRecord(parsed) && typeof parsed["totalCount"] === "number"
-      ? parsed["totalCount"]
+  const hasMore =
+    isRecord(parsed) && typeof parsed["hasMore"] === "boolean"
+      ? parsed["hasMore"]
       : null;
   expect(albums).not.toBeNull();
-  expect(totalCount).not.toBeNull();
-  return { albums: albums ?? [], totalCount: totalCount ?? 0 };
+  expect(hasMore).not.toBeNull();
+  return { albums: albums ?? [], hasMore: hasMore ?? false };
 };
 
 const makeLibraryResult = (
@@ -103,7 +103,7 @@ describe("GET /api/library/albums", () => {
     void server.close();
   });
 
-  it("returns 200 with albums and totalCount on success", async () => {
+  it("returns 200 with albums and hasMore on success", async () => {
     mockLmsClient.getLibraryAlbums.mockResolvedValue(ok(makeLibraryResult(2)));
 
     const response = await server.inject({
@@ -114,7 +114,33 @@ describe("GET /api/library/albums", () => {
     expect(response.statusCode).toBe(200);
     const body = parseAlbumsBody(response.body);
     expect(body.albums).toHaveLength(2);
-    expect(body.totalCount).toBe(2);
+    expect(body.hasMore).toBe(false);
+  });
+
+  it("reports hasMore when the filtered library outgrows the page", async () => {
+    mockLmsClient.getLibraryAlbums.mockResolvedValue(
+      ok({ albums: makeLibraryResult(2).albums, count: 400 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/library/albums?limit=250&offset=0",
+    });
+
+    expect(parseAlbumsBody(response.body).hasMore).toBe(true);
+  });
+
+  it("reports no hasMore on the last page of a larger library", async () => {
+    mockLmsClient.getLibraryAlbums.mockResolvedValue(
+      ok({ albums: makeLibraryResult(2).albums, count: 400 }),
+    );
+
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/library/albums?limit=250&offset=250",
+    });
+
+    expect(parseAlbumsBody(response.body).hasMore).toBe(false);
   });
 
   it("uses default limit=250, offset=0 and artist sort when no query params given", async () => {
@@ -223,7 +249,7 @@ describe("GET /api/library/albums", () => {
 
     expect(response.statusCode).toBe(200);
     const body = parseAlbumsBody(response.body);
-    expect(body.totalCount).toBe(1);
+    expect(body.hasMore).toBe(false);
     const album = body.albums[0];
     expect(isRecord(album) ? album["id"] : undefined).toBe("42");
     expect(isRecord(album) ? album["title"] : undefined).toBe("The Wall");
@@ -247,7 +273,7 @@ describe("GET /api/library/albums", () => {
     expect(body.code).toBe("INVALID_INPUT");
   });
 
-  it("returns empty albums array with 0 totalCount for empty library", async () => {
+  it("returns an empty albums array without hasMore for an empty library", async () => {
     mockLmsClient.getLibraryAlbums.mockResolvedValue(
       ok({ albums: [], count: 0 }),
     );
@@ -260,6 +286,6 @@ describe("GET /api/library/albums", () => {
     expect(response.statusCode).toBe(200);
     const body = parseAlbumsBody(response.body);
     expect(body.albums).toHaveLength(0);
-    expect(body.totalCount).toBe(0);
+    expect(body.hasMore).toBe(false);
   });
 });

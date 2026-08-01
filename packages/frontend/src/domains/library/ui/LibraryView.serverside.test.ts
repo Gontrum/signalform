@@ -60,11 +60,11 @@ const album = (id: string, title: string): LibraryAlbum => ({
 
 const page = (
   albums: readonly LibraryAlbum[],
-  totalCount: number,
+  hasMore: boolean,
 ): {
   readonly ok: true
-  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly totalCount: number }
-} => ({ ok: true, value: { albums, totalCount } }) as const
+  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly hasMore: boolean }
+} => ({ ok: true, value: { albums, hasMore } }) as const
 
 const mountView = async (): Promise<VueWrapper> => {
   const router = await createTestRouter(
@@ -93,21 +93,21 @@ describe('LibraryView — server-driven browsing', () => {
     sessionStorage.clear()
     setupTestEnv()
     isPhone.value = false
-    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 1))
+    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
     mockGetLibraryGenres.mockResolvedValue({ ok: true, value: [] })
   })
 
   describe('load more', () => {
-    it('offers the button while albums are missing from the current filter', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 3))
+    it('offers the button while the server reports another page', async () => {
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], true))
 
       const wrapper = await mountView()
 
       expect(wrapper.find('[data-testid="load-more-button"]').exists()).toBe(true)
     })
 
-    it('hides the button once every album of the filter is on screen', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 1))
+    it('hides the button once the server reports no further page', async () => {
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
 
       const wrapper = await mountView()
 
@@ -116,11 +116,11 @@ describe('LibraryView — server-driven browsing', () => {
 
     it('appends the next page behind the current one when clicked', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('1', 'Kid A'), album('2', 'Amnesiac')], 3),
+        page([album('1', 'Kid A'), album('2', 'Amnesiac')], true),
       )
       const wrapper = await mountView()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('3', 'Bends')], 3))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('3', 'Bends')], false))
       await wrapper.find('[data-testid="load-more-button"]').trigger('click')
       await flushPromises()
 
@@ -136,7 +136,7 @@ describe('LibraryView — server-driven browsing', () => {
     })
 
     it('shows a message when the next page fails and keeps the button', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 3))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const wrapper = await mountView()
 
       mockGetLibraryAlbums.mockResolvedValueOnce({

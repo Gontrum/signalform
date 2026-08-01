@@ -77,7 +77,7 @@ const setupChipEnv = (): void => {
   sessionStorage.clear()
   setupTestEnv()
   isPhone.value = false
-  mockGetLibraryAlbums.mockResolvedValue({ ok: true, value: { albums: [album], totalCount: 1 } })
+  mockGetLibraryAlbums.mockResolvedValue({ ok: true, value: { albums: [album], hasMore: false } })
   mockGetLibraryGenres.mockResolvedValue({
     ok: true,
     value: [{ id: 153, name: 'Rock', albumCount: 81 }],

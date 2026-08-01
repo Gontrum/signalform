@@ -61,9 +61,9 @@ const albumTitles = (body: string): readonly string[] =>
     typeof album["title"] === "string" ? album["title"] : "",
   );
 
-const totalCountOf = (body: string): number => {
-  const value = parseBody(body)["totalCount"];
-  return typeof value === "number" ? value : -1;
+const hasMoreOf = (body: string): boolean | undefined => {
+  const value = parseBody(body)["hasMore"];
+  return typeof value === "boolean" ? value : undefined;
 };
 
 const messageOf = (body: string): string => {
@@ -165,7 +165,8 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
       expect(mockLmsClient.getLibraryAlbums).toHaveBeenCalledWith(0, 100, {
         sort: "new",
       });
-      expect(totalCountOf(response.body)).toBe(100);
+      // The uncapped 799 would promise a further page; the cap ends the list.
+      expect(hasMoreOf(response.body)).toBe(false);
     });
 
     it("answers past the recently-added cap without asking LMS for rows", async () => {
@@ -178,7 +179,7 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
 
       expect(response.statusCode).toBe(200);
       expect(albumTitles(response.body)).toEqual([]);
-      expect(totalCountOf(response.body)).toBe(100);
+      expect(hasMoreOf(response.body)).toBe(false);
       expect(mockLmsClient.getLibraryAlbums).not.toHaveBeenCalled();
     });
   });
@@ -233,13 +234,20 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
       });
     });
 
-    it("reports the filtered count from the count query", async () => {
+    it("derives hasMore from the filtered count query", async () => {
+      // The row query reports only what it returned; taking hasMore from there
+      // would end pagination at 3 of 7.
+      mockLmsClient.getLibraryAlbums.mockResolvedValue(
+        ok({ albums: ascendingRows, count: 3 }),
+      );
+
       const response = await server.inject({
         method: "GET",
         url: "/api/library/albums?sort=year-newest&limit=3&offset=0",
       });
 
-      expect(totalCountOf(response.body)).toBe(7);
+      // 7 filtered albums, 3 delivered — four remain behind this page.
+      expect(hasMoreOf(response.body)).toBe(true);
     });
 
     it("returns 503 when the count query fails", async () => {
@@ -367,13 +375,14 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
       expect(albumTitles(response.body)).toEqual(["Thirteen A", "Thirteen B"]);
     });
 
-    it("sums the decade years into totalCount", async () => {
+    it("sums the decade years to answer hasMore", async () => {
       const response = await server.inject({
         method: "GET",
         url: "/api/library/albums?decade=2010s&limit=3&offset=1",
       });
 
-      expect(totalCountOf(response.body)).toBe(5);
+      // 2013 and 2011 hold 5 albums; the window ends at 4.
+      expect(hasMoreOf(response.body)).toBe(true);
     });
 
     it("counts only the years belonging to the decade", async () => {
@@ -450,7 +459,7 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
 
       expect(response.statusCode).toBe(200);
       expect(albumTitles(response.body)).toEqual([]);
-      expect(totalCountOf(response.body)).toBe(0);
+      expect(hasMoreOf(response.body)).toBe(false);
     });
 
     it("returns 503 when the year list cannot be fetched", async () => {
@@ -510,7 +519,8 @@ describe("GET /api/library/albums — sort, decade, genre, search", () => {
         genreId: 153,
         search: "tote hosen",
       });
-      expect(totalCountOf(response.body)).toBe(15);
+      // 15 matches, 10 per page — the filtered result outgrows the window.
+      expect(hasMoreOf(response.body)).toBe(true);
     });
 
     it("adds genreId and search to the per-year count of a decade page", async () => {

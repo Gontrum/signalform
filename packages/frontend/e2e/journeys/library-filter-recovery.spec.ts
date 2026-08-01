@@ -25,7 +25,7 @@ const albums = {
       genre: null,
     },
   ],
-  totalCount: 1,
+  hasMore: false,
 }
 
 /** Mirrors backend `resolvePagination`: this pair is a 400, never a list. */

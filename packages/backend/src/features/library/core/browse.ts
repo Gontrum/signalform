@@ -209,6 +209,14 @@ export const mapOffsetAcrossYears = (
 export const countAcrossYears = (yearCounts: readonly YearCount[]): number =>
   yearCounts.reduce((total, { count }) => total + Math.max(count, 0), 0);
 
+// The single definition of "another page exists" for all four delivery paths
+// (forward page, backward page, count-only page, decade page).
+export const hasMoreAfter = (
+  total: number,
+  offset: number,
+  limit: number,
+): boolean => total > Math.max(offset, 0) + Math.max(limit, 0);
+
 export type PaginationError = {
   readonly message: string;
 };

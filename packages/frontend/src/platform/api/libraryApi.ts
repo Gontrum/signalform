@@ -40,7 +40,7 @@ const LibraryAlbumSchema = z.object({
 
 const LibraryAlbumsResponseSchema = z.object({
   albums: z.array(LibraryAlbumSchema),
-  totalCount: z.number(),
+  hasMore: z.boolean(),
 })
 
 const LibraryGenreSchema = z.object({

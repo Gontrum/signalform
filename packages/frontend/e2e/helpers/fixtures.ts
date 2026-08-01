@@ -125,7 +125,7 @@ export const libraryAlbumsResponse = {
       genre: null,
     },
   ],
-  totalCount: 1,
+  hasMore: false,
 }
 
 /**

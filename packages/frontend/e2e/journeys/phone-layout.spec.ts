@@ -96,7 +96,7 @@ test.describe('Phone Layout (375px)', () => {
       releaseYear: 2020,
       genre: null,
     })),
-    totalCount: 6,
+    hasMore: false,
   }
 
   test('library album grid starts inside the viewport on phone', async ({ page }) => {

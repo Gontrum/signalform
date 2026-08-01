@@ -147,14 +147,26 @@ describe("getLibraryAlbums service", () => {
     }
   });
 
-  it("returns totalCount from LMS count field", async () => {
-    const client = makeMockClient([makeRawAlbum()], 767);
+  it("derives hasMore from the LMS count field, not from the page size", async () => {
+    const beyondPage = await getLibraryAlbums(
+      0,
+      250,
+      makeMockClient([makeRawAlbum()], 767),
+      defaultConfig,
+    );
 
-    const result = await getLibraryAlbums(0, 250, client, defaultConfig);
+    // Same offset and limit — without this the second call is a cache hit.
+    clearLibraryCache();
 
-    if (result.ok) {
-      expect(result.value.totalCount).toBe(767);
-    }
+    const exactPage = await getLibraryAlbums(
+      0,
+      250,
+      makeMockClient([makeRawAlbum()], 250),
+      defaultConfig,
+    );
+
+    expect(beyondPage.ok && beyondPage.value.hasMore).toBe(true);
+    expect(exactPage.ok && exactPage.value.hasMore).toBe(false);
   });
 
   it("returns empty albums array when LMS returns empty list", async () => {
@@ -165,7 +177,7 @@ describe("getLibraryAlbums service", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.albums).toHaveLength(0);
-      expect(result.value.totalCount).toBe(0);
+      expect(result.value.hasMore).toBe(false);
     }
   });
 
@@ -328,9 +340,7 @@ describe("getLibraryAlbums service", () => {
         expect(secondResult.value.albums).toHaveLength(
           firstResult.value.albums.length,
         );
-        expect(secondResult.value.totalCount).toBe(
-          firstResult.value.totalCount,
-        );
+        expect(secondResult.value.hasMore).toBe(firstResult.value.hasMore);
         const first = firstResult.value.albums[0];
         const second = secondResult.value.albums[0];
         expect(second?.id).toBe(first?.id);

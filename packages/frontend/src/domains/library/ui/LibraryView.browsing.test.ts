@@ -96,11 +96,11 @@ const album = (id: string, title: string, releaseYear: number | null = 2001): Li
 
 const page = (
   albums: readonly LibraryAlbum[],
-  totalCount: number,
+  hasMore: boolean,
 ): {
   readonly ok: true
-  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly totalCount: number }
-} => ({ ok: true, value: { albums, totalCount } }) as const
+  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly hasMore: boolean }
+} => ({ ok: true, value: { albums, hasMore } }) as const
 
 const mountView = async (): Promise<VueWrapper> => {
   const router = await createTestRouter(
@@ -148,7 +148,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     setupTestEnv()
     isPhone.value = false
     intersectionCallback = undefined
-    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 1))
+    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
     mockGetLibraryGenres.mockResolvedValue({ ok: true, value: [] })
   })
 
@@ -372,7 +372,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     it('reports an empty result as a filter miss, not as an empty library', async () => {
       const wrapper = await mountView()
 
-      mockGetLibraryAlbums.mockResolvedValue(page([], 0))
+      mockGetLibraryAlbums.mockResolvedValue(page([], false))
       await setSearch(wrapper, 'nothing here')
 
       expect(wrapper.find('[data-testid="no-filter-results"]').text()).toBe(
@@ -387,7 +387,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
       mockGetLibraryAlbums.mockResolvedValue(
         page(
           [album('1', 'Later', 2003), album('2', 'Also later', 2003), album('3', 'Earlier', 1999)],
-          3,
+          false,
         ),
       )
       const wrapper = await mountView()
@@ -406,7 +406,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
 
     it('groups by year when a decade filter drives the order under artist A–Z', async () => {
       mockGetLibraryAlbums.mockResolvedValue(
-        page([album('1', 'Zebra', 2015), album('2', 'Apple', 2012)], 2),
+        page([album('1', 'Zebra', 2015), album('2', 'Apple', 2012)], false),
       )
       const wrapper = await mountView()
 
@@ -423,7 +423,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
 
     it('shows no headings for artist A–Z without a decade filter', async () => {
       mockGetLibraryAlbums.mockResolvedValue(
-        page([album('1', 'Zebra', 2015), album('2', 'Apple', 2012)], 2),
+        page([album('1', 'Zebra', 2015), album('2', 'Apple', 2012)], false),
       )
 
       const wrapper = await mountView()
@@ -433,7 +433,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
 
     it('gives albums without a year their own heading instead of a zero', async () => {
       mockGetLibraryAlbums.mockResolvedValue(
-        page([album('1', 'Dated', 1984), album('2', 'Undated', null)], 2),
+        page([album('1', 'Dated', 1984), album('2', 'Undated', null)], false),
       )
       const wrapper = await mountView()
 
@@ -450,18 +450,18 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
 
     it('does not repeat a year when the next page opens with it', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('1', 'Newest', 2004), album('2', 'Middle', 2003)], 4),
+        page([album('1', 'Newest', 2004), album('2', 'Middle', 2003)], true),
       )
       const wrapper = await mountView()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('1', 'Newest', 2004), album('2', 'Middle', 2003)], 4),
+        page([album('1', 'Newest', 2004), album('2', 'Middle', 2003)], true),
       )
       await wrapper.find('[data-testid="sort-chip-year-newest"]').trigger('click')
       await flushPromises()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('3', 'Same year', 2003), album('4', 'Oldest', 1998)], 4),
+        page([album('3', 'Same year', 2003), album('4', 'Oldest', 1998)], false),
       )
       await wrapper.find('[data-testid="load-more-button"]').trigger('click')
       await flushPromises()
@@ -478,7 +478,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     })
 
     it('uses a heading level below the page title in list view too', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Dated', 1984)], 1))
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Dated', 1984)], false))
       localStorage.setItem('library-view-mode', 'list')
       const wrapper = await mountView()
 
@@ -494,11 +494,11 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
   describe('load more on scroll', () => {
     it('fetches the next page when the load-more button scrolls into view', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('1', 'Kid A'), album('2', 'Amnesiac')], 3),
+        page([album('1', 'Kid A'), album('2', 'Amnesiac')], true),
       )
       const wrapper = await mountView()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('3', 'Bends')], 3))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('3', 'Bends')], false))
       await scrollLoadMoreIntoView()
 
       expect(mockGetLibraryAlbums).toHaveBeenLastCalledWith(60, 2, expect.any(Object))
@@ -506,7 +506,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     })
 
     it('ignores an observer entry that is not intersecting', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 3))
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], true))
       await mountView()
       const callsBefore = mockGetLibraryAlbums.mock.calls.length
 
@@ -517,11 +517,11 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     })
 
     it('loads a page only once while a request is still in flight', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 3))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       await mountView()
       const callsBefore = mockGetLibraryAlbums.mock.calls.length
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], 3))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], true))
       intersectionCallback?.([{ isIntersecting: true }])
       intersectionCallback?.([{ isIntersecting: true }])
       await flushPromises()
@@ -530,7 +530,7 @@ describe('LibraryView — genre chips, search, year headings, scroll loading', (
     })
 
     it('disconnects the observer when the view goes away', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 3))
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], true))
       const wrapper = await mountView()
 
       wrapper.unmount()

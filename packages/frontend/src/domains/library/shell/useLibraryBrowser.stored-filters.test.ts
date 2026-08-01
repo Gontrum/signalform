@@ -84,7 +84,7 @@ describe('useLibraryBrowser — filters restored from sessionStorage', () => {
     vi.clearAllMocks()
     sessionStorage.clear()
     localStorage.clear()
-    mockGetLibraryAlbums.mockResolvedValue({ ok: true, value: { albums: [album], totalCount: 1 } })
+    mockGetLibraryAlbums.mockResolvedValue({ ok: true, value: { albums: [album], hasMore: false } })
     mockGetLibraryGenres.mockResolvedValue({ ok: true, value: [] })
   })
 

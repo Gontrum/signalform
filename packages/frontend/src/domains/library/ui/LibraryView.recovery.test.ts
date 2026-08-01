@@ -64,8 +64,8 @@ const page = (
   albums: readonly LibraryAlbum[],
 ): {
   readonly ok: true
-  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly totalCount: number }
-} => ({ ok: true, value: { albums, totalCount: albums.length } }) as const
+  readonly value: { readonly albums: readonly LibraryAlbum[]; readonly hasMore: boolean }
+} => ({ ok: true, value: { albums, hasMore: false } }) as const
 
 const httpError = (
   status: number,

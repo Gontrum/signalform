@@ -44,9 +44,9 @@ const album = (id: string, title: string): LibraryAlbum => ({
   coverArtUrl: `/cover/${id}.jpg`,
 })
 
-const page = (albums: readonly LibraryAlbum[], totalCount: number): AlbumsResult => ({
+const page = (albums: readonly LibraryAlbum[], hasMore: boolean): AlbumsResult => ({
   ok: true,
-  value: { albums, totalCount },
+  value: { albums, hasMore },
 })
 
 const serverError: AlbumsResult = {
@@ -86,12 +86,17 @@ const mountBrowser = async (): Promise<ReturnType<typeof useLibraryBrowser>> => 
 const titlesOf = (albums: readonly LibraryAlbum[]): readonly string[] =>
   albums.map((entry) => entry.title)
 
+const PAGE_SIZE = 60
+
+const fullPage = (): readonly LibraryAlbum[] =>
+  Array.from({ length: PAGE_SIZE }, (_, index) => album(String(index + 1), `Album ${index + 1}`))
+
 describe('useLibraryBrowser', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
     localStorage.clear()
-    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 1))
+    mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
     mockGetLibraryGenres.mockResolvedValue({ ok: true, value: [] })
   })
 
@@ -147,19 +152,19 @@ describe('useLibraryBrowser', () => {
 
       expect(browser.currentStatus.value).toBe('error')
       expect(browser.albums.value).toEqual([])
-      expect(browser.totalCount.value).toBe(0)
+      expect(browser.hasMore.value).toBe(false)
     })
   })
 
   describe('pagination', () => {
     it('appends the next page behind the first instead of replacing it', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('1', 'Kid A'), album('2', 'Amnesiac')], 4),
+        page([album('1', 'Kid A'), album('2', 'Amnesiac')], true),
       )
       const browser = await mountBrowser()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(
-        page([album('3', 'Bends'), album('4', 'Zeppelin')], 4),
+        page([album('3', 'Bends'), album('4', 'Zeppelin')], false),
       )
       await browser.loadMore()
       await flushPromises()
@@ -169,7 +174,7 @@ describe('useLibraryBrowser', () => {
     })
 
     it('keeps the active filters on the follow-up page request', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 5))
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
       browser.setGenreFilter(7)
@@ -185,27 +190,26 @@ describe('useLibraryBrowser', () => {
       })
     })
 
-    it('has more pages while the loaded albums stay below totalCount', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 3))
+    it('has no more pages when a full page comes back with hasMore false', async () => {
+      mockGetLibraryAlbums.mockResolvedValue(page(fullPage(), false))
 
       const browser = await mountBrowser()
 
-      expect(browser.hasMore.value).toBe(true)
-    })
-
-    it('has no more pages once the loaded albums reach totalCount', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 2))
-      const browser = await mountBrowser()
-
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], 2))
-      await browser.loadMore()
-      await flushPromises()
-
+      expect(browser.albums.value).toHaveLength(PAGE_SIZE)
       expect(browser.hasMore.value).toBe(false)
     })
 
+    it('has more pages when a short page comes back with hasMore true', async () => {
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], true))
+
+      const browser = await mountBrowser()
+
+      expect(browser.albums.value.length).toBeLessThan(PAGE_SIZE)
+      expect(browser.hasMore.value).toBe(true)
+    })
+
     it('does not fire a request when there is nothing left to load', async () => {
-      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], 1))
+      mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
       const browser = await mountBrowser()
 
       await browser.loadMore()
@@ -215,7 +219,7 @@ describe('useLibraryBrowser', () => {
     })
 
     it('flags a failed follow-up page and keeps the albums already shown', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 5))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(serverError)
@@ -228,7 +232,7 @@ describe('useLibraryBrowser', () => {
     })
 
     it('ignores a second loadMore while one is still in flight', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 5))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
       const pending = deferred<AlbumsResult>()
@@ -239,7 +243,7 @@ describe('useLibraryBrowser', () => {
 
       expect(mockGetLibraryAlbums).toHaveBeenCalledTimes(2)
 
-      pending.resolve(page([album('2', 'Amnesiac')], 5))
+      pending.resolve(page([album('2', 'Amnesiac')], true))
       await first
       await flushPromises()
     })
@@ -247,14 +251,14 @@ describe('useLibraryBrowser', () => {
 
   describe('filter changes', () => {
     it('starts over at offset 0 and drops the pages already loaded', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 4))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], 4))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], true))
       await browser.loadMore()
       await flushPromises()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], 1))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setDecadeFilter('1990s')
       await flushPromises()
 
@@ -266,16 +270,16 @@ describe('useLibraryBrowser', () => {
       )
     })
 
-    it('reports the count of the current filter combination, not of the library', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 799))
+    it('reports hasMore of the current filter combination, not of the previous one', async () => {
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
+      expect(browser.hasMore.value).toBe(true)
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], 81))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setGenreFilter(153)
       await flushPromises()
 
-      expect(browser.totalCount.value).toBe(81)
-      expect(browser.hasMore.value).toBe(true)
+      expect(browser.hasMore.value).toBe(false)
     })
 
     it('persists sort, decade and genre and clears them together', async () => {
@@ -473,31 +477,31 @@ describe('useLibraryBrowser', () => {
 
       const browser = await mountBrowser()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], 1))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setDecadeFilter('1990s')
       await flushPromises()
 
-      slowFirstPage.resolve(page([album('1', 'Kid A'), album('2', 'Amnesiac')], 799))
+      slowFirstPage.resolve(page([album('1', 'Kid A'), album('2', 'Amnesiac')], true))
       await flushPromises()
 
       expect(titlesOf(browser.albums.value)).toEqual(['Nevermind'])
-      expect(browser.totalCount.value).toBe(1)
+      expect(browser.hasMore.value).toBe(false)
       expect(browser.currentStatus.value).toBe('success')
     })
 
     it('discards a follow-up page that arrives after a filter change', async () => {
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], 4))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
       const slowSecondPage = deferred<AlbumsResult>()
       mockGetLibraryAlbums.mockReturnValueOnce(slowSecondPage.promise)
       const pendingLoadMore = browser.loadMore()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], 1))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setGenreFilter(153)
       await flushPromises()
 
-      slowSecondPage.resolve(page([album('2', 'Amnesiac')], 4))
+      slowSecondPage.resolve(page([album('2', 'Amnesiac')], true))
       await pendingLoadMore
       await flushPromises()
 
@@ -511,7 +515,7 @@ describe('useLibraryBrowser', () => {
 
       const browser = await mountBrowser()
 
-      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], 1))
+      mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setSortBy('title-az')
       await flushPromises()
 

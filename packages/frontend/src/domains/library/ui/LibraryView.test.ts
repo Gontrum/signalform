@@ -132,7 +132,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(5), totalCount: 5 },
+      value: { albums: makeAlbums(5), hasMore: false },
     })
 
     const context = await mountView()
@@ -146,7 +146,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -164,7 +164,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [], totalCount: 0 },
+      value: { albums: [], hasMore: false },
     })
 
     const context = await mountView()
@@ -198,7 +198,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -221,7 +221,7 @@ describe('LibraryView', () => {
     const { playAlbum } = await import('@/platform/api/playbackApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -240,7 +240,7 @@ describe('LibraryView', () => {
     const { addAlbumToQueue } = await import('@/platform/api/queueApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -259,7 +259,7 @@ describe('LibraryView', () => {
     const { addAlbumToQueue } = await import('@/platform/api/queueApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     localStorage.setItem('library-view-mode', 'list')
 
@@ -280,7 +280,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -318,7 +318,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [], totalCount: 0 },
+      value: { albums: [], hasMore: false },
     })
 
     const context = await mountView()
@@ -332,7 +332,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -346,7 +346,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -361,7 +361,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -377,7 +377,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -393,7 +393,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -410,7 +410,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -424,7 +424,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
 
     const context = await mountView()
@@ -439,7 +439,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(3), totalCount: 3 },
+      value: { albums: makeAlbums(3), hasMore: false },
     })
     localStorage.setItem('library-view-mode', 'list')
 
@@ -455,7 +455,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -477,7 +477,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1')], totalCount: 1 },
+      value: { albums: [makeAlbum('1')], hasMore: false },
     })
 
     const context = await mountView()
@@ -500,7 +500,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [], totalCount: 0 },
+      value: { albums: [], hasMore: false },
     })
     sessionStorage.setItem('library-genre-filter', '153')
 
@@ -516,7 +516,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1'), makeAlbum('2')], totalCount: 2 },
+      value: { albums: [makeAlbum('1'), makeAlbum('2')], hasMore: false },
     })
     sessionStorage.setItem('library-genre-filter', '153')
 
@@ -538,7 +538,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1')], totalCount: 1 },
+      value: { albums: [makeAlbum('1')], hasMore: false },
     })
 
     const context = await mountView()
@@ -552,7 +552,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1')], totalCount: 1 },
+      value: { albums: [makeAlbum('1')], hasMore: false },
     })
 
     const context = await mountView()
@@ -570,7 +570,7 @@ describe('LibraryView', () => {
       ok: true,
       value: {
         albums: [makeAlbum('1', { title: 'Zebra' }), makeAlbum('2', { title: 'Apple' })],
-        totalCount: 2,
+        hasMore: false,
       },
     })
     sessionStorage.setItem('library-sort-by', 'title-az')
@@ -620,7 +620,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [], totalCount: 0 },
+      value: { albums: [], hasMore: false },
     })
 
     const context = await mountView()
@@ -635,7 +635,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: [makeAlbum('1')], totalCount: 1 },
+      value: { albums: [makeAlbum('1')], hasMore: false },
     })
     sessionStorage.setItem('library-genre-filter', '153')
 
@@ -652,7 +652,7 @@ describe('LibraryView', () => {
     const { playAlbum } = await import('@/platform/api/playbackApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -675,7 +675,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -691,7 +691,7 @@ describe('LibraryView', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const context = await mountView()
@@ -711,7 +711,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: true,
@@ -737,7 +737,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockReturnValue(new Promise(() => {}))
 
@@ -755,7 +755,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: false,
@@ -780,7 +780,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(2), totalCount: 2 },
+      value: { albums: makeAlbums(2), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: true,
@@ -809,7 +809,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums, getTidalFeaturedAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: true,
@@ -844,7 +844,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums, getTidalFeaturedAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: true,
@@ -886,7 +886,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums, getTidalFeaturedAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     vi.mocked(getTidalAlbums).mockResolvedValue({
       ok: true,
@@ -915,7 +915,7 @@ describe('LibraryView', () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
     // First call fails
     vi.mocked(getTidalAlbums).mockResolvedValueOnce({

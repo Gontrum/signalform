@@ -96,7 +96,7 @@ describe('LibraryView keyboard navigation', () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
       ok: true,
-      value: { albums: makeAlbums(1), totalCount: 1 },
+      value: { albums: makeAlbums(1), hasMore: false },
     })
 
     const router = await createTestRouter(
