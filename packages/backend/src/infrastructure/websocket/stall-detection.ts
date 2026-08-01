@@ -1,12 +1,14 @@
 // LMS sometimes freezes at the very end of a track when the next one fails to
 // buffer (e.g. Tidal format mismatch mp4 <> flc). The state below tracks how
-// many consecutive polls reported the same position inside the end window.
+// many consecutive polls reported the exact same position inside the end window.
 
 const TRACK_END_WINDOW_SECONDS = 0.5;
 
-const PROGRESS_TOLERANCE_SECONDS = 0.1;
+const STALL_COUNT_THRESHOLD = 5;
 
-const STALL_COUNT_THRESHOLD = 3;
+// A count of 1 disappears again in the last seconds of nearly every track, so
+// only counts that came close to intervening are worth reporting.
+const ABANDONED_STALL_MIN_COUNT = 2;
 
 export type TrackStallState = {
   readonly trackId: string;
@@ -31,11 +33,14 @@ const isInsideTrackEndWindow = (sample: StallPollSample): boolean =>
 const identifiesTrack = (trackId: string | undefined): trackId is string =>
   trackId !== undefined && trackId !== "";
 
-const madeNoProgress = (
+// Exact equality on purpose: a frozen renderer repeats the identical value,
+// while a slow drift (200 → 200.05 → 200.1) is progress and must reset the
+// count. A tolerance measured against the previous poll would call that drift a
+// standstill on every single poll and cut into audible music.
+const isFrozenAt = (
   previous: TrackStallState,
   sample: StallPollSample,
-): boolean =>
-  Math.abs(sample.time - previous.lastTime) < PROGRESS_TOLERANCE_SECONDS;
+): boolean => sample.time === previous.lastTime;
 
 const continuesStall = (
   previous: TrackStallState | undefined,
@@ -44,7 +49,7 @@ const continuesStall = (
 ): previous is TrackStallState =>
   previous !== undefined &&
   previous.trackId === trackId &&
-  madeNoProgress(previous, sample);
+  isFrozenAt(previous, sample);
 
 export const advanceStallState = (
   previous: TrackStallState | undefined,
@@ -67,3 +72,26 @@ export const shouldForceTrackAdvance = (
   state: TrackStallState | undefined,
 ): state is TrackStallState =>
   state !== undefined && state.stallCount >= STALL_COUNT_THRESHOLD;
+
+const continuesCount = (
+  previous: TrackStallState,
+  next: TrackStallState | undefined,
+): boolean =>
+  next !== undefined &&
+  next.trackId === previous.trackId &&
+  next.stallCount > previous.stallCount;
+
+/**
+ * The state of a count that was running and ended without ever intervening —
+ * the near miss that is otherwise invisible in the log.
+ */
+export const abandonedStall = (
+  previous: TrackStallState | undefined,
+  next: TrackStallState | undefined,
+): TrackStallState | undefined =>
+  previous !== undefined &&
+  previous.stallCount >= ABANDONED_STALL_MIN_COUNT &&
+  !shouldForceTrackAdvance(previous) &&
+  !continuesCount(previous, next)
+    ? previous
+    : undefined;

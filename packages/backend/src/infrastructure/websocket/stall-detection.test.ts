@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  abandonedStall,
   advanceStallState,
   shouldForceTrackAdvance,
   type StallPollSample,
@@ -37,6 +38,12 @@ const interventions = (
   states: ReadonlyArray<TrackStallState | undefined>,
 ): readonly boolean[] => states.map(shouldForceTrackAdvance);
 
+/** What each poll of a replayed run reports as an abandoned count. */
+const abandonedStalls = (
+  states: ReadonlyArray<TrackStallState | undefined>,
+): ReadonlyArray<TrackStallState | undefined> =>
+  states.map((state, index) => abandonedStall(states[index - 1], state));
+
 describe("advanceStallState", () => {
   test("restarts the count on every poll that made progress at the track end", () => {
     const states = replay([
@@ -60,23 +67,80 @@ describe("advanceStallState", () => {
     expect(states.at(-1)?.lastTime).toBe(200.75);
   });
 
-  test("counts frozen polls up and only intervenes on the third", () => {
-    const states = replay([playing(200), playing(200), playing(200)]);
-
-    expect(stallCounts(states)).toEqual([1, 2, 3]);
-    expect(interventions(states)).toEqual([false, false, true]);
-  });
-
-  test("keeps counting past the threshold while the freeze persists", () => {
+  test("counts identical positions up and only intervenes on the fifth", () => {
     const states = replay([
+      playing(200),
       playing(200),
       playing(200),
       playing(200),
       playing(200),
     ]);
 
-    expect(stallCounts(states)).toEqual([1, 2, 3, 4]);
-    expect(interventions(states)).toEqual([false, false, true, true]);
+    expect(stallCounts(states)).toEqual([1, 2, 3, 4, 5]);
+    expect(interventions(states)).toEqual([false, false, false, false, true]);
+  });
+
+  test("keeps counting past the threshold while the freeze persists", () => {
+    const states = replay(Array.from({ length: 7 }, () => playing(200)));
+
+    expect(stallCounts(states)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(interventions(states)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+    ]);
+  });
+
+  test("treats a 0.05s move as progress and restarts the count", () => {
+    const barelyMoved = replay([playing(200), playing(200.05)]);
+    const clearlyMoved = replay([playing(200), playing(200.2)]);
+
+    expect(stallCounts(barelyMoved)).toEqual([1, 1]);
+    expect(barelyMoved.at(-1)?.lastTime).toBe(200.05);
+    expect(stallCounts(clearlyMoved)).toEqual([1, 1]);
+    expect(clearlyMoved.at(-1)?.lastTime).toBe(200.2);
+  });
+
+  test("never intervenes on a steady sub-tenth-of-a-second drift", () => {
+    const states = replay([
+      playing(200),
+      playing(200.05),
+      playing(200.1),
+      playing(200.15),
+      playing(200.2),
+      playing(200.25),
+      playing(200.3),
+      playing(200.35),
+    ]);
+
+    expect(stallCounts(states)).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(interventions(states).some(Boolean)).toBe(false);
+  });
+
+  test("lets a single moving poll mid-count prevent the intervention", () => {
+    const states = replay([
+      playing(200),
+      playing(200),
+      playing(200.2),
+      playing(200.2),
+      playing(200.2),
+      playing(200.2),
+    ]);
+
+    expect(stallCounts(states)).toEqual([1, 2, 1, 2, 3, 4]);
+    expect(interventions(states).some(Boolean)).toBe(false);
+  });
+
+  test("compares against the previous poll, so a jump back counts as progress", () => {
+    const states = replay([playing(200), playing(200.3), playing(200)]);
+
+    expect(stallCounts(states)).toEqual([1, 1, 1]);
+    expect(states[1]?.lastTime).toBe(200.3);
+    expect(states[2]?.lastTime).toBe(200);
   });
 
   test("restarts the count when a different track reaches its end mid-count", () => {
@@ -136,11 +200,9 @@ describe("advanceStallState", () => {
   });
 
   test("never arms while no track is reported", () => {
-    const states = replay([
-      playing(200, { trackId: undefined }),
-      playing(200, { trackId: undefined }),
-      playing(200, { trackId: undefined }),
-    ]);
+    const states = replay(
+      Array.from({ length: 6 }, () => playing(200, { trackId: undefined })),
+    );
 
     expect(states.every((state) => state === undefined)).toBe(true);
   });
@@ -155,51 +217,111 @@ describe("advanceStallState", () => {
 
     expect(stallCounts(states)).toEqual([1, 2, undefined, 1]);
   });
-
-  // Pins today's tolerance: the hardening step is expected to rewrite this test.
-  test("counts a 0.05s move as standing still and a 0.2s move as progress", () => {
-    const barelyMoved = replay([playing(200), playing(200.05)]);
-    const clearlyMoved = replay([playing(200), playing(200.2)]);
-
-    expect(stallCounts(barelyMoved)).toEqual([1, 2]);
-    expect(stallCounts(clearlyMoved)).toEqual([1, 1]);
-    expect(clearlyMoved.at(-1)?.lastTime).toBe(200.2);
-  });
-
-  // Also pinned deliberately: the tolerance compares against the previous poll
-  // only, so a steady sub-tolerance drift still triggers an intervention.
-  test("intervenes on a drift that stays below the tolerance every single poll", () => {
-    const states = replay([playing(200), playing(200.05), playing(200.1)]);
-
-    expect(stallCounts(states)).toEqual([1, 2, 3]);
-    expect(interventions(states)).toEqual([false, false, true]);
-  });
-
-  test("measures the tolerance against the previous poll, not the first", () => {
-    const states = replay([playing(200), playing(200.3), playing(200.32)]);
-
-    expect(stallCounts(states)).toEqual([1, 1, 2]);
-    expect(states[1]?.lastTime).toBe(200.3);
-  });
 });
 
 describe("shouldForceTrackAdvance", () => {
-  test("stays quiet without state and below three consecutive stalls", () => {
+  test("stays quiet without state and below five consecutive stalls", () => {
     expect(shouldForceTrackAdvance(undefined)).toBe(false);
     expect(
       shouldForceTrackAdvance({ trackId: "a", stallCount: 1, lastTime: 200 }),
     ).toBe(false);
     expect(
-      shouldForceTrackAdvance({ trackId: "a", stallCount: 2, lastTime: 200 }),
+      shouldForceTrackAdvance({ trackId: "a", stallCount: 4, lastTime: 200 }),
     ).toBe(false);
   });
 
-  test("fires from the third consecutive stall onwards", () => {
+  test("fires from the fifth consecutive stall onwards", () => {
     expect(
-      shouldForceTrackAdvance({ trackId: "a", stallCount: 3, lastTime: 200 }),
+      shouldForceTrackAdvance({ trackId: "a", stallCount: 5, lastTime: 200 }),
     ).toBe(true);
     expect(
       shouldForceTrackAdvance({ trackId: "a", stallCount: 9, lastTime: 200 }),
     ).toBe(true);
+  });
+});
+
+describe("abandonedStall", () => {
+  test("reports the count that reached two and then ended in progress", () => {
+    const states = replay([playing(200), playing(200), playing(200.4)]);
+
+    expect(stallCounts(states)).toEqual([1, 2, 1]);
+    expect(abandonedStalls(states)).toEqual([
+      undefined,
+      undefined,
+      { trackId: "track-a", stallCount: 2, lastTime: 200 },
+    ]);
+  });
+
+  test("reports the highest count reached, not the threshold", () => {
+    const states = replay([
+      playing(200),
+      playing(200),
+      playing(200),
+      playing(200),
+      playing(200.4),
+    ]);
+
+    expect(abandonedStalls(states).at(-1)).toEqual({
+      trackId: "track-a",
+      stallCount: 4,
+      lastTime: 200,
+    });
+  });
+
+  test("stays silent for a count that only ever reached one", () => {
+    const states = replay([playing(200), playing(200.4), playing(200.8)]);
+
+    expect(stallCounts(states)).toEqual([1, 1, 1]);
+    expect(abandonedStalls(states).every((stall) => stall === undefined)).toBe(
+      true,
+    );
+  });
+
+  test("reports a count that ended because the track changed", () => {
+    const states = replay([
+      playing(200),
+      playing(200),
+      playing(200, { trackId: "track-b" }),
+    ]);
+
+    expect(abandonedStalls(states).at(-1)).toEqual({
+      trackId: "track-a",
+      stallCount: 2,
+      lastTime: 200,
+    });
+  });
+
+  test("reports a count that ended because playback left the end window", () => {
+    const states = replay([playing(200), playing(200), playing(60)]);
+
+    expect(abandonedStalls(states).at(-1)).toEqual({
+      trackId: "track-a",
+      stallCount: 2,
+      lastTime: 200,
+    });
+  });
+
+  test("stays silent while the count is still climbing", () => {
+    const states = replay([
+      playing(200),
+      playing(200),
+      playing(200),
+      playing(200),
+      playing(200),
+    ]);
+
+    expect(stallCounts(states)).toEqual([1, 2, 3, 4, 5]);
+    expect(abandonedStalls(states).every((stall) => stall === undefined)).toBe(
+      true,
+    );
+  });
+
+  test("stays silent for a count that intervened instead of being abandoned", () => {
+    expect(
+      abandonedStall(
+        { trackId: "track-a", stallCount: 5, lastTime: 200 },
+        undefined,
+      ),
+    ).toBeUndefined();
   });
 });

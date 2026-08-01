@@ -36,6 +36,7 @@ import {
 } from "./handlers.js";
 import { nextPollDelayMs } from "./poll-backoff.js";
 import {
+  abandonedStall,
   advanceStallState,
   shouldForceTrackAdvance,
   type TrackStallState,
@@ -439,6 +440,23 @@ export const startStatusPolling = (
         trackId: currentStatus.currentTrack?.id,
       },
     );
+
+    // A near miss is invisible otherwise: without this line a false trigger and
+    // a real freeze look identical in hindsight.
+    const abandoned = abandonedStall(stallState, nextStallState);
+    if (abandoned !== undefined) {
+      app.log.info(
+        {
+          event: "stall_count_abandoned",
+          playerId,
+          trackId: abandoned.trackId,
+          stallCount: abandoned.stallCount,
+          time: currentStatus.time,
+          duration,
+        },
+        "Track-end stall count ended without intervention",
+      );
+    }
 
     if (shouldForceTrackAdvance(nextStallState)) {
       app.log.warn(
