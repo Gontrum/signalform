@@ -60,6 +60,8 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   getCurrentTime: vi.fn(),
   setSleep: vi.fn().mockResolvedValue(ok(undefined)),
   getSleep: vi.fn().mockResolvedValue(ok(0)),
+  setShuffle: vi.fn().mockResolvedValue(ok(undefined)),
+  setRepeat: vi.fn().mockResolvedValue(ok(undefined)),
   playAlbum: vi.fn(),
   playTidalAlbum: vi.fn(),
   disableRepeat: vi.fn(),

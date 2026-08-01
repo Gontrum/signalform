@@ -66,6 +66,8 @@ const createLmsProxy = (): LmsClient => {
     getCurrentTime: forwardLmsCall((client) => client.getCurrentTime),
     setSleep: forwardLmsCall((client) => client.setSleep),
     getSleep: forwardLmsCall((client) => client.getSleep),
+    setShuffle: forwardLmsCall((client) => client.setShuffle),
+    setRepeat: forwardLmsCall((client) => client.setRepeat),
     playAlbum: forwardLmsCall((client) => client.playAlbum),
     playTidalAlbum: forwardLmsCall((client) => client.playTidalAlbum),
     disableRepeat: forwardLmsCall((client) => client.disableRepeat),

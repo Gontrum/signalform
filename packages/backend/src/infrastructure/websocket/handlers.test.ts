@@ -152,6 +152,26 @@ describe("createPlayerStatusPayload", () => {
     }
   });
 
+  test("carries shuffle and repeat through to the payload", () => {
+    const lmsStatus: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      volume: 50,
+      time: 0,
+      shuffle: "albums",
+      repeat: "track",
+    };
+
+    const result = createPlayerStatusPayload(lmsStatus);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.shuffle).toBe("albums");
+      expect(result.value.repeat).toBe("track");
+    }
+  });
+
   test("payload is valid when queuePreview is omitted (backward compat)", () => {
     const lmsStatus: LmsPlayerStatus = {
       playerId: "player-1",
@@ -251,6 +271,33 @@ describe("hasQueueContextChanged", () => {
       ...prev,
       time: 0,
       queuePreview: [{ id: "track-3", title: "Later Song", artist: "Artist" }],
+    };
+
+    expect(hasQueueContextChanged(prev, current)).toBe(true);
+  });
+
+  test("returns true when shuffle changed while track and preview look unchanged", () => {
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      volume: 50,
+      time: 12,
+      currentTrack: {
+        id: "track-1",
+        title: "Song",
+        artist: "Artist",
+        album: "Album",
+        duration: 180,
+        sources: [],
+      },
+      queuePreview: [],
+      shuffle: "off",
+      repeat: "off",
+    };
+    const current: LmsPlayerStatus = {
+      ...prev,
+      shuffle: "albums",
     };
 
     expect(hasQueueContextChanged(prev, current)).toBe(true);
@@ -520,6 +567,65 @@ describe("hasStatusChanged", () => {
     const result = hasStatusChanged(prev, current);
 
     expect(result).toBe(true);
+  });
+
+  test("returns true when only the shuffle mode changed", () => {
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      volume: 50,
+      time: 10,
+      queuePreview: [{ id: "2", title: "Song A", artist: "Artist" }],
+      shuffle: "off",
+      repeat: "playlist",
+    };
+
+    const current: LmsPlayerStatus = {
+      ...prev,
+      shuffle: "songs",
+    };
+
+    expect(hasStatusChanged(prev, current)).toBe(true);
+  });
+
+  test("returns true when only the repeat mode changed", () => {
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      volume: 50,
+      time: 10,
+      queuePreview: [{ id: "2", title: "Song A", artist: "Artist" }],
+      shuffle: "songs",
+      repeat: "off",
+    };
+
+    const current: LmsPlayerStatus = {
+      ...prev,
+      repeat: "track",
+    };
+
+    expect(hasStatusChanged(prev, current)).toBe(true);
+  });
+
+  test("returns false when both modes stay put", () => {
+    const prev: LmsPlayerStatus = {
+      playerId: "player-1",
+      playerConnected: true,
+      mode: "play",
+      volume: 50,
+      time: 10,
+      shuffle: "albums",
+      repeat: "track",
+    };
+
+    const current: LmsPlayerStatus = {
+      ...prev,
+      time: 11,
+    };
+
+    expect(hasStatusChanged(prev, current)).toBe(false);
   });
 
   test("returns false when nothing changed (paused at same position)", () => {

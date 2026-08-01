@@ -8,7 +8,13 @@
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
  */
 
-import { ok, err, type Result } from "@signalform/shared";
+import {
+  ok,
+  err,
+  type RepeatMode,
+  type Result,
+  type ShuffleMode,
+} from "@signalform/shared";
 import { z } from "zod";
 import type {
   LmsCommand,
@@ -38,11 +44,45 @@ export type PlaybackMethods = {
   readonly getCurrentTime: () => Promise<Result<number, LmsError>>;
   readonly setSleep: (seconds: number) => Promise<Result<void, LmsError>>;
   readonly getSleep: () => Promise<Result<number, LmsError>>;
+  readonly setShuffle: (mode: ShuffleMode) => Promise<Result<void, LmsError>>;
+  readonly setRepeat: (mode: RepeatMode) => Promise<Result<void, LmsError>>;
 };
 
 const isPlayerMode = (value: string): value is PlayerStatus["mode"] => {
   return value === "play" || value === "pause" || value === "stop";
 };
+
+const SHUFFLE_MODE_TO_LMS: Readonly<Record<ShuffleMode, string>> = {
+  off: "0",
+  songs: "1",
+  albums: "2",
+};
+
+const REPEAT_MODE_TO_LMS: Readonly<Record<RepeatMode, string>> = {
+  off: "0",
+  track: "1",
+  playlist: "2",
+};
+
+const LMS_TO_SHUFFLE_MODE: Readonly<Record<string, ShuffleMode>> = {
+  "0": "off",
+  "1": "songs",
+  "2": "albums",
+};
+
+const LMS_TO_REPEAT_MODE: Readonly<Record<string, RepeatMode>> = {
+  "0": "off",
+  "1": "track",
+  "2": "playlist",
+};
+
+// LMS reports the mode as a number on some versions and as a string on others,
+// and omits the field entirely on others still — none of that may sink a status.
+const toShuffleMode = (raw: number | string | undefined): ShuffleMode =>
+  LMS_TO_SHUFFLE_MODE[String(raw)] ?? "off";
+
+const toRepeatMode = (raw: number | string | undefined): RepeatMode =>
+  LMS_TO_REPEAT_MODE[String(raw)] ?? "off";
 
 const statusTrackSchema = z.object({
   ...numericIdTrackFieldsSchema,
@@ -60,6 +100,8 @@ const statusPayloadParser = createLmsResultParser(
     time: z.union([z.number(), z.string()]).optional(),
     duration: z.union([z.number(), z.string()]).optional(),
     "mixer volume": z.union([z.number(), z.string()]).optional(),
+    "playlist shuffle": z.union([z.number(), z.string()]).optional(),
+    "playlist repeat": z.union([z.number(), z.string()]).optional(),
     playlist_loop: z.array(statusTrackSchema).optional(),
   }),
 );
@@ -237,6 +279,8 @@ const createPlaybackMethodsImplementation = (
         volume: Number.isFinite(normalizedVolume) ? normalizedVolume : 0,
         currentTrack,
         queuePreview,
+        shuffle: toShuffleMode(result.value["playlist shuffle"]),
+        repeat: toRepeatMode(result.value["playlist repeat"]),
       };
 
       return ok(status);
@@ -424,6 +468,54 @@ const createPlaybackMethodsImplementation = (
 
       // Round to integer seconds, fail safe to 0 on non-numeric values
       return ok(Number.isFinite(remaining) ? Math.round(remaining) : 0);
+    },
+
+    /**
+     * Set the playlist shuffle mode.
+     *
+     * Uses LMS command: ['playlist', 'shuffle', '0' | '1' | '2']
+     * 0 = off, 1 = by songs, 2 = by albums.
+     *
+     * @param mode - Shuffle mode to apply
+     * @returns Result with void or error
+     */
+    setShuffle: async (mode: ShuffleMode): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = [
+        "playlist",
+        "shuffle",
+        SHUFFLE_MODE_TO_LMS[mode],
+      ];
+      const result = await executeCommand(command);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(undefined);
+    },
+
+    /**
+     * Set the playlist repeat mode.
+     *
+     * Uses LMS command: ['playlist', 'repeat', '0' | '1' | '2']
+     * 0 = off, 1 = current track, 2 = whole playlist.
+     *
+     * @param mode - Repeat mode to apply
+     * @returns Result with void or error
+     */
+    setRepeat: async (mode: RepeatMode): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = [
+        "playlist",
+        "repeat",
+        REPEAT_MODE_TO_LMS[mode],
+      ];
+      const result = await executeCommand(command);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(undefined);
     },
   };
 };

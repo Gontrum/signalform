@@ -132,6 +132,8 @@ const createStatus = (label: string): PlayerStatus => ({
     type: "track",
   },
   queuePreview: [],
+  shuffle: "off",
+  repeat: "off",
 });
 
 const createMockLmsClient = (label: string): LmsClient => ({
@@ -148,6 +150,8 @@ const createMockLmsClient = (label: string): LmsClient => ({
   getCurrentTime: vi.fn(async () => ok(0)),
   setSleep: vi.fn(async () => ok(undefined)),
   getSleep: vi.fn(async () => ok(0)),
+  setShuffle: vi.fn(async () => ok(undefined)),
+  setRepeat: vi.fn(async () => ok(undefined)),
   playAlbum: vi.fn(async () => ok(undefined)),
   playTidalAlbum: vi.fn(async () => ok(undefined)),
   disableRepeat: vi.fn(async () => ok(undefined)),

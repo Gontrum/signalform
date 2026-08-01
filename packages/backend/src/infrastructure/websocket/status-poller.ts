@@ -286,6 +286,8 @@ export const startStatusPolling = (
       volume: statusResult.value.volume,
       time: statusResult.value.time,
       queuePreview: statusResult.value.queuePreview,
+      shuffle: statusResult.value.shuffle,
+      repeat: statusResult.value.repeat,
     };
 
     // Player-connectivity transition detection: orthogonal to the LMS-reachable

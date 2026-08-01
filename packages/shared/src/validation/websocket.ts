@@ -80,6 +80,8 @@ export const PlayerStatusPayloadSchema = z.object({
   currentTime: z.number().nonnegative(),
   timestamp: z.number().positive(),
   queuePreview: z.array(QueuePreviewItemSchema).optional(),
+  shuffle: z.enum(["off", "songs", "albums"]).optional(),
+  repeat: z.enum(["off", "track", "playlist"]).optional(),
 });
 
 /**

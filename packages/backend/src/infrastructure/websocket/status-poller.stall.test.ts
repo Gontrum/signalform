@@ -53,6 +53,8 @@ const playingAt = (
     volume: 50,
     currentTrack: makeTrack("track-a"),
     queuePreview: [],
+    shuffle: "off",
+    repeat: "off",
     ...overrides,
   });
 

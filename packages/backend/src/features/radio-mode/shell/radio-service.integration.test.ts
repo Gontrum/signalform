@@ -190,6 +190,8 @@ const createMockLmsClient = (): MockLmsClient => ({
       volume: 50,
       currentTrack: null,
       queuePreview: [],
+      shuffle: "off" as const,
+      repeat: "off" as const,
     },
   }),
   removeFromQueue: vi
@@ -240,6 +242,8 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
       volume: 50,
       currentTrack: null,
       queuePreview: [],
+      shuffle: "off" as const,
+      repeat: "off" as const,
     },
   });
   mockLmsClient.removeFromQueue.mockReset().mockResolvedValue(ok(undefined));
@@ -829,6 +833,8 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
         volume: 50,
         currentTrack: null,
         queuePreview: [],
+        shuffle: "off" as const,
+        repeat: "off" as const,
       },
     });
 
@@ -3169,6 +3175,8 @@ describe("artist.getSimilar fallback when track.getSimilar returns no results", 
         volume: 50,
         currentTrack: null,
         queuePreview: [],
+        shuffle: "off" as const,
+        repeat: "off" as const,
       },
     });
 

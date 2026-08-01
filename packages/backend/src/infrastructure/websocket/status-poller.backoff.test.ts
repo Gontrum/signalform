@@ -68,6 +68,8 @@ const makePlayerStatus = (): PlayerStatus => ({
   volume: 50,
   currentTrack: null,
   queuePreview: [],
+  shuffle: "off",
+  repeat: "off",
 });
 
 const unreachableLms = (): Result<PlayerStatus, LmsError> =>

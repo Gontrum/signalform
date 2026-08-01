@@ -1347,6 +1347,8 @@ describe("GET /api/playback/status", () => {
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 42,
         duration: 240,
         volume: 70,
@@ -1403,6 +1405,8 @@ describe("GET /api/playback/status", () => {
       ok({
         mode: "pause" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 10,
         duration: 240,
         volume: 70,
@@ -1425,6 +1429,8 @@ describe("GET /api/playback/status", () => {
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 70,

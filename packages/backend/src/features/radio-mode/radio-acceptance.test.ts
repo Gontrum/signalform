@@ -144,6 +144,8 @@ const createMockLmsClient = (
     value: {
       mode: "play",
       playerConnected: true,
+      shuffle: "off" as const,
+      repeat: "off" as const,
       time: 120,
       duration: 240,
       volume: 50,
@@ -265,6 +267,8 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 120,
         duration: 240,
         volume: 50,
@@ -283,6 +287,8 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -402,6 +408,8 @@ describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -480,6 +488,8 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -567,6 +577,8 @@ describe("AC5: Artist diversity maintained across radio triggers", () => {
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -721,6 +733,8 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 60,
         duration: 240,
         volume: 50,
@@ -749,6 +763,8 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 180,
         duration: 240,
         volume: 50,
@@ -819,6 +835,8 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 60,
         duration: 240,
         volume: 50,
@@ -847,6 +865,8 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 180,
         duration: 240,
         volume: 50,
@@ -916,6 +936,8 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
         value: {
           mode: "stop" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -969,6 +991,8 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -1029,6 +1053,8 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -1085,6 +1111,8 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -1138,6 +1166,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 200,
         duration: 240,
         volume: 50,
@@ -1156,6 +1186,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -1220,6 +1252,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 200,
         duration: 240,
         volume: 50,
@@ -1238,6 +1272,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -1293,6 +1329,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -1302,6 +1340,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 30,
         duration: 240,
         volume: 50,
@@ -1320,6 +1360,8 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -1383,6 +1425,8 @@ describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -1464,6 +1508,8 @@ describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proa
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 120,
         duration: 240,
         volume: 50,
@@ -1497,6 +1543,8 @@ describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proa
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 230,
         duration: 240,
         volume: 50,
@@ -1576,6 +1624,8 @@ describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (sto
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 230,
         duration: 240,
         volume: 50,
@@ -1599,6 +1649,8 @@ describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (sto
       ok({
         mode: "stop" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 0,
         volume: 50,
@@ -1649,6 +1701,8 @@ describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids a
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 12,
         duration: 240,
         volume: 50,
@@ -1678,6 +1732,8 @@ describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids a
       ok({
         mode: "play" as const,
         playerConnected: true,
+        shuffle: "off" as const,
+        repeat: "off" as const,
         time: 0,
         duration: 240,
         volume: 50,
@@ -1827,6 +1883,8 @@ describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Ti
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -1889,6 +1947,8 @@ describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal 
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -1945,6 +2005,8 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -2036,6 +2098,8 @@ describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -2165,6 +2229,8 @@ describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => 
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 0,
           duration: 0,
           volume: 50,
@@ -2255,6 +2321,8 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,
@@ -2331,6 +2399,8 @@ describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tid
         value: {
           mode: "play" as const,
           playerConnected: true,
+          shuffle: "off" as const,
+          repeat: "off" as const,
           time: 120,
           duration: 240,
           volume: 50,

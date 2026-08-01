@@ -244,6 +244,8 @@ const makePlayerStatus = (
   volume: 50,
   currentTrack: null,
   queuePreview: [],
+  shuffle: "off",
+  repeat: "off",
   ...overrides,
 });
 

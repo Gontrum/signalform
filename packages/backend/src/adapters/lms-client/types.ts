@@ -5,7 +5,12 @@
  * Follows functional programming patterns with readonly types and Result<T, E>.
  */
 
-import type { AudioQuality, QueuePreviewItem } from "@signalform/shared";
+import type {
+  AudioQuality,
+  QueuePreviewItem,
+  RepeatMode,
+  ShuffleMode,
+} from "@signalform/shared";
 
 /**
  * Configuration for LMS client connection.
@@ -254,6 +259,8 @@ export type PlayerStatus = {
   readonly volume: number; // 0-100
   readonly currentTrack: SearchResult | null;
   readonly queuePreview: readonly QueuePreviewItem[];
+  readonly shuffle: ShuffleMode; // LMS "playlist shuffle"; "off" when absent or unknown
+  readonly repeat: RepeatMode; // LMS "playlist repeat"; "off" when absent or unknown
 };
 
 /**

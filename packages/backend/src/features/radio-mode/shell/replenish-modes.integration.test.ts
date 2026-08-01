@@ -262,6 +262,8 @@ const createMockLmsClient = (): MockLmsClient => ({
       volume: 50,
       currentTrack: null,
       queuePreview: [],
+      shuffle: "off" as const,
+      repeat: "off" as const,
     },
   }),
   resume: vi.fn<LmsClient["resume"]>().mockResolvedValue(ok(undefined)),
@@ -297,6 +299,8 @@ const resetMockLmsClient = (mockLmsClient: MockLmsClient): void => {
       volume: 50,
       currentTrack: null,
       queuePreview: [],
+      shuffle: "off" as const,
+      repeat: "off" as const,
     },
   });
   mockLmsClient.resume.mockReset().mockResolvedValue(ok(undefined));

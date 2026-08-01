@@ -4,7 +4,7 @@
  * Registers all /api/playback/* endpoints by delegating to focused
  * sub-route modules:
  *
- *   transport-routes  — play, pause, resume, next, previous
+ *   transport-routes  — play, pause, resume, next, previous, shuffle, repeat
  *   tidal-routes      — play-album, play-tidal-search-album, play-track-list
  *   status-routes     — volume, seek, time, cover, status
  */

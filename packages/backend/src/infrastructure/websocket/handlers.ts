@@ -6,6 +6,8 @@
 
 import type {
   PlayerStatusPayload,
+  RepeatMode,
+  ShuffleMode,
   SystemEventPayload,
   QueuePreviewItem,
 } from "@signalform/shared";
@@ -27,6 +29,8 @@ export type LmsPlayerStatus = {
   readonly volume: number;
   readonly time: number;
   readonly queuePreview?: readonly QueuePreviewItem[];
+  readonly shuffle?: ShuffleMode;
+  readonly repeat?: RepeatMode;
 };
 
 /**
@@ -77,6 +81,8 @@ export const createPlayerStatusPayload = (
     currentTime: lmsStatus.time,
     timestamp: Date.now(),
     queuePreview: lmsStatus.queuePreview,
+    shuffle: lmsStatus.shuffle,
+    repeat: lmsStatus.repeat,
   };
 
   // Validate with Zod schema (runtime type safety)
@@ -163,6 +169,8 @@ export const hasStatusChanged = (
     prev.playerConnected !== current.playerConnected ||
     prev.currentTrack?.id !== current.currentTrack?.id ||
     prev.volume !== current.volume ||
+    prev.shuffle !== current.shuffle ||
+    prev.repeat !== current.repeat ||
     getQueuePreviewIdsKey(prev) !== getQueuePreviewIdsKey(current)
   );
 };
@@ -175,8 +183,13 @@ export const hasQueueContextChanged = (
     return false;
   }
 
+  // Shuffle belongs here too: LMS reorders the whole playlist when the shuffle
+  // mode changes, and the 3-track preview can stay identical through that
+  // reorder (an empty preview always does) — the queue view would keep the old
+  // order until some later, unrelated change.
   return (
     prev.currentTrack?.id !== current.currentTrack?.id ||
+    prev.shuffle !== current.shuffle ||
     getQueuePreviewIdsKey(prev) !== getQueuePreviewIdsKey(current)
   );
 };

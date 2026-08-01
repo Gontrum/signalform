@@ -144,6 +144,46 @@ describe("PlayerStatusPayloadSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  test("validates payload carrying shuffle and repeat modes", () => {
+    const payload = {
+      playerId: "player-1",
+      status: "playing" as const,
+      currentTime: 0,
+      timestamp: Date.now(),
+      shuffle: "albums" as const,
+      repeat: "track" as const,
+    };
+
+    const result = PlayerStatusPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(true);
+  });
+
+  test("rejects a shuffle mode LMS cannot express", () => {
+    const payload = {
+      playerId: "player-1",
+      status: "playing" as const,
+      currentTime: 0,
+      timestamp: Date.now(),
+      shuffle: "sometimes",
+    };
+
+    const result = PlayerStatusPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
+  test("rejects a repeat mode LMS cannot express", () => {
+    const payload = {
+      playerId: "player-1",
+      status: "playing" as const,
+      currentTime: 0,
+      timestamp: Date.now(),
+      repeat: "album",
+    };
+
+    const result = PlayerStatusPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(false);
+  });
+
   test("rejects invalid status value", () => {
     const payload = {
       playerId: "player-1",

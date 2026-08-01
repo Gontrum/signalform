@@ -7,6 +7,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
+import type { RepeatMode, ShuffleMode } from "@signalform/shared";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { initiatePlayback } from "../core/service.js";
 import {
@@ -17,6 +18,17 @@ import { sendLmsError } from "../../../infrastructure/http-errors.js";
 
 const PlayRequestSchema = z.object({
   trackUrl: z.string().min(1, "Track URL is required"),
+});
+
+const SHUFFLE_MODES: readonly ShuffleMode[] = ["off", "songs", "albums"];
+const REPEAT_MODES: readonly RepeatMode[] = ["off", "track", "playlist"];
+
+const ShuffleRequestSchema = z.object({
+  mode: z.enum(SHUFFLE_MODES),
+});
+
+const RepeatRequestSchema = z.object({
+  mode: z.enum(REPEAT_MODES),
 });
 
 export const registerTransportRoutes = (
@@ -212,6 +224,104 @@ export const registerTransportRoutes = (
 
       const duration = Date.now() - startTime;
       request.log.info({ duration }, "Resume playback successful");
+      return reply.code(200).send({});
+    },
+  );
+
+  /**
+   * POST /api/playback/shuffle
+   * Set shuffle mode.  Body: { mode: "off" | "songs" | "albums" }
+   * 200 | 400 | 503
+   */
+  fastify.post<{ readonly Body: unknown }>(
+    "/api/playback/shuffle",
+    async (
+      request: FastifyRequest<{ readonly Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const startTime = Date.now();
+
+      request.log.debug(
+        { endpoint: "/api/playback/shuffle", method: "POST" },
+        "Set shuffle mode request received",
+      );
+
+      const validation = ShuffleRequestSchema.safeParse(request.body);
+      if (!validation.success) {
+        request.log.warn(
+          { errors: validation.error.issues },
+          "Invalid shuffle request",
+        );
+        return reply.code(400).send({
+          error: "VALIDATION_ERROR",
+          message: "Shuffle mode must be one of: off, songs, albums",
+          details: validation.error.issues,
+        });
+      }
+
+      const { mode } = validation.data;
+      const result = await lmsClient.setShuffle(mode);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS set shuffle failed",
+        );
+      }
+
+      const duration = Date.now() - startTime;
+      request.log.info({ mode, duration }, "Shuffle mode set successfully");
+      return reply.code(200).send({});
+    },
+  );
+
+  /**
+   * POST /api/playback/repeat
+   * Set repeat mode.  Body: { mode: "off" | "track" | "playlist" }
+   * 200 | 400 | 503
+   */
+  fastify.post<{ readonly Body: unknown }>(
+    "/api/playback/repeat",
+    async (
+      request: FastifyRequest<{ readonly Body: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      const startTime = Date.now();
+
+      request.log.debug(
+        { endpoint: "/api/playback/repeat", method: "POST" },
+        "Set repeat mode request received",
+      );
+
+      const validation = RepeatRequestSchema.safeParse(request.body);
+      if (!validation.success) {
+        request.log.warn(
+          { errors: validation.error.issues },
+          "Invalid repeat request",
+        );
+        return reply.code(400).send({
+          error: "VALIDATION_ERROR",
+          message: "Repeat mode must be one of: off, track, playlist",
+          details: validation.error.issues,
+        });
+      }
+
+      const { mode } = validation.data;
+      const result = await lmsClient.setRepeat(mode);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS set repeat failed",
+        );
+      }
+
+      const duration = Date.now() - startTime;
+      request.log.info({ mode, duration }, "Repeat mode set successfully");
       return reply.code(200).send({});
     },
   );

@@ -5,6 +5,7 @@
 
 import type { Track } from "./track.js";
 import type { QueueTrack } from "./queue.js";
+import type { RepeatMode, ShuffleMode } from "./playback.js";
 
 /**
  * Player status values
@@ -30,6 +31,8 @@ export type PlayerStatusPayload = {
   readonly currentTime: number; // Current playback position in seconds
   readonly timestamp: number; // Milliseconds since epoch for latency measurement
   readonly queuePreview?: readonly QueuePreviewItem[];
+  readonly shuffle?: ShuffleMode;
+  readonly repeat?: RepeatMode;
 };
 
 /**
