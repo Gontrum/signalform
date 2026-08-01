@@ -14,27 +14,36 @@ import type { PlaybackApiError } from '@/platform/api/playbackApi'
  * @param operation - Operation type (play, next, previous, pause, resume) - defaults to 'play'
  * @returns User-friendly error message
  */
+type PlaybackOperation =
+  | 'play'
+  | 'next'
+  | 'previous'
+  | 'pause'
+  | 'resume'
+  | 'volume'
+  | 'seek'
+  | 'time'
+  | 'shuffle'
+  | 'repeat'
+
+const OPERATION_TEXT: Readonly<Record<PlaybackOperation, string>> = {
+  play: 'start playback',
+  next: 'skip to next track',
+  previous: 'skip to previous track',
+  pause: 'pause playback',
+  resume: 'resume playback',
+  volume: 'change volume',
+  seek: 'seek to position',
+  time: 'get playback time',
+  shuffle: 'change shuffle mode',
+  repeat: 'change repeat mode',
+}
+
 export const mapPlaybackErrorMessage = (
   error: PlaybackApiError,
-  operation:
-    'play' | 'next' | 'previous' | 'pause' | 'resume' | 'volume' | 'seek' | 'time' = 'play',
+  operation: PlaybackOperation = 'play',
 ): string => {
-  const operationText =
-    operation === 'play'
-      ? 'start playback'
-      : operation === 'next'
-        ? 'skip to next track'
-        : operation === 'previous'
-          ? 'skip to previous track'
-          : operation === 'pause'
-            ? 'pause playback'
-            : operation === 'resume'
-              ? 'resume playback'
-              : operation === 'volume'
-                ? 'change volume'
-                : operation === 'seek'
-                  ? 'seek to position'
-                  : 'get playback time'
+  const operationText = OPERATION_TEXT[operation]
 
   switch (error.type) {
     case 'TIMEOUT_ERROR':

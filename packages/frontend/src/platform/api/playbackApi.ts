@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { Result } from '@signalform/shared'
+import type { RepeatMode, Result, ShuffleMode } from '@signalform/shared'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import { fetchJsonResult, fetchVoidResult } from '@/platform/api/requestResult'
 import {
@@ -34,11 +34,19 @@ const CurrentTrackStatusSchema = z.object({
   audioQuality: AudioQualitySchema.optional(),
 })
 
+const ShuffleModeSchema: z.ZodType<ShuffleMode> = z.enum(['off', 'songs', 'albums'])
+
+const RepeatModeSchema: z.ZodType<RepeatMode> = z.enum(['off', 'track', 'playlist'])
+
+// Optional, not defaulted: a backend older than the mode routes omits both
+// fields entirely, and a status without them must still parse.
 const PlaybackStatusResponseSchema = z.object({
   status: z.enum(['playing', 'paused', 'stopped']),
   currentTime: z.number(),
   currentTrack: CurrentTrackStatusSchema.optional(),
   queuePreview: z.array(QueuePreviewItemSchema),
+  shuffle: ShuffleModeSchema.optional(),
+  repeat: RepeatModeSchema.optional(),
 })
 
 export type PlaybackStatusResponse = z.infer<typeof PlaybackStatusResponseSchema>
@@ -200,6 +208,44 @@ export const getVolume = async (): Promise<Result<number, PlaybackApiError>> => 
     fallbackMessage: 'Get volume failed',
     abortMessage: 'Get volume request was aborted',
     timeoutMessage: 'Get volume request timed out (5s)',
+  })
+}
+
+export const setShuffleMode = async (
+  mode: ShuffleMode,
+): Promise<Result<void, PlaybackApiError>> => {
+  return await runVoidPlaybackRequest({
+    url: getApiUrl('/api/playback/shuffle'),
+    init: {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mode }),
+      signal: AbortSignal.timeout(15000),
+    },
+    fallbackMessage: 'Set shuffle mode failed',
+    abortMessage: 'Set shuffle mode request was aborted',
+    timeoutMessage: 'Set shuffle mode request timed out (15s)',
+    validationStatuses: [400],
+  })
+}
+
+export const setRepeatMode = async (mode: RepeatMode): Promise<Result<void, PlaybackApiError>> => {
+  return await runVoidPlaybackRequest({
+    url: getApiUrl('/api/playback/repeat'),
+    init: {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ mode }),
+      signal: AbortSignal.timeout(15000),
+    },
+    fallbackMessage: 'Set repeat mode failed',
+    abortMessage: 'Set repeat mode request was aborted',
+    timeoutMessage: 'Set repeat mode request timed out (15s)',
+    validationStatuses: [400],
   })
 }
 

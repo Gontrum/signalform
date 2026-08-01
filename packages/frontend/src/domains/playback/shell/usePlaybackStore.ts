@@ -11,6 +11,8 @@ import {
   seek as apiSeek,
   getCurrentTime as apiGetCurrentTime,
   getPlaybackStatus,
+  setShuffleMode as apiSetShuffleMode,
+  setRepeatMode as apiSetRepeatMode,
 } from '@/platform/api/playbackApi'
 import { mapPlaybackErrorMessage } from '@/utils/errorMessages'
 import { useWebSocket } from '@/app/useWebSocket'
@@ -20,7 +22,10 @@ import type {
   QueueUpdatedPayload,
   SystemEventPayload,
   QueuePreviewItem,
+  RepeatMode,
+  ShuffleMode,
 } from '@signalform/shared'
+import { nextRepeatMode, nextShuffleMode } from '@signalform/shared'
 import {
   calculateProgressPercent,
   getPlaybackState,
@@ -67,6 +72,11 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   // Queue preview state (Story 4.6)
   const queuePreview = ref<readonly QueuePreviewItem[]>([])
+
+  // Shuffle/repeat state — 'off' until the first status arrives, so the
+  // buttons never have to render an unknown mode.
+  const shuffleMode = ref<ShuffleMode>('off')
+  const repeatMode = ref<RepeatMode>('off')
 
   // LMS connectivity state (S02: actionable error with retry)
   const lmsError = ref<string | null>(null)
@@ -120,6 +130,19 @@ export const usePlaybackStore = defineStore('playback', () => {
     }
   }
 
+  // A missing field means "this message carries no mode information" (older
+  // backend, partial WS payload) — keep what the last status established
+  // instead of silently reporting 'off'.
+  const applyPlaybackModes = (shuffle?: ShuffleMode, repeat?: RepeatMode): void => {
+    if (shuffle !== undefined) {
+      shuffleMode.value = shuffle
+    }
+
+    if (repeat !== undefined) {
+      repeatMode.value = repeat
+    }
+  }
+
   const advancePlaybackSnapshotRevision = (): void => {
     playbackSnapshotRevision.value += 1
   }
@@ -164,10 +187,13 @@ export const usePlaybackStore = defineStore('playback', () => {
       currentTime: nextCurrentTime,
       currentTrack: track,
       queuePreview: nextQueuePreview,
+      shuffle,
+      repeat,
     } = statusResult.value
 
     advancePlaybackSnapshotRevision()
     applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
+    applyPlaybackModes(shuffle, repeat)
 
     return status === expectedStatus
   }
@@ -188,8 +214,11 @@ export const usePlaybackStore = defineStore('playback', () => {
       currentTime: nextCurrentTime,
       currentTrack: track,
       queuePreview: nextQueuePreview,
+      shuffle,
+      repeat,
     } = result.value
     applyPlaybackSnapshot(status, nextCurrentTime, track ?? null, nextQueuePreview)
+    applyPlaybackModes(shuffle, repeat)
   }
 
   const fetchCurrentTime = async (): Promise<boolean> => {
@@ -291,6 +320,7 @@ export const usePlaybackStore = defineStore('playback', () => {
       payload.currentTrack ? mapStatusTrackToTrackInfo(payload.currentTrack) : null,
       payload.queuePreview ?? [],
     )
+    applyPlaybackModes(payload.shuffle, payload.repeat)
   })
 
   on('player.queue.updated', (payload: QueueUpdatedPayload) => {
@@ -444,6 +474,50 @@ export const usePlaybackStore = defineStore('playback', () => {
 
     // Success - WebSocket will update currentTrack
     isLoading.value = false
+  }
+
+  /**
+   * Advance shuffle to the next mode (optimistic, rolled back on failure)
+   */
+  const cycleShuffleMode = async (): Promise<void> => {
+    const previousMode = shuffleMode.value
+    const targetMode = nextShuffleMode(previousMode)
+
+    shuffleMode.value = targetMode
+    error.value = null
+
+    const result = await apiSetShuffleMode(targetMode)
+
+    if (!result.ok) {
+      // Only undo our own optimistic value: a status update that arrived while
+      // the call was in flight reports what the player really does and wins.
+      if (shuffleMode.value === targetMode) {
+        shuffleMode.value = previousMode
+      }
+      error.value = mapPlaybackErrorMessage(result.error, 'shuffle')
+    }
+  }
+
+  /**
+   * Advance repeat to the next mode (optimistic, rolled back on failure)
+   */
+  const cycleRepeatMode = async (): Promise<void> => {
+    const previousMode = repeatMode.value
+    const targetMode = nextRepeatMode(previousMode)
+
+    repeatMode.value = targetMode
+    error.value = null
+
+    const result = await apiSetRepeatMode(targetMode)
+
+    if (!result.ok) {
+      // Only undo our own optimistic value: a status update that arrived while
+      // the call was in flight reports what the player really does and wins.
+      if (repeatMode.value === targetMode) {
+        repeatMode.value = previousMode
+      }
+      error.value = mapPlaybackErrorMessage(result.error, 'repeat')
+    }
   }
 
   /**
@@ -625,6 +699,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     currentTime,
     trackDuration,
     queuePreview,
+    shuffleMode,
+    repeatMode,
     lmsError,
     isRetryingLms,
     playerError,
@@ -644,6 +720,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     clearError,
     skipToNext,
     skipToPrevious,
+    cycleShuffleMode,
+    cycleRepeatMode,
     setVolume,
     setVolumeOptimistic,
     fetchCurrentVolume,

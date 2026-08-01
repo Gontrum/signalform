@@ -122,6 +122,12 @@ export type MessageKey =
   | 'nowPlaying.viewFullQueue'
   | 'nowPlaying.playingBadge'
   | 'nowPlaying.pausedBadge'
+  | 'nowPlaying.shuffle.off'
+  | 'nowPlaying.shuffle.songs'
+  | 'nowPlaying.shuffle.albums'
+  | 'nowPlaying.repeat.off'
+  | 'nowPlaying.repeat.track'
+  | 'nowPlaying.repeat.playlist'
   | 'artist.errorNotFoundTitle'
   | 'artist.errorServerTitle'
   | 'artist.errorNotFoundMessage'
@@ -336,6 +342,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nowPlaying.viewFullQueue': 'View Full Queue',
     'nowPlaying.playingBadge': 'Now Playing',
     'nowPlaying.pausedBadge': 'Paused',
+    'nowPlaying.shuffle.off': 'Shuffle off',
+    'nowPlaying.shuffle.songs': 'Shuffle songs',
+    'nowPlaying.shuffle.albums': 'Shuffle albums',
+    'nowPlaying.repeat.off': 'Repeat off',
+    'nowPlaying.repeat.track': 'Repeat track',
+    'nowPlaying.repeat.playlist': 'Repeat queue',
     'artist.errorNotFoundTitle': 'No albums found',
     'artist.errorServerTitle': 'Unable to load artist',
     'artist.errorNotFoundMessage': 'No albums were found for this artist.',
@@ -551,6 +563,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nowPlaying.viewFullQueue': 'Warteschlange anzeigen',
     'nowPlaying.playingBadge': 'Läuft gerade',
     'nowPlaying.pausedBadge': 'Pausiert',
+    'nowPlaying.shuffle.off': 'Zufallswiedergabe aus',
+    'nowPlaying.shuffle.songs': 'Titel zufällig',
+    'nowPlaying.shuffle.albums': 'Alben zufällig',
+    'nowPlaying.repeat.off': 'Wiederholung aus',
+    'nowPlaying.repeat.track': 'Titel wiederholen',
+    'nowPlaying.repeat.playlist': 'Warteschlange wiederholen',
     'artist.errorNotFoundTitle': 'Keine Alben gefunden',
     'artist.errorServerTitle': 'Künstler konnte nicht geladen werden',
     'artist.errorNotFoundMessage': 'Für diesen Künstler wurden keine Alben gefunden.',

@@ -25,6 +25,8 @@ vi.mock('@/platform/api/playbackApi', async () => {
     resumePlayback: vi.fn().mockResolvedValue(ok(undefined)),
     setVolume: vi.fn().mockResolvedValue(ok(undefined)),
     getVolume: vi.fn().mockResolvedValue(ok(50)),
+    setShuffleMode: vi.fn().mockResolvedValue(ok(undefined)),
+    setRepeatMode: vi.fn().mockResolvedValue(ok(undefined)),
     getPlaybackStatus: vi
       .fn()
       .mockResolvedValue(

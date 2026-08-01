@@ -107,6 +107,20 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback - request was cancelled')
     })
 
+    it('names the shuffle operation instead of playback', () => {
+      const error: PlaybackApiError = { type: 'NETWORK_ERROR', message: 'ECONNREFUSED' }
+
+      expect(mapPlaybackErrorMessage(error, 'shuffle')).toBe(
+        'Could not change shuffle mode - cannot connect to server',
+      )
+    })
+
+    it('names the repeat operation instead of playback', () => {
+      const error: PlaybackApiError = { type: 'SERVER_ERROR', status: 503, message: 'boom' }
+
+      expect(mapPlaybackErrorMessage(error, 'repeat')).toBe('Could not change repeat mode')
+    })
+
     it('critical error messages include "Could not start playback" (AC5 compliance)', () => {
       const errorTypes: readonly PlaybackApiError[] = [
         { type: 'VALIDATION_ERROR', status: 400, message: 'validation' },
