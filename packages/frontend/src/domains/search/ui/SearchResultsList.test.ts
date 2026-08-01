@@ -246,13 +246,6 @@ describe('SearchResultsList', () => {
     await thenPlayEventIsEmitted(wrapper, mockResults[0]!.id)
   })
 
-  // TODO(Story 3.x): Re-enable duration tests when LMS metadata implemented
-  // it('displays duration in mm:ss format', async () => {
-  //   await whenTrackResultsListIsMounted(mockResults)
-  //   const text = wrapper.text()
-  //   expect(text).toContain('6:22') // 382 seconds = 6:22
-  // })
-
   it('handles missing duration gracefully', async () => {
     const firstResult = mockResults[0]
     if (!firstResult) {

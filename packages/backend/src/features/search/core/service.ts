@@ -364,7 +364,10 @@ export const deduplicateTracks = (
       artist: group[0]!.artist,
       albumartist: group[0]!.albumartist,
       album: group[0]!.album,
-      duration: undefined, // TODO(Story 3.x): Implement LMS metadata query for track duration
+      // Tidal hits carry no duration — fall back to a local duplicate's rather than drop a value the group has.
+      duration:
+        group.find((t) => t.url === best.url)?.duration ??
+        group.find((t) => t.duration !== undefined)?.duration,
       url: best.url,
       source: best.source,
       availableSources: sources,

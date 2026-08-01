@@ -80,6 +80,7 @@ export type SearchResult = {
   readonly artist: string;
   readonly albumartist?: string; // LMS tag A — album-level artist; overrides track artist for album display
   readonly album: string;
+  readonly duration?: number; // LMS tag d, seconds; undefined for Tidal hits (browse response has no duration)
   readonly url: string;
   readonly source: "local" | "qobuz" | "tidal" | "unknown";
   readonly type: "track" | "artist" | "album";

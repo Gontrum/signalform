@@ -81,7 +81,7 @@ export type DeduplicatedTrackResult = {
   readonly artist: string;
   readonly albumartist?: string; // LMS tag A — album-level artist for correct album grouping display
   readonly album: string;
-  readonly duration?: number; // Optional - LMS search API doesn't provide it
+  readonly duration?: number; // Optional: Tidal hits carry no duration; local hits have it via LMS tag d
   readonly url: string; // URL of best (quality- or priority-selected) source
   readonly source: "local" | "qobuz" | "tidal" | "unknown"; // Best source
   readonly availableSources: readonly AvailableSource[]; // All sources incl. selected

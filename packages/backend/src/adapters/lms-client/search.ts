@@ -52,6 +52,7 @@ const localSearchPayloadParser = createLmsResultParser(
         z.object({
           ...trackIdentityFieldsSchema,
           ...audioQualityFieldsSchema,
+          duration: z.union([z.number(), z.string()]).optional(),
           remote: z.string().optional(),
           artist_ids: z.string().optional(),
           trackartist_ids: z.string().optional(),
@@ -62,6 +63,18 @@ const localSearchPayloadParser = createLmsResultParser(
     count: z.number(),
   }),
 );
+
+// LMS returns the d tag as a number for local files and as a string for some
+// remote tracks; an unparsable value must not leak NaN into the search result.
+const parseDurationSeconds = (
+  raw: number | string | undefined,
+): number | undefined => {
+  if (raw === undefined || raw === "") {
+    return undefined;
+  }
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) ? seconds : undefined;
+};
 
 const tidalSearchPayloadParser = createLmsResultParser(
   z.object({
@@ -206,6 +219,7 @@ export const createSearchMethods = (
       //   b = bitrate    r = samplerate   o = type (codec)   x = remote
       //   u = url        l = album        a = artist          A = albumartist
       //   t = track_num  S = contributor_id (artist_id)       e = album_id
+      //   d = duration (seconds; number for local files, string for some remotes)
       // Cover art: use track id (item.id) → /music/{id}/cover.jpg (same as getAlbumDetail).
       // IMPORTANT: /music/{album_id}/cover.jpg is WRONG — LMS interprets the path segment as a
       // track ID, not album ID. /music/177/cover.jpg returns cover of track 177, not album 177.
@@ -216,7 +230,7 @@ export const createSearchMethods = (
           0,
           MAX_SEARCH_RESULTS,
           `search:${trimmedQuery}`,
-          "tags:b,r,o,x,u,l,a,A,t,S,e",
+          "tags:b,r,o,x,u,l,a,A,t,S,e,d",
         ];
 
         const result = await executeCommand(command, localSearchPayloadParser);
@@ -239,6 +253,7 @@ export const createSearchMethods = (
             artist: item.artist ?? "",
             albumartist: item.albumartist?.trim() || undefined,
             album: item.album ?? "",
+            duration: parseDurationSeconds(item.duration),
             url: item.url!,
             source: detectSource(item.url!),
             type: "track" as const,

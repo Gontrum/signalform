@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Listbox, ListboxOptions, ListboxOption } from '@headlessui/vue'
+import { formatSeconds } from '@signalform/shared'
 import type { TrackResult, AlbumResult, ArtistResult } from '../core/types'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
@@ -137,14 +138,6 @@ const handleSelect = (track: TrackResult): void => {
   selectTrack(track, (nextTrack) => emit('play', nextTrack))
 }
 
-// TODO(Story 3.x): Implement duration display when LMS metadata query is available
-// const formatDuration = (seconds?: number): string => {
-//   if (!seconds) return ''
-//   const mins = Math.floor(seconds / 60)
-//   const secs = seconds % 60
-//   return `${mins}:${secs.toString().padStart(2, '0')}`
-// }
-
 const getSourceTooltip = (source: string): string => SOURCE_TOOLTIP_TEXT[source] ?? 'Source unknown'
 
 const getAlsoAvailableOn = (result: TrackResult): string => {
@@ -158,6 +151,16 @@ const getAlsoAvailableOn = (result: TrackResult): string => {
 // Pre-compute "also available" text per result to avoid double function call in template (M3 fix)
 const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
   Object.fromEntries(props.results.map((r) => [r.id, getAlsoAvailableOn(r)])),
+)
+
+// Tidal results carry no duration, and LMS reports 0 for tracks it has no length for —
+// both must render no element at all rather than a "0:00" placeholder.
+const durationLabels = computed((): Readonly<Record<string, string>> =>
+  Object.fromEntries(
+    props.results
+      .filter((r): r is TrackResult & { readonly duration: number } => (r.duration ?? 0) > 0)
+      .map((r) => [r.id, formatSeconds(r.duration)]),
+  ),
 )
 </script>
 
@@ -257,8 +260,15 @@ const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
                     {{ alsoAvailableTexts[result.id] }}
                   </p>
                 </div>
-                <!-- TODO(Story 3.x): Add duration display when LMS metadata implemented -->
               </div>
+
+              <span
+                v-if="durationLabels[result.id]"
+                data-testid="track-duration"
+                class="ml-2 flex-shrink-0 text-sm text-neutral-500"
+              >
+                {{ durationLabels[result.id] }}
+              </span>
 
               <!-- Add to Queue Button -->
               <button
