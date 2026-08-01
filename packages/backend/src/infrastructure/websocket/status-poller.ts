@@ -1,7 +1,7 @@
 /**
  * LMS Status Polling Service
  * Polls LMS for status changes and emits WebSocket events
- * Implements polling fallback pattern (1 second interval)
+ * Implements polling fallback pattern (1 second interval, backing off while LMS is unreachable)
  */
 
 import type { FastifyInstance } from "fastify";
@@ -34,6 +34,7 @@ import {
   hasQueueContextChanged,
   hasStatusChanged,
 } from "./handlers.js";
+import { nextPollDelayMs } from "./poll-backoff.js";
 import {
   PLAYER_STATUS_CHANGED,
   PLAYER_QUEUE_UPDATED,
@@ -144,14 +145,14 @@ export const startStatusPolling = (
 
   const scheduleNextPoll = async (
     nextPreviousStatus: LmsPlayerStatus | null,
-    lmsWasDisconnected: boolean,
+    consecutiveFailures: number,
     nextStallState?: TrackStallState,
   ): Promise<void> =>
-    delay(intervalMs, undefined, {
+    delay(nextPollDelayMs(intervalMs, consecutiveFailures), undefined, {
       signal: pollingAbortController.signal,
     })
       .then(async () => {
-        await poll(nextPreviousStatus, lmsWasDisconnected, nextStallState);
+        await poll(nextPreviousStatus, consecutiveFailures, nextStallState);
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") {
@@ -173,9 +174,10 @@ export const startStatusPolling = (
   const isAborted = (): boolean => pollingAbortController.signal.aborted;
   const poll = async (
     previousStatus: LmsPlayerStatus | null,
-    lmsWasDisconnected: boolean,
+    consecutiveFailures: number,
     stallState?: TrackStallState,
   ): Promise<void> => {
+    const lmsWasDisconnected = consecutiveFailures > 0;
     const statusResult = await lmsClient.getStatus().catch(
       (
         error: unknown,
@@ -224,7 +226,7 @@ export const startStatusPolling = (
           "LMS status poll failed",
         );
       }
-      await scheduleNextPoll(previousStatus, true);
+      await scheduleNextPoll(previousStatus, consecutiveFailures + 1);
       return;
     }
 
@@ -493,7 +495,7 @@ export const startStatusPolling = (
         );
       }
       // Reset stall counter and reschedule — don't run radio triggers on stale state
-      await scheduleNextPoll(nextStatus ?? previousStatus, false, undefined);
+      await scheduleNextPoll(nextStatus ?? previousStatus, 0, undefined);
       return;
     }
 
@@ -531,7 +533,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end proactive trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, false, nextStallState);
+        await scheduleNextPoll(nextStatus, 0, nextStallState);
         return;
       }
       logQueueEndTriggerFired(
@@ -576,7 +578,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end stop trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, false, nextStallState);
+        await scheduleNextPoll(nextStatus, 0, nextStallState);
         return;
       }
       logQueueEndTriggerFired(
@@ -590,11 +592,11 @@ export const startStatusPolling = (
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }
 
-    await scheduleNextPoll(nextStatus, false, nextStallState);
+    await scheduleNextPoll(nextStatus, 0, nextStallState);
   };
 
   // Start polling loop
-  void poll(null, false, undefined);
+  void poll(null, 0, undefined);
 
   // Return cleanup function
   return () => {
