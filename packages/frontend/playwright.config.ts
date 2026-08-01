@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './e2e',
+  // Playwright's default also collects `*.test.ts`, which here means the Vitest
+  // suite for global-setup — its `vi.mock` calls throw in a Playwright worker.
+  testMatch: '**/*.spec.ts',
   testIgnore: ['**/recovery-live-smoke.spec.ts'],
   fullyParallel: false, // sequential for stability with mocked APIs
   forbidOnly: !!process.env['CI'],
