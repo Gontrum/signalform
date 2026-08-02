@@ -5,6 +5,7 @@ export type { DecadeFilter, SortOption }
 export type LoadingStatus = 'loading' | 'success' | 'error'
 export type Source = 'local' | 'tidal'
 export type ViewMode = 'grid' | 'list'
+export type BrowseMode = 'albums' | 'artists'
 
 export type LibraryAlbum = {
   readonly id: string

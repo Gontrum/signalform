@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   buildAlbumRows,
   findGenreName,
+  libraryControlVisibility,
   nextGenreFilter,
+  resolveLocalStatus,
   showsEmptyLibrary,
   showsGenreChips,
+  showsLoadMore,
   showsYearHeadings,
 } from './service'
-import type { LibraryAlbum } from './types'
+import type { BrowseMode, LibraryAlbum, LoadingStatus, Source } from './types'
 
 const UNKNOWN_YEAR = 'Unknown year'
 
@@ -240,6 +243,111 @@ describe('showsEmptyLibrary', () => {
 
   it('leaves an empty filter result to the no-match message', () => {
     expect(showsEmptyLibrary('local', 'success', 0, true)).toBe(false)
+  })
+})
+
+describe('libraryControlVisibility', () => {
+  const visibility = (
+    source: Source,
+    mode: BrowseMode,
+    artistStatus: LoadingStatus = 'success',
+    artistCount = 12,
+  ): ReturnType<typeof libraryControlVisibility> =>
+    libraryControlVisibility({ source, mode, artistStatus, artistCount })
+
+  it('shows the album controls and the toggle for the local album list', () => {
+    expect(visibility('local', 'albums')).toEqual({
+      albumControls: true,
+      browseModeToggle: true,
+      artistBrowser: false,
+      emptyArtists: false,
+    })
+  })
+
+  it('drops the album controls in artist mode but keeps the toggle', () => {
+    expect(visibility('local', 'artists')).toEqual({
+      albumControls: false,
+      browseModeToggle: true,
+      artistBrowser: true,
+      emptyArtists: false,
+    })
+  })
+
+  it('hides toggle and album controls for Tidal, whichever mode is stored', () => {
+    expect(visibility('tidal', 'albums')).toEqual({
+      albumControls: false,
+      browseModeToggle: false,
+      artistBrowser: false,
+      emptyArtists: false,
+    })
+    expect(visibility('tidal', 'artists', 'success', 0)).toEqual({
+      albumControls: false,
+      browseModeToggle: false,
+      artistBrowser: false,
+      emptyArtists: false,
+    })
+  })
+
+  it('reports no artists once the artist request answered with none', () => {
+    expect(visibility('local', 'artists', 'success', 0).emptyArtists).toBe(true)
+  })
+
+  it('stays quiet about no artists while the list is still loading', () => {
+    expect(visibility('local', 'artists', 'loading', 0).emptyArtists).toBe(false)
+  })
+
+  it('stays quiet about no artists after an error, where zero means nothing', () => {
+    expect(visibility('local', 'artists', 'error', 0).emptyArtists).toBe(false)
+  })
+
+  it('stays quiet about no artists while artists are on screen', () => {
+    expect(visibility('local', 'artists', 'success', 1).emptyArtists).toBe(false)
+  })
+
+  it('leaves the artist emptiness unmentioned while the album list is shown', () => {
+    expect(visibility('local', 'albums', 'success', 0).emptyArtists).toBe(false)
+  })
+})
+
+describe('resolveLocalStatus', () => {
+  it('answers with the artist status in artist mode', () => {
+    expect(resolveLocalStatus('artists', 'success', 'loading')).toBe('loading')
+    expect(resolveLocalStatus('artists', 'loading', 'success')).toBe('success')
+  })
+
+  it('answers with the album status in album mode', () => {
+    expect(resolveLocalStatus('albums', 'loading', 'success')).toBe('loading')
+    expect(resolveLocalStatus('albums', 'success', 'loading')).toBe('success')
+  })
+
+  it('keeps a failed artist request out of the album list', () => {
+    expect(resolveLocalStatus('albums', 'success', 'error')).toBe('success')
+  })
+
+  it('keeps a failed album request out of the artist list', () => {
+    expect(resolveLocalStatus('artists', 'error', 'success')).toBe('success')
+  })
+})
+
+describe('showsLoadMore', () => {
+  it('offers the next page for a loaded local list that has one', () => {
+    expect(showsLoadMore('local', 'success', true)).toBe(true)
+  })
+
+  it('never offers a next page for Tidal, which arrives in one request', () => {
+    expect(showsLoadMore('tidal', 'success', true)).toBe(false)
+  })
+
+  it('waits for the first page before offering the next', () => {
+    expect(showsLoadMore('local', 'loading', true)).toBe(false)
+  })
+
+  it('offers no next page after a failed request', () => {
+    expect(showsLoadMore('local', 'error', true)).toBe(false)
+  })
+
+  it('offers no next page once the server announced the end', () => {
+    expect(showsLoadMore('local', 'success', false)).toBe(false)
   })
 })
 

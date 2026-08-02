@@ -1,5 +1,6 @@
 import { ordersByYearFirst } from '@signalform/shared'
 import type {
+  BrowseMode,
   DecadeFilter,
   FilterField,
   GenreSplit,
@@ -190,9 +191,55 @@ export const showsGenreChips = <Genre extends { readonly albumCount?: number }>(
   chips: readonly Genre[],
 ): boolean => chips.some((genre) => genre.albumCount !== undefined)
 
+// An empty list only means "nothing there" once the request has answered:
+// during loading and after an error the count is zero either way.
+const isLoadedAndEmpty = (status: LoadingStatus, count: number): boolean =>
+  status === 'success' && count === 0
+
 export const showsEmptyLibrary = (
   source: Source,
   status: LoadingStatus,
   albumCount: number,
   hasActiveFilters: boolean,
-): boolean => source === 'local' && status === 'success' && albumCount === 0 && !hasActiveFilters
+): boolean => source === 'local' && !hasActiveFilters && isLoadedAndEmpty(status, albumCount)
+
+export type LibraryControlVisibility = {
+  readonly albumControls: boolean
+  readonly browseModeToggle: boolean
+  readonly artistBrowser: boolean
+  readonly emptyArtists: boolean
+}
+
+// Sort, decade and genre have no counterpart in the artist listing, so the
+// whole album control block goes away instead of standing there inert. Tidal
+// knows neither mode and drops the toggle with it.
+// Unlike showsEmptyLibrary the artist message reads as "no artists found", so
+// an empty search result may keep it — no filter argument here.
+export const libraryControlVisibility = (input: {
+  readonly source: Source
+  readonly mode: BrowseMode
+  readonly artistStatus: LoadingStatus
+  readonly artistCount: number
+}): LibraryControlVisibility => {
+  const isLocal = input.source === 'local'
+  const artistBrowser = isLocal && input.mode === 'artists'
+
+  return {
+    albumControls: isLocal && input.mode === 'albums',
+    browseModeToggle: isLocal,
+    artistBrowser,
+    emptyArtists: artistBrowser && isLoadedAndEmpty(input.artistStatus, input.artistCount),
+  }
+}
+
+// The status of the list actually on screen: the mode that is hidden keeps
+// loading and failing on its own without dragging the visible one along.
+export const resolveLocalStatus = (
+  mode: BrowseMode,
+  albumStatus: LoadingStatus,
+  artistStatus: LoadingStatus,
+): LoadingStatus => (mode === 'artists' ? artistStatus : albumStatus)
+
+// Tidal favourites arrive in a single request, so only the local library pages.
+export const showsLoadMore = (source: Source, status: LoadingStatus, hasMore: boolean): boolean =>
+  source === 'local' && status === 'success' && hasMore
