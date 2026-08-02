@@ -27,17 +27,21 @@ import {
   DECADE_KEY,
   GENRE_CHIP_COUNT,
   GENRE_KEY,
+  libraryControlVisibility,
   PAGE_SIZE,
   parseStoredDecade,
   parseStoredSort,
   parseStoredViewMode,
   reconcileFilters,
+  resolveLocalStatus,
+  showsLoadMore as showsLoadMoreFor,
   sortOptions,
   splitGenres,
   SORT_KEY,
   VIEW_MODE_KEY,
 } from '../core/service'
 import type {
+  BrowseMode,
   DecadeFilter,
   FilterField,
   LibraryAlbum,
@@ -49,10 +53,6 @@ import type {
 } from '../core/types'
 
 type Translator = (key: MessageKey) => string
-
-// Belongs next to Source and ViewMode in core/types.ts — parked here until the
-// core zone can take it.
-type BrowseMode = 'albums' | 'artists'
 
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -203,7 +203,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
   const tidalAlbumsForDisplay = computed(() => adaptTidalAlbumsForDisplay(tidalAlbums.value))
   const localStatus = computed(() =>
-    browseMode.value === 'artists' ? artistsStatus.value : status.value,
+    resolveLocalStatus(browseMode.value, status.value, artistsStatus.value),
   )
   const currentStatus = computed(() =>
     activeSource.value === 'local' ? localStatus.value : tidalStatus.value,
@@ -220,24 +220,24 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
       genreFilter.value !== null || decadeFilter.value !== 'all' || searchQuery.value.trim() !== '',
   )
 
-  // Sort, decade and genre have no counterpart in the artist listing, so the
-  // whole album control block goes away instead of standing there inert.
-  const showsAlbumControls = computed(
-    () => activeSource.value === 'local' && browseMode.value === 'albums',
+  const controlVisibility = computed(() =>
+    libraryControlVisibility({
+      source: activeSource.value,
+      mode: browseMode.value,
+      artistStatus: artistsStatus.value,
+      artistCount: artists.value.length,
+    }),
   )
-  const showsBrowseModeToggle = computed(() => activeSource.value === 'local')
-  const showsArtistBrowser = computed(
-    () => activeSource.value === 'local' && browseMode.value === 'artists',
-  )
-  const showsEmptyArtists = computed(
-    () =>
-      showsArtistBrowser.value && artistsStatus.value === 'success' && artists.value.length === 0,
-  )
-  const showsLoadMore = computed(
-    () =>
-      activeSource.value === 'local' &&
-      currentStatus.value === 'success' &&
-      (browseMode.value === 'artists' ? artistsHasMoreState.value : hasMoreState.value),
+  const showsAlbumControls = computed(() => controlVisibility.value.albumControls)
+  const showsBrowseModeToggle = computed(() => controlVisibility.value.browseModeToggle)
+  const showsArtistBrowser = computed(() => controlVisibility.value.artistBrowser)
+  const showsEmptyArtists = computed(() => controlVisibility.value.emptyArtists)
+  const showsLoadMore = computed(() =>
+    showsLoadMoreFor(
+      activeSource.value,
+      currentStatus.value,
+      browseMode.value === 'artists' ? artistsHasMoreState.value : hasMoreState.value,
+    ),
   )
   const isLoadingMoreCurrent = computed(() =>
     browseMode.value === 'artists' ? isLoadingMoreArtists.value : isLoadingMore.value,
