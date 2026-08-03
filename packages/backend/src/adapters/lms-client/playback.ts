@@ -36,6 +36,7 @@ export type PlaybackMethods = {
   readonly pause: () => Promise<Result<void, LmsError>>;
   readonly resume: () => Promise<Result<void, LmsError>>;
   readonly getStatus: () => Promise<Result<PlayerStatus, LmsError>>;
+  readonly pingServer: () => Promise<Result<void, LmsError>>;
   readonly nextTrack: () => Promise<Result<void, LmsError>>;
   readonly previousTrack: () => Promise<Result<void, LmsError>>;
   readonly setVolume: (volume: number) => Promise<Result<void, LmsError>>;
@@ -284,6 +285,27 @@ const createPlaybackMethodsImplementation = (
       };
 
       return ok(status);
+    },
+
+    /**
+     * Server-level liveness probe, used to tell "LMS is down" apart from
+     * "LMS is up but this player is not answering".
+     *
+     * Measured against LMS 9.1.1: with the player disconnected, ["status", …]
+     * blocks until the 5s timeout while ["serverstatus", …] still answers
+     * immediately — serverstatus is handled by the server itself and never
+     * waits for a player. Asks for a single player entry (start 0, count 1)
+     * because only the fact that an answer arrives is used.
+     */
+    pingServer: async (): Promise<Result<void, LmsError>> => {
+      const command: LmsCommand = ["serverstatus", 0, 1];
+      const result = await executeCommand(command);
+
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(undefined);
     },
 
     /**

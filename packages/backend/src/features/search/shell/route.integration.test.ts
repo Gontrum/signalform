@@ -52,6 +52,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   pause: vi.fn(),
   resume: vi.fn(),
   getStatus: vi.fn(),
+  pingServer: vi.fn(),
   nextTrack: vi.fn(),
   previousTrack: vi.fn(),
   setVolume: vi.fn(),

@@ -142,6 +142,7 @@ const createMockLmsClient = (label: string): LmsClient => ({
   pause: vi.fn(async () => ok(undefined)),
   resume: vi.fn(async () => ok(undefined)),
   getStatus: vi.fn(async () => ok(createStatus(label))),
+  pingServer: vi.fn(async () => ok(undefined)),
   nextTrack: vi.fn(async () => ok(undefined)),
   previousTrack: vi.fn(async () => ok(undefined)),
   setVolume: vi.fn(async () => ok(undefined)),

@@ -215,6 +215,7 @@ type PollerLmsClient = {
     readonly ok: boolean;
     readonly error?: unknown;
   }>;
+  readonly pingServer: () => Promise<{ readonly ok: boolean }>;
 };
 
 const makeMockEmit = (): MockEmit => vi.fn<EmitFn>();
@@ -280,6 +281,9 @@ const makeMockLmsClient = (
   getQueue: vi.fn().mockResolvedValue({ ok: true, value: [] }),
   nextTrack: vi.fn().mockResolvedValue({ ok: true }),
   resume: vi.fn().mockResolvedValue({ ok: true }),
+  // These fixtures fail status polls by taking LMS itself down, so the
+  // server-level probe has to fail with it.
+  pingServer: vi.fn().mockResolvedValue({ ok: false }),
   ...overrides,
 });
 

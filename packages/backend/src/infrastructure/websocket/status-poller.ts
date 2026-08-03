@@ -55,7 +55,15 @@ import {
   SYSTEM_LMS_RECONNECTED,
   SYSTEM_PLAYER_DISCONNECTED,
   SYSTEM_PLAYER_RECONNECTED,
+  SYSTEM_PLAYER_STATUS_RESTORED,
+  SYSTEM_PLAYER_STATUS_UNAVAILABLE,
 } from "./events.js";
+import {
+  assessConnectivity,
+  shouldProbeServer,
+  type ConnectivityAnnouncement,
+  type LmsConnectivity,
+} from "./lms-connectivity.js";
 
 /**
  * LMS Client interface (subset needed for polling)
@@ -69,6 +77,9 @@ type LmsClient = {
   }>;
   // PlayerStatus (imported above) already carries `playerConnected`, so no
   // separate inline field is needed here.
+  // Server-level probe: answers even when the player does not, which is what
+  // tells "LMS is down" apart from "LMS is up, the player is not answering".
+  readonly pingServer: () => Promise<{ readonly ok: boolean }>;
   // Needed for emitting player.queue.updated on track change
   readonly getQueue: () => Promise<{
     readonly ok: boolean;
@@ -122,6 +133,100 @@ const logQueueEndTriggerFired = (
     trigger === "proactive"
       ? "Radio queue-end proactive trigger fired"
       : "Radio queue-end stop trigger fired",
+  );
+};
+
+type AnnouncementSpec = {
+  readonly event:
+    | typeof SYSTEM_LMS_DISCONNECTED
+    | typeof SYSTEM_LMS_RECONNECTED
+    | typeof SYSTEM_PLAYER_STATUS_UNAVAILABLE
+    | typeof SYSTEM_PLAYER_STATUS_RESTORED;
+  readonly message: string;
+  readonly severity: "warn" | "info";
+  readonly logEvent: string;
+  readonly logMessage: string;
+};
+
+const ANNOUNCEMENT_SPECS: Readonly<
+  Record<ConnectivityAnnouncement, AnnouncementSpec>
+> = {
+  "lms-disconnected": {
+    event: SYSTEM_LMS_DISCONNECTED,
+    message: "LMS connection lost",
+    severity: "warn",
+    logEvent: "system_lms_disconnected",
+    logMessage: "LMS disconnected - system event emitted",
+  },
+  "lms-reconnected": {
+    event: SYSTEM_LMS_RECONNECTED,
+    message: "LMS connection restored",
+    severity: "info",
+    logEvent: "system_lms_reconnected",
+    logMessage: "LMS reconnected - system event emitted",
+  },
+  "player-status-unavailable": {
+    event: SYSTEM_PLAYER_STATUS_UNAVAILABLE,
+    message: "Player is not answering",
+    severity: "warn",
+    logEvent: "system_player_status_unavailable",
+    logMessage: "Player status unavailable while LMS itself answers",
+  },
+  "player-status-restored": {
+    event: SYSTEM_PLAYER_STATUS_RESTORED,
+    message: "Player is answering again",
+    severity: "info",
+    logEvent: "system_player_status_restored",
+    logMessage: "Player status available again",
+  },
+};
+
+const announceConnectivity = (
+  io: TypedSocketIOServer,
+  app: FastifyInstance,
+  playerId: string,
+  announcements: readonly ConnectivityAnnouncement[],
+  statusError: string | undefined,
+): void => {
+  announcements.forEach((announcement) => {
+    const spec = ANNOUNCEMENT_SPECS[announcement];
+    const payloadResult = createSystemEventPayload(spec.message);
+    if (!payloadResult.ok) {
+      return;
+    }
+    io.to(PLAYER_UPDATES_ROOM).emit(spec.event, payloadResult.value);
+    const fields = {
+      event: spec.logEvent,
+      playerId,
+      error: statusError,
+    };
+    if (spec.severity === "warn") {
+      app.log.warn(fields, spec.logMessage);
+    } else {
+      app.log.info(fields, spec.logMessage);
+    }
+  });
+};
+
+// The recurring line of a standing failure names whoever is actually silent —
+// 102k lines blaming LMS for a switched-off speaker sent months of debugging at
+// the wrong component.
+const logPollFailure = (
+  app: FastifyInstance,
+  playerId: string,
+  state: LmsConnectivity,
+  statusError: string | undefined,
+): void => {
+  if (state === "player-unreachable") {
+    app.log.warn(
+      { event: "player_status_poll_failed", playerId, error: statusError },
+      "Player status poll failed while LMS stays reachable",
+    );
+    return;
+  }
+  app.log.warn(
+    { event: "lms_status_poll_failed", error: statusError },
+    "LMS status poll failed",
   );
 };
 
@@ -194,6 +299,7 @@ export const startStatusPolling = (
   const scheduleNextPoll = async (
     nextPreviousStatus: LmsPlayerStatus | null,
     consecutiveFailures: number,
+    nextConnectivity: LmsConnectivity,
     nextStallState?: TrackStallState,
     nextPreviousSample?: TrackEndSample,
   ): Promise<void> =>
@@ -204,6 +310,7 @@ export const startStatusPolling = (
         await poll(
           nextPreviousStatus,
           consecutiveFailures,
+          nextConnectivity,
           nextStallState,
           nextPreviousSample,
         );
@@ -229,13 +336,13 @@ export const startStatusPolling = (
   const poll = async (
     previousStatus: LmsPlayerStatus | null,
     consecutiveFailures: number,
+    connectivity: LmsConnectivity,
     stallState?: TrackStallState,
     // The previous poll, not the previous *emitted* status: previousStatus only
     // moves when something changed, so its `time` freezes at the start of a
     // track and would make every track change look early.
     previousSample?: TrackEndSample,
   ): Promise<void> => {
-    const lmsWasDisconnected = consecutiveFailures > 0;
     const statusResult = await lmsClient.getStatus().catch(
       (
         error: unknown,
@@ -257,57 +364,57 @@ export const startStatusPolling = (
     }
 
     if (!statusResult.ok || !statusResult.value) {
-      // LMS unavailable - emit system event if not already disconnected
-      if (!lmsWasDisconnected) {
-        const systemEventResult = createSystemEventPayload(
-          "LMS connection lost",
+      // Probing on the edge into failure only: asking on every failed poll would
+      // double the request rate of exactly the situation the backoff calms down.
+      const serverReachable = shouldProbeServer(connectivity, false)
+        ? await lmsClient
+            .pingServer()
+            .then((probe) => probe.ok)
+            .catch(() => false)
+        : undefined;
+
+      // Poller was stopped while pingServer() was in-flight — discard result
+      if (isAborted()) {
+        return;
+      }
+
+      const transition = assessConnectivity(connectivity, {
+        statusOk: false,
+        serverReachable,
+      });
+      if (transition.announcements.length > 0) {
+        announceConnectivity(
+          io,
+          app,
+          playerId,
+          transition.announcements,
+          statusResult.error?.message,
         );
-        if (systemEventResult.ok) {
-          io.to(PLAYER_UPDATES_ROOM).emit(
-            SYSTEM_LMS_DISCONNECTED,
-            systemEventResult.value,
-          );
-          app.log.warn(
-            {
-              event: "system_lms_disconnected",
-              error: statusResult.error?.message,
-            },
-            "LMS disconnected - system event emitted",
-          );
-        }
       } else {
-        app.log.warn(
-          {
-            event: "lms_status_poll_failed",
-            error: statusResult.error?.message,
-          },
-          "LMS status poll failed",
+        logPollFailure(
+          app,
+          playerId,
+          transition.state,
+          statusResult.error?.message,
         );
       }
       // No sample is carried across a failed poll: the backoff makes the last
       // one minutes old, and a regular track end would look like a cut-off.
-      await scheduleNextPoll(previousStatus, consecutiveFailures + 1);
+      await scheduleNextPoll(
+        previousStatus,
+        consecutiveFailures + 1,
+        transition.state,
+      );
       return;
     }
 
-    // LMS is available - emit reconnected event if was previously disconnected
-    if (lmsWasDisconnected) {
-      const systemEventResult = createSystemEventPayload(
-        "LMS connection restored",
-      );
-      if (systemEventResult.ok) {
-        io.to(PLAYER_UPDATES_ROOM).emit(
-          SYSTEM_LMS_RECONNECTED,
-          systemEventResult.value,
-        );
-        app.log.info(
-          {
-            event: "system_lms_reconnected",
-          },
-          "LMS reconnected - system event emitted",
-        );
-      }
-    }
+    announceConnectivity(
+      io,
+      app,
+      playerId,
+      assessConnectivity(connectivity, { statusOk: true }).announcements,
+      undefined,
+    );
 
     // Convert LMS track to shared Track type
     // Note: LMS returns numeric IDs (e.g. 1234) — convert to string for TrackSchema
@@ -572,6 +679,7 @@ export const startStatusPolling = (
       await scheduleNextPoll(
         nextStatus ?? previousStatus,
         0,
+        "healthy",
         undefined,
         currentSample,
       );
@@ -612,7 +720,13 @@ export const startStatusPolling = (
           },
           "Radio queue-end proactive trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
+        await scheduleNextPoll(
+          nextStatus,
+          0,
+          "healthy",
+          nextStallState,
+          currentSample,
+        );
         return;
       }
       logQueueEndTriggerFired(
@@ -657,7 +771,13 @@ export const startStatusPolling = (
           },
           "Radio queue-end stop trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
+        await scheduleNextPoll(
+          nextStatus,
+          0,
+          "healthy",
+          nextStallState,
+          currentSample,
+        );
         return;
       }
       logQueueEndTriggerFired(
@@ -671,11 +791,17 @@ export const startStatusPolling = (
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }
 
-    await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
+    await scheduleNextPoll(
+      nextStatus,
+      0,
+      "healthy",
+      nextStallState,
+      currentSample,
+    );
   };
 
   // Start polling loop
-  void poll(null, 0, undefined);
+  void poll(null, 0, "healthy", undefined);
 
   // Return cleanup function
   return () => {

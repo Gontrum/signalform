@@ -58,6 +58,7 @@ const createLmsProxy = (): LmsClient => {
     pause: forwardLmsCall((client) => client.pause),
     resume: forwardLmsCall((client) => client.resume),
     getStatus: forwardLmsCall((client) => client.getStatus),
+    pingServer: forwardLmsCall((client) => client.pingServer),
     nextTrack: forwardLmsCall((client) => client.nextTrack),
     previousTrack: forwardLmsCall((client) => client.previousTrack),
     setVolume: forwardLmsCall((client) => client.setVolume),

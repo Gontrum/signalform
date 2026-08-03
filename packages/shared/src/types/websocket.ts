@@ -88,6 +88,10 @@ export interface ServerToClientEvents {
   readonly "system.lmsReconnected": (payload: SystemEventPayload) => void;
   readonly "system.playerDisconnected": (payload: SystemEventPayload) => void;
   readonly "system.playerReconnected": (payload: SystemEventPayload) => void;
+  readonly "system.playerStatusUnavailable": (
+    payload: SystemEventPayload,
+  ) => void;
+  readonly "system.playerStatusRestored": (payload: SystemEventPayload) => void;
   readonly "player.radio.started": (payload: RadioStartedPayload) => void;
   readonly "player.radio.unavailable": (
     payload: RadioUnavailablePayload,
