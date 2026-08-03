@@ -152,7 +152,7 @@ export const useAlbumDetailView = (): UseAlbumDetailViewResult => {
         void loadEnrichment(artistForEnrichment, album.value.title)
       } else {
         errorMessage.value = detailResult.error.message
-        status.value = 'error-server'
+        status.value = getAlbumErrorStatus(detailResult.error.type)
       }
       return
     }

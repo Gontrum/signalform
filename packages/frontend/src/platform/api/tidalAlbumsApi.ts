@@ -83,7 +83,9 @@ const mapTidalAlbumsHttpError =
   async (response: Response): Promise<TidalAlbumsApiError> => {
     const message =
       (await parseErrorBody(response)) ?? `${fallbackMessage}: HTTP ${response.status}`
-    return { type: 'SERVER_ERROR', status: response.status, message }
+    return response.status === 404
+      ? { type: 'NOT_FOUND', message }
+      : { type: 'SERVER_ERROR', status: response.status, message }
   }
 
 export const resolveAlbum = async (

@@ -66,10 +66,10 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
         class="py-20 text-center text-neutral-500"
       >
         <p class="text-lg">
-          {{ t('artist.errorNotFoundTitle') }}
+          {{ t('album.errorNotFoundTitle') }}
         </p>
         <p class="text-sm">
-          {{ t('artist.errorNotFoundMessage') }}
+          {{ t('album.errorNotFoundMessage') }}
         </p>
         <p v-if="errorMessage" class="mt-1 text-xs">
           {{ errorMessage }}

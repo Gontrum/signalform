@@ -35,7 +35,9 @@ const mapTidalArtistsHttpError =
   async (response: Response): Promise<TidalArtistsApiError> => {
     const message =
       (await parseErrorBody(response)) ?? `${fallbackMessage}: HTTP ${response.status}`
-    return { type: 'SERVER_ERROR', status: response.status, message }
+    return response.status === 404
+      ? { type: 'NOT_FOUND', message }
+      : { type: 'SERVER_ERROR', status: response.status, message }
   }
 
 export const searchTidalArtists = async (

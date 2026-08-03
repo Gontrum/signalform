@@ -218,16 +218,54 @@ describe('tidalArtistsApi', () => {
       }
     })
 
-    // Documents current behaviour: this module has no NOT_FOUND branch, so a
-    // 404 arrives as a SERVER_ERROR carrying the status.
-    it('reports a 404 as SERVER_ERROR with status 404', async () => {
+    it('maps a 404 to NOT_FOUND', async () => {
       fetchMock.mockResolvedValue(errorResponse(404))
 
       const result = await searchTidalArtists('massive')
 
       expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('NOT_FOUND')
+        expect(result.error.message).toBe('Tidal artist search failed: HTTP 404')
+      }
+    })
+
+    it('keeps a 404 message from the error body', async () => {
+      fetchMock.mockResolvedValue(errorResponse(404, { message: 'Unknown artist' }))
+
+      const result = await searchTidalArtists('massive')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('NOT_FOUND')
+        expect(result.error.message).toBe('Unknown artist')
+      }
+    })
+
+    // Guards the 404 branch against widening: a broken upstream must stay
+    // distinguishable from an artist Tidal simply does not have.
+    it('still reports a 500 as SERVER_ERROR', async () => {
+      fetchMock.mockResolvedValue(errorResponse(500))
+
+      const result = await searchTidalArtists('massive')
+
+      expect(result.ok).toBe(false)
       if (!result.ok && result.error.type === 'SERVER_ERROR') {
-        expect(result.error.status).toBe(404)
+        expect(result.error.status).toBe(500)
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
+      }
+    })
+
+    it('still reports a 400 as SERVER_ERROR carrying the status', async () => {
+      fetchMock.mockResolvedValue(errorResponse(400, { message: 'q is required' }))
+
+      const result = await searchTidalArtists('')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(400)
+        expect(result.error.message).toBe('q is required')
       } else {
         expect.unreachable('expected a SERVER_ERROR result')
       }

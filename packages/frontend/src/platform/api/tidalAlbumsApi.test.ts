@@ -155,16 +155,42 @@ describe('tidalAlbumsApi', () => {
       }
     })
 
-    // Documents current behaviour: this module has no NOT_FOUND branch, so a
-    // 404 arrives as a SERVER_ERROR carrying the status.
-    it('reports a 404 as SERVER_ERROR with status 404', async () => {
+    it('maps a 404 to NOT_FOUND', async () => {
       fetchMock.mockResolvedValue(errorResponse(404))
 
       const result = await resolveAlbum('In Rainbows', 'Radiohead')
 
       expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('NOT_FOUND')
+        expect(result.error.message).toBe('Tidal album resolve failed: HTTP 404')
+      }
+    })
+
+    // Guards the 404 branch against widening: a broken upstream must stay
+    // distinguishable from an album Tidal simply does not have.
+    it('still reports a 500 as SERVER_ERROR', async () => {
+      fetchMock.mockResolvedValue(errorResponse(500))
+
+      const result = await resolveAlbum('In Rainbows', 'Radiohead')
+
+      expect(result.ok).toBe(false)
       if (!result.ok && result.error.type === 'SERVER_ERROR') {
-        expect(result.error.status).toBe(404)
+        expect(result.error.status).toBe(500)
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
+      }
+    })
+
+    it('still reports a 400 as SERVER_ERROR carrying the status', async () => {
+      fetchMock.mockResolvedValue(errorResponse(400, { message: 'title is required' }))
+
+      const result = await resolveAlbum('', 'Radiohead')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(400)
+        expect(result.error.message).toBe('title is required')
       } else {
         expect.unreachable('expected a SERVER_ERROR result')
       }
@@ -312,6 +338,47 @@ describe('tidalAlbumsApi', () => {
       }
     })
 
+    it('maps a 404 to NOT_FOUND', async () => {
+      fetchMock.mockResolvedValue(errorResponse(404, { message: 'Album 99 is gone' }))
+
+      const result = await getTidalAlbumDetail('99')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('NOT_FOUND')
+        expect(result.error.message).toBe('Album 99 is gone')
+      }
+    })
+
+    // Guards the 404 branch against widening: a broken upstream must stay
+    // distinguishable from an album Tidal simply does not have.
+    it('still reports a 500 as SERVER_ERROR', async () => {
+      fetchMock.mockResolvedValue(errorResponse(500))
+
+      const result = await getTidalAlbumDetail('99')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(500)
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
+      }
+    })
+
+    it('still reports a 400 as SERVER_ERROR carrying the status', async () => {
+      fetchMock.mockResolvedValue(errorResponse(400, { message: 'albumId is required' }))
+
+      const result = await getTidalAlbumDetail('')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(400)
+        expect(result.error.message).toBe('albumId is required')
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
+      }
+    })
+
     it('returns TIMEOUT_ERROR when the request times out', async () => {
       fetchMock.mockRejectedValue(new DOMException('The operation timed out', 'TimeoutError'))
 
@@ -441,6 +508,47 @@ describe('tidalAlbumsApi', () => {
       expect(result.ok).toBe(false)
       if (!result.ok) {
         expect(result.error.message).toBe('Tidal album tracks fetch failed: HTTP 500')
+      }
+    })
+
+    it('maps a 404 to NOT_FOUND', async () => {
+      fetchMock.mockResolvedValue(errorResponse(404))
+
+      const result = await getTidalAlbumTracks('99')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok) {
+        expect(result.error.type).toBe('NOT_FOUND')
+        expect(result.error.message).toBe('Tidal album tracks fetch failed: HTTP 404')
+      }
+    })
+
+    // Guards the 404 branch against widening: a broken upstream must stay
+    // distinguishable from an album Tidal simply does not have.
+    it('still reports a 500 as SERVER_ERROR', async () => {
+      fetchMock.mockResolvedValue(errorResponse(500))
+
+      const result = await getTidalAlbumTracks('99')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(500)
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
+      }
+    })
+
+    it('still reports a 400 as SERVER_ERROR carrying the status', async () => {
+      fetchMock.mockResolvedValue(errorResponse(400, { message: 'albumId is required' }))
+
+      const result = await getTidalAlbumTracks('')
+
+      expect(result.ok).toBe(false)
+      if (!result.ok && result.error.type === 'SERVER_ERROR') {
+        expect(result.error.status).toBe(400)
+        expect(result.error.message).toBe('albumId is required')
+      } else {
+        expect.unreachable('expected a SERVER_ERROR result')
       }
     })
 

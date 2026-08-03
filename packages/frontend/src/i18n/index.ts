@@ -124,6 +124,8 @@ export type MessageKey =
   | 'album.enrichment.heading'
   | 'album.enrichment.error.notFound'
   | 'album.enrichment.error.unavailable'
+  | 'album.errorNotFoundTitle'
+  | 'album.errorNotFoundMessage'
   | 'nowPlaying.emptyTitle'
   | 'nowPlaying.emptySubtitle'
   | 'nowPlaying.upNext'
@@ -368,6 +370,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'album.enrichment.heading': 'Album notes',
     'album.enrichment.error.notFound': 'No additional album information is available.',
     'album.enrichment.error.unavailable': 'Album information is currently unavailable.',
+    'album.errorNotFoundTitle': 'Album not found',
+    'album.errorNotFoundMessage': 'This album is not available.',
     'nowPlaying.emptyTitle': 'No track playing',
     'nowPlaying.emptySubtitle': 'Search and play music to see it here',
     'nowPlaying.upNext': 'Up Next',
@@ -613,6 +617,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'album.enrichment.heading': 'Albumnotizen',
     'album.enrichment.error.notFound': 'Keine zusätzlichen Albuminformationen verfügbar.',
     'album.enrichment.error.unavailable': 'Albuminformationen sind derzeit nicht verfügbar.',
+    'album.errorNotFoundTitle': 'Album nicht gefunden',
+    'album.errorNotFoundMessage': 'Dieses Album ist nicht verfügbar.',
     'nowPlaying.emptyTitle': 'Kein Titel wird abgespielt',
     'nowPlaying.emptySubtitle': 'Suche und starte Musik, um sie hier zu sehen',
     'nowPlaying.upNext': 'Als Nächstes',

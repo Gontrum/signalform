@@ -43,7 +43,7 @@ export type TidalArtistSearchResponse = {
   readonly totalCount: number
 }
 
-export type TidalArtistsApiError = BaseApiError
+export type TidalArtistsApiError = BaseApiError | NotFoundError
 
 export type TidalAlbum = {
   readonly id: string
@@ -83,4 +83,4 @@ export type TidalAlbumResolveResponse = {
   readonly albumId: string | null
 }
 
-export type TidalAlbumsApiError = BaseApiError
+export type TidalAlbumsApiError = BaseApiError | NotFoundError
