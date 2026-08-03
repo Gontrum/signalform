@@ -407,7 +407,6 @@ export const startStatusPolling = (
                   "Queue update broadcast on track change",
                 );
               } else if (!queueResult.ok) {
-                // TODO(test): this warning branch has no unit test (no status-poller.test.ts yet)
                 app.log.warn(
                   {
                     event: "queue_fetch_failed_in_poller",
