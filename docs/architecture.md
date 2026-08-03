@@ -398,3 +398,27 @@ are covered automatically without manual config updates.
   attributes for test selectors.
 - **Comments**: explain the "why", not the "what". See the comment rules in
   `AGENTS.md`.
+
+## Known limitations
+
+Deliberate boundaries of the current design, not defects. They are listed
+here so a reader stops looking for the mechanism that is genuinely absent.
+
+- **No authentication.** Signalform assumes it runs on a trusted network. The
+  `x-signalform-user` header is a profile selector, not a credential: the
+  client sets it, the server believes it, and any caller can claim any user.
+  It routes Last.fm scrobbles, loves and Personal Radio to the right profile —
+  it protects nothing. Do not expose an instance to the open internet.
+- **One player per instance.** The LMS player is a single value in the
+  configuration, chosen in the setup wizard. Radio mode holds its state in a
+  process-wide singleton (`radio-mode/shell/radio-state.ts`), so it belongs to
+  the instance rather than to a player. Controlling a second player means a
+  second configuration, not a second tab.
+- **The LMS is the library.** Signalform stores no music metadata of its own
+  and caches only for a TTL. Anything LMS cannot answer — a sort it does not
+  offer, a field it does not tag — cannot be added on this side without
+  reading the whole library into memory first, which is the trade this
+  architecture deliberately refuses.
+- **iOS keeps no audio in the background.** Playback runs on the LMS player,
+  not in the browser, so this only affects the interface: a backgrounded
+  standalone PWA on iOS is suspended and reconnects its WebSocket on return.
