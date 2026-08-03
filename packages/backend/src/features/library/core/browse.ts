@@ -1,6 +1,7 @@
 import {
   err,
   ok,
+  RECENTLY_ADDED_ALBUM_LIMIT,
   type DecadeFilter,
   type Result,
   type SortOption,
@@ -14,9 +15,6 @@ export type LmsSortQuery = {
   readonly hardLimit?: number;
 };
 
-// LMS pref `browseagelimit` truncates `sort:new` at 100 rows — paginating past it returns nothing.
-const RECENTLY_ADDED_LIMIT = 100;
-
 const SORT_QUERIES = {
   "artist-az": { lmsSort: "artistalbum", paginateBackward: false },
   "title-az": { lmsSort: "album", paginateBackward: false },
@@ -25,7 +23,7 @@ const SORT_QUERIES = {
   "recently-added": {
     lmsSort: "new",
     paginateBackward: false,
-    hardLimit: RECENTLY_ADDED_LIMIT,
+    hardLimit: RECENTLY_ADDED_ALBUM_LIMIT,
   },
 } as const satisfies Record<SortOption, LmsSortQuery>;
 
@@ -241,7 +239,7 @@ export const resolvePagination = (
 
   if (sort === "recently-added") {
     return err({
-      message: `Sort 'recently-added' cannot be combined with the decade filter '${decade}': it orders by date added and is capped at ${RECENTLY_ADDED_LIMIT} albums, while the decade filter selects by release year`,
+      message: `Sort 'recently-added' cannot be combined with the decade filter '${decade}': it orders by date added and is capped at ${RECENTLY_ADDED_ALBUM_LIMIT} albums, while the decade filter selects by release year`,
     });
   }
 

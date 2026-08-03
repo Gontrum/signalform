@@ -1,4 +1,4 @@
-import { ordersByYearFirst } from '@signalform/shared'
+import { ordersByYearFirst, RECENTLY_ADDED_ALBUM_LIMIT } from '@signalform/shared'
 import type {
   BrowseMode,
   DecadeFilter,
@@ -243,3 +243,46 @@ export const resolveLocalStatus = (
 // Tidal favourites arrive in a single request, so only the local library pages.
 export const showsLoadMore = (source: Source, status: LoadingStatus, hasMore: boolean): boolean =>
   source === 'local' && status === 'success' && hasMore
+
+// Both notices explain the album list itself, so they stay away from every
+// state that shows something else — and from the empty result, where there is
+// nothing whose extent could need explaining.
+const explainsAlbumList = (input: {
+  readonly albumControls: boolean
+  readonly status: LoadingStatus
+  readonly albumCount: number
+}): boolean => input.albumControls && input.status === 'success' && input.albumCount > 0
+
+// `hasMore` cannot carry this: it is false at the cap and false at the true end
+// of the library alike. A list that reached the cap exactly is the signal.
+export const showsRecentlyAddedCapNotice = (input: {
+  readonly albumControls: boolean
+  readonly status: LoadingStatus
+  readonly sort: SortOption
+  readonly albumCount: number
+}): boolean =>
+  explainsAlbumList(input) &&
+  input.sort === 'recently-added' &&
+  input.albumCount >= RECENTLY_ADDED_ALBUM_LIMIT
+
+export const showsDecadeScopeNotice = (input: {
+  readonly albumControls: boolean
+  readonly status: LoadingStatus
+  readonly decade: DecadeFilter
+  readonly albumCount: number
+}): boolean => explainsAlbumList(input) && input.decade !== 'all'
+
+const SORT_PLACEHOLDER = '{sort}'
+
+// Split/join rather than replace: it fills every placeholder a translation may
+// carry, and never reads a `$&` inside the label as a substitution pattern.
+export const buildDecadeScopeMessage = (template: string, sortLabel: string): string =>
+  template.split(SORT_PLACEHOLDER).join(sortLabel)
+
+// A sort outside the option list falls back to its own value rather than an
+// empty string: the label goes into a sentence, and 'recently-added' still
+// reads as something where '' leaves a gap.
+export const findSortLabel = (
+  options: ReadonlyArray<{ readonly value: SortOption; readonly label: string }>,
+  sort: SortOption,
+): string => options.find((option) => option.value === sort)?.label ?? sort

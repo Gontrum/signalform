@@ -66,5 +66,8 @@ export { isTidalAlbumId } from "./tidalUtils.js";
 // Library ordering
 export { ordersByYearFirst } from "./libraryOrdering.js";
 
+// Library limits
+export { RECENTLY_ADDED_ALBUM_LIMIT } from "./libraryLimits.js";
+
 // Playback mode cycles
 export { nextShuffleMode, nextRepeatMode } from "./playbackModes.js";

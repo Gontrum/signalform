@@ -1,16 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildAlbumRows,
+  buildDecadeScopeMessage,
   findGenreName,
+  findSortLabel,
   libraryControlVisibility,
   nextGenreFilter,
   resolveLocalStatus,
+  showsDecadeScopeNotice,
   showsEmptyLibrary,
   showsGenreChips,
   showsLoadMore,
+  showsRecentlyAddedCapNotice,
   showsYearHeadings,
 } from './service'
-import type { BrowseMode, LibraryAlbum, LoadingStatus, Source } from './types'
+import type {
+  BrowseMode,
+  DecadeFilter,
+  LibraryAlbum,
+  LoadingStatus,
+  SortOption,
+  Source,
+} from './types'
 
 const UNKNOWN_YEAR = 'Unknown year'
 
@@ -348,6 +359,163 @@ describe('showsLoadMore', () => {
 
   it('offers no next page once the server announced the end', () => {
     expect(showsLoadMore('local', 'success', false)).toBe(false)
+  })
+})
+
+describe('showsRecentlyAddedCapNotice', () => {
+  // The shared RECENTLY_ADDED_ALBUM_LIMIT, spelled out on purpose: importing it
+  // here would only restate the implementation, while the literal fails loudly
+  // if the client stops agreeing with the cap the server applies.
+  const CAP = 100
+
+  const notice = (input: {
+    readonly albumControls?: boolean
+    readonly status?: LoadingStatus
+    readonly sort?: SortOption
+    readonly albumCount?: number
+  }): boolean =>
+    showsRecentlyAddedCapNotice({
+      albumControls: input.albumControls ?? true,
+      status: input.status ?? 'success',
+      sort: input.sort ?? 'recently-added',
+      albumCount: input.albumCount ?? CAP,
+    })
+
+  it('explains the list once it filled the cap exactly', () => {
+    expect(notice({ albumCount: CAP })).toBe(true)
+  })
+
+  it('stays quiet one album short of the cap', () => {
+    expect(notice({ albumCount: CAP - 1 })).toBe(false)
+  })
+
+  it('stays quiet for a short list', () => {
+    expect(notice({ albumCount: 12 })).toBe(false)
+    expect(notice({ albumCount: 0 })).toBe(false)
+  })
+
+  it('still explains a list that somehow grew past the cap', () => {
+    expect(notice({ albumCount: CAP + 60 })).toBe(true)
+  })
+
+  it('never explains a cap the other sorts do not have', () => {
+    const capReachingSorts: readonly SortOption[] = ['artist-az', 'title-az', 'year-newest']
+
+    expect(capReachingSorts.filter((sort) => notice({ sort, albumCount: CAP }))).toEqual([])
+  })
+
+  it('stays quiet while the albums are still loading', () => {
+    expect(notice({ status: 'loading' })).toBe(false)
+  })
+
+  it('stays quiet after a failed request', () => {
+    expect(notice({ status: 'error' })).toBe(false)
+  })
+
+  it('stays quiet where the album controls are hidden, as in artist mode or Tidal', () => {
+    expect(notice({ albumControls: false })).toBe(false)
+  })
+})
+
+describe('showsDecadeScopeNotice', () => {
+  const notice = (input: {
+    readonly albumControls?: boolean
+    readonly status?: LoadingStatus
+    readonly decade?: DecadeFilter
+    readonly albumCount?: number
+  }): boolean =>
+    showsDecadeScopeNotice({
+      albumControls: input.albumControls ?? true,
+      status: input.status ?? 'success',
+      decade: input.decade ?? '1990s',
+      albumCount: input.albumCount ?? 24,
+    })
+
+  it('explains the scope for every decade that narrows the list', () => {
+    const decades: readonly DecadeFilter[] = ['2020s', '2010s', '2000s', '1990s', 'older']
+
+    expect(decades.filter((decade) => !notice({ decade }))).toEqual([])
+  })
+
+  it('has nothing to explain without a decade filter', () => {
+    expect(notice({ decade: 'all' })).toBe(false)
+  })
+
+  it('stays quiet while the albums are still loading', () => {
+    expect(notice({ status: 'loading' })).toBe(false)
+  })
+
+  it('stays quiet after a failed request', () => {
+    expect(notice({ status: 'error' })).toBe(false)
+  })
+
+  it('stays quiet when the decade returned nothing at all', () => {
+    expect(notice({ albumCount: 0 })).toBe(false)
+  })
+
+  it('stays quiet where the album controls are hidden, as in artist mode or Tidal', () => {
+    expect(notice({ albumControls: false })).toBe(false)
+  })
+})
+
+describe('buildDecadeScopeMessage', () => {
+  it('puts the sort label where the placeholder stands', () => {
+    expect(buildDecadeScopeMessage('Only 1990s albums, sorted by {sort}.', 'Year, newest')).toBe(
+      'Only 1990s albums, sorted by Year, newest.',
+    )
+  })
+
+  it('leaves a template without a placeholder exactly as it is', () => {
+    expect(buildDecadeScopeMessage('Only 1990s albums.', 'Year, newest')).toBe('Only 1990s albums.')
+  })
+
+  it('keeps a label that carries braces from breaking the template apart', () => {
+    expect(buildDecadeScopeMessage('Sorted by {sort} for now.', '{sort}')).toBe(
+      'Sorted by {sort} for now.',
+    )
+    expect(buildDecadeScopeMessage('Sorted by {sort} for now.', 'a {b} c')).toBe(
+      'Sorted by a {b} c for now.',
+    )
+  })
+
+  it('inserts a label with a dollar pattern literally', () => {
+    expect(buildDecadeScopeMessage('Sorted by {sort}.', 'Rock $& $1 Roll')).toBe(
+      'Sorted by Rock $& $1 Roll.',
+    )
+  })
+
+  it('fills a placeholder that a translation repeats', () => {
+    expect(buildDecadeScopeMessage('{sort}: 1990s albums by {sort}.', 'Title')).toBe(
+      'Title: 1990s albums by Title.',
+    )
+  })
+})
+
+describe('findSortLabel', () => {
+  const options: ReadonlyArray<{ readonly value: SortOption; readonly label: string }> = [
+    { value: 'artist-az', label: 'Artist A–Z' },
+    { value: 'title-az', label: 'Title A–Z' },
+    { value: 'year-newest', label: 'Year, newest' },
+    { value: 'recently-added', label: 'Recently added' },
+  ]
+
+  it('labels a sort from the middle of the list', () => {
+    expect(findSortLabel(options, 'year-newest')).toBe('Year, newest')
+  })
+
+  it('labels the first and the last option by their own value', () => {
+    expect(findSortLabel(options, 'artist-az')).toBe('Artist A–Z')
+    expect(findSortLabel(options, 'recently-added')).toBe('Recently added')
+  })
+
+  it('falls back to the sort value when the options do not carry it', () => {
+    expect(findSortLabel([{ value: 'title-az', label: 'Title A–Z' }], 'recently-added')).toBe(
+      'recently-added',
+    )
+  })
+
+  it('falls back to the sort value for an empty option list', () => {
+    expect(findSortLabel([], 'title-az')).toBe('title-az')
   })
 })
 

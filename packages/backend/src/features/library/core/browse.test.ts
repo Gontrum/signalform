@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { DecadeFilter, SortOption } from "@signalform/shared";
+import {
+  RECENTLY_ADDED_ALBUM_LIMIT,
+  type DecadeFilter,
+  type SortOption,
+} from "@signalform/shared";
 import {
   computeBackwardPage,
   countAcrossYears,
@@ -71,6 +75,14 @@ describe("mapSortToLmsQuery", () => {
 
     expect(cappedSorts).toEqual(["recently-added"]);
     expect(mapSortToLmsQuery("recently-added").hardLimit).toBe(100);
+  });
+
+  // The client shows "this is the cap, not the end of your library" at exactly
+  // this many albums, so a cap the server no longer applies would make it lie.
+  it("caps recently-added at the limit the client explains", () => {
+    expect(mapSortToLmsQuery("recently-added").hardLimit).toBe(
+      RECENTLY_ADDED_ALBUM_LIMIT,
+    );
   });
 
   it("never produces the non-existent sort:artist", () => {
