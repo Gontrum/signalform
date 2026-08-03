@@ -264,7 +264,63 @@ describe('LibraryView — artist mode', () => {
     expect(wrapper.find('[data-testid="artists-empty-state"]').exists()).toBe(false)
   })
 
-  it('hides the browse switch on the Tidal tab', async () => {
+  // The two switches share one line: nine control rows above the album grid put
+  // the first cover below the fold on a 375px phone.
+  it('puts the browse switch and the grid/list toggle in the same row', async () => {
+    const { wrapper } = await mountView()
+
+    const browseSwitch = wrapper.find('[data-testid="browse-mode-toggle"]').element
+    const viewToggle = wrapper.find('[data-testid="view-toggle"]').element
+
+    expect(viewToggle.parentElement).toBe(browseSwitch.parentElement)
+  })
+
+  it('takes the grid/list toggle out of the row in artist mode', async () => {
+    const { wrapper } = await mountView()
+
+    expect(wrapper.find('[data-testid="view-toggle"]').exists()).toBe(true)
+
+    await switchToArtists(wrapper)
+
+    expect(wrapper.find('[data-testid="view-toggle"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="browse-mode-toggle"]').exists()).toBe(true)
+  })
+
+  // The switch is the way back out, so it must not sit inside the branch that
+  // the failure replaces.
+  it('keeps the browse switch when the artist list fails to load', async () => {
+    const { wrapper } = await mountView()
+
+    mockGetLibraryArtists.mockResolvedValueOnce({
+      ok: false,
+      error: { type: 'SERVER_ERROR', status: 503, message: 'LMS not reachable' },
+    })
+    await switchToArtists(wrapper)
+
+    expect(wrapper.find('[data-testid="browse-mode-toggle"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="view-toggle"]').exists()).toBe(false)
+
+    await wrapper.find('[data-testid="browse-mode-albums"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="album-grid"]').exists()).toBe(true)
+  })
+
+  it('hides the browse switch on the Tidal tab and leaves the view toggle', async () => {
+    mockGetTidalAlbums.mockResolvedValue({
+      ok: true,
+      value: {
+        albums: [
+          {
+            id: '1.0.1.0',
+            title: 'Tidal Album',
+            artist: 'Tidal Artist',
+            coverArtUrl: 'https://resources.tidal.com/images/1/320x320.jpg',
+          },
+        ],
+        totalCount: 1,
+      },
+    })
     const { wrapper } = await mountView()
 
     expect(wrapper.find('[data-testid="browse-mode-toggle"]').exists()).toBe(true)
@@ -273,6 +329,7 @@ describe('LibraryView — artist mode', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="browse-mode-toggle"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="view-toggle"]').exists()).toBe(true)
   })
 
   // 44px minimum touch target (WCAG 2.5.5) plus the visible keyboard focus ring.

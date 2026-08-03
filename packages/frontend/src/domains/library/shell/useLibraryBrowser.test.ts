@@ -390,7 +390,6 @@ describe('useLibraryBrowser', () => {
 
       const browser = await mountBrowser()
 
-      expect(browser.genres.value).toHaveLength(22)
       expect(browser.genreChips.value).toHaveLength(20)
       expect(browser.genreChips.value[0]).toEqual({ id: 1, name: 'Genre M', albumCount: 3 })
       expect(browser.genreChips.value[19]).toEqual({ id: 20, name: 'Genre F', albumCount: 4 })
@@ -429,7 +428,8 @@ describe('useLibraryBrowser', () => {
 
       const browser = await mountBrowser()
 
-      expect(browser.genres.value).toEqual([])
+      expect(browser.genreChips.value).toEqual([])
+      expect(browser.genreRest.value).toEqual([])
       expect(browser.currentStatus.value).toBe('success')
       expect(titlesOf(browser.albums.value)).toEqual(['Kid A'])
     })

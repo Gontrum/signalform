@@ -22,9 +22,11 @@ import {
 } from '@/platform/api/libraryApi'
 import {
   adaptTidalAlbumsForDisplay,
+  buildDecadeScopeMessage,
   buildRescanProgressMessage,
   decadeOptions,
   DECADE_KEY,
+  findSortLabel,
   GENRE_CHIP_COUNT,
   GENRE_KEY,
   libraryControlVisibility,
@@ -34,7 +36,9 @@ import {
   parseStoredViewMode,
   reconcileFilters,
   resolveLocalStatus,
+  showsDecadeScopeNotice as showsDecadeScopeNoticeFor,
   showsLoadMore as showsLoadMoreFor,
+  showsRecentlyAddedCapNotice as showsRecentlyAddedCapNoticeFor,
   sortOptions,
   splitGenres,
   SORT_KEY,
@@ -107,13 +111,15 @@ type UseLibraryBrowserResult = {
   readonly decadeFilter: Ref<DecadeFilter>
   readonly setDecadeFilter: (decade: DecadeFilter) => void
   readonly adjustedFilter: Ref<FilterField | null>
-  readonly genres: Ref<readonly LibraryGenre[]>
   readonly genreChips: ComputedRef<readonly LibraryGenre[]>
   readonly genreRest: ComputedRef<readonly LibraryGenre[]>
   readonly searchQuery: Ref<string>
   readonly setSearchQuery: (value: string) => void
   readonly clearAllFilters: () => void
   readonly hasActiveFilters: ComputedRef<boolean>
+  readonly showsRecentlyAddedCapNotice: ComputedRef<boolean>
+  readonly showsDecadeScopeNotice: ComputedRef<boolean>
+  readonly decadeScopeMessage: ComputedRef<string>
 }
 
 const parseStoredGenreId = (stored: string | null): number | null => {
@@ -201,6 +207,15 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const requestRef = { current: 0 }
   const searchTimerRef = { current: null as ReturnType<typeof setTimeout> | null }
 
+  // Every setter that loads on its own must call this first: the pending timer
+  // would otherwise fetch the same page a second time right after.
+  const cancelSearchDebounce = (): void => {
+    if (searchTimerRef.current !== null) {
+      clearTimeout(searchTimerRef.current)
+      searchTimerRef.current = null
+    }
+  }
+
   const tidalAlbumsForDisplay = computed(() => adaptTidalAlbumsForDisplay(tidalAlbums.value))
   const localStatus = computed(() =>
     resolveLocalStatus(browseMode.value, status.value, artistsStatus.value),
@@ -270,6 +285,30 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     'year-newest': t('library.sort.yearNewest'),
     'recently-added': t('library.sort.recentlyAdded'),
   })
+
+  const showsRecentlyAddedCapNotice = computed(() =>
+    showsRecentlyAddedCapNoticeFor({
+      albumControls: controlVisibility.value.albumControls,
+      status: status.value,
+      sort: sortBy.value,
+      albumCount: albums.value.length,
+    }),
+  )
+
+  const showsDecadeScopeNotice = computed(() =>
+    showsDecadeScopeNoticeFor({
+      albumControls: controlVisibility.value.albumControls,
+      status: status.value,
+      decade: decadeFilter.value,
+      albumCount: albums.value.length,
+    }),
+  )
+
+  const activeSortLabel = computed(() => findSortLabel(librarySortOptions, sortBy.value))
+
+  const decadeScopeMessage = computed(() =>
+    buildDecadeScopeMessage(t('library.decadeScopeNotice'), activeSortLabel.value),
+  )
 
   const setSource = (source: Source): void => {
     activeSource.value = source
@@ -416,6 +455,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
       return
     }
 
+    cancelSearchDebounce()
     browseMode.value = mode
     reloadCurrentList()
   }
@@ -514,9 +554,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   })
 
   onScopeDispose(() => {
-    if (searchTimerRef.current !== null) {
-      clearTimeout(searchTimerRef.current)
-    }
+    cancelSearchDebounce()
     stopRescanPoll()
   })
 
@@ -577,6 +615,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   }
 
   const applyReconciled = (reconciled: ReconciledFilters): void => {
+    cancelSearchDebounce()
     sortBy.value = reconciled.sort
     sessionStorage.setItem(SORT_KEY, reconciled.sort)
     decadeFilter.value = reconciled.decade
@@ -604,6 +643,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   }
 
   const setGenreFilter = (genreId: number | null): void => {
+    cancelSearchDebounce()
     genreFilter.value = genreId
     storeGenre(genreId)
 
@@ -612,10 +652,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
 
   const setSearchQuery = (value: string): void => {
     searchQuery.value = value
-
-    if (searchTimerRef.current !== null) {
-      clearTimeout(searchTimerRef.current)
-    }
+    cancelSearchDebounce()
 
     searchTimerRef.current = setTimeout(() => {
       searchTimerRef.current = null
@@ -624,6 +661,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   }
 
   const clearAllFilters = (): void => {
+    cancelSearchDebounce()
     genreFilter.value = null
     storeGenre(null)
     decadeFilter.value = 'all'
@@ -681,12 +719,14 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     decadeFilter,
     setDecadeFilter,
     adjustedFilter,
-    genres,
     genreChips,
     genreRest,
     searchQuery,
     setSearchQuery,
     clearAllFilters,
     hasActiveFilters,
+    showsRecentlyAddedCapNotice,
+    showsDecadeScopeNotice,
+    decadeScopeMessage,
   }
 }

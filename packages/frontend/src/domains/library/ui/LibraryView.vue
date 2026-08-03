@@ -71,6 +71,9 @@ const {
   setSearchQuery,
   clearAllFilters,
   hasActiveFilters,
+  showsRecentlyAddedCapNotice,
+  showsDecadeScopeNotice,
+  decadeScopeMessage,
 } = useLibraryBrowser(t)
 
 const inputValue = (event: Event): string | undefined =>
@@ -121,6 +124,22 @@ const showsEmptyLibrary = computed(() =>
     albums.value.length,
     hasActiveFilters.value,
   ),
+)
+
+const showsTidalFeatured = computed(
+  () => activeSource.value === 'tidal' && tidalAlbumsForDisplay.value.length === 0,
+)
+
+// The display row sits above the state chain, so the view toggle needs the
+// condition the album branch gets for free from its `v-else`: exactly the
+// states none of the branches before it claims.
+const showsAlbumContent = computed(
+  () =>
+    currentStatus.value !== 'loading' &&
+    currentStatus.value !== 'error' &&
+    !showsArtistBrowser.value &&
+    !showsEmptyLibrary.value &&
+    !showsTidalFeatured.value,
 )
 
 const showYearHeadings = computed(() =>
@@ -303,36 +322,6 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </button>
       </div>
 
-      <!-- Albums / Artists switch (local only — Tidal has no artist browser,
-           so the toggle disappears with the tab and the mode is restored on
-           the way back). -->
-      <div
-        v-if="showsBrowseModeToggle"
-        data-testid="browse-mode-toggle"
-        role="group"
-        :aria-label="t('library.browseModeLabel')"
-        class="mb-3 flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit sm:mb-4"
-      >
-        <button
-          type="button"
-          data-testid="browse-mode-albums"
-          :aria-pressed="browseMode === 'albums'"
-          :class="browseModeClass(browseMode === 'albums')"
-          @click="setBrowseMode('albums')"
-        >
-          {{ t('library.browseAlbums') }}
-        </button>
-        <button
-          type="button"
-          data-testid="browse-mode-artists"
-          :aria-pressed="browseMode === 'artists'"
-          :class="browseModeClass(browseMode === 'artists')"
-          @click="setBrowseMode('artists')"
-        >
-          {{ t('library.browseArtists') }}
-        </button>
-      </div>
-
       <!-- Rescan library button (local only) -->
       <div v-if="activeSource === 'local'" class="mb-3 flex items-center gap-3 sm:mb-6">
         <button
@@ -503,6 +492,93 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </p>
       </div>
 
+      <!-- Display row: what am I browsing (albums / artists) on the left, how it
+           is drawn (grid / list) on the right. Both answer "how do I look at
+           this", and a phone screen has no line to spare above the grid — the
+           two shared one row's worth of height before the switch existed.
+           Above the state chain, because the switch is the way out of a failed
+           or empty artist list; the view toggle carries the branch condition
+           the album list gets from its `v-else`, and in artist mode it goes
+           away entirely — that list is text, it has no grid. -->
+      <div
+        v-if="showsBrowseModeToggle || showsAlbumContent"
+        class="mb-2 flex items-center gap-3 sm:mb-4"
+      >
+        <!-- Albums / Artists switch (local only — Tidal has no artist browser,
+             so the switch disappears with the tab and the mode is restored on
+             the way back). -->
+        <div
+          v-if="showsBrowseModeToggle"
+          data-testid="browse-mode-toggle"
+          role="group"
+          :aria-label="t('library.browseModeLabel')"
+          class="flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit"
+        >
+          <button
+            type="button"
+            data-testid="browse-mode-albums"
+            :aria-pressed="browseMode === 'albums'"
+            :class="browseModeClass(browseMode === 'albums')"
+            @click="setBrowseMode('albums')"
+          >
+            {{ t('library.browseAlbums') }}
+          </button>
+          <button
+            type="button"
+            data-testid="browse-mode-artists"
+            :aria-pressed="browseMode === 'artists'"
+            :class="browseModeClass(browseMode === 'artists')"
+            @click="setBrowseMode('artists')"
+          >
+            {{ t('library.browseArtists') }}
+          </button>
+        </div>
+
+        <!-- View toggle (shared — single instance for both sources). ml-auto,
+             not justify-end on the row: on Tidal it is the only child and must
+             still sit right. -->
+        <div
+          v-if="showsAlbumContent"
+          data-testid="view-toggle"
+          class="ml-auto flex rounded-lg border border-neutral-200 p-1"
+        >
+          <button
+            type="button"
+            data-testid="grid-view-button"
+            :class="[
+              'flex h-8 w-8 items-center justify-center rounded transition-colors',
+              viewMode === 'grid'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-900',
+            ]"
+            aria-label="Grid view"
+            :aria-pressed="viewMode === 'grid'"
+            @click="setViewMode('grid')"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-testid="list-view-button"
+            :class="[
+              'flex h-8 w-8 items-center justify-center rounded transition-colors',
+              viewMode === 'list'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-900',
+            ]"
+            aria-label="List view"
+            :aria-pressed="viewMode === 'list'"
+            @click="setViewMode('list')"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <div
         v-if="currentStatus === 'loading'"
         data-testid="loading-state"
@@ -570,10 +646,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
       </div>
 
       <!-- Story 8.9 AC2: No Tidal favorites → show Featured Albums (Neu bei Tidal) -->
-      <div
-        v-else-if="tidalAlbumsForDisplay.length === 0 && activeSource === 'tidal'"
-        data-testid="tidal-featured-section"
-      >
+      <div v-else-if="showsTidalFeatured" data-testid="tidal-featured-section">
         <!-- Featured loading -->
         <div
           v-if="featuredStatus === 'loading'"
@@ -613,48 +686,9 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </div>
       </div>
 
-      <!-- Main content: view toggle + album grid/list -->
+      <!-- Main content: album grid/list. Its display row lives above the state
+           chain, sharing a line with the Albums/Artists switch. -->
       <div v-else>
-        <div class="mb-3 flex items-center justify-end gap-3 sm:mb-4">
-          <!-- View toggle (shared — single instance for both sources) -->
-          <div data-testid="view-toggle" class="flex rounded-lg border border-neutral-200 p-1">
-            <button
-              type="button"
-              data-testid="grid-view-button"
-              :class="[
-                'flex h-8 w-8 items-center justify-center rounded transition-colors',
-                viewMode === 'grid'
-                  ? 'bg-neutral-900 text-white'
-                  : 'text-neutral-500 hover:text-neutral-900',
-              ]"
-              aria-label="Grid view"
-              :aria-pressed="viewMode === 'grid'"
-              @click="setViewMode('grid')"
-            >
-              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              data-testid="list-view-button"
-              :class="[
-                'flex h-8 w-8 items-center justify-center rounded transition-colors',
-                viewMode === 'list'
-                  ? 'bg-neutral-900 text-white'
-                  : 'text-neutral-500 hover:text-neutral-900',
-              ]"
-              aria-label="List view"
-              :aria-pressed="viewMode === 'list'"
-              @click="setViewMode('list')"
-            >
-              <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-
         <!-- No filter results (local only — filter combination too narrow) -->
         <div
           v-if="activeSource === 'local' && albums.length === 0"
@@ -730,6 +764,28 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           {{ loadMoreErrorMessage }}
         </p>
       </div>
+
+      <!-- Why the list ends here, and what a decade filter does to the order.
+           Below the grid on purpose: this is where the user meets the effect,
+           and a line above it would push the first cover off a phone screen
+           (e2e/journeys/phone-layout.spec.ts measures exactly that). The two
+           never appear together — 'recently-added' and a decade are the pair
+           reconcileFilters refuses. -->
+      <p
+        v-if="showsRecentlyAddedCapNotice"
+        data-testid="recently-added-cap-notice"
+        class="mt-6 text-sm text-neutral-500"
+      >
+        {{ t('library.recentlyAddedCapNotice') }}
+      </p>
+
+      <p
+        v-if="showsDecadeScopeNotice"
+        data-testid="decade-scope-notice"
+        class="mt-6 text-sm text-neutral-500"
+      >
+        {{ decadeScopeMessage }}
+      </p>
     </div>
   </div>
 </template>
