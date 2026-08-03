@@ -4,8 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.9.x   | :white_check_mark: |
-| < 0.9   | :x:                |
+| 0.20.x  | :white_check_mark: |
+| < 0.20  | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -13,8 +13,8 @@ We take security vulnerabilities seriously. If you discover a security issue, pl
 
 ### Where to Report
 
-- **Preferred:** Use [GitHub Security Advisories](https://github.com/Gontrum/signalform/security/advisories/new)
-- **Alternative:** Email security reports to: [REPLACE_WITH_YOUR_EMAIL]
+Use [GitHub Security Advisories](https://github.com/Gontrum/signalform/security/advisories/new).
+Reports are private until an advisory is published.
 
 **Please do NOT open public issues for security vulnerabilities.**
 
