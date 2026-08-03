@@ -7,11 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- the library is browsable in full. Sorting, genre and decade filters, and
+  search now run on LMS instead of on the first 250 albums the app had loaded,
+  so every album is reachable — sorting by year no longer means "newest of the
+  alphabetically first third"
+- browse the library by artist as well as by album, with the artist list paged
+  and searchable like the album grid
+- shuffle and repeat, set on LMS so they hold whatever else is controlling the
+  player. Starting an album no longer silently clears repeat
+- track durations in search results
+- saved playlists can be renamed in place, and single tracks removed from them
+- the library says where it is not showing everything: the 100-album LMS cap on
+  "recently added", and that albums without a release year belong to no decade
+
+### Changed
+
+- a decade page only counts the years it needs. A cold "older" page used to
+  count every year in the decade before showing an album, and each keystroke in
+  the search field paid for all of them again
+
+### Fixed
+
+- the track-end stall detector no longer skips out of audio that is still
+  playing: standstill now means the exact same position over five polls, not a
+  drift of under 0.1 s over three
+- polling backs off while LMS is unreachable instead of retrying every six
+  seconds around the clock — roughly 10,000 failed requests a day against a
+  server that is deliberately asleep
+
 ### Planned
 
 - Mobile app improvements
 - Additional streaming service integrations
-- Enhanced playlist management (rename, edit tracks)
 
 ---
 

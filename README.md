@@ -5,7 +5,7 @@
 [![Docker Image](https://img.shields.io/badge/docker-ghcr.io%2Fgontrum%2Fsignalform-2496ED?style=flat-square&logo=docker&logoColor=white)](https://github.com/Gontrum/signalform/pkgs/container/signalform)
 [![License](https://img.shields.io/github/license/Gontrum/signalform?style=flat-square)](LICENSE)
 
-A self-hosted music player interface for [Lyrion Music Server (LMS)](https://lyrion.org/). Browse your local library, Qobuz, and Tidal from a single web UI — with artist enrichment via Last.fm and Fanart.tv.
+A self-hosted music player interface for [Lyrion Music Server (LMS)](https://lyrion.org/). Browse your local library and Tidal from a single web UI — with artist enrichment via Last.fm and Fanart.tv.
 
 ![Signalform artist overview](docs/images/readme/artist-overview.png)
 
@@ -13,11 +13,13 @@ A self-hosted music player interface for [Lyrion Music Server (LMS)](https://lyr
 
 Signalform sits in front of your existing LMS installation and gives it a modern web interface. It does not replace LMS — LMS still manages your music library, streaming service integrations, and audio output. Signalform adds:
 
-- **Unified search** across local library, Qobuz, and Tidal
+- **Unified search** across your local library and Tidal. Qobuz tracks are recognised and preferred over Tidal wherever LMS surfaces them in your library, but Signalform does not search or browse Qobuz as a separate service
+- **Library browsing** by album or by artist, sorted and filtered on the server, so the whole library is reachable rather than the first page of it
+- **Shuffle and repeat** — both set on LMS, so they survive whatever else is controlling the player
 - **Artist enrichment** — biographies, similar artists, and top tracks via Last.fm
 - **Artist hero images** via Fanart.tv
 - **Queue management** and playback control
-- **Playlists** — save the current queue as an LMS playlist and load it back later
+- **Playlists** — save the current queue as an LMS playlist, load it back, rename it, and remove single tracks from it
 - **Sleep timer** — stop playback after a set duration (15/30/45/60 minutes)
 - **Radio mode** — continuous playback based on artist similarity
 - **Personal Radio** — dynamic queue built from your Last.fm listening history, with a configurable comfort/discovery blend
@@ -71,6 +73,19 @@ Contributor-facing architecture details live in
 - A running [Lyrion Music Server](https://lyrion.org/) instance reachable on your network
 - Linux, macOS, or any Docker host that can run Linux containers
 - The LMS player you want to control must already exist in LMS
+
+## Known limitations
+
+- **One player at a time.** Signalform controls a single LMS player, chosen in
+  the setup wizard or in Settings. Switching players means changing that
+  setting; there is no multiroom view, no grouping, and no per-player state —
+  radio mode in particular is process-wide, not per player. LMS itself still
+  handles as many players as you like; Signalform just points at one of them.
+- **Qobuz is not browsable.** Search and library browsing cover the local
+  library and Tidal. Qobuz tracks are recognised when LMS surfaces them, but
+  there is no Qobuz tab and no Qobuz search.
+- **"Recently added" stops at 100 albums.** That is the LMS `browseagelimit`
+  preference, not a Signalform limit; the library view says so where it applies.
 
 ## Installation
 
