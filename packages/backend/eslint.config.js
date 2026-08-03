@@ -27,6 +27,7 @@ export default [
           pattern: [
             "src/infrastructure/frontend-delivery.ts",
             "src/infrastructure/lms-registry.ts",
+            "src/infrastructure/transport-commands.ts",
             "src/infrastructure/websocket/**",
           ],
           mode: "file",
@@ -173,6 +174,7 @@ export default [
       "src/features/setup/shell/discovery.ts",
       "src/features/users/shell/active-listener.ts",
       "src/infrastructure/lms-registry.ts",
+      "src/infrastructure/transport-commands.ts",
     ],
     rules: {
       "functional/immutable-data": "off",

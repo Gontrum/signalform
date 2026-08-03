@@ -15,6 +15,7 @@ import {
   getUserFriendlySkipErrorMessage,
 } from "../core/error-mappers.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 
 const PlayRequestSchema = z.object({
   trackUrl: z.string().min(1, "Track URL is required"),
@@ -85,6 +86,7 @@ export const registerTransportRoutes = (
         });
       }
 
+      recordUserTransportCommand();
       const playbackResult = await lmsClient.play(
         validationResult.value.trackUrl ?? "",
       );
@@ -118,6 +120,7 @@ export const registerTransportRoutes = (
         "Next track request received",
       );
 
+      recordUserTransportCommand();
       const result = await lmsClient.nextTrack();
       if (!result.ok) {
         return sendLmsError(
@@ -149,6 +152,7 @@ export const registerTransportRoutes = (
         "Previous track request received",
       );
 
+      recordUserTransportCommand();
       const result = await lmsClient.previousTrack();
       if (!result.ok) {
         return sendLmsError(
@@ -180,6 +184,7 @@ export const registerTransportRoutes = (
         "Pause playback request received",
       );
 
+      recordUserTransportCommand();
       const result = await lmsClient.pause();
       if (!result.ok) {
         return sendLmsError(

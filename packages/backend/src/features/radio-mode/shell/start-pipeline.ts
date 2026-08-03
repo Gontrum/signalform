@@ -11,6 +11,7 @@
  */
 
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import { artistMatches, selectBestTrackUrl } from "../core/track-selection.js";
 
 export type StartPipelineDeps = {
@@ -73,6 +74,7 @@ export const playAndQueue = async (
   playableUrls: readonly string[],
 ): Promise<void> => {
   const { lmsClient } = deps;
+  recordUserTransportCommand();
   await lmsClient.play(playableUrls[0]!);
   await playableUrls.slice(1).reduce<Promise<void>>(async (prev, url) => {
     await prev;

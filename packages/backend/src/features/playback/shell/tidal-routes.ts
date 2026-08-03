@@ -25,6 +25,7 @@ import {
   PLAYER_UPDATES_ROOM,
 } from "../../../infrastructure/websocket/index.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js";
 
 const PlayAlbumRequestSchema = z.object({
@@ -48,6 +49,7 @@ const playUrlsSequentially = async (
 ): Promise<FastifyReply | undefined> => {
   const [firstUrl, ...restUrls] = urls;
 
+  recordUserTransportCommand();
   const playResult = await lmsClient.play(firstUrl ?? "");
   if (!playResult.ok) {
     return sendLmsError(
@@ -251,6 +253,7 @@ export const registerTidalRoutes = (
         });
       }
 
+      recordUserTransportCommand();
       const albumResult = isTidalAlbumId(validationResult.value.albumId)
         ? await lmsClient.playTidalAlbum(validationResult.value.albumId)
         : await lmsClient.playAlbum(validationResult.value.albumId);

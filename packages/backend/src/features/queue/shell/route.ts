@@ -36,6 +36,7 @@ import {
   createReorderQueueCommand,
 } from "../core/service.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import {
   handleQueueRemoval,
   type QueueProjection,
@@ -418,6 +419,7 @@ export const createQueueRoute = (
       }
       const { trackIndex } = validation.data;
 
+      recordUserTransportCommand();
       const result = await lmsClient.jumpToTrack(trackIndex);
       if (!result.ok) {
         return sendLmsError(
@@ -476,6 +478,9 @@ export const createQueueRoute = (
         });
       }
 
+      // Removing the entry that is playing makes LMS advance — indistinguishable
+      // from a cut-off unless the command is on record.
+      recordUserTransportCommand();
       const removalResult = await handleQueueRemoval(trackIndex, {
         lmsClient,
         log: fastify.log,
@@ -569,6 +574,7 @@ export const createQueueRoute = (
     setRadioModeEnabledState(false);
     clearRadioQueueRuntimeState();
 
+    recordUserTransportCommand();
     const mutationResult = await lmsClient.clearQueue();
     if (!mutationResult.ok) {
       return sendLmsError(
@@ -608,6 +614,7 @@ export const createQueueRoute = (
         (a, b) => b - a,
       );
 
+      recordUserTransportCommand();
       const removalResult = await uniqueSortedIndices.reduce<
         Promise<Result<void, LmsError>>
       >(

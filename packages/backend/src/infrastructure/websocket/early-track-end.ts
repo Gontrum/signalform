@@ -1,12 +1,21 @@
-// Measures the reported symptom: a track that stops mid-playback while the next
-// one starts. Says nothing about the cause — Signalform, LMS and the UPnPBridge
-// all produce the same observation from the poller's seat.
+// Measures the reported symptom: a track that stops mid-playback, whether the
+// next one starts or playback simply halts. Says nothing about the cause —
+// Signalform, LMS and the UPnPBridge all produce the same observation from the
+// poller's seat. The one cause it does separate out is the user: a transport
+// command recorded just before the change explains the same observation.
 
 // A track that ends normally is last seen one or two polls short of its
 // duration, and the poller runs once a second — so anything up to a few seconds
 // of remaining time is a regular end. 10s sits far above that spread and far
 // below any cut-off a listener would complain about.
 const EARLY_END_REMAINING_SECONDS = 10;
+
+// The command still has to reach LMS, LMS has to act on it, and only the next
+// poll one second later can see the result — with a UPnPBridge speaker in
+// between, that chain runs into seconds. 5s covers it with headroom while
+// staying short enough that a spontaneous cut-off is unlikely to land inside
+// it; anything that does is still counted, just on the explained side.
+const USER_COMMAND_WINDOW_MS = 5000;
 
 export type TrackEndSample = {
   readonly mode: "play" | "pause" | "stop";
@@ -20,8 +29,21 @@ export type EarlyTrackEnd = {
   readonly time: number;
   readonly duration: number;
   readonly remainingSeconds: number;
-  readonly nextTrackId: string;
+  // Absent when playback stopped instead of moving on — same symptom, no successor.
+  readonly nextTrackId?: string;
 };
+
+export type UserCommandClock = {
+  readonly nowMs: number;
+  readonly lastCommandAtMs?: number;
+};
+
+export type TrackEndVerdict =
+  | { readonly kind: "no-incident" }
+  | { readonly kind: "incident"; readonly incident: EarlyTrackEnd }
+  | { readonly kind: "user-command"; readonly incident: EarlyTrackEnd };
+
+const NO_INCIDENT: TrackEndVerdict = { kind: "no-incident" };
 
 const identifiesTrack = (trackId: string | undefined): trackId is string =>
   trackId !== undefined && trackId !== "";
@@ -31,15 +53,22 @@ const identifiesTrack = (trackId: string | undefined): trackId is string =>
 const knownDuration = (duration: number | undefined): duration is number =>
   duration !== undefined && duration > 0;
 
-/**
- * The incident described as "the track breaks off and the next one starts too
- * early", or undefined if this poll pair does not show it.
- *
- * A user pressing skip mid-track looks exactly the same from here and cannot be
- * told apart with what the poller sees — this is a symptom counter, not proof
- * of a fault.
- */
-export const detectEarlyTrackEnd = (
+const successorTrackId = (
+  previousTrackId: string,
+  current: TrackEndSample,
+): string | undefined =>
+  identifiesTrack(current.trackId) && current.trackId !== previousTrackId
+    ? current.trackId
+    : undefined;
+
+const leftPlayingTrack = (
+  previousTrackId: string,
+  current: TrackEndSample,
+): boolean =>
+  current.mode === "stop" ||
+  successorTrackId(previousTrackId, current) !== undefined;
+
+const detectEarlyTrackEnd = (
   previous: TrackEndSample | undefined,
   current: TrackEndSample,
 ): EarlyTrackEnd | undefined => {
@@ -48,12 +77,10 @@ export const detectEarlyTrackEnd = (
     return undefined;
   }
   const previousTrackId = previous.trackId;
-  const nextTrackId = current.trackId;
   if (
     !identifiesTrack(previousTrackId) ||
-    !identifiesTrack(nextTrackId) ||
-    previousTrackId === nextTrackId ||
-    !knownDuration(previous.duration)
+    !knownDuration(previous.duration) ||
+    !leftPlayingTrack(previousTrackId, current)
   ) {
     return undefined;
   }
@@ -64,7 +91,37 @@ export const detectEarlyTrackEnd = (
         time: previous.time,
         duration: previous.duration,
         remainingSeconds,
-        nextTrackId,
+        nextTrackId: successorTrackId(previousTrackId, current),
       }
     : undefined;
+};
+
+const explainedByUserCommand = ({
+  nowMs,
+  lastCommandAtMs,
+}: UserCommandClock): boolean =>
+  lastCommandAtMs !== undefined &&
+  nowMs - lastCommandAtMs <= USER_COMMAND_WINDOW_MS;
+
+/**
+ * Three-way verdict on a pair of consecutive polls: the incident described as
+ * "the track breaks off with time left", the same observation explained by a
+ * transport command the user issued moments earlier, or neither.
+ *
+ * The explained case is deliberately still an `EarlyTrackEnd` — it is counted
+ * too, otherwise a silent metric cannot be told apart from one that filters
+ * everything away.
+ */
+export const assessTrackEnd = (
+  previous: TrackEndSample | undefined,
+  current: TrackEndSample,
+  userCommand: UserCommandClock,
+): TrackEndVerdict => {
+  const incident = detectEarlyTrackEnd(previous, current);
+  if (incident === undefined) {
+    return NO_INCIDENT;
+  }
+  return explainedByUserCommand(userCommand)
+    ? { kind: "user-command", incident }
+    : { kind: "incident", incident };
 };

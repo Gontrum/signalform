@@ -14,6 +14,7 @@ import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { getUserFriendlyErrorMessage } from "../../playback/core/error-mappers.js";
 import { hasMoreAfter } from "../../library/core/browse.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import { parsePlaylistName } from "../core/service.js";
 
 const extractName = (body: unknown): unknown => {
@@ -156,6 +157,7 @@ export const createPlaylistsRoute = (
       }
       const id = rawId.trim();
 
+      recordUserTransportCommand();
       const result = await lmsClient.loadSavedPlaylist(id);
       if (!result.ok) {
         return sendLmsError(

@@ -9,6 +9,10 @@ import type {
 import { startStatusPolling } from "./status-poller.js";
 import type { TypedSocketIOServer } from "./server.js";
 import { resetRadioRuntimeState } from "../../features/radio-mode/shell/radio-state.js";
+import {
+  recordUserTransportCommand,
+  resetUserTransportCommands,
+} from "../transport-commands.js";
 import type {
   LmsError,
   PlayerStatus,
@@ -55,6 +59,20 @@ const playingAt = (
     repeat: "off",
   });
 
+/** Playback halted on the track it was playing — LMS keeps reporting it. */
+const stoppedOn = (trackId: string): Result<PlayerStatus, LmsError> =>
+  ok({
+    mode: "stop",
+    playerConnected: true,
+    time: 0,
+    duration: TRACK_DURATION,
+    volume: 50,
+    currentTrack: makeTrack(trackId),
+    queuePreview: [],
+    shuffle: "off",
+    repeat: "off",
+  });
+
 /** Replays the given responses, then repeats the last one for every further poll. */
 const sequentialGetStatus = (
   responses: ReadonlyArray<Result<PlayerStatus, LmsError>>,
@@ -83,28 +101,47 @@ type EarlyEndLogFields = {
   readonly time: number;
   readonly duration: number;
   readonly remainingSeconds: number;
-  readonly nextTrackId: string;
+  readonly nextTrackId?: string;
 };
+
+const EARLY_END_EVENTS: readonly string[] = [
+  "track_ended_early",
+  "track_ended_early_after_user_command",
+];
 
 const isEarlyEndLog = (fields: unknown): fields is EarlyEndLogFields =>
   typeof fields === "object" &&
   fields !== null &&
   "event" in fields &&
-  fields.event === "track_ended_early";
+  typeof fields.event === "string" &&
+  EARLY_END_EVENTS.includes(fields.event);
 
-const earlyEndLogs = (warnSpy: {
+type LogSpy = {
   readonly mock: { readonly calls: ReadonlyArray<readonly unknown[]> };
-}): readonly EarlyEndLogFields[] =>
-  warnSpy.mock.calls.map((call) => call[0]).filter(isEarlyEndLog);
+};
 
-/** Runs the poller over the given status sequence and returns the warn lines. */
+const earlyEndLogs = (spy: LogSpy): readonly EarlyEndLogFields[] =>
+  spy.mock.calls.map((call) => call[0]).filter(isEarlyEndLog);
+
+type EarlyEndLines = {
+  readonly warned: readonly EarlyEndLogFields[];
+  readonly informed: readonly EarlyEndLogFields[];
+};
+
+/**
+ * Runs the poller over the given status sequence and returns the early-end
+ * lines it produced, split by level — the suppressed case is only visible as
+ * an `info` line, so a helper that watched `warn` alone could not tell
+ * "explained away" from "never noticed".
+ */
 const runPoller = async (
   responses: ReadonlyArray<Result<PlayerStatus, LmsError>>,
   pollCount: number,
-): Promise<readonly EarlyEndLogFields[]> => {
+): Promise<EarlyEndLines> => {
   const getStatus = sequentialGetStatus(responses);
   const app = fastify({ logger: false });
   const warnSpy = vi.spyOn(app.log, "warn");
+  const infoSpy = vi.spyOn(app.log, "info");
 
   const stopPolling = startStatusPolling(
     makeMockIo(),
@@ -121,12 +158,13 @@ const runPoller = async (
   });
   stopPolling();
 
-  return earlyEndLogs(warnSpy);
+  return { warned: earlyEndLogs(warnSpy), informed: earlyEndLogs(infoSpy) };
 };
 
 describe("startStatusPolling - early track end detection", () => {
   beforeEach(() => {
     resetRadioRuntimeState();
+    resetUserTransportCommands();
   });
 
   test("warns once when a track is replaced halfway through", async () => {
@@ -139,7 +177,7 @@ describe("startStatusPolling - early track end detection", () => {
       8,
     );
 
-    expect(logs).toEqual([
+    expect(logs.warned).toEqual([
       {
         event: "track_ended_early",
         playerId: "player-1",
@@ -150,6 +188,7 @@ describe("startStatusPolling - early track end detection", () => {
         nextTrackId: "track-b",
       },
     ]);
+    expect(logs.informed).toEqual([]);
   });
 
   test("stays quiet when the track runs out and the next one starts", async () => {
@@ -162,6 +201,57 @@ describe("startStatusPolling - early track end detection", () => {
       8,
     );
 
-    expect(logs).toEqual([]);
+    expect(logs.warned).toEqual([]);
+    expect(logs.informed).toEqual([]);
+  });
+
+  test("counts the same change as explained when the user just issued a command", async () => {
+    recordUserTransportCommand();
+
+    const logs = await runPoller(
+      [
+        playingAt(30, "track-a"),
+        playingAt(118, "track-a"),
+        playingAt(0, "track-b"),
+      ],
+      8,
+    );
+
+    expect(logs.warned).toEqual([]);
+    expect(logs.informed).toEqual([
+      {
+        event: "track_ended_early_after_user_command",
+        playerId: "player-1",
+        trackId: "track-a",
+        time: 118,
+        duration: TRACK_DURATION,
+        remainingSeconds: TRACK_DURATION - 118,
+        nextTrackId: "track-b",
+      },
+    ]);
+  });
+
+  test("warns when playback breaks off into a standstill, with no successor", async () => {
+    const logs = await runPoller(
+      [
+        playingAt(30, "track-a"),
+        playingAt(60, "track-a"),
+        stoppedOn("track-a"),
+      ],
+      8,
+    );
+
+    expect(logs.warned).toEqual([
+      {
+        event: "track_ended_early",
+        playerId: "player-1",
+        trackId: "track-a",
+        time: 60,
+        duration: TRACK_DURATION,
+        remainingSeconds: TRACK_DURATION - 60,
+        nextTrackId: undefined,
+      },
+    ]);
+    expect(logs.informed).toEqual([]);
   });
 });

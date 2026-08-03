@@ -4,6 +4,7 @@ import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import { buildArtistRadioSeeds } from "../core/service.js";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
+import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 
 const StartArtistRadioBodySchema = z.object({
   artistName: z.string().trim().min(1, "Artist name is required"),
@@ -113,6 +114,7 @@ export const createArtistRadioRoute = (
         });
       }
 
+      recordUserTransportCommand();
       const playResult = await lmsClient.play(firstUrl);
       if (!playResult.ok) {
         return reply.code(503).send({

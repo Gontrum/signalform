@@ -34,7 +34,12 @@ import {
   hasQueueContextChanged,
   hasStatusChanged,
 } from "./handlers.js";
-import { detectEarlyTrackEnd, type TrackEndSample } from "./early-track-end.js";
+import {
+  assessTrackEnd,
+  type TrackEndSample,
+  type TrackEndVerdict,
+} from "./early-track-end.js";
+import { lastUserTransportCommandAt } from "../transport-commands.js";
 import { nextPollDelayMs } from "./poll-backoff.js";
 import {
   abandonedStall,
@@ -126,6 +131,41 @@ const trackEndSample = (status: LmsPlayerStatus): TrackEndSample => ({
   duration: status.currentTrack?.duration,
   trackId: status.currentTrack?.id,
 });
+
+/**
+ * Both verdicts carry the same fields on purpose: a run of `info` lines proves
+ * the counter is alive and merely explaining what it sees, which a missing
+ * `warn` line alone never could.
+ */
+const logTrackEndVerdict = (
+  app: FastifyInstance,
+  playerId: string,
+  verdict: TrackEndVerdict,
+): void => {
+  if (verdict.kind === "no-incident") {
+    return;
+  }
+  const fields = {
+    event:
+      verdict.kind === "incident"
+        ? "track_ended_early"
+        : "track_ended_early_after_user_command",
+    playerId,
+    trackId: verdict.incident.previousTrackId,
+    time: verdict.incident.time,
+    duration: verdict.incident.duration,
+    remainingSeconds: verdict.incident.remainingSeconds,
+    nextTrackId: verdict.incident.nextTrackId,
+  };
+  if (verdict.kind === "incident") {
+    app.log.warn(fields, "Track changed with playback time left");
+  } else {
+    app.log.info(
+      fields,
+      "Track changed with playback time left, explained by a user transport command",
+    );
+  }
+};
 
 /**
  * Starts LMS status polling
@@ -364,6 +404,18 @@ export const startStatusPolling = (
 
     const currentSample = trackEndSample(currentStatus);
 
+    // Runs on every poll pair, not just the ones that emit: a track breaking off
+    // into a standstill leaves mode and preview looking unchanged enough that
+    // the emit path below would never ask.
+    logTrackEndVerdict(
+      app,
+      playerId,
+      assessTrackEnd(previousSample, currentSample, {
+        nowMs: Date.now(),
+        lastCommandAtMs: lastUserTransportCommandAt(),
+      }),
+    );
+
     reconcileSuppressedQueueEnd(previousStatus, currentStatus);
 
     if (onStatusUpdate !== undefined) {
@@ -403,25 +455,6 @@ export const startStatusPolling = (
             // previous state to compare against; initial queue load happens via fetchQueue()
             // in QueueView.vue onMounted, so the push here would be redundant on startup).
             if (hasQueueContextChanged(previousStatus, currentStatus)) {
-              const earlyEnd = detectEarlyTrackEnd(
-                previousSample,
-                currentSample,
-              );
-              if (earlyEnd !== undefined) {
-                app.log.warn(
-                  {
-                    event: "track_ended_early",
-                    playerId,
-                    trackId: earlyEnd.previousTrackId,
-                    time: earlyEnd.time,
-                    duration: earlyEnd.duration,
-                    remainingSeconds: earlyEnd.remainingSeconds,
-                    nextTrackId: earlyEnd.nextTrackId,
-                  },
-                  "Track changed with playback time left",
-                );
-              }
-
               const queueResult = await lmsClient.getQueue();
               // Poller was stopped while getQueue() was in-flight — discard result
               if (isAborted()) {
