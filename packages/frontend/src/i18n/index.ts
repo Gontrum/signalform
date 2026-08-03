@@ -91,6 +91,8 @@ export type MessageKey =
   | 'library.errorArtists'
   | 'library.loadMoreArtistsError'
   | 'library.searchArtistsPlaceholder'
+  | 'library.recentlyAddedCapNotice'
+  | 'library.decadeScopeNotice'
   | 'setup.title'
   | 'setup.next'
   | 'setup.back'
@@ -228,6 +230,14 @@ export type MessageKey =
   | 'playlists.renameCancel'
   | 'playlists.empty'
   | 'playlists.error'
+  | 'playlists.tracks'
+  | 'playlists.tracksShowAria'
+  | 'playlists.tracksHideAria'
+  | 'playlists.tracksLoading'
+  | 'playlists.tracksEmpty'
+  | 'playlists.tracksMore'
+  | 'playlists.trackRemove'
+  | 'playlists.trackRemoveAria'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -324,6 +334,10 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.errorArtists': 'Unable to load artists',
     'library.loadMoreArtistsError': 'Could not load more artists',
     'library.searchArtistsPlaceholder': 'Search artists',
+    'library.recentlyAddedCapNotice':
+      'End of the list — LMS reports at most the 100 most recently added albums.',
+    'library.decadeScopeNotice':
+      'Inside a decade the server orders by year first, then by {sort}. Albums without a release year belong to no decade and show up only without a decade filter.',
     'queue.dragHint': 'Drag a row, then release on the highlighted insertion target.',
     'queue.dropAfter': 'Release to move after this track.',
     'queue.dropBefore': 'Release to move before this track.',
@@ -460,6 +474,14 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.renameCancel': 'Cancel',
     'playlists.empty': 'No saved playlists yet',
     'playlists.error': 'Something went wrong. Please try again.',
+    'playlists.tracks': 'Tracks',
+    'playlists.tracksShowAria': 'Show tracks of playlist {name}',
+    'playlists.tracksHideAria': 'Hide tracks of playlist {name}',
+    'playlists.tracksLoading': 'Loading tracks…',
+    'playlists.tracksEmpty': 'This playlist has no tracks',
+    'playlists.tracksMore': 'Show more tracks',
+    'playlists.trackRemove': 'Remove',
+    'playlists.trackRemoveAria': 'Remove {title} from playlist {name}',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -556,6 +578,10 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'library.errorArtists': 'Künstler konnten nicht geladen werden',
     'library.loadMoreArtistsError': 'Weitere Künstler konnten nicht geladen werden',
     'library.searchArtistsPlaceholder': 'Künstler suchen',
+    'library.recentlyAddedCapNotice':
+      'Ende der Liste – LMS liefert höchstens die 100 zuletzt hinzugefügten Alben.',
+    'library.decadeScopeNotice':
+      'Innerhalb einer Dekade ordnet der Server zuerst nach Jahr, darin nach {sort}. Alben ohne Jahresangabe gehören zu keiner Dekade und erscheinen nur ohne Dekaden-Filter.',
     'queue.dragHint': 'Ziehe eine Zeile und lasse sie auf dem markierten Ziel los.',
     'queue.dropAfter': 'Nach diesem Titel einfügen.',
     'queue.dropBefore': 'Vor diesem Titel einfügen.',
@@ -697,6 +723,14 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.renameCancel': 'Abbrechen',
     'playlists.empty': 'Noch keine gespeicherten Playlists',
     'playlists.error': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
+    'playlists.tracks': 'Titel',
+    'playlists.tracksShowAria': 'Titel der Playlist {name} anzeigen',
+    'playlists.tracksHideAria': 'Titel der Playlist {name} ausblenden',
+    'playlists.tracksLoading': 'Titel werden geladen …',
+    'playlists.tracksEmpty': 'Diese Playlist enthält keine Titel',
+    'playlists.tracksMore': 'Weitere Titel anzeigen',
+    'playlists.trackRemove': 'Entfernen',
+    'playlists.trackRemoveAria': '{title} aus Playlist {name} entfernen',
   },
 }
 

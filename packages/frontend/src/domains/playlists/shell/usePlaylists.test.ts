@@ -9,6 +9,8 @@ vi.mock('@/platform/api/playlistsApi', () => ({
   loadPlaylist: vi.fn(),
   deletePlaylist: vi.fn(),
   renamePlaylist: vi.fn(),
+  getPlaylistTracks: vi.fn(),
+  removePlaylistTrack: vi.fn(),
 }))
 
 const fetchQueueMock = vi.fn<() => Promise<void>>()
