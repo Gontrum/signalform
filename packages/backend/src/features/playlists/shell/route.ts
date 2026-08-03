@@ -3,14 +3,16 @@
  *
  * Save the current LMS now-playing queue as a named playlist, list saved
  * playlists, load a saved playlist back into the queue, rename a saved
- * playlist, and delete a saved playlist.
+ * playlist, delete a saved playlist, and read or thin out its tracks.
  *
  * Handlers: validate → call core → call LMS → respond.
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { z } from "zod";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { getUserFriendlyErrorMessage } from "../../playback/core/error-mappers.js";
+import { hasMoreAfter } from "../../library/core/browse.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import { parsePlaylistName } from "../core/service.js";
 
@@ -29,6 +31,28 @@ const extractId = (source: unknown): unknown => {
   }
   return (source as { readonly id: unknown }).id;
 };
+
+const PlaylistTracksQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(999).default(250),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+const PlaylistIdParamsSchema = z.object({
+  id: z.string().trim().min(1),
+});
+
+// `z.coerce.number()` reads "" and " " as 0, which would address the first
+// track instead of failing, so the raw segment must be digits before it
+// becomes a position.
+const TRACK_INDEX_PATTERN = /^\d+$/;
+
+const PlaylistTrackParamsSchema = z.object({
+  id: z.string().trim().min(1),
+  index: z
+    .string()
+    .regex(TRACK_INDEX_PATTERN)
+    .transform((raw) => Number(raw)),
+});
 
 export const createPlaylistsRoute = (
   fastify: FastifyInstance,
@@ -247,6 +271,118 @@ export const createPlaylistsRoute = (
 
       request.log.info({ id, name: parsed.value }, "Playlist renamed");
       return reply.code(200).send({ id, name: parsed.value });
+    },
+  );
+
+  /**
+   * GET /api/playlists/:id/tracks
+   *
+   * Read one page of a saved playlist's tracks.
+   * Param: id — non-empty string (Fastify decodes percent-encoded segments)
+   * Query: limit (1-999, default 250), offset (≥0, default 0)
+   * 200 { tracks: [{ index, title, artist, album, duration? }], hasMore } | 400 | 5xx
+   *
+   * Each `index` is the track's position in the whole playlist, not in this
+   * page — that is what DELETE .../tracks/:index expects.
+   */
+  fastify.get<{ readonly Params: unknown; readonly Querystring: unknown }>(
+    "/api/playlists/:id/tracks",
+    async (
+      request: FastifyRequest<{
+        readonly Params: unknown;
+        readonly Querystring: unknown;
+      }>,
+      reply: FastifyReply,
+    ) => {
+      request.log.debug(
+        { endpoint: "/api/playlists/:id/tracks", method: "GET" },
+        "List playlist tracks request received",
+      );
+
+      const params = PlaylistIdParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        request.log.warn("Invalid playlist tracks request: missing id");
+        return reply.code(400).send({ error: "Playlist id is required" });
+      }
+
+      const query = PlaylistTracksQuerySchema.safeParse(request.query);
+      if (!query.success) {
+        request.log.warn("Invalid playlist tracks request: bad pagination");
+        return reply.code(400).send({ error: "Invalid query parameters" });
+      }
+
+      const { id } = params.data;
+      const { limit, offset } = query.data;
+
+      const result = await lmsClient.getSavedPlaylistTracks(id, offset, limit);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS list playlist tracks failed",
+          { id, offset, limit },
+        );
+      }
+
+      return reply.code(200).send({
+        tracks: result.value.tracks,
+        hasMore: hasMoreAfter(result.value.count, offset, limit),
+      });
+    },
+  );
+
+  /**
+   * DELETE /api/playlists/:id/tracks/:index
+   *
+   * Remove a single track from a saved playlist.
+   * Params: id — non-empty string; index — non-negative integer
+   * 204 | 400 | 5xx
+   *
+   * The index is a position, not an identifier: removing track 3 shifts every
+   * later track down by one. A caller deleting two tracks from one stale list
+   * hits the wrong track the second time — it must reload after every delete.
+   *
+   * An unknown id is passed through to LMS, which acknowledges it silently —
+   * same behaviour as DELETE /api/playlists/:id.
+   */
+  fastify.delete<{ readonly Params: unknown }>(
+    "/api/playlists/:id/tracks/:index",
+    async (
+      request: FastifyRequest<{ readonly Params: unknown }>,
+      reply: FastifyReply,
+    ) => {
+      request.log.debug(
+        { endpoint: "/api/playlists/:id/tracks/:index", method: "DELETE" },
+        "Delete playlist track request received",
+      );
+
+      const params = PlaylistTrackParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        request.log.warn("Invalid delete playlist track request");
+        return reply.code(400).send({
+          error:
+            "Playlist id is required and track index must be a non-negative integer",
+        });
+      }
+
+      const { id, index } = params.data;
+
+      const result = await lmsClient.removeSavedPlaylistTrack(id, index);
+      if (!result.ok) {
+        return sendLmsError(
+          reply,
+          request,
+          result.error,
+          getUserFriendlyErrorMessage,
+          "LMS delete playlist track failed",
+          { id, index },
+        );
+      }
+
+      request.log.info({ id, index }, "Playlist track removed");
+      return reply.code(204).send();
     },
   );
 };

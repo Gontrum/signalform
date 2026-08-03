@@ -267,6 +267,21 @@ export type SavedPlaylist = {
 };
 
 /**
+ * A single track of a saved playlist, from the `playlists tracks` command.
+ *
+ * `index` is the track's position in the playlist and the only handle the
+ * `playlists edit` command accepts — it shifts as soon as a track before it is
+ * removed, so it must never be treated as an identifier.
+ */
+export type SavedPlaylistTrack = {
+  readonly index: number;
+  readonly title: string;
+  readonly artist: string;
+  readonly album: string;
+  readonly duration?: number; // tag d — seconds; undefined when LMS omits it
+};
+
+/**
  * Player status from LMS.
  */
 export type PlayerStatus = {

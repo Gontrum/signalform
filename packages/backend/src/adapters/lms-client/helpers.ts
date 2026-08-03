@@ -112,6 +112,23 @@ export const validateTrackUrl = (
   return ok(trimmedUrl);
 };
 
+/**
+ * Parses the LMS `d` tag to seconds.
+ *
+ * LMS returns it as a number for local files and as a string for some remote
+ * tracks; an unparsable value must yield undefined, never NaN. Shared by
+ * search's local search and queue's saved-playlist tracks.
+ */
+export const parseDurationSeconds = (
+  raw: number | string | undefined,
+): number | undefined => {
+  if (raw === undefined || raw === "") {
+    return undefined;
+  }
+  const seconds = Number(raw);
+  return Number.isFinite(seconds) ? seconds : undefined;
+};
+
 // Extracts numeric Tidal track ID from URL: "tidal://58990486.flc" → "58990486"
 export const extractTidalTrackId = (url: string): string | undefined => {
   const match = /^tidal:\/\/(\d+)\./.exec(url);

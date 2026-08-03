@@ -25,6 +25,7 @@ import {
   parseTidalInfo,
   detectSource,
   parseAudioQuality,
+  parseDurationSeconds,
 } from "./helpers.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
 import {
@@ -63,18 +64,6 @@ const localSearchPayloadParser = createLmsResultParser(
     count: z.number(),
   }),
 );
-
-// LMS returns the d tag as a number for local files and as a string for some
-// remote tracks; an unparsable value must not leak NaN into the search result.
-const parseDurationSeconds = (
-  raw: number | string | undefined,
-): number | undefined => {
-  if (raw === undefined || raw === "") {
-    return undefined;
-  }
-  const seconds = Number(raw);
-  return Number.isFinite(seconds) ? seconds : undefined;
-};
 
 const tidalSearchPayloadParser = createLmsResultParser(
   z.object({

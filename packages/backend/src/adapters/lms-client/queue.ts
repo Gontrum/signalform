@@ -11,10 +11,16 @@
 import { ok, type Result } from "@signalform/shared";
 import type { QueueTrack } from "@signalform/shared";
 import { z } from "zod";
-import type { LmsCommand, LmsError, SavedPlaylist } from "./types.js";
+import type {
+  LmsCommand,
+  LmsError,
+  SavedPlaylist,
+  SavedPlaylistTrack,
+} from "./types.js";
 import {
   detectQueueSource,
   parseAudioQuality,
+  parseDurationSeconds,
   validateTrackUrl,
   validateNonEmptyId,
 } from "./helpers.js";
@@ -54,6 +60,23 @@ export type QueueMethods = {
     id: string,
     newName: string,
   ) => Promise<Result<void, LmsError>>;
+  readonly getSavedPlaylistTracks: (
+    id: string,
+    offset: number,
+    limit: number,
+  ) => Promise<
+    Result<
+      {
+        readonly tracks: readonly SavedPlaylistTrack[];
+        readonly count: number;
+      },
+      LmsError
+    >
+  >;
+  readonly removeSavedPlaylistTrack: (
+    id: string,
+    index: number,
+  ) => Promise<Result<void, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -77,6 +100,20 @@ const savedPlaylistRawSchema = z.object({
 const savedPlaylistsPayloadParser = createLmsResultParser(
   z.object({
     playlists_loop: z.array(savedPlaylistRawSchema).optional(),
+  }),
+);
+
+const savedPlaylistTrackRawSchema = z.object({
+  title: z.string(),
+  artist: z.string().optional(),
+  album: z.string().optional(),
+  duration: z.union([z.number(), z.string()]).optional(),
+});
+
+const savedPlaylistTracksPayloadParser = createLmsResultParser(
+  z.object({
+    playlisttracks_loop: z.array(savedPlaylistTrackRawSchema).optional(),
+    count: z.union([z.number(), z.string()]).optional(),
   }),
 );
 
@@ -361,6 +398,102 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         "rename",
         `playlist_id:${id}`,
         `newname:${newName}`,
+      ];
+      const result = await executeCommand(command);
+      if (!result.ok) {
+        return result;
+      }
+      return ok(undefined);
+    },
+
+    /**
+     * Read one page of a saved playlist's tracks.
+     *
+     * Command: ["playlists", "tracks", offset, limit, "playlist_id:{id}", "tags:a,l,d"]
+     * → playlisttracks_loop with { title, artist, album, duration } plus count.
+     * A missing or empty loop is a valid empty page.
+     *
+     * @param id - Saved playlist ID
+     * @param offset - Zero-based offset of the first track to return
+     * @param limit - Maximum number of tracks to return
+     * @returns Result with the page's tracks and the playlist's total count
+     */
+    getSavedPlaylistTracks: async (
+      id: string,
+      offset: number,
+      limit: number,
+    ): Promise<
+      Result<
+        {
+          readonly tracks: readonly SavedPlaylistTrack[];
+          readonly count: number;
+        },
+        LmsError
+      >
+    > => {
+      // Command name and parameter prefixes (`playlists tracks`, `playlist_id:`,
+      // `tags:`) follow the LMS CLI convention and were never verified against a
+      // live server — check the LMS CLI docs here first if the page looks wrong.
+      const command: LmsCommand = [
+        "playlists",
+        "tracks",
+        offset,
+        limit,
+        `playlist_id:${id}`,
+        "tags:a,l,d",
+      ];
+      const result = await executeCommand(
+        command,
+        savedPlaylistTracksPayloadParser,
+      );
+      if (!result.ok) {
+        return result;
+      }
+
+      // The index is the position in the whole playlist, not in this page —
+      // removeSavedPlaylistTrack addresses tracks by it, so dropping the offset
+      // would delete the wrong track on every page but the first.
+      const tracks: readonly SavedPlaylistTrack[] = (
+        result.value.playlisttracks_loop ?? []
+      ).map((item, positionInPage) => ({
+        index: offset + positionInPage,
+        title: item.title,
+        artist: item.artist ?? "",
+        album: item.album ?? "",
+        duration: parseDurationSeconds(item.duration),
+      }));
+
+      const reportedCount = Number(result.value.count);
+
+      return ok({
+        tracks,
+        count: Number.isFinite(reportedCount) ? reportedCount : tracks.length,
+      });
+    },
+
+    /**
+     * Remove a single track from a saved playlist by its position.
+     *
+     * Command: ["playlists", "edit", "cmd:delete", "playlist_id:{id}", "index:{index}"]
+     *
+     * @param id - Saved playlist ID
+     * @param index - Zero-based position of the track inside the playlist
+     * @returns Result with void or error
+     */
+    removeSavedPlaylistTrack: async (
+      id: string,
+      index: number,
+    ): Promise<Result<void, LmsError>> => {
+      // Command name and parameter prefixes (`playlists edit`, `cmd:delete`,
+      // `playlist_id:`, `index:`) follow the LMS CLI convention and were never
+      // verified against a live server — check the LMS CLI docs here first if
+      // the wrong track disappears.
+      const command: LmsCommand = [
+        "playlists",
+        "edit",
+        "cmd:delete",
+        `playlist_id:${id}`,
+        `index:${index}`,
       ];
       const result = await executeCommand(command);
       if (!result.ok) {
