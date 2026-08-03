@@ -18,11 +18,13 @@ import {
   mapLibraryLmsError,
 } from "../core/service.js";
 import {
+  capTotal,
   clampPage,
   computeBackwardPage,
   countAcrossYears,
   hasMoreAfter,
   mapOffsetAcrossYears,
+  pageIndexOf,
   resolvePagination,
   reverseYearBlocks,
   selectDecadeYears,
@@ -203,12 +205,6 @@ const normalizeSearch = (search?: string): string | undefined => {
   const trimmed = search?.trim() ?? "";
   return trimmed === "" ? undefined : trimmed;
 };
-
-const capTotal = (count: number, hardLimit?: number): number =>
-  hardLimit === undefined ? count : Math.min(count, hardLimit);
-
-const pageIndexOf = (offset: number, limit: number): number =>
-  limit > 0 ? Math.floor(offset / limit) : 0;
 
 const chunk = <T>(
   items: readonly T[],

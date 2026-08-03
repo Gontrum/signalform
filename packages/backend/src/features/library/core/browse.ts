@@ -37,6 +37,10 @@ export type LmsPage = {
 
 const EMPTY_PAGE: LmsPage = { offset: 0, limit: 0 };
 
+// A row offset names the page holding that row; it need not sit on the grid.
+export const pageIndexOf = (offset: number, limit: number): number =>
+  limit > 0 ? Math.floor(offset / limit) : 0;
+
 // Page 0 is the newest slice and therefore the *last* rows of the ascending LMS
 // result — the caller reverses the fetched rows before returning them.
 export const computeBackwardPage = (
@@ -72,6 +76,11 @@ export const clampPage = (
     ? { offset, limit: Math.min(limit, remaining) }
     : EMPTY_PAGE;
 };
+
+// LMS counts the whole library even for a capped sort, so "is there another
+// page" has to be asked about the cap rather than about that count.
+export const capTotal = (count: number, hardLimit?: number): number =>
+  hardLimit === undefined ? count : Math.min(count, hardLimit);
 
 // An untagged album arrives as year 0, or without the field when the query
 // omits the year tag — both mean the same block.

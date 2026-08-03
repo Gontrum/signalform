@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampPage, mapSortToLmsQuery } from "./browse.js";
+import { capTotal, clampPage, mapSortToLmsQuery } from "./browse.js";
 
 const RECENTLY_ADDED_CAP = 100;
 
@@ -110,5 +110,36 @@ describe("clampPage", () => {
     expect(new Set(visitedRows).size).toBe(RECENTLY_ADDED_CAP);
     expect(visitedRows[0]).toBe(0);
     expect(visitedRows.at(-1)).toBe(RECENTLY_ADDED_CAP - 1);
+  });
+});
+
+describe("capTotal", () => {
+  it("reports the full count without a hard limit", () => {
+    expect(capTotal(4000)).toBe(4000);
+    expect(capTotal(0)).toBe(0);
+  });
+
+  it("reports the full count when the hard limit is above it", () => {
+    expect(capTotal(37, RECENTLY_ADDED_CAP)).toBe(37);
+  });
+
+  it("reports the hard limit when the count exceeds it", () => {
+    expect(capTotal(4000, RECENTLY_ADDED_CAP)).toBe(RECENTLY_ADDED_CAP);
+  });
+
+  it("reports the hard limit when it equals the count", () => {
+    expect(capTotal(RECENTLY_ADDED_CAP, RECENTLY_ADDED_CAP)).toBe(
+      RECENTLY_ADDED_CAP,
+    );
+  });
+
+  it("caps a recently-added library at the rows LMS actually serves", () => {
+    const { hardLimit } = mapSortToLmsQuery("recently-added");
+
+    expect(capTotal(12_000, hardLimit)).toBe(RECENTLY_ADDED_CAP);
+  });
+
+  it("reports nothing for a hard limit of zero", () => {
+    expect(capTotal(4000, 0)).toBe(0);
   });
 });
