@@ -34,6 +34,7 @@ import {
   hasQueueContextChanged,
   hasStatusChanged,
 } from "./handlers.js";
+import { detectEarlyTrackEnd, type TrackEndSample } from "./early-track-end.js";
 import { nextPollDelayMs } from "./poll-backoff.js";
 import {
   abandonedStall,
@@ -119,6 +120,13 @@ const logQueueEndTriggerFired = (
   );
 };
 
+const trackEndSample = (status: LmsPlayerStatus): TrackEndSample => ({
+  mode: status.mode,
+  time: status.time,
+  duration: status.currentTrack?.duration,
+  trackId: status.currentTrack?.id,
+});
+
 /**
  * Starts LMS status polling
  * @param io - Socket.IO server instance
@@ -147,12 +155,18 @@ export const startStatusPolling = (
     nextPreviousStatus: LmsPlayerStatus | null,
     consecutiveFailures: number,
     nextStallState?: TrackStallState,
+    nextPreviousSample?: TrackEndSample,
   ): Promise<void> =>
     delay(nextPollDelayMs(intervalMs, consecutiveFailures), undefined, {
       signal: pollingAbortController.signal,
     })
       .then(async () => {
-        await poll(nextPreviousStatus, consecutiveFailures, nextStallState);
+        await poll(
+          nextPreviousStatus,
+          consecutiveFailures,
+          nextStallState,
+          nextPreviousSample,
+        );
       })
       .catch((error: unknown) => {
         if (error instanceof Error && error.name === "AbortError") {
@@ -176,6 +190,10 @@ export const startStatusPolling = (
     previousStatus: LmsPlayerStatus | null,
     consecutiveFailures: number,
     stallState?: TrackStallState,
+    // The previous poll, not the previous *emitted* status: previousStatus only
+    // moves when something changed, so its `time` freezes at the start of a
+    // track and would make every track change look early.
+    previousSample?: TrackEndSample,
   ): Promise<void> => {
     const lmsWasDisconnected = consecutiveFailures > 0;
     const statusResult = await lmsClient.getStatus().catch(
@@ -226,6 +244,8 @@ export const startStatusPolling = (
           "LMS status poll failed",
         );
       }
+      // No sample is carried across a failed poll: the backoff makes the last
+      // one minutes old, and a regular track end would look like a cut-off.
       await scheduleNextPoll(previousStatus, consecutiveFailures + 1);
       return;
     }
@@ -342,6 +362,8 @@ export const startStatusPolling = (
       }
     }
 
+    const currentSample = trackEndSample(currentStatus);
+
     reconcileSuppressedQueueEnd(previousStatus, currentStatus);
 
     if (onStatusUpdate !== undefined) {
@@ -381,6 +403,25 @@ export const startStatusPolling = (
             // previous state to compare against; initial queue load happens via fetchQueue()
             // in QueueView.vue onMounted, so the push here would be redundant on startup).
             if (hasQueueContextChanged(previousStatus, currentStatus)) {
+              const earlyEnd = detectEarlyTrackEnd(
+                previousSample,
+                currentSample,
+              );
+              if (earlyEnd !== undefined) {
+                app.log.warn(
+                  {
+                    event: "track_ended_early",
+                    playerId,
+                    trackId: earlyEnd.previousTrackId,
+                    time: earlyEnd.time,
+                    duration: earlyEnd.duration,
+                    remainingSeconds: earlyEnd.remainingSeconds,
+                    nextTrackId: earlyEnd.nextTrackId,
+                  },
+                  "Track changed with playback time left",
+                );
+              }
+
               const queueResult = await lmsClient.getQueue();
               // Poller was stopped while getQueue() was in-flight — discard result
               if (isAborted()) {
@@ -495,7 +536,12 @@ export const startStatusPolling = (
         );
       }
       // Reset stall counter and reschedule — don't run radio triggers on stale state
-      await scheduleNextPoll(nextStatus ?? previousStatus, 0, undefined);
+      await scheduleNextPoll(
+        nextStatus ?? previousStatus,
+        0,
+        undefined,
+        currentSample,
+      );
       return;
     }
 
@@ -533,7 +579,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end proactive trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, 0, nextStallState);
+        await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
         return;
       }
       logQueueEndTriggerFired(
@@ -578,7 +624,7 @@ export const startStatusPolling = (
           },
           "Radio queue-end stop trigger suppressed after user queue clear",
         );
-        await scheduleNextPoll(nextStatus, 0, nextStallState);
+        await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
         return;
       }
       logQueueEndTriggerFired(
@@ -592,7 +638,7 @@ export const startStatusPolling = (
       void onQueueEnd(seedTrack.artist, seedTrack.title);
     }
 
-    await scheduleNextPoll(nextStatus, 0, nextStallState);
+    await scheduleNextPoll(nextStatus, 0, nextStallState, currentSample);
   };
 
   // Start polling loop
