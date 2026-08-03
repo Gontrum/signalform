@@ -16,6 +16,7 @@ import {
 } from '@/platform/api/playbackApi'
 import { mapPlaybackErrorMessage } from '@/utils/errorMessages'
 import { useWebSocket } from '@/app/useWebSocket'
+import { useI18nStore } from '@/app/i18nStore'
 import { getApiUrl } from '@/utils/runtimeUrls'
 import type {
   PlayerStatusPayload,
@@ -51,6 +52,8 @@ const invokeGlobalPlaybackSync = (): void => {
  * Follows functional programming patterns with Result<T, E> error handling.
  */
 export const usePlaybackStore = defineStore('playback', () => {
+  const i18nStore = useI18nStore()
+
   // ── State ──────────────────────────────────────────────────
   const currentTrack = ref<TrackInfo | null>(null)
   const isPlaying = ref(false)
@@ -85,6 +88,12 @@ export const usePlaybackStore = defineStore('playback', () => {
   // connection to LMS — distinct root cause from lmsError above, see
   // docs/review/06-resilience-lms.md Fix 0).
   const playerError = ref<string | null>(null)
+  // The status read itself failed while the server answered a separate probe:
+  // the speaker is off. Deliberately not folded into playerError — that one
+  // follows the player_connected flag of a *successful* read and is retracted
+  // by its own event, so a shared ref would let one condition's recovery erase
+  // the other's message.
+  const playerStatusUnavailable = ref(false)
   const hasInitializedSync = ref(false)
   const progressClock = ref<ReturnType<typeof setInterval> | null>(null)
   const playbackSnapshotRevision = ref(0)
@@ -95,6 +104,22 @@ export const usePlaybackStore = defineStore('playback', () => {
   const hasError = computed(() => error.value !== null)
   const isLmsDisconnected = computed(() => lmsError.value !== null)
   const isPlayerDisconnected = computed(() => playerError.value !== null)
+  // A silent speaker is worth reporting only while the server itself answers —
+  // once LMS is gone that is the cause the user has to act on, and saying "the
+  // music server is reachable" alongside "cannot connect to music server"
+  // would be a straight contradiction.
+  const playerAlert = computed<string | null>(() => {
+    if (playerError.value !== null) {
+      return playerError.value
+    }
+
+    if (!playerStatusUnavailable.value || lmsError.value !== null) {
+      return null
+    }
+
+    return i18nStore.t('player.statusUnavailable')
+  })
+  const hasPlayerAlert = computed(() => playerAlert.value !== null)
   const progressPercent = computed(() =>
     calculateProgressPercent(currentTime.value, trackDuration.value),
   )
@@ -344,6 +369,18 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   on('system.playerReconnected', (_payload: SystemEventPayload) => {
     playerError.value = null
+    syncPlaybackState()
+  })
+
+  on('system.playerStatusUnavailable', (_payload: SystemEventPayload) => {
+    playerStatusUnavailable.value = true
+  })
+
+  // Also fires when the backend reclassifies "player gone" as "LMS gone", so
+  // the resync here can run against a dead LMS — harmless, it fails silently,
+  // and the lmsError arriving with it is what playerAlert then shows.
+  on('system.playerStatusRestored', (_payload: SystemEventPayload) => {
+    playerStatusUnavailable.value = false
     syncPlaybackState()
   })
 
@@ -704,6 +741,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     lmsError,
     isRetryingLms,
     playerError,
+    playerStatusUnavailable,
     connectionState,
     // Getters
     hasCurrentTrack,
@@ -711,6 +749,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     hasError,
     isLmsDisconnected,
     isPlayerDisconnected,
+    playerAlert,
+    hasPlayerAlert,
     progressPercent,
     // Actions
     play,

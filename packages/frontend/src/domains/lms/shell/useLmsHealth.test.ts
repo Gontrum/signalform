@@ -120,6 +120,20 @@ describe('useLmsHealth', () => {
     scope.stop()
   })
 
+  // The banner drives App.vue's wake-on-LAN watcher, so a speaker that is
+  // merely switched off must not reach it: the server is awake and a magic
+  // packet would go to a machine that never slept.
+  it('ignores the speaker-only connectivity pair', () => {
+    const { scope, result } = runInScope()
+
+    const registeredEvents = websocketOnMock.mock.calls.map(([event]) => event)
+    expect(registeredEvents).not.toContain('system.playerStatusUnavailable')
+    expect(registeredEvents).not.toContain('system.playerStatusRestored')
+    expect(result.isLmsDown.value).toBe(false)
+
+    scope.stop()
+  })
+
   it('disposing the owning scope does not throw (no unregister mechanism yet on useWebSocket — pre-existing limitation, not made worse here)', () => {
     const { scope } = runInScope()
 

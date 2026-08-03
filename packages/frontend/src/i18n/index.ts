@@ -39,6 +39,7 @@ export type MessageKey =
   | 'lms.downBanner'
   | 'connection.lost'
   | 'connection.reconnecting'
+  | 'player.statusUnavailable'
   | 'home.title'
   | 'home.searchPlaceholder'
   | 'home.searchPlaceholderHero'
@@ -282,6 +283,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'lms.downBanner': 'LMS server unreachable — trying to wake it…',
     'connection.lost': 'Connection to server lost — reconnecting…',
     'connection.reconnecting': 'Reconnecting to server…',
+    'player.statusUnavailable':
+      'Speaker is not answering — the music server is reachable, so check the speaker',
     'home.title': 'Start',
     'home.searchPlaceholder': 'Search albums, artists or tracks…',
     'home.searchPlaceholderHero': 'Search for music',
@@ -527,6 +530,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'lms.downBanner': 'LMS-Server nicht erreichbar — Weckversuch läuft…',
     'connection.lost': 'Verbindung zum Server verloren — Wiederverbindung läuft…',
     'connection.reconnecting': 'Verbindung wird wiederhergestellt…',
+    'player.statusUnavailable':
+      'Lautsprecher antwortet nicht — der Musikserver ist erreichbar, prüfe den Lautsprecher',
     'home.title': 'Startseite',
     'home.searchPlaceholder': 'Alben, Künstler oder Titel suchen…',
     'home.searchPlaceholderHero': 'Nach Musik suchen',

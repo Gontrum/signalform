@@ -180,6 +180,32 @@ describe('NowPlayingPanel — player connectivity banner', () => {
       expect(banner.find('button').exists()).toBe(false)
     })
 
+    it('carries the translated "speaker not answering" message when the status read fails but the server answers', async () => {
+      const context = await createMountedContext()
+      await patchPlaybackStore((store) => {
+        store.$patch({ playerStatusUnavailable: true })
+      })
+
+      const banner = context.wrapper.find('[data-testid="player-error-banner"]')
+      expect(banner.exists()).toBe(true)
+      expect(banner.text()).toBe(
+        'Speaker is not answering — the music server is reachable, so check the speaker',
+      )
+    })
+
+    it('yields to the LMS banner instead of claiming the server is reachable while it is not', async () => {
+      const context = await createMountedContext()
+      await patchPlaybackStore((store) => {
+        store.$patch({
+          playerStatusUnavailable: true,
+          lmsError: 'Cannot connect to music server',
+        })
+      })
+
+      expect(context.wrapper.find('[data-testid="lms-error-banner"]').exists()).toBe(true)
+      expect(context.wrapper.find('[data-testid="player-error-banner"]').exists()).toBe(false)
+    })
+
     it('can be shown at the same time as the LMS error banner (distinct root causes)', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {

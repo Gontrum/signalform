@@ -95,6 +95,7 @@ vi.mock('@/utils/runtimeUrls', () => ({
 }))
 
 import { usePlaybackStore } from './usePlaybackStore'
+import { useI18nStore } from '@/app/i18nStore'
 import { getPlaybackStatus } from '@/platform/api/playbackApi'
 
 const mockGetPlaybackStatus = vi.mocked(getPlaybackStatus)
@@ -154,6 +155,30 @@ const emitSystemPlayerReconnected = (): void => {
   )?.[1]
   handler?.({ message: 'Player connection restored', timestamp: Date.now() })
 }
+
+const emitSystemLmsReconnected = (): void => {
+  const handler = websocketOnMock.mock.calls.find(
+    ([event]) => event === 'system.lmsReconnected',
+  )?.[1]
+  handler?.({ message: 'LMS connection restored', timestamp: Date.now() })
+}
+
+const emitSystemPlayerStatusUnavailable = (): void => {
+  const handler = websocketOnMock.mock.calls.find(
+    ([event]) => event === 'system.playerStatusUnavailable',
+  )?.[1]
+  handler?.({ message: 'Player is not answering', timestamp: Date.now() })
+}
+
+const emitSystemPlayerStatusRestored = (): void => {
+  const handler = websocketOnMock.mock.calls.find(
+    ([event]) => event === 'system.playerStatusRestored',
+  )?.[1]
+  handler?.({ message: 'Player is answering again', timestamp: Date.now() })
+}
+
+const PLAYER_NOT_ANSWERING =
+  'Speaker is not answering — the music server is reachable, so check the speaker'
 
 describe('resilience: transport disconnect vs LMS-down (docs/review/06-resilience-lms.md)', () => {
   it('REPRO: a Socket.IO transport drop leaves store state and error flags completely unchanged', () => {
@@ -248,5 +273,113 @@ describe('resilience: transport disconnect vs LMS-down (docs/review/06-resilienc
     expect(store.currentTrack?.title).toBe('Money')
     expect(store.hasError).toBe(false)
     expect(store.isLmsDisconnected).toBe(false)
+  })
+})
+
+/**
+ * The speaker being off used to be reported as "LMS unreachable": the status
+ * command blocks until it times out while the server keeps answering. The
+ * backend now probes the server on the edge into failure and says which of the
+ * two is gone (system.playerStatusUnavailable / system.playerStatusRestored).
+ */
+describe('resilience: speaker not answering vs LMS unreachable', () => {
+  it('system.playerStatusUnavailable surfaces the speaker message without claiming the server is gone', () => {
+    const store = usePlaybackStore()
+
+    emitSystemPlayerStatusUnavailable()
+
+    expect(store.playerAlert).toBe(PLAYER_NOT_ANSWERING)
+    expect(store.hasPlayerAlert).toBe(true)
+    expect(store.isLmsDisconnected).toBe(false)
+    expect(store.lmsError).toBeNull()
+  })
+
+  it('system.playerStatusRestored retracts the speaker message', async () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerStatusUnavailable()
+    expect(store.hasPlayerAlert).toBe(true)
+
+    emitSystemPlayerStatusRestored()
+    await flushPromises()
+
+    expect(store.playerAlert).toBeNull()
+    expect(store.hasPlayerAlert).toBe(false)
+  })
+
+  it('translates the speaker message on language change instead of freezing the wording of the event', () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerStatusUnavailable()
+
+    useI18nStore().setLanguage('de')
+
+    expect(store.playerAlert).toBe(
+      'Lautsprecher antwortet nicht — der Musikserver ist erreichbar, prüfe den Lautsprecher',
+    )
+  })
+
+  it('lets the LMS message win when the backend reclassifies "speaker off" as "server gone"', async () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerStatusUnavailable()
+    expect(store.playerAlert).toBe(PLAYER_NOT_ANSWERING)
+
+    // The order the backend actually sends: every change closes the condition
+    // it leaves before opening the one it enters.
+    emitSystemPlayerStatusRestored()
+    emitSystemLmsDisconnected()
+    await flushPromises()
+
+    expect(store.lmsError).toBe('Cannot connect to music server')
+    expect(store.playerAlert).toBeNull()
+    expect(store.hasPlayerAlert).toBe(false)
+  })
+
+  it('lets the LMS message win even if the retraction never arrives', () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerStatusUnavailable()
+
+    // No system.playerStatusRestored — a dropped or reordered event must not
+    // leave "the music server is reachable" next to "cannot connect to music
+    // server".
+    emitSystemLmsDisconnected()
+
+    expect(store.lmsError).toBe('Cannot connect to music server')
+    expect(store.playerAlert).toBeNull()
+  })
+
+  it('shows the speaker message again once the LMS is back and the speaker is still silent', () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerStatusUnavailable()
+    emitSystemLmsDisconnected()
+    expect(store.playerAlert).toBeNull()
+
+    emitSystemLmsReconnected()
+
+    expect(store.playerAlert).toBe(PLAYER_NOT_ANSWERING)
+  })
+
+  it('keeps the two speaker conditions independent: resolving the status one leaves the lost-link message standing', async () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerDisconnected()
+    emitSystemPlayerStatusUnavailable()
+
+    emitSystemPlayerStatusRestored()
+    await flushPromises()
+
+    expect(store.playerError).toBe('Speaker lost connection to server')
+    expect(store.playerAlert).toBe('Speaker lost connection to server')
+  })
+
+  it('keeps the two speaker conditions independent: resolving the lost-link one leaves the status message standing', async () => {
+    const store = usePlaybackStore()
+    emitSystemPlayerDisconnected()
+    emitSystemPlayerStatusUnavailable()
+    // The lost-link message takes precedence while both are open.
+    expect(store.playerAlert).toBe('Speaker lost connection to server')
+
+    emitSystemPlayerReconnected()
+    await flushPromises()
+
+    expect(store.playerError).toBeNull()
+    expect(store.playerAlert).toBe(PLAYER_NOT_ANSWERING)
   })
 })

@@ -426,14 +426,16 @@ const selectSleepOff = async (): Promise<void> => {
       }}
     </Banner>
 
-    <!-- Player Connectivity Banner (docs/review/06-resilience-lms.md Fix 0) -->
+    <!-- Player Connectivity Banner (docs/review/06-resilience-lms.md Fix 0) —
+         carries both speaker-side conditions: lost its link to LMS, and not
+         answering at all. -->
     <Banner
-      v-if="playbackStore.isPlayerDisconnected"
+      v-if="playbackStore.hasPlayerAlert"
       data-testid="player-error-banner"
       variant="warning"
       class="mt-4 w-full max-w-sm"
     >
-      {{ playbackStore.playerError }}
+      {{ playbackStore.playerAlert }}
     </Banner>
   </div>
 </template>
