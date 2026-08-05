@@ -36,6 +36,15 @@
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/no-branch.sh"
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/no-comment-orders.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
