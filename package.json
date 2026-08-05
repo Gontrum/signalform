@@ -29,9 +29,12 @@
     "check:any": "type-coverage --project packages/shared/tsconfig.json --at-least 100 && type-coverage --project packages/backend/tsconfig.json --at-least 99.5 && type-coverage --project packages/frontend/tsconfig.app.json --at-least 97.54",
     "check:dupes": "jscpd",
     "check:hover-focus-opacity": "node scripts/check-hover-focus-opacity.mjs",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "check:comments": "node scripts/check-comments.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs",
     "review:collect": "node scripts/review-collect.mjs",
     "test:e2e:ci": "pnpm --filter frontend run build && pnpm --filter frontend run test:e2e:ci",
-    "precommit": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run type-check && pnpm run knip && pnpm run depcruise && pnpm run check:dupes && pnpm run check:hover-focus-opacity",
+    "precommit": "pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run test:scripts && pnpm run type-check && pnpm run knip && pnpm run depcruise && pnpm run check:dupes && pnpm run check:hover-focus-opacity && pnpm run check:i18n && pnpm run check:comments",
     "quality-gates": "pnpm run precommit",
     "version:bump": "node scripts/bump-version.mjs",
     "prepare": "husky"
