@@ -15,10 +15,6 @@ import {
 import type { CandidateTrack, RadioContext } from "./types.js";
 import { DEFAULT_FILTER_CONFIG } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Test Helper
-// ---------------------------------------------------------------------------
-
 const makeCandidate = (
   overrides: Partial<CandidateTrack> = {},
 ): CandidateTrack => ({
@@ -28,10 +24,6 @@ const makeCandidate = (
   url: "https://www.last.fm/music/test",
   ...overrides,
 });
-
-// ---------------------------------------------------------------------------
-// areGenresRelated
-// ---------------------------------------------------------------------------
 
 describe("areGenresRelated", () => {
   test("exact same genre (case-sensitive match) → true", () => {
@@ -89,9 +81,7 @@ describe("areGenresRelated", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // passesEraFilter (AC1, AC5)
-// ---------------------------------------------------------------------------
 
 describe("passesEraFilter", () => {
   test("candidate within ±20 years of seed → passes (AC1)", () => {
@@ -140,9 +130,7 @@ describe("passesEraFilter", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // passesGenreFilter (AC2, AC5)
-// ---------------------------------------------------------------------------
 
 describe("passesGenreFilter", () => {
   test("Jazz seed, Cool Jazz candidate → passes (same group, AC2)", () => {
@@ -204,9 +192,7 @@ describe("passesGenreFilter", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // filterByContext (AC1–AC6)
-// ---------------------------------------------------------------------------
 
 describe("filterByContext — combined filtering", () => {
   test("era + genre filter: only matching candidates pass", () => {
@@ -284,10 +270,6 @@ describe("filterByContext — combined filtering", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// filterByContext — era window expansion (AC4)
-// ---------------------------------------------------------------------------
-
 describe("filterByContext — era window expansion (AC4)", () => {
   test("expands era window when fewer than minResults found", () => {
     // 5 candidates within ±20 years, 5 more within ±30 years → total 10 after expansion
@@ -362,10 +344,6 @@ describe("filterByContext — era window expansion (AC4)", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// filterByContext — eraExpansionStep edge cases
-// ---------------------------------------------------------------------------
-
 describe("filterByContext — eraExpansionStep edge cases", () => {
   test("eraExpansionStep = 0 → no infinite recursion, returns first-pass results", () => {
     const config = {
@@ -397,9 +375,7 @@ describe("filterByContext — eraExpansionStep edge cases", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // filterByContext — minimum results and graceful degradation (AC3, AC5)
-// ---------------------------------------------------------------------------
 
 describe("filterByContext — graceful degradation (AC5)", () => {
   test("candidates with no year pass era filter (graceful degradation)", () => {

@@ -21,10 +21,6 @@ import {
   selectBestSource,
 } from "./service.js";
 
-// ---------------------------------------------------------------------------
-// Test Helpers / Fixtures
-// ---------------------------------------------------------------------------
-
 const makeQuality = (overrides: Partial<AudioQuality> = {}): AudioQuality => ({
   format: "FLAC",
   bitrate: 1411,
@@ -82,9 +78,7 @@ const lossy128: AudioQuality = makeQuality({
   lossless: false,
 });
 
-// ---------------------------------------------------------------------------
 // Task 5: Unit tests for calculateQualityScore
-// ---------------------------------------------------------------------------
 
 describe("calculateQualityScore", () => {
   test("lossless FLAC 24/192 has highest score", () => {
@@ -207,10 +201,6 @@ describe("calculateQualityScore", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// compareQuality tests
-// ---------------------------------------------------------------------------
-
 describe("compareQuality", () => {
   test("returns positive when a is better quality", () => {
     const result = compareQuality(hires192, cd44);
@@ -233,10 +223,6 @@ describe("compareQuality", () => {
     expect(ab).toBe(-ba);
   });
 });
-
-// ---------------------------------------------------------------------------
-// applySourceTieBreaker tests
-// ---------------------------------------------------------------------------
 
 describe("applySourceTieBreaker", () => {
   test("local has higher priority than qobuz (returns negative)", () => {
@@ -292,9 +278,7 @@ describe("applySourceTieBreaker", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Task 5/6: rankSources tests
-// ---------------------------------------------------------------------------
 
 describe("rankSources", () => {
   test("returns empty array for empty input", () => {
@@ -358,9 +342,7 @@ describe("rankSources", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Task 6: Unit tests for selectBestSource (edge cases)
-// ---------------------------------------------------------------------------
 
 describe("selectBestSource", () => {
   // Case 1: Single source
@@ -696,10 +678,6 @@ describe("selectBestSource", () => {
     }
   });
 });
-
-// ---------------------------------------------------------------------------
-// createSourceHierarchyService tests
-// ---------------------------------------------------------------------------
 
 describe("createSourceHierarchyService", () => {
   test("creates service with default config", () => {

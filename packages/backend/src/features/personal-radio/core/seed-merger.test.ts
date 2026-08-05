@@ -8,10 +8,6 @@
 import { describe, test, expect } from "vitest";
 import { pickChannel, mergeTrackPools, spreadSample } from "./seed-merger.js";
 
-// ---------------------------------------------------------------------------
-// pickChannel
-// ---------------------------------------------------------------------------
-
 describe("pickChannel", () => {
   test("discoveryRatio=0, cycle=0 → comfort (no discovery ever)", () => {
     expect(pickChannel(0, 0)).toBe("comfort");
@@ -45,10 +41,6 @@ describe("pickChannel", () => {
     expect(pickChannel(149, 50)).toBe("discovery");
   });
 });
-
-// ---------------------------------------------------------------------------
-// mergeTrackPools
-// ---------------------------------------------------------------------------
 
 describe("mergeTrackPools", () => {
   // Typed comfort and discovery pools for reuse
@@ -120,10 +112,6 @@ describe("mergeTrackPools", () => {
     expect(result).toHaveLength(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// spreadSample
-// ---------------------------------------------------------------------------
 
 describe("spreadSample", () => {
   test("empty array → []", () => {

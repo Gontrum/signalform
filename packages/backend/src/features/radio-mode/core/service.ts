@@ -13,9 +13,7 @@ import {
   DEFAULT_FILTER_CONFIG,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
 // Genre Groups (AC2)
-// ---------------------------------------------------------------------------
 
 // Genre relatedness groups — case-insensitive matching.
 // Two genres are "related" if they appear in the same group array.
@@ -86,9 +84,7 @@ const GENRE_GROUPS: readonly (readonly string[])[] = [
   ["reggae", "ska", "dub", "dancehall"],
 ] as const;
 
-// ---------------------------------------------------------------------------
 // Helper Functions (exported for testability)
-// ---------------------------------------------------------------------------
 
 /**
  * Returns true if genreA and genreB are the same or belong to the same genre group.
@@ -156,9 +152,7 @@ export const passesGenreFilter = (
   );
 };
 
-// ---------------------------------------------------------------------------
 // Main Filter Function (AC1–AC6)
-// ---------------------------------------------------------------------------
 
 /**
  * Filters candidates by era and genre context (AC1+AC2).

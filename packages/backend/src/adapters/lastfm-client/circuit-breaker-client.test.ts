@@ -8,8 +8,6 @@ import { err, ok } from "@signalform/shared";
 import type { LastFmClient, LastFmError } from "./types.js";
 import { createCircuitBreakerLastFmClient } from "./circuit-breaker-client.js";
 
-// --- Helpers ----------------------------------------------------------------
-
 const makeNetworkError = (): LastFmError => ({
   type: "NetworkError",
   message: "Network error",
@@ -97,8 +95,6 @@ const makeNCalls = async (cb: LastFmClient, n: number): Promise<void> =>
     await acc;
     await cb.getSimilarTracks("artist", "track");
   }, Promise.resolve() as Promise<void>);
-
-// --- Tests ------------------------------------------------------------------
 
 describe("createCircuitBreakerLastFmClient", () => {
   beforeEach(() => {

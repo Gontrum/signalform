@@ -23,10 +23,6 @@ import {
   shuffleWithRandom,
 } from "./replenish.js";
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 const makeQueueTrack = (
   overrides: Partial<QueueTrack> & { readonly id: string },
 ): QueueTrack => ({
@@ -65,10 +61,6 @@ const makeCandidate = (
 
 const emptyAcc: RadioAcc = { artists: [], urls: [], trackKeys: [] };
 
-// ---------------------------------------------------------------------------
-// computeTargetBatchSize
-// ---------------------------------------------------------------------------
-
 describe("computeTargetBatchSize", () => {
   test("queue-end trigger targets a full batch", () => {
     expect(computeTargetBatchSize("queue-end")).toBe(RADIO_BATCH_SIZE);
@@ -82,10 +74,6 @@ describe("computeTargetBatchSize", () => {
     expect(computeTargetBatchSize("queue-remove")).toBe(1);
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildQueueKeySets
-// ---------------------------------------------------------------------------
 
 describe("buildQueueKeySets", () => {
   test("builds repeat keys for every track", () => {
@@ -119,10 +107,6 @@ describe("buildQueueKeySets", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// computeRepeatKey
-// ---------------------------------------------------------------------------
-
 describe("computeRepeatKey", () => {
   const candidate = { artist: "Adele", name: "Hello" } as const;
 
@@ -149,10 +133,6 @@ describe("computeRepeatKey", () => {
     );
   });
 });
-
-// ---------------------------------------------------------------------------
-// evaluateCandidateForBatch
-// ---------------------------------------------------------------------------
 
 describe("evaluateCandidateForBatch", () => {
   const baseInput = {
@@ -234,10 +214,6 @@ describe("evaluateCandidateForBatch", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// acceptIntoBatch
-// ---------------------------------------------------------------------------
-
 describe("acceptIntoBatch", () => {
   test("appends artist, urlKey, and repeatKey", () => {
     const acc: RadioAcc = {
@@ -263,10 +239,6 @@ describe("acceptIntoBatch", () => {
     expect(acc).toEqual({ artists: ["A"], urls: ["u"], trackKeys: ["k"] });
   });
 });
-
-// ---------------------------------------------------------------------------
-// shuffleWithRandom
-// ---------------------------------------------------------------------------
 
 describe("shuffleWithRandom", () => {
   test("random = () => 0 swaps the front to the back step by step", () => {
@@ -306,9 +278,7 @@ describe("shuffleWithRandom", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // buildRecentTrackKey + filterRecentCandidates
-// ---------------------------------------------------------------------------
 
 describe("buildRecentTrackKey", () => {
   test("lowercases both parts and joins with |||", () => {
@@ -349,10 +319,6 @@ describe("filterRecentCandidates", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// pickSpreadSimilarArtists
-// ---------------------------------------------------------------------------
-
 describe("pickSpreadSimilarArtists", () => {
   test("picks indexes 0, len/3, 2*len/3, len-1 on a 10-element list", () => {
     const names = ["n0", "n1", "n2", "n3", "n4", "n5", "n6", "n7", "n8", "n9"];
@@ -387,10 +353,6 @@ describe("pickSpreadSimilarArtists", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// excludeSeedArtist
-// ---------------------------------------------------------------------------
-
 describe("excludeSeedArtist", () => {
   test("removes fuzzy matches of the seed artist (case, feat. variants)", () => {
     const candidates = [
@@ -413,10 +375,6 @@ describe("excludeSeedArtist", () => {
     expect(excludeSeedArtist(candidates, "Adele")).toEqual(candidates);
   });
 });
-
-// ---------------------------------------------------------------------------
-// chooseEffectiveCandidates
-// ---------------------------------------------------------------------------
 
 describe("chooseEffectiveCandidates", () => {
   test("prefers similar-track candidates when non-empty", () => {

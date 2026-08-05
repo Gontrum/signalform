@@ -61,8 +61,6 @@ vi.mock("../../../infrastructure/config/index.js", () => ({
 
 import { loadConfig } from "../../../infrastructure/config/index.js";
 
-// --- Test helpers -----------------------------------------------------------
-
 const makeTagTopTrack = (artist: string, name: string): TagTopTrack => ({
   name,
   artist,
@@ -159,8 +157,6 @@ const stubDiscoveryRatio = (personalRadioDiscovery: number): void => {
     ok({ ...TEST_APP_CONFIG, personalRadioDiscovery }),
   );
 };
-
-// --- Fixtures ---------------------------------------------------------------
 
 type LogFn = (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
 
@@ -376,10 +372,6 @@ beforeEach(() => {
   stubDiscoveryRatio(0);
 });
 
-// =============================================================================
-// Genre radio: replenishGenreQueue
-// =============================================================================
-
 describe("replenishGenreQueue", () => {
   test("happy path: fetches tag top tracks, adds match to queue, emits queue update, increments page", async () => {
     const engine = createEngine();
@@ -550,9 +542,7 @@ describe("replenishGenreQueue", () => {
   });
 });
 
-// =============================================================================
 // Personal radio: comfort channel (discoveryRatio = 0)
-// =============================================================================
 
 describe("replenishPersonalRadioQueue — comfort channel", () => {
   test("happy path: rotates seed by cycle, fetches similar artists + top tracks, filters by recent, adds and increments cycle", async () => {
@@ -836,9 +826,7 @@ describe("replenishPersonalRadioQueue — comfort channel", () => {
   });
 });
 
-// =============================================================================
 // Personal radio: discovery channel (discoveryRatio = 100)
-// =============================================================================
 
 describe("replenishPersonalRadioQueue — discovery channel", () => {
   test("happy path: fetches neighbour top tracks, filters by recent, adds and increments cycle", async () => {
@@ -1104,10 +1092,6 @@ describe("replenishPersonalRadioQueue — discovery channel", () => {
     expect(outcome).toEqual({ status: "skipped", reason: "no-candidates" });
   });
 });
-
-// =============================================================================
-// Loved radio: replenishLovedRadioQueue
-// =============================================================================
 
 describe("replenishLovedRadioQueue", () => {
   test("happy path: fetches user loved tracks, adds match to queue, emits queue update", async () => {

@@ -30,8 +30,6 @@ import {
   setSuppressedQueueEnd,
 } from "./shell/radio-state.js";
 
-// --- Helpers ----------------------------------------------------------------
-
 const TEST_LMS_CONFIG = {
   host: "localhost",
   port: 9000,
@@ -227,8 +225,6 @@ const makeLmsSearchResult = (
   },
 });
 
-// --- AC1: Queue-End Detection -----------------------------------------------
-
 describe("AC1: Queue-end detection (play → stop transition)", () => {
   test("startStatusPolling signature accepts onQueueEnd callback as 6th parameter", async () => {
     // Verify the status-poller API contract: accepts onQueueEnd callback
@@ -328,8 +324,6 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
   });
 });
 
-// --- AC2: Seamless Radio Start ----------------------------------------------
-
 describe("AC2: Seamless radio start — last.fm getSimilarTracks called with seed", () => {
   test("handleQueueEnd calls getSimilarTracks with seed artist and title, no user prompt", async () => {
     const mockSimilarTracks = [makeSimilarTrack("Kind Artist", "Cool Track")];
@@ -370,8 +364,6 @@ describe("AC2: Seamless radio start — last.fm getSimilarTracks called with see
     );
   });
 });
-
-// --- AC3: Tracks Added to Queue --------------------------------------------
 
 describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
   test("handleQueueEnd adds up to 5 tracks to LMS queue", async () => {
@@ -437,8 +429,6 @@ describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
     expect(mockLmsClient.addToQueue).toHaveBeenCalledTimes(5);
   });
 });
-
-// --- AC4: WebSocket Events Emitted -----------------------------------------
 
 describe("AC4: WebSocket events emitted after tracks added", () => {
   test("handleQueueEnd emits player.radio.started and player.queue.updated", async () => {
@@ -536,8 +526,6 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
   });
 });
 
-// --- AC5: Artist Diversity Maintained --------------------------------------
-
 describe("AC5: Artist diversity maintained across radio triggers", () => {
   test("artist added in first trigger is filtered out in second trigger (sliding window)", async () => {
     // AC5 tests the CROSS-TRIGGER diversity: the same artist should not appear
@@ -623,8 +611,6 @@ describe("AC5: Artist diversity maintained across radio triggers", () => {
   });
 });
 
-// --- AC6: Graceful Degradation ---------------------------------------------
-
 describe("AC6: Graceful degradation on failure", () => {
   test("last.fm API failure does not crash — error logged, polling continues", async () => {
     const mockLastFmClient = createMockLastFmClient({
@@ -704,11 +690,7 @@ describe("AC6: Graceful degradation on failure", () => {
   });
 });
 
-// ============================================================================
 // Story 6.5 Acceptance Tests — written BEFORE implementation (RED phase)
-// ============================================================================
-
-// --- 6.5 AC1: Proactive Trigger (queuePreview non-empty → empty while playing) ---
 
 describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-empty → empty during playback", () => {
   test("onQueueEnd called with currently-playing track when queuePreview goes empty while playing", async () => {
@@ -907,8 +889,6 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
   });
 });
 
-// --- 6.5 AC2: Auto-Resume After Stop ----------------------------------------
-
 describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when player stops after adding tracks", () => {
   test("nextTrack() called when getStatus() returns stop after tracks added", async () => {
     const mockSimilarTracks = [
@@ -1020,8 +1000,6 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
     expect(mockLmsClient.nextTrack).not.toHaveBeenCalled();
   });
 });
-
-// --- 6.5 AC3: No Duplicate Artists in Batch ----------------------------------
 
 describe("6.5 AC3: Duplicate artist prevention — same artist appears at most once per batch", () => {
   test("second candidate from same artist is skipped — LMS search not called for it", async () => {
@@ -1141,8 +1119,6 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
     expect(mockLmsClient.addToQueue).toHaveBeenCalledTimes(1);
   });
 });
-
-// --- 6.5 AC4: Single-Track Edge Case (stop fallback) -------------------------
 
 describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePreview was always empty", () => {
   test("stop trigger fires when queuePreview was always empty (single track queue)", async (): Promise<void> => {
@@ -1396,8 +1372,6 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
   });
 });
 
-// --- 6.5 AC5: Timing Assertion (2-second budget) -----------------------------
-
 describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger", () => {
   test("handleQueueEnd resolves within 2000ms even with getStatus and resume calls", async () => {
     const mockSimilarTracks = Array.from({ length: 10 }, (_, i) =>
@@ -1456,9 +1430,7 @@ describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger
   });
 });
 
-// ============================================================================
 // Story 9.9 Acceptance Tests — Radio Mode Verification for Tidal Content
-// ============================================================================
 
 // Helper: Tidal search result (audioQuality populated by Story 7.8 enrichment)
 const makeTidalLmsSearchResult = (
@@ -1483,8 +1455,6 @@ const makeTidalLmsSearchResult = (
     lossless,
   },
 });
-
-// --- 9.9 AC1: Tidal Seed Trigger (proactive — queuePreview non-empty → empty) ---
 
 describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proactive)", () => {
   test("onQueueEnd called with Tidal track's artist+title when queuePreview goes empty while playing", async () => {
@@ -1600,8 +1570,6 @@ describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proa
     expect(mockOnQueueEnd).toHaveBeenCalledOnce();
   });
 });
-
-// --- 9.9 AC1b: Tidal Seed Trigger (stop fallback) ---
 
 describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (stop fallback)", () => {
   test("onQueueEnd called with Tidal track's artist+title on play→stop transition", async () => {
@@ -1815,8 +1783,6 @@ describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids a
   });
 });
 
-// --- 9.9 AC2: last.fm search with Tidal seed ---
-
 describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's artist+title", () => {
   test("getSimilarTracks called with Tidal seed artist+title and limit=50 — same invocation as local seed", async () => {
     const mockLastFmClient = createMockLastFmClient({
@@ -1855,8 +1821,6 @@ describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's arti
     );
   });
 });
-
-// --- 9.9 AC3a: Tidal-only LMS results added to queue ---
 
 describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Tidal-only results", () => {
   test("Tidal URL (tidal://trackId.flc) added to queue when LMS search returns only Tidal results", async () => {
@@ -1910,8 +1874,6 @@ describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Ti
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(tidalResult.url);
   });
 });
-
-// --- 9.9 AC3b: Graceful degradation when Tidal track has no audioQuality ---
 
 describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal track has no audioQuality", () => {
   test("track added via computeFallbackUrl when Tidal search result lacks audioQuality", async () => {
@@ -1977,8 +1939,6 @@ describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal 
   });
 });
 
-// --- 9.9 AC4: Source hierarchy — local FLAC over Tidal FLAC ---
-
 describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source hierarchy)", () => {
   test("local FLAC URL added to queue when LMS returns both local and Tidal results", async () => {
     const localResult = makeLmsSearchResult("Radiohead", "Creep", true); // local FLAC
@@ -2032,8 +1992,6 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(localResult.url);
   });
 });
-
-// --- 9.9 AC5: radioBoundaryIndex correct after Tidal-triggered radio ---
 
 describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-triggered radio", () => {
   test("player.queue.updated emitted with correct radioBoundaryIndex from Tidal-triggered radio", async () => {
@@ -2257,11 +2215,7 @@ describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => 
   });
 });
 
-// ============================================================================
 // Story 9.17 Acceptance Tests — Radio Tidal Source Integration
-// ============================================================================
-
-// --- 9.17 AC6: Seed artist excluded from radio batch -----------------------
 
 describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylor Swift tracks in batch", () => {
   test("Taylor Swift candidates are excluded when seedArtist is Taylor Swift", async () => {
@@ -2367,8 +2321,6 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
   });
 });
 
-// --- 9.17 AC7: Tidal URL added when track found on Tidal but not locally ---
-
 describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tidal has track", () => {
   test("tidal:// URL is added to queue when search() returns only Tidal result", async () => {
     const tidalTrackUrl = "tidal://58990486.flc";
@@ -2428,8 +2380,6 @@ describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tid
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(tidalTrackUrl);
   });
 });
-
-// --- AC7: Server Wiring ----------------------------------------------------
 
 describe("AC7: Server wiring — lastFmClient properly integrated", () => {
   test("createRadioEngine is exported from radio-mode feature", async () => {

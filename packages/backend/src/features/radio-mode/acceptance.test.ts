@@ -11,19 +11,13 @@ import { describe, test, expect } from "vitest";
 import { filterByContext } from "./core/service.js";
 import type { CandidateTrack, RadioContext } from "./core/types.js";
 
-// ---------------------------------------------------------------------------
-// BDD Helpers
-// ---------------------------------------------------------------------------
-
 const whenFilteringWithContext = (
   candidates: readonly CandidateTrack[],
   context: RadioContext,
   config?: Parameters<typeof filterByContext>[2],
 ): readonly CandidateTrack[] => filterByContext(candidates, context, config);
 
-// ---------------------------------------------------------------------------
 // Acceptance Scenarios (AC 1–6)
-// ---------------------------------------------------------------------------
 
 describe("Context-Aware Filter — Acceptance Tests", () => {
   test("Scenario 1 (AC1+AC2): 50s Jazz seed — keeps Jazz 1939-1979, removes 2020 Pop", () => {

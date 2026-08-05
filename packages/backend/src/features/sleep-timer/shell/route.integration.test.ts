@@ -52,9 +52,6 @@ describe("Sleep Timer Routes", () => {
     void server.close();
   });
 
-  // WHEN helpers
-  // ---------------------------------------------------------------------------
-
   const whenPostingSleep = async (
     body: Record<string, unknown>,
   ): Promise<LightMyRequestResponse> => {
@@ -71,9 +68,6 @@ describe("Sleep Timer Routes", () => {
       url: "/api/playback/sleep",
     });
   };
-
-  // THEN helpers
-  // ---------------------------------------------------------------------------
 
   const thenSetSleepWasCalledWith = (seconds: number): void => {
     expect(mockLmsClient.setSleep).toHaveBeenCalledWith(seconds);

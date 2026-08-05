@@ -1657,9 +1657,7 @@ describe("POST /api/queue/reorder", () => {
   });
 });
 
-// ============================================================
 // Story 9.6: add-tidal-search-album
-// ============================================================
 describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
   let server: FastifyInstance;
 
@@ -1725,9 +1723,6 @@ describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
   });
 });
 
-// ============================================================
-// Clear queue
-// ============================================================
 describe("POST /api/queue/clear", () => {
   let server: FastifyInstance;
 
@@ -1824,9 +1819,6 @@ describe("POST /api/queue/clear", () => {
   });
 });
 
-// ============================================================
-// Batch remove
-// ============================================================
 describe("POST /api/queue/remove-batch", () => {
   let server: FastifyInstance;
 

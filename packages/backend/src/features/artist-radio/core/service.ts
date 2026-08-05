@@ -12,10 +12,6 @@ import type {
   LastFmSimilarArtist,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Convert a LastFmArtistTopTrack to an ArtistRadioSeed for the seed artist.
  * Pure function — no side effects.
@@ -74,10 +70,6 @@ const interleave = (
 
   return step(seedSeeds, similarSeeds, []);
 };
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
 
 /**
  * Build an interleaved list of ArtistRadioSeed candidates for a given artist.

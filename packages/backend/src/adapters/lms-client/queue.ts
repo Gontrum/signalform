@@ -77,6 +77,7 @@ export type QueueMethods = {
     id: string,
     index: number,
   ) => Promise<Result<void, LmsError>>;
+  readonly getPlaylistDir: () => Promise<Result<string, LmsError>>;
 };
 
 const queueTrackRawSchema = z.object({
@@ -106,6 +107,7 @@ const savedPlaylistsPayloadParser = createLmsResultParser(
 const savedPlaylistTrackRawSchema = z.object({
   title: z.string(),
   artist: z.string().optional(),
+  albumartist: z.string().optional(),
   album: z.string().optional(),
   duration: z.union([z.number(), z.string()]).optional(),
 });
@@ -114,6 +116,14 @@ const savedPlaylistTracksPayloadParser = createLmsResultParser(
   z.object({
     playlisttracks_loop: z.array(savedPlaylistTrackRawSchema).optional(),
     count: z.union([z.number(), z.string()]).optional(),
+  }),
+);
+
+// Live probe 2026-08-05: `["pref","playlistdir","?"]` answers `{"_p2": ""}`
+// with no folder configured and `{"_p2": "/music/playlists"}` with one.
+const playlistDirPayloadParser = createLmsResultParser(
+  z.object({
+    _p2: z.union([z.string(), z.number()]).nullish(),
   }),
 );
 
@@ -409,9 +419,9 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     /**
      * Read one page of a saved playlist's tracks.
      *
-     * Command: ["playlists", "tracks", offset, limit, "playlist_id:{id}", "tags:a,l,d"]
-     * → playlisttracks_loop with { title, artist, album, duration } plus count.
-     * A missing or empty loop is a valid empty page.
+     * Command: ["playlists", "tracks", offset, limit, "playlist_id:{id}", "tags:a,l,d,A"]
+     * → playlisttracks_loop with { title, artist, albumartist, album, duration }
+     * plus count. A missing or empty loop is a valid empty page.
      *
      * @param id - Saved playlist ID
      * @param offset - Zero-based offset of the first track to return
@@ -431,16 +441,18 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         LmsError
       >
     > => {
-      // Command name and parameter prefixes (`playlists tracks`, `playlist_id:`,
-      // `tags:`) follow the LMS CLI convention and were never verified against a
-      // live server — check the LMS CLI docs here first if the page looks wrong.
+      // Tag A (albumartist) is not optional decoration: sampler tracks come back
+      // from this command with no track artist at all (measured 2026-08-04 on
+      // "Arne Hits"), while the queue's status command resolves the very same
+      // track to "Various Artists" — without A one record shows an artist in the
+      // queue and none here.
       const command: LmsCommand = [
         "playlists",
         "tracks",
         offset,
         limit,
         `playlist_id:${id}`,
-        "tags:a,l,d",
+        "tags:a,l,d,A",
       ];
       const result = await executeCommand(
         command,
@@ -458,7 +470,10 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
       ).map((item, positionInPage) => ({
         index: offset + positionInPage,
         title: item.title,
-        artist: item.artist ?? "",
+        // Same trim-then-fall-through rule as buildAlbumDetail: a blank value
+        // counts as missing, and an empty result stays empty — the placeholder
+        // is the UI's decision, not the adapter's.
+        artist: item.artist?.trim() || item.albumartist?.trim() || "",
         album: item.album ?? "",
         duration: parseDurationSeconds(item.duration),
       }));
@@ -500,6 +515,26 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
         return result;
       }
       return ok(undefined);
+    },
+
+    /**
+     * Read the LMS `playlistdir` preference — the folder every saved playlist
+     * is written to. An empty string means no folder is configured, and LMS
+     * then refuses every playlist write.
+     *
+     * Command: ["pref", "playlistdir", "?"] → { _p2: "" | "/path/to/dir" }
+     * Server-level: needs no player and answers immediately.
+     *
+     * @returns Result with the configured folder ("" when unset) or error
+     */
+    getPlaylistDir: async (): Promise<Result<string, LmsError>> => {
+      const command: LmsCommand = ["pref", "playlistdir", "?"];
+      const result = await executeCommand(command, playlistDirPayloadParser);
+      if (!result.ok) {
+        return result;
+      }
+
+      return ok(String(result.value._p2 ?? "").trim());
     },
   };
 };

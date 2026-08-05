@@ -125,13 +125,6 @@ const mockLmsClient = createMockLmsClient();
 const mockPlaybackIo = createMockPlaybackIo();
 const mockPlaybackEmit = mockPlaybackIo.emit;
 
-// =============================================================================
-// SHARED HELPER FUNCTIONS - Used across all test suites
-// =============================================================================
-
-// THEN helpers - Verify outcomes
-// -----------------------------------------------------------------------------
-
 const thenResponseStatusIs = async (
   response: LightMyRequestResponse,
   expectedStatus: number,
@@ -324,13 +317,6 @@ describe("POST /api/playback/play - Integration Tests", () => {
     });
   });
 
-  // =============================================================================
-  // HELPER FUNCTIONS - Test framework code isolated here
-  // =============================================================================
-
-  // GIVEN helpers - Setup preconditions
-  // -----------------------------------------------------------------------------
-
   const givenLmsAcceptsPlayCommand = async (): Promise<void> => {
     mockLmsClient.play.mockResolvedValue(ok(undefined));
   };
@@ -360,9 +346,6 @@ describe("POST /api/playback/play - Integration Tests", () => {
     mockLmsClient.play.mockResolvedValue(err(error));
   };
 
-  // WHEN helpers - Execute actions
-  // -----------------------------------------------------------------------------
-
   const whenPostingPlaybackRequest = async (
     server: FastifyInstance,
     body: { readonly trackUrl?: string },
@@ -382,9 +365,6 @@ describe("POST /api/playback/play - Integration Tests", () => {
       url: "/api/playback/play",
     });
   };
-
-  // THEN helpers - Verify outcomes (test-suite specific)
-  // -----------------------------------------------------------------------------
 
   const thenLmsPlayWasCalledWith = async (
     expectedUrl: string,
@@ -829,9 +809,7 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
   });
 });
 
-// =============================================================================
 // Simple transport controls: next, previous, pause, resume
-// =============================================================================
 
 const makeTransportServer = async (): Promise<FastifyInstance> => {
   resetMockLmsClient(mockLmsClient);
@@ -1032,10 +1010,6 @@ describe("POST /api/playback/resume", () => {
   });
 });
 
-// =============================================================================
-// Volume
-// =============================================================================
-
 describe("POST /api/playback/volume", () => {
   let server: FastifyInstance;
   beforeEach(async () => {
@@ -1151,9 +1125,7 @@ describe("GET /api/playback/volume", () => {
   });
 });
 
-// =============================================================================
 // Seek and time
-// =============================================================================
 
 describe("POST /api/playback/seek", () => {
   let server: FastifyInstance;
@@ -1259,9 +1231,7 @@ describe("GET /api/playback/time", () => {
   });
 });
 
-// =============================================================================
 // Cover art proxy
-// =============================================================================
 
 describe("GET /api/playback/cover", () => {
   let server: FastifyInstance;
@@ -1321,10 +1291,6 @@ describe("GET /api/playback/cover", () => {
     );
   });
 });
-
-// =============================================================================
-// Playback status
-// =============================================================================
 
 describe("GET /api/playback/status", () => {
   let server: FastifyInstance;

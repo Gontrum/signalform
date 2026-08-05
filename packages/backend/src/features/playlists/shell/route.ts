@@ -16,6 +16,7 @@ import { hasMoreAfter } from "../../library/core/browse.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import { parsePlaylistName } from "../core/service.js";
+import { sendPlaylistWriteFailure } from "./write-failure.js";
 
 const extractName = (body: unknown): unknown => {
   if (typeof body !== "object" || body === null || !("name" in body)) {
@@ -88,11 +89,11 @@ export const createPlaylistsRoute = (
 
       const result = await lmsClient.savePlaylist(parsed.value);
       if (!result.ok) {
-        return sendLmsError(
+        return await sendPlaylistWriteFailure(
           reply,
           request,
+          lmsClient,
           result.error,
-          getUserFriendlyErrorMessage,
           "LMS save playlist failed",
           { name: parsed.value },
         );
@@ -202,11 +203,11 @@ export const createPlaylistsRoute = (
 
       const result = await lmsClient.deleteSavedPlaylist(id);
       if (!result.ok) {
-        return sendLmsError(
+        return await sendPlaylistWriteFailure(
           reply,
           request,
+          lmsClient,
           result.error,
-          getUserFriendlyErrorMessage,
           "LMS delete playlist failed",
           { id },
         );
@@ -261,11 +262,11 @@ export const createPlaylistsRoute = (
 
       const result = await lmsClient.renamePlaylist(id, parsed.value);
       if (!result.ok) {
-        return sendLmsError(
+        return await sendPlaylistWriteFailure(
           reply,
           request,
+          lmsClient,
           result.error,
-          getUserFriendlyErrorMessage,
           "LMS rename playlist failed",
           { id, name: parsed.value },
         );
@@ -373,11 +374,11 @@ export const createPlaylistsRoute = (
 
       const result = await lmsClient.removeSavedPlaylistTrack(id, index);
       if (!result.ok) {
-        return sendLmsError(
+        return await sendPlaylistWriteFailure(
           reply,
           request,
+          lmsClient,
           result.error,
-          getUserFriendlyErrorMessage,
           "LMS delete playlist track failed",
           { id, index },
         );

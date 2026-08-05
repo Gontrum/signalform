@@ -11,10 +11,6 @@ import { describe, test, expect } from "vitest";
 import { selectBestSource } from "./core/service.js";
 import type { TrackSource, AudioQuality } from "@signalform/shared";
 
-// ---------------------------------------------------------------------------
-// Fluent BDD Helpers
-// ---------------------------------------------------------------------------
-
 type SourceSpec = {
   readonly source: "local" | "qobuz" | "tidal";
   readonly quality: AudioQuality;
@@ -80,9 +76,7 @@ const Q_16_44: AudioQuality = {
   lossless: true,
 };
 
-// ---------------------------------------------------------------------------
 // Acceptance Scenarios (FR10, FR11)
-// ---------------------------------------------------------------------------
 
 describe("Source Hierarchy Service - Acceptance Tests", () => {
   test("Scenario 1: All 3 sources at 24/96 → selects local (FR11 tie-breaking)", () => {

@@ -14,10 +14,6 @@ import type {
   SourceHierarchyService,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
 /**
  * Lossless factor applied in quality score calculation.
  * Lossless formats (FLAC, ALAC) get a 10x multiplier.
@@ -53,10 +49,6 @@ export const DEFAULT_QUALITY_CONFIG: QualityHierarchyConfig = {
   formatBonuses: FORMAT_BONUSES,
 } as const;
 
-// ---------------------------------------------------------------------------
-// Input validation helpers
-// ---------------------------------------------------------------------------
-
 /**
  * Validates that an AudioQuality object has well-formed values.
  * Returns true if valid, false if any field is invalid.
@@ -87,9 +79,7 @@ const hasCompleteQualityData = (source: TrackSource): boolean => {
   );
 };
 
-// ---------------------------------------------------------------------------
 // Pure Ranking Functions (Task 2)
-// ---------------------------------------------------------------------------
 
 /**
  * Calculates a numeric quality score for an AudioQuality object.
@@ -184,9 +174,7 @@ export const rankSources = (
   });
 };
 
-// ---------------------------------------------------------------------------
 // Main Selection Function (Task 3)
-// ---------------------------------------------------------------------------
 
 /**
  * Selects the best available source from a list of track sources.
@@ -261,9 +249,7 @@ export const selectBestSource = (
   return ok(ranked[0]!);
 };
 
-// ---------------------------------------------------------------------------
 // Service Factory (Task 4)
-// ---------------------------------------------------------------------------
 
 /**
  * Factory function that creates a SourceHierarchyService with given config.

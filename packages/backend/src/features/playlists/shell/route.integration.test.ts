@@ -39,6 +39,9 @@ type MockLmsClient = LmsClient & {
   readonly renamePlaylist: ReturnType<
     typeof vi.fn<LmsClient["renamePlaylist"]>
   >;
+  readonly getPlaylistDir: ReturnType<
+    typeof vi.fn<LmsClient["getPlaylistDir"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -58,6 +61,11 @@ const createMockLmsClient = (): MockLmsClient => ({
   renamePlaylist: vi
     .fn<LmsClient["renamePlaylist"]>()
     .mockResolvedValue(ok(undefined)),
+  // A configured folder is the normal case; the empty one has its own file,
+  // route.playlist-dir.integration.test.ts.
+  getPlaylistDir: vi
+    .fn<LmsClient["getPlaylistDir"]>()
+    .mockResolvedValue(ok("/music/playlists")),
 });
 
 describe("Playlists Routes", () => {
@@ -75,9 +83,6 @@ describe("Playlists Routes", () => {
   afterEach(() => {
     void server.close();
   });
-
-  // WHEN helpers
-  // ---------------------------------------------------------------------------
 
   const whenSavingPlaylist = async (
     body: Record<string, unknown>,
@@ -111,9 +116,6 @@ describe("Playlists Routes", () => {
       url: `/api/playlists/${idSegment}`,
     });
   };
-
-  // THEN helpers
-  // ---------------------------------------------------------------------------
 
   const thenSaveWasCalledWith = (name: string): void => {
     expect(mockLmsClient.savePlaylist).toHaveBeenCalledWith(name);

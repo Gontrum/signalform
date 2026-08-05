@@ -17,10 +17,6 @@ import type { Track } from "@signalform/shared";
 import { isOk, isErr } from "@signalform/shared";
 import type { QualityHierarchyConfig } from "./index.js";
 
-// ---------------------------------------------------------------------------
-// Integration Tests
-// ---------------------------------------------------------------------------
-
 describe("Source Hierarchy Feature - Integration", () => {
   test("service factory creates service with custom quality hierarchy config", () => {
     const customConfig: QualityHierarchyConfig = {

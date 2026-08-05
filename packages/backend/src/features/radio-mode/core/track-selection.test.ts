@@ -15,10 +15,6 @@ import {
   uniqueQueries,
 } from "./track-selection.js";
 
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
 const flacCd: AudioQuality = {
   format: "FLAC",
   bitrate: 1411,
@@ -60,10 +56,6 @@ const makeResult = (overrides: Partial<SearchResult> = {}): SearchResult => ({
   ...overrides,
 });
 
-// ---------------------------------------------------------------------------
-// computeFallbackUrl
-// ---------------------------------------------------------------------------
-
 describe("computeFallbackUrl", () => {
   test("returns undefined for empty results", () => {
     expect(computeFallbackUrl([])).toBeUndefined();
@@ -103,10 +95,6 @@ describe("computeFallbackUrl", () => {
     expect(computeFallbackUrl(results)).toBe("lossy://low");
   });
 });
-
-// ---------------------------------------------------------------------------
-// selectBestTrackUrl
-// ---------------------------------------------------------------------------
 
 describe("selectBestTrackUrl", () => {
   test("uses selectBestSource for results with audioQuality and known source", () => {
@@ -148,10 +136,6 @@ describe("selectBestTrackUrl", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// artistMatches
-// ---------------------------------------------------------------------------
-
 describe("artistMatches", () => {
   test("matches identical artist names", () => {
     expect(artistMatches("Olivia Rodrigo", "Olivia Rodrigo")).toBe(true);
@@ -180,10 +164,6 @@ describe("artistMatches", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// uniqueQueries
-// ---------------------------------------------------------------------------
-
 describe("uniqueQueries", () => {
   test("trims queries", () => {
     expect(uniqueQueries(["  hello world  "])).toEqual(["hello world"]);
@@ -201,10 +181,6 @@ describe("uniqueQueries", () => {
     expect(uniqueQueries(["c", "a", "b", "a", "c"])).toEqual(["c", "a", "b"]);
   });
 });
-
-// ---------------------------------------------------------------------------
-// buildRadioSearchQueries
-// ---------------------------------------------------------------------------
 
 describe("buildRadioSearchQueries", () => {
   test("returns artist+title permutations and title variants", () => {

@@ -9,10 +9,6 @@ import { describe, test, expect } from "vitest";
 import { buildArtistRadioSeeds } from "./service.js";
 import type { LastFmArtistTopTrack, LastFmSimilarArtist } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Test Helpers
-// ---------------------------------------------------------------------------
-
 const makeTopTrack = (
   name: string,
   artist: string,
@@ -60,10 +56,6 @@ const similarTracksMap: ReadonlyMap<string, readonly LastFmArtistTopTrack[]> =
       ],
     ]),
   );
-
-// ---------------------------------------------------------------------------
-// Happy path
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — happy path", () => {
   test("first element is from the seed artist", () => {
@@ -158,10 +150,6 @@ describe("buildArtistRadioSeeds — happy path", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Empty similar artists
-// ---------------------------------------------------------------------------
-
 describe("buildArtistRadioSeeds — empty similar artists", () => {
   test("only seed tracks are returned, in order", () => {
     const result = buildArtistRadioSeeds(
@@ -178,10 +166,6 @@ describe("buildArtistRadioSeeds — empty similar artists", () => {
     expect(result[3]?.name).toBe("Seed Track 4");
   });
 });
-
-// ---------------------------------------------------------------------------
-// Empty seed tracks
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — empty seed tracks", () => {
   test("only similar-artist tracks are returned", () => {
@@ -208,10 +192,6 @@ describe("buildArtistRadioSeeds — empty seed tracks", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// Both lists empty
-// ---------------------------------------------------------------------------
-
 describe("buildArtistRadioSeeds — both empty", () => {
   test("returns empty array", () => {
     const result = buildArtistRadioSeeds([], "The Beatles", [], new Map());
@@ -219,9 +199,7 @@ describe("buildArtistRadioSeeds — both empty", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Partial similar artist data (some artists missing from map)
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — partial similar artist data", () => {
   test("artists absent from the map are skipped gracefully", () => {
@@ -259,9 +237,7 @@ describe("buildArtistRadioSeeds — partial similar artist data", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Similar artist map has more tracks than limit (only first 2 per artist)
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — similar artist map track limit", () => {
   test("only first 2 tracks per similar artist are included", () => {
@@ -287,9 +263,7 @@ describe("buildArtistRadioSeeds — similar artist map track limit", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // More than 4 seed tracks supplied
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — seed track limit", () => {
   test("only first 4 seed tracks are included even when more supplied", () => {
@@ -321,9 +295,7 @@ describe("buildArtistRadioSeeds — seed track limit", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
 // Similar artist limit (first 8 by position in array)
-// ---------------------------------------------------------------------------
 
 describe("buildArtistRadioSeeds — similar artist count limit", () => {
   test("only first 8 similar artists are used even when more supplied", () => {

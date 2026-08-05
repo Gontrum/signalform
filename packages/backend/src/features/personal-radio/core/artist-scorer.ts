@@ -8,19 +8,11 @@
  * sorted by score for use as radio seeds.
  */
 
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
-
 type ArtistScoreEntry = {
   readonly key: string;
   readonly name: string;
   readonly score: number;
 };
-
-// ---------------------------------------------------------------------------
-// mergeScore (private helper)
-// ---------------------------------------------------------------------------
 
 const mergeScore = (
   scores: readonly ArtistScoreEntry[],
@@ -36,10 +28,6 @@ const mergeScore = (
   }
   return [...scores, { key, name, score: delta }];
 };
-
-// ---------------------------------------------------------------------------
-// scoreArtistsFromHistory
-// ---------------------------------------------------------------------------
 
 /**
  * Scores artists from three Last.fm history sources and returns the top

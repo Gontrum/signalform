@@ -1548,14 +1548,12 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // =============================================================================
   // Story 9.8: Cover Art URL from track id (item.id)
   // Root cause (2026-03-18 live probe): /music/{album_id}/cover.jpg is WRONG — LMS always
   // interprets the path segment as a TRACK ID, not album ID. /music/177/cover.jpg returns
   // cover of track 177 (random song), not album 177.
   // Correct: /music/{item.id}/cover.jpg — track's decimal DB ID, always present, always correct.
   // Same as getAlbumDetail (firstTrack.id) and getPlayerStatus (currentTrackData.id).
-  // =============================================================================
 
   describe("Rule 14 (Story 9.8): Cover Art URL from track id (item.id)", () => {
     it("AC1: includes 'e' tag in titles search command (needed for album grouping, not cover art)", async () => {
@@ -1709,13 +1707,6 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
   });
-
-  // =============================================================================
-  // HELPER FUNCTIONS - Test framework code isolated here
-  // =============================================================================
-
-  // GIVEN helpers - Setup preconditions
-  // -----------------------------------------------------------------------------
 
   const givenLmsWillReturnEmptySearchResults = async (): Promise<void> => {
     const mockResponse = {
@@ -2010,9 +2001,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   };
 
-  // WHEN helpers - Execute actions
-  // -----------------------------------------------------------------------------
-
   const whenSearchingForTracks = async (
     query: string,
   ): Promise<Result<SearchResponse, LmsError>> => {
@@ -2063,9 +2051,6 @@ describe("LMS Client - Acceptance Tests", () => {
     const client = createLmsClient(defaultConfig);
     return await client.previousTrack();
   };
-
-  // THEN helpers - Verify outcomes
-  // -----------------------------------------------------------------------------
 
   const thenResultIsSuccess = async <T>(
     result: Result<T, LmsError>,
@@ -3197,10 +3182,6 @@ describe("LMS Client - Acceptance Tests", () => {
     expect(body.params[1]).toEqual(["playlist", "play", trackUrl]);
   };
 
-  // =============================================================================
-  // Rule 9: Artist Albums Retrieval
-  // =============================================================================
-
   describe("Rule 9: Artist Albums Retrieval", () => {
     it("returns albums for a valid artist ID", async () => {
       await givenLmsWillReturnArtistAlbums([
@@ -3289,9 +3270,7 @@ describe("LMS Client - Acceptance Tests", () => {
     };
   });
 
-  // =============================================================================
   // getArtistName() — direct artist name lookup via LMS artists command
-  // =============================================================================
 
   describe("getArtistName()", () => {
     it("returns the artist name from artists_loop for a valid artist ID", async () => {
@@ -3363,9 +3342,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // =============================================================================
   // Rule 10: getQueue() Quality Tags (AC4 — Story 6.6)
-  // =============================================================================
 
   describe("Rule 10: getQueue() returns audioQuality and source when LMS provides quality tags", () => {
     it("parses FLAC quality tags from playlist_loop and populates audioQuality on QueueTrack", async () => {

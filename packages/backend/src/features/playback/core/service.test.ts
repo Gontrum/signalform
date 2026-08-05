@@ -159,21 +159,11 @@ describe("Playback Service - Pure Functions", () => {
     });
   });
 
-  // =============================================================================
-  // HELPER FUNCTIONS - Test framework code isolated here
-  // =============================================================================
-
-  // WHEN helpers - Execute actions
-  // -----------------------------------------------------------------------------
-
   const whenInitiatingPlayback = (
     trackUrl: string,
   ): Result<PlaybackCommand, PlaybackError> => {
     return initiatePlayback(trackUrl);
   };
-
-  // THEN helpers - Verify outcomes
-  // -----------------------------------------------------------------------------
 
   const thenResultIsSuccess = (
     result: Result<PlaybackCommand, PlaybackError>,
@@ -284,10 +274,6 @@ describe("Playback Service - initiateAlbumPlayback", () => {
       expect(albumId).toBe(originalAlbumId);
     });
   });
-
-  // =============================================================================
-  // HELPER FUNCTIONS
-  // =============================================================================
 
   const whenInitiatingAlbumPlayback = (
     albumId: string,

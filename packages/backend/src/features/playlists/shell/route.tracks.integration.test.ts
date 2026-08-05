@@ -32,6 +32,9 @@ type MockLmsClient = LmsClient & {
   readonly removeSavedPlaylistTrack: ReturnType<
     typeof vi.fn<LmsClient["removeSavedPlaylistTrack"]>
   >;
+  readonly getPlaylistDir: ReturnType<
+    typeof vi.fn<LmsClient["getPlaylistDir"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -42,6 +45,11 @@ const createMockLmsClient = (): MockLmsClient => ({
   removeSavedPlaylistTrack: vi
     .fn<LmsClient["removeSavedPlaylistTrack"]>()
     .mockResolvedValue(ok(undefined)),
+  // A configured folder is the normal case; the empty one has its own file,
+  // route.playlist-dir.integration.test.ts.
+  getPlaylistDir: vi
+    .fn<LmsClient["getPlaylistDir"]>()
+    .mockResolvedValue(ok("/music/playlists")),
 });
 
 const track = (

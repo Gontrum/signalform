@@ -149,10 +149,6 @@ export const createQueueRoute = (
   playerId: string,
   radioController?: RadioController,
 ): void => {
-  // ---------------------------------------------------------------------------
-  // Shared helpers
-  // ---------------------------------------------------------------------------
-
   const serializeQueueProjection = (
     queueProjection: QueueProjection,
   ): QueueProjection => ({
@@ -207,10 +203,6 @@ export const createQueueRoute = (
 
     return queueProjection;
   };
-
-  // ---------------------------------------------------------------------------
-  // Routes
-  // ---------------------------------------------------------------------------
 
   fastify.get("/api/queue", async (request: FastifyRequest, reply) => {
     const lmsResult = await lmsClient.getQueue();

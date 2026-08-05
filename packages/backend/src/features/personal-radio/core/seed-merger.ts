@@ -8,10 +8,6 @@
  * personal radio (Kanal A = comfort, Kanal B = discovery).
  */
 
-// ---------------------------------------------------------------------------
-// pickChannel
-// ---------------------------------------------------------------------------
-
 /**
  * Determines which radio channel to use for a given queue-replenishment cycle.
  *
@@ -31,10 +27,6 @@ export const pickChannel = (
   discoveryRatio: number,
 ): "comfort" | "discovery" =>
   cycle % 100 < discoveryRatio ? "discovery" : "comfort";
-
-// ---------------------------------------------------------------------------
-// mergeTrackPools
-// ---------------------------------------------------------------------------
 
 /**
  * Merges a comfort pool and a discovery pool into a single result array sized
@@ -69,10 +61,6 @@ export const mergeTrackPools = <T>(
     ...comfortPool.slice(0, comfortSlots),
   ];
 };
-
-// ---------------------------------------------------------------------------
-// spreadSample
-// ---------------------------------------------------------------------------
 
 /**
  * Selects `n` elements evenly distributed across `arr`, always including the

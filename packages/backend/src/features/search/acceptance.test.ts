@@ -9,10 +9,6 @@ import { describe, test, expect } from "vitest";
 import type { SearchResult as LmsSearchResult } from "../../adapters/lms-client/index.js";
 import { deduplicateTracks } from "./core/service.js";
 
-// ============================================================================
-// Fluent BDD helpers
-// ============================================================================
-
 const givenLmsTracksFromSources = (
   title: string,
   artist: string,
@@ -69,10 +65,6 @@ const thenResultHasAvailableSourceCount = (
 ): void => {
   expect(results[index]?.availableSources).toHaveLength(expectedCount);
 };
-
-// ============================================================================
-// Acceptance scenarios
-// ============================================================================
 
 describe("Story 3.2: Deduplicate Search Results Across Sources", () => {
   test("User searches 'Money' available from local, Qobuz, Tidal → 1 result with local selected", () => {

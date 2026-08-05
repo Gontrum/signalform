@@ -34,8 +34,6 @@ import {
   getQueueTrackSignature,
 } from "../core/identity.js";
 
-// --- Test helpers -----------------------------------------------------------
-
 const makeSimilarTrack = (
   artist: string,
   name: string,
@@ -76,8 +74,6 @@ const makeLmsSearchResult = (
     lossless,
   },
 });
-
-// --- Fixtures ---------------------------------------------------------------
 
 type LogFn = (msg: string, meta?: Readonly<Record<string, unknown>>) => void;
 
@@ -275,7 +271,6 @@ beforeEach(() => {
   resetMockLmsClient(fixtures.mockLmsClient);
   resetRadioRuntimeState();
 });
-// --- 5.1: getSimilarTracks called with seed -----------------------------------
 
 describe("5.1: handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)", () => {
   test("calls getSimilarTracks with exact arguments", async () => {
@@ -310,8 +305,6 @@ describe("5.1: handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)"
     );
   });
 });
-
-// --- 5.2: last.fm failure → no crash ----------------------------------------
 
 describe("5.2: last.fm failure → logs warning, no crash, no queue modification", () => {
   test("network error: logs warn and returns early", async () => {
@@ -359,8 +352,6 @@ describe("5.2: last.fm failure → logs warning, no crash, no queue modification
     expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
   });
 });
-
-// --- 5.3: no candidates in LMS → no event emitted ----------------------------
 
 describe("5.3: no candidates found in LMS → logs warning, no event emitted", () => {
   test("all LMS searches return empty → no radio.started event", async () => {
@@ -436,8 +427,6 @@ describe("5.3: no candidates found in LMS → logs warning, no event emitted", (
   });
 });
 
-// --- 5.4: tracks added → player.radio.started emitted -----------------------
-
 describe("5.4: tracks added → player.radio.started emitted with correct payload", () => {
   test("emits player.radio.started with playerId, seedTrack, tracksAdded, timestamp", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -481,8 +470,6 @@ describe("5.4: tracks added → player.radio.started emitted with correct payloa
     expect(payload.timestamp).toBeGreaterThan(0);
   });
 });
-
-// --- 5.5: tracks added → player.queue.updated emitted -----------------------
 
 describe("5.5: tracks added → player.queue.updated emitted", () => {
   test("emits player.queue.updated after adding tracks", async () => {
@@ -537,8 +524,6 @@ describe("5.5: tracks added → player.queue.updated emitted", () => {
     expect(payload.radioBoundaryIndex).toBe(0);
   });
 });
-
-// --- 5.6: best quality track selected -----------------------------------------
 
 describe("5.6: best-quality track selected (lossless preferred over MP3)", () => {
   test("selects FLAC over MP3 when both are returned by LMS search", async () => {
@@ -659,7 +644,7 @@ describe("5.6: best-quality track selected (lossless preferred over MP3)", () =>
   });
 });
 
-// --- NFR3: tracks added within 2 seconds (M2 code review) --------------------
+// NFR3: tracks added within 2 seconds (M2 code review)
 
 describe("NFR3: handleQueueEnd completes within 2000ms", () => {
   test("executes with 50 candidates and 5 adds within 2000ms (unit — mocks resolve instantly)", async () => {
@@ -709,7 +694,7 @@ describe("NFR3: handleQueueEnd completes within 2000ms", () => {
   });
 });
 
-// --- artistMatches edge cases (M2/L3 fix: module-level, NFD Unicode normalization) ------------
+// artistMatches edge cases (M2/L3 fix: module-level, NFD Unicode normalization)
 
 describe("artistMatches edge cases (via handleQueueEnd)", () => {
   test("Unicode diacritics: 'Björk' candidate matches 'bjork' LMS result (NFD normalization)", async () => {
@@ -771,8 +756,6 @@ describe("artistMatches edge cases (via handleQueueEnd)", () => {
   });
 });
 
-// --- Unexpected exception handling (C3 code review) --------------------------
-
 describe("C3: Unexpected JS exception in handleQueueEnd does not propagate", () => {
   test("getSimilarTracks throws (not Result error) → logs error, resolves cleanly", async () => {
     // Validates top-level try/catch: handleQueueEnd is called with void() from status-poller.
@@ -805,8 +788,6 @@ describe("C3: Unexpected JS exception in handleQueueEnd does not propagate", () 
     expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
   });
 });
-
-// --- 6.5 AC2: queue-end stop advances into first radio track -----------------
 
 describe("6.5 AC2: queue-end stop advances into first radio track", () => {
   test("nextTrack() called when getStatus() returns stop after queue-end radio adds tracks", async () => {
@@ -920,8 +901,6 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
   });
 });
 
-// --- 6.5 AC3: duplicate artist prevention in batch ---------------------------
-
 describe("6.5 AC3: duplicate artist prevention — same artist skipped within one batch", () => {
   test("second candidate from same artist skips LMS search entirely", async () => {
     // Three candidates all from same artist → only first should reach lmsClient.search
@@ -1002,8 +981,6 @@ describe("6.5 AC3: duplicate artist prevention — same artist skipped within on
   });
 });
 
-// --- 5.7: diversity filter prevents same artist twice -------------------------
-
 describe("5.7: diversity filter prevents same artist from appearing twice", () => {
   test("across two handleQueueEnd calls, same artist not added twice", async () => {
     // First call: add "Artist A"
@@ -1066,8 +1043,6 @@ describe("5.7: diversity filter prevents same artist from appearing twice", () =
     expect(fixtures.mockLmsClient.addToQueue).not.toHaveBeenCalled();
   });
 });
-
-// --- 6.6 AC1: selectBestSource() selects by score (sampleRate×bitDepth wins over raw bitrate) ---
 
 describe("6.6 AC1: selectBestSource() score formula — 24/96 FLAC wins over 16/44.1 FLAC even with lower bitrate", () => {
   test("FLAC 24/96 selected over FLAC 16/44.1 when 16/44.1 has higher bitrate", async () => {
@@ -1142,8 +1117,6 @@ describe("6.6 AC1: selectBestSource() score formula — 24/96 FLAC wins over 16/
   });
 });
 
-// --- 6.6 AC3: tie-breaking — local wins over Qobuz for equal quality score ---
-
 describe("6.6 AC3: tie-breaking — local source wins over Qobuz when quality score is equal", () => {
   test("local URL selected over Qobuz URL for identical FLAC quality", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -1211,8 +1184,6 @@ describe("6.6 AC3: tie-breaking — local source wins over Qobuz when quality sc
   });
 });
 
-// --- 6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 -----------
-
 describe("6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 after radio adds tracks to empty queue", () => {
   test("radioBoundaryIndex: 0 present in player.queue.updated payload", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -1264,8 +1235,6 @@ describe("6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 after
     );
   });
 });
-
-// --- 6.7 AC5b: radioBoundaryIndex reflects pre-radio queue length (non-empty queue) ---
 
 describe("6.7 AC5b: radioBoundaryIndex equals pre-radio queue length when queue had prior tracks", () => {
   test("radioBoundaryIndex: 2 when 2 user tracks existed before radio added tracks", async () => {
@@ -1385,8 +1354,6 @@ describe("6.7 AC5b: radioBoundaryIndex equals pre-radio queue length when queue 
   });
 });
 
-// --- 6.6 AC6: fallback — track still added when all results lack audioQuality ---
-
 describe("6.6 AC6: fallback — addToQueue called even when all search results have no audioQuality", () => {
   test("track added via fallback when audioQuality is undefined on all results", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -1428,8 +1395,6 @@ describe("6.6 AC6: fallback — addToQueue called even when all search results h
     );
   });
 });
-
-// --- 6.8 AC3: CircuitOpenError → emit player.radio.unavailable ---------------
 
 describe("6.8 AC3: CircuitOpenError from getSimilarTracks → player.radio.unavailable emitted", () => {
   test("emits player.radio.unavailable when getSimilarTracks returns CircuitOpenError", async () => {
@@ -1489,8 +1454,6 @@ describe("6.8 AC3: CircuitOpenError from getSimilarTracks → player.radio.unava
     );
   });
 });
-
-// --- 9.17 AC4: intra-batch artist dedup — max 1 track per artist per batch ---
 
 describe("9.17 AC4: intra-batch artist dedup — only 1 track per artist in a single radio batch", () => {
   test("when last.fm returns 3 candidates from same artist, only 1 is added to queue", async () => {
@@ -1918,8 +1881,6 @@ describe("recent queue repeat protection", () => {
     );
   });
 });
-
-// --- M3 concurrency guard: second handleQueueEnd call dropped while first in progress ---
 
 describe("M3 concurrency guard: second handleQueueEnd call dropped while first is in progress", () => {
   test("concurrent trigger logs info and returns without calling getSimilarTracks again", async () => {
@@ -3108,8 +3069,6 @@ describe("radio mode lifecycle", () => {
     expect(getRadioQueueState().isEnabled).toBe(false);
   });
 });
-
-// --- artist.getSimilar fallback when track.getSimilar returns empty -----------
 
 describe("artist.getSimilar fallback when track.getSimilar returns no results", () => {
   test("adds a track via artist.getSimilar when track.getSimilar returns empty array", async () => {

@@ -21,10 +21,6 @@ import {
   setSuppressedQueueEnd,
 } from "../../radio-mode/shell/radio-state.js";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 type RadioRemovalContext = {
   readonly removedTrack: {
     readonly artist: string;
@@ -73,14 +69,12 @@ type PreRemovalRadioContext = {
   readonly canAttemptRadioRemoval: boolean;
 };
 
-// ---------------------------------------------------------------------------
 // Step helpers
 //
 // Each helper below corresponds to one ordered step of handleQueueRemoval.
 // They exist so the main function reads as a sequence of named steps rather
 // than one 150-line block — see the numbered comments in
 // handleQueueRemoval itself.
-// ---------------------------------------------------------------------------
 
 /**
  * Step 1 — Capture the pre-removal queue as radio-replenishment context.
@@ -293,10 +287,6 @@ const triggerRadioReplenishment = (
       });
   }
 };
-
-// ---------------------------------------------------------------------------
-// Service
-// ---------------------------------------------------------------------------
 
 /**
  * Remove a track from the queue and handle optional radio replenishment.

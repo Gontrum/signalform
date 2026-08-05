@@ -86,8 +86,26 @@ describe("getSavedPlaylistTracks", () => {
       20,
       50,
       "playlist_id:42",
-      "tags:a,l,d",
+      "tags:a,l,d,A",
     ]);
+  });
+
+  // Asserted on the tag string itself: sampler tracks have no track artist, so
+  // dropping A while reordering the tags would silently blank their artist again.
+  it("requests the albumartist tag A", async () => {
+    const probe = givenLmsReturns({ playlisttracks_loop: [], count: 0 });
+
+    await probe.methods.getSavedPlaylistTracks("42", 0, 50);
+
+    const tags = probe
+      .sentCommand()
+      .find(
+        (part): part is string =>
+          typeof part === "string" && part.startsWith("tags:"),
+      );
+
+    expect(tags).toBeDefined();
+    expect(tags?.slice("tags:".length).split(",")).toContain("A");
   });
 
   it("passes an id containing a colon through unchanged", async () => {
@@ -101,7 +119,7 @@ describe("getSavedPlaylistTracks", () => {
       0,
       10,
       "playlist_id:a:b",
-      "tags:a,l,d",
+      "tags:a,l,d,A",
     ]);
   });
 
@@ -287,6 +305,87 @@ describe("getSavedPlaylistTracks", () => {
         album: "",
         duration: undefined,
       });
+    }
+  });
+
+  it("prefers the track artist over the album artist", async () => {
+    const probe = givenLmsReturns({
+      playlisttracks_loop: [
+        {
+          title: "Teardrop",
+          artist: "Massive Attack",
+          albumartist: "Various Artists",
+          album: "Mezzanine",
+        },
+      ],
+      count: 1,
+    });
+
+    const result = await probe.methods.getSavedPlaylistTracks("42", 0, 50);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks[0]?.artist).toBe("Massive Attack");
+    }
+  });
+
+  // The reported bug: sampler tracks come back with an album artist only, so
+  // without the fallback this row shows no artist while the queue shows one.
+  it("uses the album artist when the track has no artist", async () => {
+    const probe = givenLmsReturns({
+      playlisttracks_loop: [
+        {
+          title: "Mein Boy bist Du",
+          albumartist: "Various Artists",
+          album: "Arne Hits",
+        },
+      ],
+      count: 1,
+    });
+
+    const result = await probe.methods.getSavedPlaylistTracks("42", 0, 50);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks[0]?.artist).toBe("Various Artists");
+    }
+  });
+
+  // LMS sends an empty artist for some tracks and omits the field for others —
+  // both mean "no track artist", so blank falls through to the album artist.
+  it("treats a blank track artist as missing and uses the album artist", async () => {
+    const probe = givenLmsReturns({
+      playlisttracks_loop: [
+        { title: "empty string", artist: "", albumartist: "Various Artists" },
+        { title: "whitespace", artist: "   ", albumartist: "Various Artists" },
+      ],
+      count: 2,
+    });
+
+    const result = await probe.methods.getSavedPlaylistTracks("42", 0, 50);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks.map((track) => track.artist)).toEqual([
+        "Various Artists",
+        "Various Artists",
+      ]);
+    }
+  });
+
+  it("leaves the artist empty when both tags are blank — no invented placeholder", async () => {
+    const probe = givenLmsReturns({
+      playlisttracks_loop: [
+        { title: "Untagged", artist: "", albumartist: " " },
+      ],
+      count: 1,
+    });
+
+    const result = await probe.methods.getSavedPlaylistTracks("42", 0, 50);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks[0]?.artist).toBe("");
     }
   });
 
