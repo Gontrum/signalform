@@ -14,13 +14,20 @@
 import { test, expect } from '@playwright/test'
 import type { APIRequestContext } from '@playwright/test'
 import {
+  countRadioTracks,
   ensureQueueEditingState,
   fetchLiveQueue,
+  fetchLiveQueueProjection,
   fetchQueueDomSnapshot,
   isLiveBackendAvailable,
+  isRadioTrack,
   waitForQueueBusyToClear,
   waitForQueueDomToMatchApi,
+  type LiveQueueTrackSnapshot,
 } from '../helpers/fixtures.ts'
+
+const countUserTracks = (tracks: readonly LiveQueueTrackSnapshot[]): number =>
+  tracks.filter((track) => !isRadioTrack(track)).length
 
 const expectQueueTrackCount = async (
   page: Parameters<typeof fetchQueueDomSnapshot>[0],
@@ -56,11 +63,8 @@ test.describe('Live queue editing proof', () => {
 
     const beforeQueue = await fetchLiveQueue(request)
     const removeTarget =
-      beforeQueue.find(
-        (track) =>
-          track.isCurrent === false && track.source !== 'tidal' && track.source !== 'qobuz',
-      ) ??
-      beforeQueue.find((track) => track.source !== 'tidal' && track.source !== 'qobuz') ??
+      beforeQueue.find((track) => track.isCurrent === false && !isRadioTrack(track)) ??
+      beforeQueue.find((track) => !isRadioTrack(track)) ??
       beforeQueue[0]
     expect(removeTarget).toBeDefined()
 
@@ -76,19 +80,16 @@ test.describe('Live queue editing proof', () => {
     await waitForQueueBusyToClear(page)
 
     const afterQueue = await fetchLiveQueue(request)
-    const beforeRadioTrackCount = beforeQueue.filter(
-      (track) => track.source === 'tidal' || track.source === 'qobuz',
-    ).length
-    const afterRadioTrackCount = afterQueue.filter(
-      (track) => track.source === 'tidal' || track.source === 'qobuz',
-    ).length
+    const beforeRadioTrackCount = countRadioTracks(beforeQueue)
 
     expect(afterQueue.some((track) => track.id === removeTarget?.id)).toBe(false)
-    expect(afterQueue.length).toBeLessThanOrEqual(beforeQueue.length)
+    // The user segment must lose exactly the removed track; the radio segment is
+    // free to replenish underneath, which is why the raw length cannot be asserted.
+    expect(countUserTracks(afterQueue)).toBe(countUserTracks(beforeQueue) - 1)
     if (beforeRadioTrackCount === 0) {
       expect(afterQueue.length).toBe(beforeQueue.length - 1)
     } else {
-      expect(afterRadioTrackCount).toBeGreaterThanOrEqual(beforeRadioTrackCount - 1)
+      expect(countRadioTracks(afterQueue)).toBeGreaterThanOrEqual(beforeRadioTrackCount - 1)
     }
 
     await waitForQueueDomToMatchApi(page, request)
@@ -110,9 +111,7 @@ test.describe('Live queue editing proof', () => {
     )
 
     const beforeQueue = await fetchLiveQueue(request)
-    const beforeRadioTrackCount = beforeQueue.filter(
-      (track) => track.source === 'tidal' || track.source === 'qobuz',
-    ).length
+    const beforeRadioTrackCount = countRadioTracks(beforeQueue)
     const radioTarget = setup.removableRadioTrack
     expect(radioTarget).not.toBeNull()
 
@@ -125,19 +124,28 @@ test.describe('Live queue editing proof', () => {
     await expect(radioRow).toHaveAttribute('data-busy', 'true', { timeout: 5_000 })
     await waitForQueueBusyToClear(page)
 
-    const afterQueue = await fetchLiveQueue(request)
-    const afterRadioTrackCount = afterQueue.filter(
-      (track) => track.source === 'tidal' || track.source === 'qobuz',
-    ).length
+    // Replenishment is asynchronous, so poll rather than reading the queue once.
+    await expect
+      .poll(async () => countRadioTracks(await fetchLiveQueue(request)), {
+        message: 'Expected radio mode to replenish the radio segment after the removal',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0)
 
+    const afterQueue = await fetchLiveQueue(request)
     expect(afterQueue.some((track) => track.id === radioTarget?.id)).toBe(false)
-    expect(afterRadioTrackCount).toBeGreaterThan(0)
-    expect(afterRadioTrackCount).toBeGreaterThanOrEqual(beforeRadioTrackCount - 1)
+    expect(countRadioTracks(afterQueue)).toBeGreaterThanOrEqual(beforeRadioTrackCount - 1)
 
     const settledDom = await waitForQueueDomToMatchApi(page, request)
-    expect(settledDom.rowCount).toBe(afterQueue.length)
+    const settledProjection = await fetchLiveQueueProjection(request)
+    const firstRadioIndex = settledProjection.tracks.findIndex(isRadioTrack)
+
+    expect(settledProjection.radioModeActive).toBe(true)
+    expect(settledProjection.radioBoundaryIndex).toBe(firstRadioIndex)
     expect(settledDom.radioBoundaryVisible).toBe(true)
-    expect(settledDom.radioBoundaryText).toContain('Radio Mode')
+    // Stronger than matching the separator caption — and immune to the UI language:
+    // the separator has to sit exactly where the first radio-added track starts.
+    expect(settledDom.radioBoundaryIndex).toBe(firstRadioIndex)
     await expect(page.getByTestId('queue-mutation-error')).toHaveCount(0)
   })
 })

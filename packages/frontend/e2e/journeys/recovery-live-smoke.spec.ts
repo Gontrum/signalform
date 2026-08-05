@@ -76,16 +76,16 @@ test.describe('Recovery live smoke', () => {
     await expect(page.locator('[data-testid="search-input"]')).toBeEnabled()
     const nowPlayingPanel = page.locator('[data-testid="now-playing-panel"]')
     await expect(nowPlayingPanel).toBeVisible()
-    await expect(page.getByRole('complementary', { name: 'Now Playing' })).toBeVisible()
-    await expect(
-      nowPlayingPanel.filter({
-        has: page.getByRole('status').filter({ hasText: /^Now playing:/ }),
-      }),
-    )
+    // The live stack renders in whatever language the backend config holds, so
+    // the landmark is identified by test id + role, never by its label text.
+    const rightPanel = page.getByTestId('right-panel')
+    await expect(rightPanel).toBeVisible()
+    await expect(rightPanel).toHaveRole('complementary')
+    await expect(nowPlayingPanel.filter({ has: page.getByTestId('track-title') }))
       .toBeVisible({ timeout: 5_000 })
       .catch(async () => {
-        await expect(page.getByRole('heading', { name: 'No track playing' })).toBeVisible()
-        await expect(nowPlayingPanel).toContainText('Search and play music to see it here')
+        await expect(page.getByTestId('empty-state')).toBeVisible()
+        await expect(page.getByTestId('placeholder-album-cover')).toBeVisible()
       })
 
     await expect(page.locator('[data-testid="setup-wizard"]')).toHaveCount(0)

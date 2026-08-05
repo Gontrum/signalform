@@ -99,29 +99,148 @@ test.describe('Phone Layout (375px)', () => {
     hasMore: false,
   }
 
-  test('library album grid starts inside the viewport on phone', async ({ page }) => {
+  // Two rows, not one: the summary line replaced 244px of chip rows, and the
+  // whole point of that trade is a second row of covers. One row was the old
+  // bar and it passed with 3px to spare — any new control line would have
+  // broken it while the test still read as green.
+  test('two full album rows fit on a phone without scrolling', async ({ page }) => {
     await setupApiMocks(page, { libraryAlbums: sixAlbums })
     await page.goto('/library')
     await page.waitForSelector('[data-testid="album-grid"]')
 
     const view = page.locator('[data-testid="library-view"]')
     const viewBox = await view.boundingBox()
-    const cardBox = await page.locator('[data-testid="album-card"]').first().boundingBox()
     expect(viewBox).not.toBeNull()
-    expect(cardBox).not.toBeNull()
 
     // Nothing has been scrolled — this is what the user sees on arrival.
     expect(await view.evaluate((el) => el.scrollTop)).toBe(0)
 
-    const viewBottom = (viewBox?.y ?? 0) + (viewBox?.height ?? 0)
-    const cardBottom = (cardBox?.y ?? 0) + (cardBox?.height ?? 0)
-    expect(cardBox?.y ?? 0).toBeGreaterThanOrEqual(viewBox?.y ?? 0)
-    expect(cardBottom).toBeLessThanOrEqual(viewBottom)
+    const cards = page.locator('[data-testid="album-card"]')
+    const viewTop = viewBox?.y ?? 0
+    const viewBottom = viewTop + (viewBox?.height ?? 0)
+
+    // Four cards in a two-column grid are exactly the first two rows.
+    for (let index = 0; index < 4; index += 1) {
+      const box = await cards.nth(index).boundingBox()
+      expect(box, `card ${index}`).not.toBeNull()
+      expect(box?.y ?? 0, `card ${index} top`).toBeGreaterThanOrEqual(viewTop)
+      expect((box?.y ?? 0) + (box?.height ?? 0), `card ${index} bottom`).toBeLessThanOrEqual(
+        viewBottom,
+      )
+    }
+
+    const secondRowBottom = await cards.nth(3).boundingBox()
+    console.log(
+      `phone-layout: two rows end ${
+        viewBottom - ((secondRowBottom?.y ?? 0) + (secondRowBottom?.height ?? 0))
+      }px above the fold`,
+    )
   })
 
-  test('library filter chips stay on one scrollable line on phone', async ({ page }) => {
+  // The case above measures an idle app, and that is the reason it read green
+  // while the second row was in fact 20.5px past the fold on a real phone:
+  // as soon as anything plays, the mini-player takes 61px off the bottom of
+  // the library view, and no test above knows that bar exists. 390x844 is the
+  // device the shortfall was measured on.
+  test.describe('with the mini-player visible', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+
+    const playingStatus = {
+      status: 'playing',
+      currentTime: 42,
+      currentTrack: {
+        id: 'track-1',
+        title: 'Playing Track',
+        artist: 'Playing Artist',
+        album: 'Playing Album',
+        url: 'file:///music/playing.flac',
+        source: 'local' as const,
+        duration: 240,
+      },
+      queuePreview: [],
+    }
+
+    test('two full album rows fit while a track is playing', async ({ page }) => {
+      await setupApiMocks(page, { libraryAlbums: sixAlbums, playbackStatus: playingStatus })
+      await page.goto('/library')
+      await page.waitForSelector('[data-testid="album-grid"]')
+
+      // Without this bar the whole case degenerates into the one above.
+      const miniPlayer = page.locator('[data-testid="mini-player-bar"]')
+      await expect(miniPlayer).toBeVisible()
+      const miniBox = await miniPlayer.boundingBox()
+      expect(miniBox?.height ?? 0).toBeGreaterThan(0)
+
+      const view = page.locator('[data-testid="library-view"]')
+      const viewBox = await view.boundingBox()
+      expect(viewBox).not.toBeNull()
+
+      // The library view ends where the mini-player starts.
+      expect((viewBox?.y ?? 0) + (viewBox?.height ?? 0)).toBeLessThanOrEqual(miniBox?.y ?? 0)
+
+      expect(await view.evaluate((el) => el.scrollTop)).toBe(0)
+
+      const cards = page.locator('[data-testid="album-card"]')
+      const viewTop = viewBox?.y ?? 0
+      const viewBottom = viewTop + (viewBox?.height ?? 0)
+
+      for (let index = 0; index < 4; index += 1) {
+        const box = await cards.nth(index).boundingBox()
+        expect(box, `card ${index}`).not.toBeNull()
+        expect(box?.y ?? 0, `card ${index} top`).toBeGreaterThanOrEqual(viewTop)
+        expect((box?.y ?? 0) + (box?.height ?? 0), `card ${index} bottom`).toBeLessThanOrEqual(
+          viewBottom,
+        )
+      }
+
+      const secondRowBottom = await cards.nth(3).boundingBox()
+      console.log(
+        `phone-layout: with mini-player, two rows end ${
+          viewBottom - ((secondRowBottom?.y ?? 0) + (secondRowBottom?.height ?? 0))
+        }px above the fold`,
+      )
+    })
+  })
+
+  // The source tabs, the Albums/Artists switch and the grid/list toggle share
+  // one line. A wrap would silently give the height back, and every other
+  // assertion here would still pass.
+  test('the three library controls share one line', async ({ page }) => {
     await setupApiMocks(page, { libraryAlbums: sixAlbums })
     await page.goto('/library')
+    await page.waitForSelector('[data-testid="album-grid"]')
+
+    const row = page.locator('[data-testid="library-controls-row"]')
+    const rowBox = await row.boundingBox()
+    // One line of 44px controls inside a 1px-bordered, 4px-padded group.
+    expect(rowBox?.height).toBeLessThanOrEqual(60)
+
+    for (const testId of ['source-selector', 'browse-mode-toggle', 'view-toggle']) {
+      const control = page.locator(`[data-testid="${testId}"]`)
+      await expect(control).toBeVisible()
+      const box = await control.boundingBox()
+      expect(box?.y ?? 0, `${testId} top`).toBeGreaterThanOrEqual(rowBox?.y ?? 0)
+      expect((box?.y ?? 0) + (box?.height ?? 0), `${testId} bottom`).toBeLessThanOrEqual(
+        (rowBox?.y ?? 0) + (rowBox?.height ?? 0),
+      )
+    }
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    )
+    expect(overflow).toBeLessThanOrEqual(1)
+  })
+
+  test('library filter chips stay on one scrollable line inside the phone sheet', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { libraryAlbums: sixAlbums })
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="filter-summary"]')
+
+    // On a phone the chip rows only exist while the sheet is open.
+    await expect(page.locator('[data-testid="sort-chip-row"]')).toHaveCount(0)
+    await page.locator('[data-testid="filter-summary"]').click()
     await page.waitForSelector('[data-testid="genre-chips"]')
 
     for (const testId of ['sort-chip-row', 'decade-chip-row', 'genre-chips']) {
@@ -136,5 +255,27 @@ test.describe('Phone Layout (375px)', () => {
       .locator('[data-testid="genre-chips"]')
       .evaluate((el) => el.scrollWidth - el.clientWidth)
     expect(genreOverflow).toBeGreaterThan(0)
+  })
+
+  // The sheet is opened by a tap here on purpose. Popover.vue remembers
+  // `document.activeElement` at open time, which on macOS/WebKit is <body>
+  // after a click on a <button>; the sheet is handed its trigger instead, and
+  // this is the case that proves it.
+  test('the filter sheet returns focus to the summary line it was opened from', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { libraryAlbums: sixAlbums })
+    await page.goto('/library')
+    await page.waitForSelector('[data-testid="filter-summary"]')
+
+    await page.locator('[data-testid="filter-summary"]').click()
+    const sheet = page.locator('[data-testid="bottom-sheet"]')
+    await expect(sheet).toBeVisible()
+    await expect(sheet).toBeFocused()
+
+    await page.keyboard.press('Escape')
+
+    await expect(sheet).toBeHidden()
+    await expect(page.locator('[data-testid="filter-summary"]')).toBeFocused()
   })
 })

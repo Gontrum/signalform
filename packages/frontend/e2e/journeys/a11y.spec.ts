@@ -111,7 +111,15 @@ for (const breakpoint of breakpoints) {
         // The extra wait lets the chip's `transition-colors` finish before
         // scanning — otherwise axe can sample an in-transition blended
         // color rather than the settled one.
+        // On a phone the chips live inside the filter sheet, so the sheet has
+        // to be opened first — which puts its dialog markup in front of axe
+        // as a bonus.
         if (route.path === '/library') {
+          const summary = page.getByTestId('filter-summary')
+          if ((await summary.count()) > 0) {
+            await summary.click()
+            await page.waitForSelector('[data-testid="bottom-sheet"]')
+          }
           await page.getByTestId('decade-chip-2020s').click()
           await page.waitForTimeout(300)
         }

@@ -295,7 +295,26 @@ export type LiveQueueTrackSnapshot = {
   readonly position: number
   readonly isCurrent: boolean
   readonly source?: 'local' | 'qobuz' | 'tidal'
+  readonly addedBy?: 'radio' | 'user'
 }
+
+export type LiveQueueProjection = {
+  readonly tracks: readonly LiveQueueTrackSnapshot[]
+  readonly radioModeActive: boolean
+  readonly radioBoundaryIndex: number | null
+}
+
+/**
+ * Radio provenance comes from `addedBy`, never from `source`: the live radio
+ * replenishes from the local library just as happily as from Tidal, so a
+ * source-based check reports an empty radio segment for a queue that clearly
+ * has one (backend `projectRadioQueueTracks` derives radioBoundaryIndex from
+ * exactly this field).
+ */
+export const isRadioTrack = (track: LiveQueueTrackSnapshot): boolean => track.addedBy === 'radio'
+
+export const countRadioTracks = (tracks: readonly LiveQueueTrackSnapshot[]): number =>
+  tracks.filter(isRadioTrack).length
 
 export type QueueDomRowSnapshot = {
   readonly trackId: string
@@ -310,7 +329,8 @@ export type QueueDomSnapshot = {
   readonly rowCount: number
   readonly busyTrackIds: readonly string[]
   readonly radioBoundaryVisible: boolean
-  readonly radioBoundaryText: string | null
+  /** Number of queue rows rendered above the radio separator, or null when absent. */
+  readonly radioBoundaryIndex: number | null
 }
 
 export type LiveQueueSetupResult = {
@@ -326,6 +346,10 @@ const backendUrl = process.env['PLAYWRIGHT_LIVE_BACKEND_URL'] ?? 'http://127.0.0
 const queueApiUrl = `${backendUrl}/api/queue`
 const searchApiUrl = `${backendUrl}/api/search`
 const healthApiUrl = `${backendUrl}/health`
+const usersApiUrl = `${backendUrl}/api/users`
+
+/** Mirrors SELECTED_USER_KEY in src/platform/api/userHeader.ts — e2e has no `@/` alias. */
+const SELECTED_USER_STORAGE_KEY = 'selected-user-id'
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null
@@ -351,6 +375,9 @@ const parseQueueTrack = (value: unknown): LiveQueueTrackSnapshot | null => {
       ? value['source']
       : undefined
 
+  const addedBy =
+    value['addedBy'] === 'radio' || value['addedBy'] === 'user' ? value['addedBy'] : undefined
+
   return {
     id: value['id'],
     title: value['title'],
@@ -359,21 +386,29 @@ const parseQueueTrack = (value: unknown): LiveQueueTrackSnapshot | null => {
     position: value['position'],
     isCurrent: value['isCurrent'],
     source,
+    addedBy,
   }
 }
 
-const parseQueueResponse = (body: unknown): readonly LiveQueueTrackSnapshot[] => {
+const parseQueueResponse = (body: unknown): LiveQueueProjection => {
   if (!isObject(body) || !Array.isArray(body['tracks'])) {
     throw new Error('Queue API returned an invalid queue snapshot payload')
   }
 
-  return body['tracks'].map((track, index) => {
+  const tracks = body['tracks'].map((track, index) => {
     const parsed = parseQueueTrack(track)
     if (parsed === null) {
       throw new Error(`Queue API returned an invalid track at index ${String(index)}`)
     }
     return parsed
   })
+
+  return {
+    tracks,
+    radioModeActive: body['radioModeActive'] === true,
+    radioBoundaryIndex:
+      typeof body['radioBoundaryIndex'] === 'number' ? body['radioBoundaryIndex'] : null,
+  }
 }
 
 const getJson = async (request: APIRequestContext, url: string): Promise<unknown> => {
@@ -412,10 +447,13 @@ export const isLiveBackendAvailable = async (request: APIRequestContext): Promis
   }
 }
 
+export const fetchLiveQueueProjection = async (
+  request: APIRequestContext,
+): Promise<LiveQueueProjection> => parseQueueResponse(await getJson(request, queueApiUrl))
+
 export const fetchLiveQueue = async (
   request: APIRequestContext,
-): Promise<readonly LiveQueueTrackSnapshot[]> =>
-  parseQueueResponse(await getJson(request, queueApiUrl))
+): Promise<readonly LiveQueueTrackSnapshot[]> => (await fetchLiveQueueProjection(request)).tracks
 
 export const fetchQueueDomSnapshot = async (page: Page): Promise<QueueDomSnapshot> =>
   await page.getByTestId('queue-view').evaluate(() => {
@@ -431,13 +469,20 @@ export const fetchQueueDomSnapshot = async (page: Page): Promise<QueueDomSnapsho
         subtitle,
       }
     })
-    const radioBoundary = document.querySelector<HTMLElement>('[data-testid="radio-boundary"]')
+    const entries = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="queue-track"], [data-testid="radio-boundary"]',
+      ),
+    )
+    const boundaryEntryIndex = entries.findIndex(
+      (entry) => entry.dataset['testid'] === 'radio-boundary',
+    )
     return {
       rows: rowSnapshots,
       rowCount: rowSnapshots.length,
       busyTrackIds: rowSnapshots.filter((row) => row.busy).map((row) => row.trackId),
-      radioBoundaryVisible: radioBoundary !== null,
-      radioBoundaryText: radioBoundary?.textContent?.trim() ?? null,
+      radioBoundaryVisible: boundaryEntryIndex >= 0,
+      radioBoundaryIndex: boundaryEntryIndex >= 0 ? boundaryEntryIndex : null,
     }
   })
 
@@ -480,10 +525,14 @@ export const waitForQueueDomToMatchApi = async (
   return await fetchQueueDomSnapshot(page)
 }
 
-const waitForQueueViewRoute = async (page: Page): Promise<void> => {
+// Selectors here must stay language-agnostic: the live stack serves whatever
+// `language` the dev config holds, so any translated string would rot on the
+// next config change.
+export const waitForQueueViewRoute = async (page: Page): Promise<void> => {
   await page.waitForURL('**/queue', { timeout: 15_000 })
-  await expect(page.getByRole('heading', { name: 'Queue' })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('back-button')).toBeVisible({ timeout: 15_000 })
+  await expectNoUserSelectDialog(page)
+  await expect(page.getByTestId('queue-view')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByTestId('radio-mode-toggle')).toBeVisible({ timeout: 15_000 })
 }
 
 const searchAndAddFirstTrack = async (page: Page, query: string): Promise<void> => {
@@ -545,15 +594,16 @@ export const tryStartLiveRadio = async (
     await expect
       .poll(
         async () => {
-          const queue = await fetchLiveQueue(request)
-          const boundaryIndex = queue.findIndex(
-            (entry) => entry.source === 'tidal' || entry.source === 'qobuz',
+          const projection = await fetchLiveQueueProjection(request)
+          const boundaryIndex = projection.radioBoundaryIndex
+          return (
+            boundaryIndex !== null &&
+            projection.tracks.length > boundaryIndex &&
+            countRadioTracks(projection.tracks) > 0
           )
-          const trackCount = queue.length
-          return boundaryIndex >= 0 && trackCount > boundaryIndex
         },
         {
-          message: 'Expected radio playback to create a streaming segment in the queue',
+          message: 'Expected radio playback to create a radio segment in the queue',
           timeout: 20_000,
         },
       )
@@ -563,6 +613,54 @@ export const tryStartLiveRadio = async (
   }
 
   return await fetchLiveQueue(request)
+}
+
+const parseUserIds = (body: unknown): readonly string[] => {
+  if (!isObject(body) || !Array.isArray(body['users'])) {
+    throw new Error('Users API returned an invalid users payload')
+  }
+
+  return body['users'].flatMap((user) =>
+    isObject(user) && typeof user['id'] === 'string' ? [user['id']] : [],
+  )
+}
+
+/**
+ * The live stack serves a real household user list, and with more than one user
+ * `needsSelection` mounts UserSelectDialog — a modal whose overlay swallows every
+ * pointer event. The mocked specs never see it because their `/api/users` body
+ * fails schema parsing and leaves the store empty, which no live run can copy.
+ * So seed the very key the dialog's own `selectUser` writes: language-agnostic
+ * (no caption is read) and, via addInitScript, applied before app code on every
+ * navigation, so reloads and storage clears cannot resurrect the dialog.
+ */
+export const seedSelectedLiveUser = async (
+  page: Page,
+  request: APIRequestContext,
+): Promise<string | undefined> => {
+  const userIds = parseUserIds(await getJson(request, usersApiUrl))
+  const selectedUserId = userIds[0]
+
+  if (selectedUserId === undefined) {
+    return undefined
+  }
+
+  await page.addInitScript(
+    ([key, id]) => {
+      try {
+        window.localStorage.setItem(key, id)
+      } catch {
+        // Storage may be unavailable; the dialog assertion below reports it.
+      }
+    },
+    [SELECTED_USER_STORAGE_KEY, selectedUserId] as const,
+  )
+
+  return selectedUserId
+}
+
+export const expectNoUserSelectDialog = async (page: Page): Promise<void> => {
+  await expect(page.getByTestId('user-select-dialog')).toHaveCount(0, { timeout: 15_000 })
 }
 
 const clearBrowserOfflineState = async (page: Page): Promise<void> => {
@@ -609,7 +707,9 @@ export const ensureQueueEditingState = async ({
   readonly page: Page
   readonly request: APIRequestContext
 }): Promise<LiveQueueSetupResult> => {
+  await seedSelectedLiveUser(page, request)
   await clearBrowserOfflineState(page)
+  await expectNoUserSelectDialog(page)
 
   let queue = await fetchLiveQueue(request)
 
@@ -638,16 +738,18 @@ export const ensureQueueEditingState = async ({
 
   if (queue.length === 0) {
     await page.goto('/')
-    await page.getByRole('button', { name: 'View Full Queue' }).click()
+    const viewFullQueue = page
+      .getByTestId('view-full-queue')
+      .or(page.getByTestId('view-full-queue-empty-state'))
+      .first()
+    await expect(viewFullQueue).toBeVisible({ timeout: 15_000 })
+    await viewFullQueue.click()
     await waitForQueueViewRoute(page)
     queue = await fetchLiveQueue(request)
   }
 
   let queueWithRadio = queue
-  const hasStreamingTrack = queue.some(
-    (track) => track.source === 'tidal' || track.source === 'qobuz',
-  )
-  if (!hasStreamingTrack) {
+  if (countRadioTracks(queue) === 0) {
     queueWithRadio = await tryStartLiveRadio(page, request)
   }
 
@@ -656,8 +758,7 @@ export const ensureQueueEditingState = async ({
   const settledQueue = queueWithRadio.length > 0 ? queueWithRadio : await fetchLiveQueue(request)
   const browserQueue = await fetchQueueDomSnapshot(page)
 
-  const removableRadioTrack =
-    settledQueue.find((track) => track.source === 'tidal' || track.source === 'qobuz') ?? null
+  const removableRadioTrack = settledQueue.find(isRadioTrack) ?? null
   const reorderCandidate = settledQueue.length >= 2 ? (settledQueue[0] ?? null) : null
 
   return {
