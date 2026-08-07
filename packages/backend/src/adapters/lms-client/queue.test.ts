@@ -11,7 +11,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { ok, err } from "@signalform/shared";
-import { createQueueMethods } from "./queue.js";
+import { createQueueMethods, SAVED_PLAYLISTS_PAGE_LIMIT } from "./queue.js";
 import type { ExecuteDeps } from "./execute.js";
 import type { LmsError } from "./types.js";
 
@@ -406,7 +406,7 @@ describe("listSavedPlaylists", () => {
     await listSavedPlaylists();
 
     expect(executeCommand).toHaveBeenCalledWith(
-      ["playlists", "0", 200],
+      ["playlists", "0", SAVED_PLAYLISTS_PAGE_LIMIT],
       expect.any(Function),
     );
   });

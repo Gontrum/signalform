@@ -3,17 +3,19 @@ import { computed, nextTick, onUnmounted, ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { formatSeconds } from '@signalform/shared'
 import { useI18nStore } from '@/app/i18nStore'
+import type { MessageKey } from '@/i18n'
 import type { SavedPlaylist } from '@/platform/api/playlistsApi'
 import { usePlaylists } from '../shell/usePlaylists'
 
 const i18nStore = useI18nStore()
-const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
+const t = (key: MessageKey): string => i18nStore.t(key)
 
 const {
   playlists,
   isSaving,
   error,
   playlistDirMissing,
+  playlistGone,
   expandedId,
   tracks,
   isTracksLoading,
@@ -27,6 +29,13 @@ const {
   loadMoreTracks,
   removeTrack,
 } = usePlaylists()
+
+const errorKey = computed<MessageKey>(() => {
+  if (playlistDirMissing.value) {
+    return 'playlists.errorNoPlaylistDir'
+  }
+  return playlistGone.value ? 'playlists.errorPlaylistGone' : 'playlists.error'
+})
 
 const name = ref('')
 
@@ -234,7 +243,7 @@ const handleRemoveTrack = async (playlistId: string, index: number): Promise<voi
     </div>
 
     <p v-if="error" data-testid="playlists-error" role="alert" class="mb-3 text-sm text-error">
-      {{ playlistDirMissing ? t('playlists.errorNoPlaylistDir') : t('playlists.error') }}
+      {{ t(errorKey) }}
     </p>
 
     <p v-if="playlists.length === 0" data-testid="playlists-empty" class="text-sm text-neutral-500">

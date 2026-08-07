@@ -17,6 +17,7 @@ import { setupTestEnv } from '@/test-utils'
 const playlistsRef: Ref<readonly SavedPlaylist[]> = ref([])
 const errorRef = ref(false)
 const playlistDirMissingRef = ref(false)
+const playlistGoneRef = ref(false)
 
 vi.mock('../shell/usePlaylists', () => ({
   usePlaylists: vi.fn(() => ({
@@ -25,6 +26,7 @@ vi.mock('../shell/usePlaylists', () => ({
     isSaving: ref(false),
     error: errorRef,
     playlistDirMissing: playlistDirMissingRef,
+    playlistGone: playlistGoneRef,
     expandedId: ref(undefined),
     tracks: ref([]),
     isTracksLoading: ref(false),
@@ -53,6 +55,7 @@ describe('PlaylistsPanel – a language switch after mount', () => {
     playlistsRef.value = [{ id: 'a', name: 'Sonntagsplatte' }]
     errorRef.value = false
     playlistDirMissingRef.value = false
+    playlistGoneRef.value = false
   })
 
   // A translator captured at mount (`const t = i18nStore.t`) is what this
@@ -147,6 +150,28 @@ describe('PlaylistsPanel – a language switch after mount', () => {
 
       expect(wrapper.find('[data-testid="playlists-error"]').text()).toBe(
         'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
+      )
+    })
+  })
+
+  // "Please try again" is a dead end here: the playlist is gone, so retrying
+  // the same write cannot succeed.
+  describe('a playlist that is gone from the server', () => {
+    it('says the playlist is gone without claiming a refresh happened', async () => {
+      errorRef.value = true
+      playlistGoneRef.value = true
+
+      const wrapper = mount(PlaylistsPanel)
+
+      expect(wrapper.find('[data-testid="playlists-error"]').text()).toBe(
+        'This playlist no longer exists on Lyrion Music Server. Your list was out of date.',
+      )
+
+      useI18nStore().setLanguage('de')
+      await nextTick()
+
+      expect(wrapper.find('[data-testid="playlists-error"]').text()).toBe(
+        'Diese Playlist gibt es im Lyrion Music Server nicht mehr. Die Liste war nicht mehr aktuell.',
       )
     })
   })

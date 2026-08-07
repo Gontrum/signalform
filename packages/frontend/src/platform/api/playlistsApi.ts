@@ -29,11 +29,14 @@ type PlaylistTracksPage = {
  * Outcome of a playlist write. `no-playlist-dir` is its own case because LMS
  * refuses every write when its playlist folder is unset — nothing a retry can
  * fix, and the user has to be pointed at the LMS settings rather than at a
- * server that is running fine.
+ * server that is running fine. `playlist-gone` says the addressed playlist is
+ * not on the server any more: a retry cannot fix that either, and the list the
+ * user picked from is out of date.
  */
-export type PlaylistWriteResult = 'ok' | 'no-playlist-dir' | 'failed'
+export type PlaylistWriteResult = 'ok' | 'no-playlist-dir' | 'playlist-gone' | 'failed'
 
 const PLAYLIST_DIR_ERROR_CODE = 'PLAYLIST_DIR_NOT_CONFIGURED'
+const PLAYLIST_GONE_ERROR_CODE = 'PLAYLIST_NOT_FOUND'
 
 const ErrorCodeSchema = z.object({ error: z.string().optional() })
 
@@ -53,7 +56,14 @@ const toWriteResult = async (response: Response): Promise<PlaylistWriteResult> =
     return 'ok'
   }
 
-  return (await readErrorCode(response)) === PLAYLIST_DIR_ERROR_CODE ? 'no-playlist-dir' : 'failed'
+  const code = await readErrorCode(response)
+  if (code === PLAYLIST_DIR_ERROR_CODE) {
+    return 'no-playlist-dir'
+  }
+  if (code === PLAYLIST_GONE_ERROR_CODE) {
+    return 'playlist-gone'
+  }
+  return 'failed'
 }
 
 const SavedPlaylistSchema = z.object({

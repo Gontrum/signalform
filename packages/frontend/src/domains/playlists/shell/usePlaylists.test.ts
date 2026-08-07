@@ -352,6 +352,97 @@ describe('usePlaylists', () => {
     })
   })
 
+  // The playlist was deleted or renamed elsewhere, so the list the user picked
+  // from is provably stale: retrying cannot help, reloading can.
+  describe('a playlist that is gone from the server', () => {
+    const staleList = [
+      { id: 'a', name: 'Ghost' },
+      { id: 'b', name: 'Still there' },
+    ] as const
+    const serverList = [{ id: 'b', name: 'Still there' }] as const
+
+    it('remove reports it and replaces the list with what the server still has', async () => {
+      mockListPlaylists.mockResolvedValue(staleList)
+      mockDeletePlaylist.mockResolvedValue('playlist-gone')
+      const { result } = await mountComposable()
+      mockListPlaylists.mockResolvedValue(serverList)
+
+      await result.remove('a')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistGone.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+      expect(result.playlists.value).toEqual(serverList)
+    })
+
+    it('rename reports it and replaces the list with what the server still has', async () => {
+      mockListPlaylists.mockResolvedValue(staleList)
+      mockRenamePlaylist.mockResolvedValue('playlist-gone')
+      const { result } = await mountComposable()
+      mockListPlaylists.mockResolvedValue(serverList)
+
+      await result.rename('a', 'New name')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistGone.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+      expect(result.playlists.value).toEqual(serverList)
+    })
+
+    it('keeps the message visible after the reload it triggers', async () => {
+      mockDeletePlaylist.mockResolvedValue('playlist-gone')
+      const { result } = await mountComposable()
+
+      await result.remove('a')
+
+      // A clearError() inside fetchList would swallow the only explanation the
+      // user gets for a delete that did nothing.
+      expect(result.playlistGone.value).toBe(true)
+      expect(result.isLoading.value).toBe(false)
+    })
+
+    it('leaves the flag down for an ordinary failure and does not reload', async () => {
+      mockListPlaylists.mockResolvedValue(staleList)
+      mockDeletePlaylist.mockResolvedValue('failed')
+      const { result } = await mountComposable()
+      mockListPlaylists.mockClear()
+      mockListPlaylists.mockResolvedValue(serverList)
+
+      await result.remove('a')
+
+      expect(result.playlistGone.value).toBe(false)
+      expect(mockListPlaylists).not.toHaveBeenCalled()
+      expect(result.playlists.value).toEqual(staleList)
+    })
+
+    it('keeps the flag when the reload it triggers fails too', async () => {
+      mockListPlaylists.mockResolvedValue(staleList)
+      mockDeletePlaylist.mockResolvedValue('playlist-gone')
+      const { result } = await mountComposable()
+      mockListPlaylists.mockRejectedValue(new Error('network'))
+
+      await result.remove('a')
+
+      expect(result.playlistGone.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+      expect(result.error.value).toBe(true)
+      expect(result.isLoading.value).toBe(false)
+    })
+
+    it('drops the flag once a later write succeeds', async () => {
+      mockDeletePlaylist.mockResolvedValueOnce('playlist-gone')
+      const { result } = await mountComposable()
+
+      await result.remove('a')
+      expect(result.playlistGone.value).toBe(true)
+
+      await result.remove('b')
+
+      expect(result.error.value).toBe(false)
+      expect(result.playlistGone.value).toBe(false)
+    })
+  })
+
   it('sets error and does not crash when listPlaylists throws', async () => {
     mockListPlaylists.mockRejectedValue(new Error('network'))
 

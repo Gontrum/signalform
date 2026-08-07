@@ -19,6 +19,8 @@ vi.mock('../shell/usePlaylists', () => ({
     isLoading: ref(false),
     isSaving: isSavingRef,
     error: errorRef,
+    playlistDirMissing: ref(false),
+    playlistGone: ref(false),
     expandedId: ref(undefined),
     tracks: ref([]),
     isTracksLoading: ref(false),
