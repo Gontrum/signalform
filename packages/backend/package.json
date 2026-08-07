@@ -17,7 +17,7 @@
   "dependencies": {
     "@fastify/static": "^10.1.2",
     "@signalform/shared": "workspace:*",
-    "fastify": "^5.10.0",
+    "fastify": "^5.11.2",
     "socket.io": "^4.8.1",
     "winston": "^3.17.0",
     "zod": "^4.4.3"
