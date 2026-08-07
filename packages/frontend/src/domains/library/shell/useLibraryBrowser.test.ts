@@ -152,7 +152,7 @@ describe('useLibraryBrowser', () => {
 
       expect(browser.currentStatus.value).toBe('error')
       expect(browser.albums.value).toEqual([])
-      expect(browser.hasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
     })
   })
 
@@ -166,7 +166,7 @@ describe('useLibraryBrowser', () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(
         page([album('3', 'Bends'), album('4', 'Zeppelin')], false),
       )
-      await browser.loadMore()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(titlesOf(browser.albums.value)).toEqual(['Kid A', 'Amnesiac', 'Bends', 'Zeppelin'])
@@ -179,7 +179,7 @@ describe('useLibraryBrowser', () => {
 
       browser.setGenreFilter(7)
       await flushPromises()
-      await browser.loadMore()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(queryOfCall(2)).toEqual({
@@ -196,7 +196,7 @@ describe('useLibraryBrowser', () => {
       const browser = await mountBrowser()
 
       expect(browser.albums.value).toHaveLength(PAGE_SIZE)
-      expect(browser.hasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
     })
 
     it('has more pages when a short page comes back with hasMore true', async () => {
@@ -205,14 +205,14 @@ describe('useLibraryBrowser', () => {
       const browser = await mountBrowser()
 
       expect(browser.albums.value.length).toBeLessThan(PAGE_SIZE)
-      expect(browser.hasMore.value).toBe(true)
+      expect(browser.showsLoadMore.value).toBe(true)
     })
 
     it('does not fire a request when there is nothing left to load', async () => {
       mockGetLibraryAlbums.mockResolvedValue(page([album('1', 'Kid A')], false))
       const browser = await mountBrowser()
 
-      await browser.loadMore()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(mockGetLibraryAlbums).toHaveBeenCalledTimes(1)
@@ -223,23 +223,23 @@ describe('useLibraryBrowser', () => {
       const browser = await mountBrowser()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(serverError)
-      await browser.loadMore()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
-      expect(browser.loadMoreFailed.value).toBe(true)
+      expect(browser.loadMoreCurrentFailed.value).toBe(true)
       expect(browser.currentStatus.value).toBe('success')
       expect(titlesOf(browser.albums.value)).toEqual(['Kid A'])
     })
 
-    it('ignores a second loadMore while one is still in flight', async () => {
+    it('ignores a second load-more while one is still in flight', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
 
       const pending = deferred<AlbumsResult>()
       mockGetLibraryAlbums.mockReturnValueOnce(pending.promise)
 
-      const first = browser.loadMore()
-      await browser.loadMore()
+      const first = browser.loadMoreCurrent()
+      await browser.loadMoreCurrent()
 
       expect(mockGetLibraryAlbums).toHaveBeenCalledTimes(2)
 
@@ -255,7 +255,7 @@ describe('useLibraryBrowser', () => {
       const browser = await mountBrowser()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], true))
-      await browser.loadMore()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
@@ -270,16 +270,16 @@ describe('useLibraryBrowser', () => {
       )
     })
 
-    it('reports hasMore of the current filter combination, not of the previous one', async () => {
+    it('offers load more for the current filter combination, not for the previous one', async () => {
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
       const browser = await mountBrowser()
-      expect(browser.hasMore.value).toBe(true)
+      expect(browser.showsLoadMore.value).toBe(true)
 
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setGenreFilter(153)
       await flushPromises()
 
-      expect(browser.hasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
     })
 
     it('persists sort, decade and genre and clears them together', async () => {
@@ -485,7 +485,7 @@ describe('useLibraryBrowser', () => {
       await flushPromises()
 
       expect(titlesOf(browser.albums.value)).toEqual(['Nevermind'])
-      expect(browser.hasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
       expect(browser.currentStatus.value).toBe('success')
     })
 
@@ -495,7 +495,7 @@ describe('useLibraryBrowser', () => {
 
       const slowSecondPage = deferred<AlbumsResult>()
       mockGetLibraryAlbums.mockReturnValueOnce(slowSecondPage.promise)
-      const pendingLoadMore = browser.loadMore()
+      const pendingLoadMore = browser.loadMoreCurrent()
 
       mockGetLibraryAlbums.mockResolvedValueOnce(page([album('9', 'Nevermind')], false))
       browser.setGenreFilter(153)
@@ -506,7 +506,7 @@ describe('useLibraryBrowser', () => {
       await flushPromises()
 
       expect(titlesOf(browser.albums.value)).toEqual(['Nevermind'])
-      expect(browser.isLoadingMore.value).toBe(false)
+      expect(browser.isLoadingMoreCurrent.value).toBe(false)
     })
 
     it('lets an error from an abandoned request not poison the new one', async () => {

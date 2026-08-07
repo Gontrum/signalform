@@ -1,12 +1,14 @@
 /**
- * useLibraryBrowser — `hasMore` comes from the server, never from a count.
+ * useLibraryBrowser — the next page comes from the server's `hasMore`, never
+ * from a count. Asserted through `showsLoadMore`, the only way the flag leaves
+ * the composable: it is what puts the load-more control on the screen.
  *
  * Sibling of useLibraryBrowser.test.ts so the pagination-flag cases do not
  * grow the main suite any further.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { defineComponent, h, isReadonly } from 'vue'
+import { defineComponent, h } from 'vue'
 import type { VNode } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import type { Result } from '@signalform/shared'
@@ -84,7 +86,7 @@ const mountBrowser = async (): Promise<ReturnType<typeof useLibraryBrowser>> => 
   return result!
 }
 
-describe('useLibraryBrowser — hasMore', () => {
+describe('useLibraryBrowser — the next page the server announced', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     sessionStorage.clear()
@@ -98,13 +100,13 @@ describe('useLibraryBrowser — hasMore', () => {
     const browser = await mountBrowser()
 
     mockGetLibraryAlbums.mockResolvedValueOnce(page([album('99', 'Amnesiac')], false))
-    await browser.loadMore()
+    await browser.loadMoreCurrent()
     await flushPromises()
 
     expect(browser.albums.value).toHaveLength(PAGE_SIZE + 1)
-    expect(browser.hasMore.value).toBe(false)
+    expect(browser.showsLoadMore.value).toBe(false)
 
-    await browser.loadMore()
+    await browser.loadMoreCurrent()
     await flushPromises()
 
     expect(mockGetLibraryAlbums).toHaveBeenCalledTimes(2)
@@ -115,14 +117,14 @@ describe('useLibraryBrowser — hasMore', () => {
     const browser = await mountBrowser()
 
     mockGetLibraryAlbums.mockResolvedValueOnce(page([album('2', 'Amnesiac')], true))
-    await browser.loadMore()
+    await browser.loadMoreCurrent()
     await flushPromises()
 
     expect(browser.albums.value.length).toBeLessThan(PAGE_SIZE)
-    expect(browser.hasMore.value).toBe(true)
+    expect(browser.showsLoadMore.value).toBe(true)
   })
 
-  it('leaves hasMore true after a follow-up page fails, so the retry stays reachable', async () => {
+  it('leaves the load-more control up after a follow-up page fails, so the retry stays reachable', async () => {
     mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
     const browser = await mountBrowser()
 
@@ -130,40 +132,32 @@ describe('useLibraryBrowser — hasMore', () => {
       ok: false,
       error: { type: 'SERVER_ERROR', status: 503, message: 'LMS not reachable' },
     })
-    await browser.loadMore()
+    await browser.loadMoreCurrent()
     await flushPromises()
 
-    expect(browser.loadMoreFailed.value).toBe(true)
-    expect(browser.hasMore.value).toBe(true)
+    expect(browser.loadMoreCurrentFailed.value).toBe(true)
+    expect(browser.showsLoadMore.value).toBe(true)
   })
 
-  it('drops hasMore while a filter change is still waiting for its first page', async () => {
+  it('takes the load-more control away while a filter change waits for its first page', async () => {
     mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
     const browser = await mountBrowser()
-    expect(browser.hasMore.value).toBe(true)
+    expect(browser.showsLoadMore.value).toBe(true)
 
     const pendingFirstPage = deferred<AlbumsResult>()
     mockGetLibraryAlbums.mockReturnValueOnce(pendingFirstPage.promise)
     browser.setDecadeFilter('1990s')
     await flushPromises()
 
-    expect(browser.hasMore.value).toBe(false)
+    expect(browser.showsLoadMore.value).toBe(false)
 
     pendingFirstPage.resolve(page([album('9', 'Nevermind')], true))
     await flushPromises()
 
-    expect(browser.hasMore.value).toBe(true)
+    expect(browser.showsLoadMore.value).toBe(true)
   })
 
-  it('hands out hasMore read-only, so no consumer can promise a page the server did not', async () => {
-    mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], false))
-    const browser = await mountBrowser()
-
-    expect(isReadonly(browser.hasMore)).toBe(true)
-    expect(browser.hasMore.value).toBe(false)
-  })
-
-  it('keeps hasMore false when the first page of a filter fails', async () => {
+  it('offers no load more when the first page of a filter fails', async () => {
     mockGetLibraryAlbums.mockResolvedValueOnce(page([album('1', 'Kid A')], true))
     const browser = await mountBrowser()
 
@@ -175,6 +169,6 @@ describe('useLibraryBrowser — hasMore', () => {
     await flushPromises()
 
     expect(browser.currentStatus.value).toBe('error')
-    expect(browser.hasMore.value).toBe(false)
+    expect(browser.showsLoadMore.value).toBe(false)
   })
 })

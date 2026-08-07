@@ -23,10 +23,12 @@ import {
 import {
   adaptTidalAlbumsForDisplay,
   buildDecadeScopeMessage,
+  buildFilterSummary,
   buildRescanProgressMessage,
-  decadeOptions,
+  decadeFilterOptions,
   DECADE_KEY,
-  findSortLabel,
+  findGenreName,
+  findOptionLabel,
   GENRE_CHIP_COUNT,
   GENRE_KEY,
   libraryControlVisibility,
@@ -69,15 +71,9 @@ type UseLibraryBrowserResult = {
   readonly setSource: (source: Source) => void
   readonly currentStatus: ComputedRef<LoadingStatus>
   readonly albums: Ref<readonly LibraryAlbum[]>
-  readonly hasMore: ComputedRef<boolean>
-  readonly isLoadingMore: Ref<boolean>
-  readonly loadMoreFailed: Ref<boolean>
-  readonly loadMore: () => Promise<void>
   readonly browseMode: Ref<BrowseMode>
   readonly setBrowseMode: (mode: BrowseMode) => void
   readonly artists: Ref<readonly LibraryArtist[]>
-  readonly artistsHasMore: ComputedRef<boolean>
-  readonly loadMoreArtists: () => Promise<void>
   readonly loadMoreCurrent: () => Promise<void>
   readonly handleNavigateArtist: (name: string) => void
   readonly showsAlbumControls: ComputedRef<boolean>
@@ -102,8 +98,12 @@ type UseLibraryBrowserResult = {
   readonly viewMode: Ref<ViewMode>
   readonly setViewMode: (mode: ViewMode) => void
   readonly currentAlbumsForDisplay: ComputedRef<readonly LibraryAlbum[]>
-  readonly sortOptions: ReadonlyArray<{ readonly value: SortOption; readonly label: string }>
-  readonly decadeOptions: typeof decadeOptions
+  readonly sortOptions: ComputedRef<
+    ReadonlyArray<{ readonly value: SortOption; readonly label: string }>
+  >
+  readonly decadeOptions: ComputedRef<
+    ReadonlyArray<{ readonly value: DecadeFilter; readonly label: string }>
+  >
   readonly sortBy: Ref<SortOption>
   readonly setSortBy: (sort: SortOption) => void
   readonly genreFilter: Ref<number | null>
@@ -117,6 +117,7 @@ type UseLibraryBrowserResult = {
   readonly setSearchQuery: (value: string) => void
   readonly clearAllFilters: () => void
   readonly hasActiveFilters: ComputedRef<boolean>
+  readonly filterSummary: ComputedRef<string>
   readonly showsRecentlyAddedCapNotice: ComputedRef<boolean>
   readonly showsDecadeScopeNotice: ComputedRef<boolean>
   readonly decadeScopeMessage: ComputedRef<string>
@@ -226,10 +227,6 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
   const currentAlbumsForDisplay = computed(() =>
     activeSource.value === 'local' ? albums.value : tidalAlbumsForDisplay.value,
   )
-  // Only the two loaders may move it; a consumer that could write it would be
-  // promising a page the server never announced.
-  const hasMore = computed(() => hasMoreState.value)
-  const artistsHasMore = computed(() => artistsHasMoreState.value)
   const hasActiveFilters = computed(
     () =>
       genreFilter.value !== null || decadeFilter.value !== 'all' || searchQuery.value.trim() !== '',
@@ -279,12 +276,28 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     ),
   )
 
-  const librarySortOptions = sortOptions({
-    'artist-az': t('library.sort.artistAz'),
-    'title-az': t('library.sort.titleAz'),
-    'year-newest': t('library.sort.yearNewest'),
-    'recently-added': t('library.sort.recentlyAdded'),
-  })
+  // Computed, not built once: the language arrives from the server config
+  // after this composable has already run, so a plain array would keep every
+  // chip and the whole summary line in the default language forever.
+  const librarySortOptions = computed(() =>
+    sortOptions({
+      'artist-az': t('library.sort.artistAz'),
+      'title-az': t('library.sort.titleAz'),
+      'year-newest': t('library.sort.yearNewest'),
+      'recently-added': t('library.sort.recentlyAdded'),
+    }),
+  )
+
+  const libraryDecadeOptions = computed(() =>
+    decadeFilterOptions({
+      all: t('library.decadeAll'),
+      '2020s': t('library.decade2020s'),
+      '2010s': t('library.decade2010s'),
+      '2000s': t('library.decade2000s'),
+      '1990s': t('library.decade1990s'),
+      older: t('library.decadeOlder'),
+    }),
+  )
 
   const showsRecentlyAddedCapNotice = computed(() =>
     showsRecentlyAddedCapNoticeFor({
@@ -304,10 +317,29 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     }),
   )
 
-  const activeSortLabel = computed(() => findSortLabel(librarySortOptions, sortBy.value))
+  const activeSortLabel = computed(() => findOptionLabel(librarySortOptions.value, sortBy.value))
 
   const decadeScopeMessage = computed(() =>
     buildDecadeScopeMessage(t('library.decadeScopeNotice'), activeSortLabel.value),
+  )
+
+  // 'all' and "no genre" are the values that hide nothing, so they are absent
+  // from the summary rather than listed in it.
+  const activeDecadeLabel = computed(() =>
+    decadeFilter.value === 'all'
+      ? undefined
+      : findOptionLabel(libraryDecadeOptions.value, decadeFilter.value),
+  )
+
+  const activeGenreName = computed(() => findGenreName(genres.value, genreFilter.value))
+
+  const filterSummary = computed(() =>
+    buildFilterSummary({
+      sortLabel: activeSortLabel.value,
+      decadeLabel: activeDecadeLabel.value,
+      genreName: activeGenreName.value,
+      noFilterLabel: t('library.filterSummaryNone'),
+    }),
   )
 
   const setSource = (source: Source): void => {
@@ -509,7 +541,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     }
 
     isRescanning.value = true
-    rescanMessage.value = 'Starting scan…'
+    rescanMessage.value = t('library.rescanStarting')
 
     const result = await triggerLibraryRescan()
     if (!result.ok) {
@@ -677,15 +709,9 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     setSource,
     currentStatus,
     albums,
-    hasMore,
-    isLoadingMore,
-    loadMoreFailed,
-    loadMore,
     browseMode,
     setBrowseMode,
     artists,
-    artistsHasMore,
-    loadMoreArtists,
     loadMoreCurrent,
     handleNavigateArtist,
     showsAlbumControls,
@@ -711,7 +737,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     setViewMode,
     currentAlbumsForDisplay,
     sortOptions: librarySortOptions,
-    decadeOptions,
+    decadeOptions: libraryDecadeOptions,
     sortBy,
     setSortBy,
     genreFilter,
@@ -725,6 +751,7 @@ export const useLibraryBrowser = (t: Translator): UseLibraryBrowserResult => {
     setSearchQuery,
     clearAllFilters,
     hasActiveFilters,
+    filterSummary,
     showsRecentlyAddedCapNotice,
     showsDecadeScopeNotice,
     decadeScopeMessage,

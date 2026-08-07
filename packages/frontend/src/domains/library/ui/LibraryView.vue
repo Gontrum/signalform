@@ -4,17 +4,20 @@ import { useIntersectionObserver } from '@vueuse/core'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import EmptyState from '@/ui/EmptyState.vue'
+import BottomSheet from '@/ui/BottomSheet.vue'
 import AlbumCard from '@/domains/library/ui/AlbumCard.vue'
 import AlbumListRow from '@/domains/library/ui/AlbumListRow.vue'
+import LibraryFilterControls from '@/domains/library/ui/LibraryFilterControls.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { useLibraryBrowser } from '../shell/useLibraryBrowser'
 import {
   buildAlbumRows,
-  findGenreName,
-  nextGenreFilter,
+  filterControlPresentation,
+  nextRovingTabIndex,
+  showsAlbumContent as showsAlbumContentFor,
   showsEmptyLibrary as showsEmptyLocalLibrary,
-  showsGenreChips,
+  showsTidalFeatured as showsTidalFeaturedFor,
   showsYearHeadings,
 } from '../core/service'
 import type { Source } from '../core/types'
@@ -71,6 +74,7 @@ const {
   setSearchQuery,
   clearAllFilters,
   hasActiveFilters,
+  filterSummary,
   showsRecentlyAddedCapNotice,
   showsDecadeScopeNotice,
   decadeScopeMessage,
@@ -86,36 +90,51 @@ const handleSearchInput = (event: Event): void => {
   }
 }
 
-const allGenres = computed(() => [...genreChips.value, ...genreRest.value])
+const filterControls = computed(() =>
+  filterControlPresentation({ isPhone: isPhone.value, albumControls: showsAlbumControls.value }),
+)
 
-const showGenreChips = computed(() => showsGenreChips(genreChips.value))
+const isFilterSheetOpen = ref(false)
 
-const activeGenreName = computed(() => findGenreName(allGenres.value, genreFilter.value))
+// A sheet that survives its own trigger comes back open the next time the
+// summary line exists — after a rotation, or a switch to the artist list and
+// back — with no way to tell what opened it.
+watch(
+  () => filterControls.value.sheet,
+  (isAvailable) => {
+    if (!isAvailable) {
+      isFilterSheetOpen.value = false
+    }
+  },
+)
 
-const genreQuery = ref(activeGenreName.value)
-watch(activeGenreName, (name) => {
-  genreQuery.value = name
-})
+// Passed to the sheet so focus returns here on close: a mouse click on a
+// <button> does not focus it on macOS/WebKit, so the sheet's own
+// `document.activeElement` fallback would find <body> and drop the focus.
+const filterSummaryButton = useTemplateRef<HTMLButtonElement>('filterSummaryButton')
 
-const toggleGenre = (genreId: number): void => {
-  setGenreFilter(genreFilter.value === genreId ? null : genreId)
-}
+const filterSummaryLabel = computed(() =>
+  t('library.filterSummaryAria').replace('{filters}', filterSummary.value),
+)
 
-const handleGenreInput = (event: Event): void => {
-  const value = inputValue(event)
-  if (value === undefined) {
-    return
-  }
-
-  genreQuery.value = value
-
-  const step = nextGenreFilter(allGenres.value, value, genreFilter.value)
-  if (step.action === 'clear') {
-    setGenreFilter(null)
-  } else if (step.action === 'set') {
-    setGenreFilter(step.genreId)
-  }
-}
+// The chip row and the sheet mount the same control in two places the template
+// cannot share an element between, so one object carries the props and the
+// handlers to both — two attribute lists would drift apart unnoticed.
+const filterControlBindings = computed(() => ({
+  sortOptions: sortOptions.value,
+  decadeOptions: decadeOptions.value,
+  sortBy: sortBy.value,
+  decadeFilter: decadeFilter.value,
+  genreFilter: genreFilter.value,
+  genreChips: genreChips.value,
+  genreRest: genreRest.value,
+  hasActiveFilters: hasActiveFilters.value,
+  adjustedFilter: adjustedFilter.value,
+  'onSelect:sort': setSortBy,
+  'onSelect:decade': setDecadeFilter,
+  'onSelect:genre': setGenreFilter,
+  onClear: clearAllFilters,
+}))
 
 const showsEmptyLibrary = computed(() =>
   showsEmptyLocalLibrary(
@@ -126,20 +145,17 @@ const showsEmptyLibrary = computed(() =>
   ),
 )
 
-const showsTidalFeatured = computed(
-  () => activeSource.value === 'tidal' && tidalAlbumsForDisplay.value.length === 0,
+const showsTidalFeatured = computed(() =>
+  showsTidalFeaturedFor(activeSource.value, tidalAlbumsForDisplay.value.length),
 )
 
-// The display row sits above the state chain, so the view toggle needs the
-// condition the album branch gets for free from its `v-else`: exactly the
-// states none of the branches before it claims.
-const showsAlbumContent = computed(
-  () =>
-    currentStatus.value !== 'loading' &&
-    currentStatus.value !== 'error' &&
-    !showsArtistBrowser.value &&
-    !showsEmptyLibrary.value &&
-    !showsTidalFeatured.value,
+const showsAlbumContent = computed(() =>
+  showsAlbumContentFor({
+    status: currentStatus.value,
+    artistBrowser: showsArtistBrowser.value,
+    emptyLibrary: showsEmptyLibrary.value,
+    tidalFeatured: showsTidalFeatured.value,
+  }),
 )
 
 const showYearHeadings = computed(() =>
@@ -158,78 +174,23 @@ useIntersectionObserver(loadMoreTrigger, (entries) => {
   }
 })
 
-// Below sm the three chip rows are single-line scrollers instead of wrapping —
-// 20 genre chips otherwise stack seven rows deep and push the album grid off a
-// phone screen entirely. The horizontal padding is inside the scroller and
-// cancelled by the negative margin so the row clips at the screen edge: the
-// half-cut chip there is the "there is more" affordance. A fade would sink the
-// last chip's contrast and a scrollbar is invisible at rest on iOS and macOS.
-// py-1 keeps the focus ring (ring-2 + ring-offset-2 = 4px) out of the clip.
-const CHIP_ROW_CLASS =
-  '-mx-4 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:py-0'
+// Local/Tidal and Albums/Artists are the same widget with different words, and
+// they share one row, so they share one class. px-2 is what makes all three
+// controls fit a 375px phone: the four labels alone are 160px, which leaves
+// ~8px of padding per side once the view toggle and the gaps are paid for.
+const SEGMENT_GROUP_CLASS =
+  'flex flex-shrink-0 gap-1 rounded-lg border border-neutral-200 p-1 sm:gap-2'
 
-const CHIP_CLASS =
-  'min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
+const SEGMENT_BUTTON_CLASS =
+  'min-h-11 whitespace-nowrap rounded px-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:px-3'
 
-const CHIP_ACTIVE_CLASS = 'border-neutral-900 bg-neutral-900 text-white'
-
-const CHIP_INACTIVE_CLASS =
-  'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400 hover:text-neutral-900'
-
-const chipClass = (isActive: boolean): readonly string[] => [
-  CHIP_CLASS,
-  isActive ? CHIP_ACTIVE_CLASS : CHIP_INACTIVE_CLASS,
-]
-
-// Same two-way switch as the view toggle, but with word labels and a 44px
-// target, since this one carries text instead of a 32px icon.
-const BROWSE_MODE_CLASS =
-  'min-h-11 rounded px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
-
-const browseModeClass = (isActive: boolean): readonly string[] => [
-  BROWSE_MODE_CLASS,
+const segmentClass = (isActive: boolean): readonly string[] => [
+  SEGMENT_BUTTON_CLASS,
   isActive ? 'bg-neutral-900 text-white' : 'text-neutral-500 hover:text-neutral-900',
 ]
 
-// A fresh scroller starts at scrollLeft 0, which hides the active chip whenever
-// it sits past the fold ("Older" is the last decade). No CSS property picks an
-// initial scroll offset, so nudge it here — scrollLeft only, never
-// scrollIntoView, so no ancestor and no vertical scroll position is touched.
-const CHIP_REVEAL_GUTTER_PX = 16
-
-const revealActiveChip = (row: HTMLElement | null): void => {
-  if (row === null) {
-    return
-  }
-
-  const chip = row.querySelector<HTMLElement>('[aria-pressed="true"]')
-  if (chip === null) {
-    return
-  }
-
-  const overshoot = chip.getBoundingClientRect().right - row.getBoundingClientRect().right
-  if (overshoot > 0) {
-    row.scrollLeft += overshoot + CHIP_REVEAL_GUTTER_PX
-  }
-}
-
-const sortRow = useTemplateRef<HTMLElement>('sortRow')
-const decadeRow = useTemplateRef<HTMLElement>('decadeRow')
-const genreRow = useTemplateRef<HTMLElement>('genreRow')
-
-// The rows outlive every reload, so this fires once per row when it first
-// appears — which is the only moment a restored filter can sit past the fold;
-// afterwards the active chip is the one the user just tapped.
-watch(sortRow, revealActiveChip, { flush: 'post' })
-watch(decadeRow, revealActiveChip, { flush: 'post' })
-watch(genreRow, revealActiveChip, { flush: 'post' })
-
-// ARIA APG "Tabs" pattern: only the active tab is Tab-reachable (roving
-// tabindex, bound in the template via :tabindex on both buttons);
-// ArrowRight/ArrowLeft move and activate focus between the two, wrapping at
-// the ends. Mirrors the closest+querySelectorAll+indexOf+focus() style of
-// QueueView's handleQueueItemKeydown, adapted for horizontal navigation,
-// wrap-around, and roving tabindex (which the queue list doesn't need).
+// Only the active tab is Tab-reachable (roving tabindex, bound in the template
+// via :tabindex on both buttons); the arrow keys move focus and activate.
 const handleSourceTabKeydown = (event: KeyboardEvent): void => {
   if (!(event.currentTarget instanceof HTMLElement)) {
     return
@@ -238,18 +199,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
   const currentTarget = event.currentTarget
   const tablist = currentTarget.closest('[data-testid="source-selector"]')
   const tabs = tablist ? Array.from(tablist.querySelectorAll<HTMLElement>('[role="tab"]')) : []
-  const currentIndex = tabs.indexOf(currentTarget)
-
-  if (currentIndex === -1 || tabs.length === 0) {
-    return
-  }
-
-  let nextIndex: number | undefined
-  if (event.key === 'ArrowRight') {
-    nextIndex = (currentIndex + 1) % tabs.length
-  } else if (event.key === 'ArrowLeft') {
-    nextIndex = (currentIndex - 1 + tabs.length) % tabs.length
-  }
+  const nextIndex = nextRovingTabIndex(event.key, tabs.indexOf(currentTarget), tabs.length)
 
   if (nextIndex === undefined) {
     return
@@ -269,67 +219,192 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
 
 <template>
   <div data-testid="library-view" class="h-full min-h-0 overflow-y-auto bg-white">
-    <PageHeader v-if="isPhone" :title="t('nav.library')" />
+    <!-- On a phone the rescan control rides in the app bar instead of holding
+         a 56px row of its own above the grid: it is a maintenance action, run
+         once in a while, and the bar has the space for it. -->
+    <PageHeader v-if="isPhone" :title="t('nav.library')">
+      <template #trailing>
+        <button
+          v-if="activeSource === 'local'"
+          type="button"
+          data-testid="rescan-library-button"
+          :disabled="isRescanning"
+          class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-600 transition-colors hover:text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50"
+          :aria-label="isRescanning ? t('library.rescanAriaScanning') : t('library.rescanAriaIdle')"
+          @click="handleRescan"
+        >
+          <svg
+            :class="['h-5 w-5', isRescanning ? 'animate-spin' : '']"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
+          </svg>
+        </button>
+      </template>
+    </PageHeader>
     <h1 v-else class="sr-only">{{ t('nav.library') }}</h1>
 
     <div class="px-4 py-2 sm:px-6 sm:py-4">
-      <!-- Source selector (AC1 — Story 8.1) -->
-      <div
-        data-testid="source-selector"
-        role="tablist"
-        aria-label="Music source"
-        class="mb-3 flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit sm:mb-6"
+      <!-- Only while a scan runs, so it costs no height at rest — the phone
+           has no room for a permanently empty status line. -->
+      <p
+        v-if="isPhone && rescanMessage"
+        data-testid="rescan-message"
+        class="mb-2 text-sm text-neutral-500"
+        role="status"
+        aria-live="polite"
       >
-        <button
-          type="button"
-          role="tab"
-          data-testid="source-local"
-          data-source="local"
-          :aria-selected="activeSource === 'local' ? 'true' : 'false'"
-          :tabindex="activeSource === 'local' ? 0 : -1"
-          :class="[
-            'rounded px-4 py-1.5 text-sm font-medium transition-colors',
-            activeSource === 'local'
-              ? 'bg-neutral-900 text-white'
-              : 'text-neutral-500 hover:text-neutral-900',
-          ]"
-          @click="setSource('local')"
-          @keydown.enter="setSource('local')"
-          @keydown.space.prevent="setSource('local')"
-          @keydown="handleSourceTabKeydown"
+        {{ rescanMessage }}
+      </p>
+
+      <!-- One row for the three "what am I looking at" controls: the source
+           tabs, the Albums/Artists switch, and the grid/list toggle at the
+           right edge. Four rows of chrome above the grid put the second row of
+           covers below the fold once the mini-player claims its 61px, and this
+           is the row that costs nothing to give up — none of the three is
+           hidden, they just stop each owning a line.
+           flex-wrap is the pressure valve: a longer translation or a narrower
+           phone drops the toggle to a second line instead of scrolling the
+           document sideways. e2e/journeys/phone-layout.spec.ts fails on the
+           height that costs, so a wrap cannot pass unnoticed. -->
+      <div
+        data-testid="library-controls-row"
+        class="mb-3 flex flex-wrap items-center gap-2 sm:mb-6 sm:gap-3"
+      >
+        <!-- Source selector (AC1 — Story 8.1) -->
+        <div
+          data-testid="source-selector"
+          role="tablist"
+          :aria-label="t('library.sourceTabsLabel')"
+          :class="SEGMENT_GROUP_CLASS"
         >
-          Local
-        </button>
-        <button
-          type="button"
-          role="tab"
-          data-testid="source-tidal"
-          data-source="tidal"
-          :aria-selected="activeSource === 'tidal' ? 'true' : 'false'"
-          :tabindex="activeSource === 'tidal' ? 0 : -1"
-          :class="[
-            'rounded px-4 py-1.5 text-sm font-medium transition-colors',
-            activeSource === 'tidal'
-              ? 'bg-neutral-900 text-white'
-              : 'text-neutral-500 hover:text-neutral-900',
-          ]"
-          @click="setSource('tidal')"
-          @keydown.enter="setSource('tidal')"
-          @keydown.space.prevent="setSource('tidal')"
-          @keydown="handleSourceTabKeydown"
+          <button
+            type="button"
+            role="tab"
+            data-testid="source-local"
+            data-source="local"
+            :aria-selected="activeSource === 'local' ? 'true' : 'false'"
+            :tabindex="activeSource === 'local' ? 0 : -1"
+            :class="segmentClass(activeSource === 'local')"
+            @click="setSource('local')"
+            @keydown.enter="setSource('local')"
+            @keydown.space.prevent="setSource('local')"
+            @keydown="handleSourceTabKeydown"
+          >
+            {{ t('library.sourceLocal') }}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-testid="source-tidal"
+            data-source="tidal"
+            :aria-selected="activeSource === 'tidal' ? 'true' : 'false'"
+            :tabindex="activeSource === 'tidal' ? 0 : -1"
+            :class="segmentClass(activeSource === 'tidal')"
+            @click="setSource('tidal')"
+            @keydown.enter="setSource('tidal')"
+            @keydown.space.prevent="setSource('tidal')"
+            @keydown="handleSourceTabKeydown"
+          >
+            {{ t('library.sourceTidal') }}
+          </button>
+        </div>
+
+        <!-- Albums / Artists switch (local only — Tidal has no artist browser,
+             so the switch disappears with the tab and the mode is restored on
+             the way back). -->
+        <div
+          v-if="showsBrowseModeToggle"
+          data-testid="browse-mode-toggle"
+          role="group"
+          :aria-label="t('library.browseModeLabel')"
+          :class="SEGMENT_GROUP_CLASS"
         >
-          Tidal
-        </button>
+          <button
+            type="button"
+            data-testid="browse-mode-albums"
+            :aria-pressed="browseMode === 'albums'"
+            :class="segmentClass(browseMode === 'albums')"
+            @click="setBrowseMode('albums')"
+          >
+            {{ t('library.browseAlbums') }}
+          </button>
+          <button
+            type="button"
+            data-testid="browse-mode-artists"
+            :aria-pressed="browseMode === 'artists'"
+            :class="segmentClass(browseMode === 'artists')"
+            @click="setBrowseMode('artists')"
+          >
+            {{ t('library.browseArtists') }}
+          </button>
+        </div>
+
+        <!-- View toggle (shared — single instance for both sources). The one
+             control here that is pure icon, so it is the one that gives up its
+             bordered box on a phone; both buttons stay, at full 44px height.
+             ml-auto, not justify-end on the row: on Tidal it is the only child
+             after the tabs and must still sit right. It carries the branch
+             condition the album list gets from its `v-else`, and in artist
+             mode it goes away entirely — that list is text, it has no grid. -->
+        <div
+          v-if="showsAlbumContent"
+          data-testid="view-toggle"
+          class="ml-auto flex flex-shrink-0 rounded-lg sm:border sm:border-neutral-200 sm:p-1"
+        >
+          <button
+            type="button"
+            data-testid="grid-view-button"
+            :class="[
+              'flex h-11 w-8 items-center justify-center rounded transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:h-8',
+              viewMode === 'grid'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-900',
+            ]"
+            :aria-label="t('library.gridView')"
+            :aria-pressed="viewMode === 'grid'"
+            @click="setViewMode('grid')"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            data-testid="list-view-button"
+            :class="[
+              'flex h-11 w-8 items-center justify-center rounded transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:h-8',
+              viewMode === 'list'
+                ? 'bg-neutral-900 text-white'
+                : 'text-neutral-500 hover:text-neutral-900',
+            ]"
+            :aria-label="t('library.listView')"
+            :aria-pressed="viewMode === 'list'"
+            @click="setViewMode('list')"
+          >
+            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <!-- Rescan library button (local only) -->
-      <div v-if="activeSource === 'local'" class="mb-3 flex items-center gap-3 sm:mb-6">
+      <div v-if="activeSource === 'local' && !isPhone" class="mb-3 flex items-center gap-3 sm:mb-6">
         <button
           type="button"
           data-testid="rescan-library-button"
           :disabled="isRescanning"
           class="flex min-h-11 items-center gap-2 rounded-lg border border-neutral-200 px-4 text-sm font-medium text-neutral-600 transition-colors hover:border-neutral-300 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-          :aria-label="isRescanning ? 'Scanning library…' : 'Refresh local library'"
+          :aria-label="isRescanning ? t('library.rescanAriaScanning') : t('library.rescanAriaIdle')"
           @click="handleRescan"
         >
           <svg
@@ -350,6 +425,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </button>
         <span
           v-if="rescanMessage"
+          data-testid="rescan-message"
           class="text-sm text-neutral-500"
           role="status"
           aria-live="polite"
@@ -374,210 +450,86 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         />
       </div>
 
-      <!-- Sort & Filter controls (local albums only) — chip-based for mobile
-           friendliness. In artist mode none of the three has a counterpart in
-           the query, so the block is gone rather than inert. -->
-      <div
-        v-if="showsAlbumControls"
-        data-testid="sort-controls"
-        class="mb-3 space-y-2 sm:mb-4 sm:space-y-3"
-      >
-        <!-- Sort chips -->
-        <div
-          ref="sortRow"
-          data-testid="sort-chip-row"
-          :class="CHIP_ROW_CLASS"
-          role="group"
-          aria-label="Sort order"
+      <!-- Sort & Filter controls (local albums only). In artist mode none of
+           the three has a counterpart in the query, so the block is gone
+           rather than inert. -->
+      <LibraryFilterControls v-if="filterControls.chips" v-bind="filterControlBindings" />
+
+      <!-- Phone: three chip rows plus the genre field cost 244px above the
+           grid, for a choice made once and then browsed past for minutes.
+           One line names the state and opens the sheet that holds the rows. -->
+      <div v-if="filterControls.sheet" class="mb-2 flex items-center gap-2">
+        <button
+          ref="filterSummaryButton"
+          type="button"
+          data-testid="filter-summary"
+          :aria-label="filterSummaryLabel"
+          aria-haspopup="dialog"
+          :aria-expanded="isFilterSheetOpen ? 'true' : 'false'"
+          class="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-left text-sm font-medium text-neutral-700 transition-colors hover:border-neutral-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+          @click="isFilterSheetOpen = true"
         >
-          <button
-            v-for="opt in sortOptions"
-            :key="opt.value"
-            type="button"
-            :data-testid="`sort-chip-${opt.value}`"
-            :aria-pressed="sortBy === opt.value ? 'true' : 'false'"
-            :class="chipClass(sortBy === opt.value)"
-            @click="setSortBy(opt.value)"
+          <svg
+            class="h-4 w-4 flex-shrink-0 text-neutral-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
           >
-            {{ opt.label }}
-          </button>
-        </div>
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M3 4h18M6 12h12M10 20h4"
+            />
+          </svg>
+          <span data-testid="filter-summary-text" class="truncate">{{ filterSummary }}</span>
+        </button>
 
-        <!-- Decade filter chips -->
-        <div
-          ref="decadeRow"
-          data-testid="decade-chip-row"
-          :class="CHIP_ROW_CLASS"
-          role="group"
-          aria-label="Filter by decade"
-        >
-          <button
-            v-for="opt in decadeOptions"
-            :key="opt.value"
-            type="button"
-            :data-testid="`decade-chip-${opt.value}`"
-            :aria-pressed="decadeFilter === opt.value ? 'true' : 'false'"
-            :class="chipClass(decadeFilter === opt.value)"
-            @click="setDecadeFilter(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        </div>
-
-        <!-- Genre filter: the most common genres as chips, everything else
-             through the native datalist autocomplete. -->
-        <div v-if="allGenres.length > 0" class="space-y-2">
-          <div
-            v-if="showGenreChips"
-            ref="genreRow"
-            data-testid="genre-chips"
-            :class="CHIP_ROW_CLASS"
-            role="group"
-            :aria-label="t('library.genreFilterLabel')"
-          >
-            <button
-              v-for="genre in genreChips"
-              :key="genre.id"
-              type="button"
-              :data-testid="`genre-chip-${genre.id}`"
-              :aria-pressed="genreFilter === genre.id ? 'true' : 'false'"
-              :class="chipClass(genreFilter === genre.id)"
-              @click="toggleGenre(genre.id)"
-            >
-              {{ genre.name }}
-            </button>
-          </div>
-
-          <input
-            data-testid="genre-filter-input"
-            type="text"
-            list="library-genre-options"
-            :value="genreQuery"
-            :placeholder="t('library.genrePlaceholder')"
-            :aria-label="t('library.genreFilterLabel')"
-            autocomplete="off"
-            class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-            @input="handleGenreInput"
-          />
-          <datalist id="library-genre-options">
-            <option v-for="genre in allGenres" :key="genre.id" :value="genre.name" />
-          </datalist>
-        </div>
-
-        <!-- Clear all filters -->
         <button
           v-if="hasActiveFilters"
           type="button"
-          data-testid="clear-all-filters"
-          class="text-sm text-accent-700 hover:text-accent-900 underline"
+          data-testid="filter-summary-clear"
+          :aria-label="t('library.clearFilters')"
+          class="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-500 transition-colors hover:border-neutral-400 hover:text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
           @click="clearAllFilters"
         >
-          × Clear all filters
+          <svg
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
         </button>
-
-        <!-- Why a chip moved on its own. Belongs to the chips, not to the
-             album list: the correction happens in the error state too. -->
-        <p
-          v-if="adjustedFilter !== null"
-          data-testid="filter-adjusted-message"
-          class="text-sm text-neutral-500"
-          role="status"
-          aria-live="polite"
-        >
-          {{
-            adjustedFilter === 'decade'
-              ? t('library.filterAdjustedDecade')
-              : t('library.filterAdjustedSort')
-          }}
-        </p>
       </div>
 
-      <!-- Display row: what am I browsing (albums / artists) on the left, how it
-           is drawn (grid / list) on the right. Both answer "how do I look at
-           this", and a phone screen has no line to spare above the grid — the
-           two shared one row's worth of height before the switch existed.
-           Above the state chain, because the switch is the way out of a failed
-           or empty artist list; the view toggle carries the branch condition
-           the album list gets from its `v-else`, and in artist mode it goes
-           away entirely — that list is text, it has no grid. -->
-      <div
-        v-if="showsBrowseModeToggle || showsAlbumContent"
-        class="mb-2 flex items-center gap-3 sm:mb-4"
+      <BottomSheet
+        v-if="filterControls.sheet"
+        v-model:open="isFilterSheetOpen"
+        data-testid="filter-sheet"
+        :title="t('library.filterSheetTitle')"
+        :close-label="t('library.filterSheetClose')"
+        :return-focus-to="filterSummaryButton"
       >
-        <!-- Albums / Artists switch (local only — Tidal has no artist browser,
-             so the switch disappears with the tab and the mode is restored on
-             the way back). -->
-        <div
-          v-if="showsBrowseModeToggle"
-          data-testid="browse-mode-toggle"
-          role="group"
-          :aria-label="t('library.browseModeLabel')"
-          class="flex gap-2 rounded-lg border border-neutral-200 p-1 w-fit"
-        >
-          <button
-            type="button"
-            data-testid="browse-mode-albums"
-            :aria-pressed="browseMode === 'albums'"
-            :class="browseModeClass(browseMode === 'albums')"
-            @click="setBrowseMode('albums')"
-          >
-            {{ t('library.browseAlbums') }}
-          </button>
-          <button
-            type="button"
-            data-testid="browse-mode-artists"
-            :aria-pressed="browseMode === 'artists'"
-            :class="browseModeClass(browseMode === 'artists')"
-            @click="setBrowseMode('artists')"
-          >
-            {{ t('library.browseArtists') }}
-          </button>
-        </div>
+        <LibraryFilterControls v-bind="filterControlBindings" />
 
-        <!-- View toggle (shared — single instance for both sources). ml-auto,
-             not justify-end on the row: on Tidal it is the only child and must
-             still sit right. -->
-        <div
-          v-if="showsAlbumContent"
-          data-testid="view-toggle"
-          class="ml-auto flex rounded-lg border border-neutral-200 p-1"
+        <button
+          type="button"
+          data-testid="filter-sheet-done"
+          class="min-h-11 w-full rounded-lg bg-neutral-900 px-4 text-sm font-medium text-white transition-colors hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+          @click="isFilterSheetOpen = false"
         >
-          <button
-            type="button"
-            data-testid="grid-view-button"
-            :class="[
-              'flex h-8 w-8 items-center justify-center rounded transition-colors',
-              viewMode === 'grid'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-500 hover:text-neutral-900',
-            ]"
-            aria-label="Grid view"
-            :aria-pressed="viewMode === 'grid'"
-            @click="setViewMode('grid')"
-          >
-            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 3h7v7H3V3zm0 11h7v7H3v-7zm11-11h7v7h-7V3zm0 11h7v7h-7v-7z" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            data-testid="list-view-button"
-            :class="[
-              'flex h-8 w-8 items-center justify-center rounded transition-colors',
-              viewMode === 'list'
-                ? 'bg-neutral-900 text-white'
-                : 'text-neutral-500 hover:text-neutral-900',
-            ]"
-            aria-label="List view"
-            :aria-pressed="viewMode === 'list'"
-            @click="setViewMode('list')"
-          >
-            <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" />
-            </svg>
-          </button>
-        </div>
-      </div>
+          {{ t('library.filterSheetDone') }}
+        </button>
+      </BottomSheet>
 
       <div
         v-if="currentStatus === 'loading'"
@@ -686,8 +638,8 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </div>
       </div>
 
-      <!-- Main content: album grid/list. Its display row lives above the state
-           chain, sharing a line with the Albums/Artists switch. -->
+      <!-- Main content: album grid/list. Its view toggle lives above the state
+           chain, sharing a line with the source tabs and the browse switch. -->
       <div v-else>
         <!-- No filter results (local only — filter combination too narrow) -->
         <div

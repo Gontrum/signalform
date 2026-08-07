@@ -244,6 +244,20 @@ describe('LibraryView — the active chip is revealed when a row mounts', () => 
     expect(wrapper.find('[data-testid="decade-chip-row"]').element.scrollLeft).toBe(0)
   })
 
+  // Flush is the boundary case: the chip is whole, so scrolling by the gutter
+  // alone would drift the row a little further right on every mount.
+  it('leaves a row untouched when its active chip ends exactly at the edge', async () => {
+    sessionStorage.setItem('library-decade-filter', 'older')
+    stubHorizontalGeometry({
+      'decade-chip-row': [0, 390],
+      'decade-chip-older': [310, 390],
+    })
+
+    const wrapper = await mountView()
+
+    expect(wrapper.find('[data-testid="decade-chip-row"]').element.scrollLeft).toBe(0)
+  })
+
   it('reveals each row independently of the others', async () => {
     sessionStorage.setItem('library-sort-by', 'recently-added')
     stubHorizontalGeometry({

@@ -8,7 +8,9 @@ import {
   VIEW_MODE_KEY,
   adaptTidalAlbumsForDisplay,
   buildRescanProgressMessage,
-  decadeOptions,
+  chipRevealScrollLeft,
+  decadeFilterOptions,
+  nextRovingTabIndex,
   parseStoredDecade,
   parseStoredSort,
   parseStoredViewMode,
@@ -288,9 +290,29 @@ describe('sortOptions', () => {
   })
 })
 
-describe('decadeOptions', () => {
-  it('offers all six decade values in order', () => {
-    expect(decadeOptions.map((option) => option.value)).toEqual([
+describe('decadeFilterOptions', () => {
+  const labels: Record<DecadeFilter, string> = {
+    all: 'Alle Jahre',
+    '2020s': 'Zwanziger',
+    '2010s': 'Zehner',
+    '2000s': 'Nuller',
+    '1990s': 'Neunziger',
+    older: 'Älter',
+  }
+
+  it('gives every decade the label asked for, in chip order', () => {
+    expect(decadeFilterOptions(labels)).toEqual([
+      { value: 'all', label: 'Alle Jahre' },
+      { value: '2020s', label: 'Zwanziger' },
+      { value: '2010s', label: 'Zehner' },
+      { value: '2000s', label: 'Nuller' },
+      { value: '1990s', label: 'Neunziger' },
+      { value: 'older', label: 'Älter' },
+    ])
+  })
+
+  it('keeps the chips in decade order, newest first', () => {
+    expect(decadeFilterOptions(labels).map((option) => option.value)).toEqual([
       'all',
       '2020s',
       '2010s',
@@ -300,8 +322,8 @@ describe('decadeOptions', () => {
     ])
   })
 
-  it('labels the 1990s option as 90s', () => {
-    expect(decadeOptions.find((option) => option.value === '1990s')?.label).toBe('90s')
+  it('leaves no English decade label behind', () => {
+    expect(decadeFilterOptions(labels).map((option) => option.label)).not.toContain('All years')
   })
 })
 
@@ -321,5 +343,91 @@ describe('constants', () => {
 
   it('shows 20 genres as chips', () => {
     expect(GENRE_CHIP_COUNT).toBe(20)
+  })
+})
+
+// Three tabs, so a step from the middle lands on neither end: an arithmetic that
+// only ever returned 0 or the last index would pass a two-tab fixture.
+describe('nextRovingTabIndex', () => {
+  it('steps right through the middle of the list', () => {
+    expect(nextRovingTabIndex('ArrowRight', 0, 3)).toBe(1)
+    expect(nextRovingTabIndex('ArrowRight', 1, 3)).toBe(2)
+  })
+
+  it('steps left through the middle of the list', () => {
+    expect(nextRovingTabIndex('ArrowLeft', 2, 3)).toBe(1)
+    expect(nextRovingTabIndex('ArrowLeft', 1, 3)).toBe(0)
+  })
+
+  it('wraps from the last tab to the first', () => {
+    expect(nextRovingTabIndex('ArrowRight', 2, 3)).toBe(0)
+  })
+
+  it('wraps from the first tab to the last', () => {
+    expect(nextRovingTabIndex('ArrowLeft', 0, 3)).toBe(2)
+  })
+
+  it('wraps both ways over the two tabs the source selector has', () => {
+    expect(nextRovingTabIndex('ArrowRight', 1, 2)).toBe(0)
+    expect(nextRovingTabIndex('ArrowLeft', 0, 2)).toBe(1)
+  })
+
+  it('stays on the single tab of a one-tab list', () => {
+    expect(nextRovingTabIndex('ArrowRight', 0, 1)).toBe(0)
+    expect(nextRovingTabIndex('ArrowLeft', 0, 1)).toBe(0)
+  })
+
+  it.each(['ArrowUp', 'ArrowDown', 'Tab', 'Enter', ' ', 'Home', 'a'])(
+    'moves nowhere for %s',
+    (key) => {
+      expect(nextRovingTabIndex(key, 1, 3)).toBeUndefined()
+    },
+  )
+
+  it('moves nowhere without tabs to move between', () => {
+    expect(nextRovingTabIndex('ArrowRight', 0, 0)).toBeUndefined()
+  })
+
+  it('moves nowhere from an index outside the list', () => {
+    expect(nextRovingTabIndex('ArrowRight', -1, 3)).toBeUndefined()
+    expect(nextRovingTabIndex('ArrowLeft', 3, 3)).toBeUndefined()
+  })
+})
+
+describe('chipRevealScrollLeft', () => {
+  it('scrolls the overshoot plus the gutter when the chip hangs over the edge', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 40, chipRight: 520, rowRight: 500, gutterPx: 16 }),
+    ).toBe(76)
+  })
+
+  it('adds the gutter it was given, not a fixed one', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 40, chipRight: 520, rowRight: 500, gutterPx: 8 }),
+    ).toBe(68)
+  })
+
+  it('keeps the position when the chip is fully in view', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 40, chipRight: 400, rowRight: 500, gutterPx: 16 }),
+    ).toBe(40)
+  })
+
+  it('keeps the position when the chip ends flush with the edge', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 40, chipRight: 500, rowRight: 500, gutterPx: 16 }),
+    ).toBe(40)
+  })
+
+  it('keeps the untouched start position of a fresh scroller in view', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 0, chipRight: 733, rowRight: 390, gutterPx: 16 }),
+    ).toBe(359)
+  })
+
+  it('carries the subpixel edges the layout actually reports', () => {
+    expect(
+      chipRevealScrollLeft({ scrollLeft: 12.5, chipRight: 520.75, rowRight: 500.25, gutterPx: 16 }),
+    ).toBe(49)
   })
 })

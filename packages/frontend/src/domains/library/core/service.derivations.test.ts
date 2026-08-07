@@ -3,7 +3,7 @@ import {
   buildAlbumRows,
   buildDecadeScopeMessage,
   findGenreName,
-  findSortLabel,
+  findOptionLabel,
   libraryControlVisibility,
   nextGenreFilter,
   resolveLocalStatus,
@@ -491,31 +491,46 @@ describe('buildDecadeScopeMessage', () => {
   })
 })
 
-describe('findSortLabel', () => {
-  const options: ReadonlyArray<{ readonly value: SortOption; readonly label: string }> = [
+describe('findOptionLabel', () => {
+  const sortOptionList: ReadonlyArray<{ readonly value: SortOption; readonly label: string }> = [
     { value: 'artist-az', label: 'Artist A–Z' },
     { value: 'title-az', label: 'Title A–Z' },
     { value: 'year-newest', label: 'Year, newest' },
     { value: 'recently-added', label: 'Recently added' },
   ]
 
+  const decadeOptionList: ReadonlyArray<{ readonly value: DecadeFilter; readonly label: string }> =
+    [
+      { value: 'all', label: 'All years' },
+      { value: '2020s', label: '2020er' },
+      { value: '1990s', label: '90er' },
+      { value: 'older', label: 'Älter' },
+    ]
+
   it('labels a sort from the middle of the list', () => {
-    expect(findSortLabel(options, 'year-newest')).toBe('Year, newest')
+    expect(findOptionLabel(sortOptionList, 'year-newest')).toBe('Year, newest')
   })
 
   it('labels the first and the last option by their own value', () => {
-    expect(findSortLabel(options, 'artist-az')).toBe('Artist A–Z')
-    expect(findSortLabel(options, 'recently-added')).toBe('Recently added')
+    expect(findOptionLabel(sortOptionList, 'artist-az')).toBe('Artist A–Z')
+    expect(findOptionLabel(sortOptionList, 'recently-added')).toBe('Recently added')
   })
 
-  it('falls back to the sort value when the options do not carry it', () => {
-    expect(findSortLabel([{ value: 'title-az', label: 'Title A–Z' }], 'recently-added')).toBe(
+  it('labels a decade from the same list shape', () => {
+    expect(findOptionLabel(decadeOptionList, '1990s')).toBe('90er')
+    expect(findOptionLabel(decadeOptionList, 'older')).toBe('Älter')
+  })
+
+  it('falls back to the value when the options do not carry it', () => {
+    expect(findOptionLabel([{ value: 'title-az', label: 'Title A–Z' }], 'recently-added')).toBe(
       'recently-added',
     )
+    expect(findOptionLabel([{ value: 'all', label: 'All years' }], '2010s')).toBe('2010s')
   })
 
-  it('falls back to the sort value for an empty option list', () => {
-    expect(findSortLabel([], 'title-az')).toBe('title-az')
+  it('falls back to the value for an empty option list', () => {
+    expect(findOptionLabel<SortOption>([], 'title-az')).toBe('title-az')
+    expect(findOptionLabel<DecadeFilter>([], 'older')).toBe('older')
   })
 })
 

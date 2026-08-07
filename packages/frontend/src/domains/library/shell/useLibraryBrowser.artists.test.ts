@@ -162,7 +162,7 @@ describe('useLibraryBrowser — artist mode', () => {
     const browser = await mountInArtistMode()
 
     mockGetLibraryArtists.mockResolvedValueOnce(artistPage(SECOND_PAGE, false))
-    await browser.loadMoreArtists()
+    await browser.loadMoreCurrent()
 
     expect(artistCall(0)[0]).toBe(mockGetLibraryAlbums.mock.calls[0]?.[0])
     expect(artistCall(1)[0]).toBe(PAGE_SIZE)
@@ -174,7 +174,7 @@ describe('useLibraryBrowser — artist mode', () => {
       const browser = await mountInArtistMode()
 
       mockGetLibraryArtists.mockResolvedValueOnce(artistPage(SECOND_PAGE, false))
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(namesOf(browser.artists.value)).toEqual([
@@ -191,7 +191,7 @@ describe('useLibraryBrowser — artist mode', () => {
       const browser = await mountInArtistMode()
 
       mockGetLibraryArtists.mockResolvedValueOnce(artistPage(SECOND_PAGE, false))
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
 
       expect(artistCall(1)[1]).toBe(FIRST_PAGE.length)
     })
@@ -200,19 +200,19 @@ describe('useLibraryBrowser — artist mode', () => {
       mockGetLibraryArtists.mockResolvedValueOnce(artistPage(FIRST_PAGE, true))
       const browser = await mountInArtistMode()
 
-      expect(browser.artistsHasMore.value).toBe(true)
+      expect(browser.showsLoadMore.value).toBe(true)
 
       mockGetLibraryArtists.mockResolvedValueOnce(artistPage(SECOND_PAGE, false))
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
-      expect(browser.artistsHasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
     })
 
     it('refuses to load further once the server reported no next page', async () => {
       const browser = await mountInArtistMode()
 
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(mockGetLibraryArtists).toHaveBeenCalledTimes(1)
@@ -224,11 +224,11 @@ describe('useLibraryBrowser — artist mode', () => {
       const browser = await mountInArtistMode()
 
       mockGetLibraryArtists.mockResolvedValueOnce(serverError)
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await flushPromises()
 
       expect(browser.loadMoreCurrentFailed.value).toBe(true)
-      expect(browser.artistsHasMore.value).toBe(true)
+      expect(browser.showsLoadMore.value).toBe(true)
       expect(namesOf(browser.artists.value)).toEqual(['Tocotronic', 'ABBA', 'Kraftwerk'])
     })
 
@@ -238,7 +238,7 @@ describe('useLibraryBrowser — artist mode', () => {
 
       expect(browser.currentStatus.value).toBe('error')
       expect(browser.artists.value).toEqual([])
-      expect(browser.artistsHasMore.value).toBe(false)
+      expect(browser.showsLoadMore.value).toBe(false)
     })
   })
 
@@ -248,7 +248,7 @@ describe('useLibraryBrowser — artist mode', () => {
       const browser = await mountInArtistMode()
 
       mockGetLibraryArtists.mockResolvedValueOnce(artistPage(SECOND_PAGE, true))
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await flushPromises()
       expect(browser.artists.value).toHaveLength(5)
 
@@ -301,7 +301,6 @@ describe('useLibraryBrowser — artist mode', () => {
       await flushPromises()
 
       expect(browser.artists.value).toEqual([])
-      expect(browser.artistsHasMore.value).toBe(false)
     })
   })
 
@@ -334,7 +333,7 @@ describe('useLibraryBrowser — artist mode', () => {
       browser.setBrowseMode('artists')
       await vi.advanceTimersByTimeAsync(0)
 
-      await browser.loadMoreArtists()
+      await browser.loadMoreCurrent()
       await vi.advanceTimersByTimeAsync(0)
       expect(browser.artists.value).toHaveLength(6)
 

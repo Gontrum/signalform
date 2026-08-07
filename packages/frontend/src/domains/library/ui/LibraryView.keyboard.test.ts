@@ -171,6 +171,56 @@ describe('LibraryView keyboard navigation', () => {
     wrapper.unmount()
   })
 
+  it('ArrowRight on source-tidal wraps focus around to source-local', async () => {
+    const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
+    vi.mocked(getTidalAlbums).mockResolvedValue({
+      ok: true,
+      value: { albums: makeTidalAlbums(1), totalCount: 1 },
+    })
+
+    const wrapper = await mountView()
+
+    await wrapper.find('[data-testid="source-tidal"]').trigger('click')
+    await flushPromises()
+
+    const local = wrapper.find('[data-testid="source-local"]')
+    const tidal = wrapper.find('[data-testid="source-tidal"]')
+    expect(tidal.element).toBeInstanceOf(HTMLButtonElement)
+    if (!(tidal.element instanceof HTMLButtonElement)) {
+      wrapper.unmount()
+      return
+    }
+
+    tidal.element.focus()
+    await tidal.trigger('keydown', { key: 'ArrowRight' })
+    await flushPromises()
+
+    expect(document.activeElement).toBe(local.element)
+    expect(local.attributes('aria-selected')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('leaves focus and the active source alone on a key that is not an arrow', async () => {
+    const wrapper = await mountView()
+
+    const local = wrapper.find('[data-testid="source-local"]')
+    expect(local.element).toBeInstanceOf(HTMLButtonElement)
+    if (!(local.element instanceof HTMLButtonElement)) {
+      wrapper.unmount()
+      return
+    }
+
+    local.element.focus()
+    await local.trigger('keydown', { key: 'ArrowDown' })
+    await flushPromises()
+
+    expect(document.activeElement).toBe(local.element)
+    expect(local.attributes('aria-selected')).toBe('true')
+
+    wrapper.unmount()
+  })
+
   it('ArrowLeft on source-local wraps focus around to source-tidal', async () => {
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbums).mockResolvedValue({

@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18nStore } from '@/app/i18nStore'
 import type { LibraryAlbum } from '@/domains/library/core/types'
 
-defineProps<{
+const props = defineProps<{
   album: LibraryAlbum
 }>()
 
@@ -17,6 +18,16 @@ const coverError = ref<boolean>(false)
 const onCoverError = (): void => {
   coverError.value = true
 }
+
+const i18n = useI18nStore()
+
+const playAriaLabel = computed(() =>
+  i18n.t('home.playAlbumAria').replace('{title}', props.album.title),
+)
+
+const addToQueueAriaLabel = computed(() =>
+  i18n.t('home.addAlbumToQueue').replace('{title}', props.album.title),
+)
 </script>
 
 <template>
@@ -36,7 +47,7 @@ const onCoverError = (): void => {
       <img
         v-if="!coverError"
         :src="album.coverArtUrl"
-        :alt="`${album.title} by ${album.artist}`"
+        alt=""
         data-testid="list-row-thumbnail"
         loading="lazy"
         class="h-full w-full object-cover"
@@ -80,7 +91,7 @@ const onCoverError = (): void => {
       type="button"
       data-testid="list-row-play-button"
       class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-accent-500 text-white opacity-0 transition-opacity hover:bg-accent-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
-      :aria-label="`Play ${album.title}`"
+      :aria-label="playAriaLabel"
       @click.stop="emit('click:play', album.id)"
     >
       <svg class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -93,7 +104,7 @@ const onCoverError = (): void => {
       type="button"
       data-testid="list-row-add-to-queue-button"
       class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-500 opacity-0 transition-opacity hover:border-accent-400 hover:text-accent-500 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-accent-400 group-hover:opacity-100"
-      :aria-label="`Add ${album.title} to queue`"
+      :aria-label="addToQueueAriaLabel"
       @click.stop="emit('click:add-to-queue', album.id)"
     >
       <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

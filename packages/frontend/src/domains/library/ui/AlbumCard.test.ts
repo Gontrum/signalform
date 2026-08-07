@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AlbumCard from './AlbumCard.vue'
+import { setupTestEnv } from '@/test-utils'
 
 const makeAlbum = (): {
   readonly id: string
@@ -19,6 +20,10 @@ const makeAlbum = (): {
 })
 
 describe('AlbumCard', () => {
+  beforeEach(() => {
+    setupTestEnv()
+  })
+
   // AC3: hover shows overlay with play button
   it('renders hover overlay element in DOM', () => {
     const wrapper = mount(AlbumCard, {

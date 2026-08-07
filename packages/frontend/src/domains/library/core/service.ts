@@ -60,16 +60,15 @@ export const sortOptions = (
   { value: 'recently-added', label: labels['recently-added'] },
 ]
 
-export const decadeOptions: ReadonlyArray<{
-  readonly value: DecadeFilter
-  readonly label: string
-}> = [
-  { value: 'all', label: 'All years' },
-  { value: '2020s', label: '2020s' },
-  { value: '2010s', label: '2010s' },
-  { value: '2000s', label: '2000s' },
-  { value: '1990s', label: '90s' },
-  { value: 'older', label: 'Older' },
+export const decadeFilterOptions = (
+  labels: Record<DecadeFilter, string>,
+): ReadonlyArray<{ readonly value: DecadeFilter; readonly label: string }> => [
+  { value: 'all', label: labels.all },
+  { value: '2020s', label: labels['2020s'] },
+  { value: '2010s', label: labels['2010s'] },
+  { value: '2000s', label: labels['2000s'] },
+  { value: '1990s', label: labels['1990s'] },
+  { value: 'older', label: labels.older },
 ]
 
 export const parseStoredViewMode = (stored: string | null): ViewMode =>
@@ -96,6 +95,13 @@ export const reconcileFilters = (
     ? { sort, decade: DEFAULT_DECADE, adjusted: 'decade' }
     : { sort: DEFAULT_SORT, decade, adjusted: 'sort' }
 }
+
+// The key rather than the text: core stays out of the message catalog, and the
+// caller's `t()` still rejects a key that was renamed away.
+export const filterAdjustedMessageKey = (
+  adjusted: FilterField,
+): 'library.filterAdjustedDecade' | 'library.filterAdjustedSort' =>
+  adjusted === 'decade' ? 'library.filterAdjustedDecade' : 'library.filterAdjustedSort'
 
 // The server already ranks the genres by album count; re-sorting would drop that.
 export const splitGenres = <Genre>(
@@ -203,6 +209,12 @@ export const showsEmptyLibrary = (
   hasActiveFilters: boolean,
 ): boolean => source === 'local' && !hasActiveFilters && isLoadedAndEmpty(status, albumCount)
 
+// No favourites is Tidal's ordinary state, not an empty library: the featured
+// row replaces the list rather than sitting below it. Loading and error are
+// already claimed by earlier branches, so this asks nothing about the status.
+export const showsTidalFeatured = (source: Source, tidalAlbumCount: number): boolean =>
+  source === 'tidal' && tidalAlbumCount === 0
+
 export type LibraryControlVisibility = {
   readonly albumControls: boolean
   readonly browseModeToggle: boolean
@@ -231,6 +243,39 @@ export const libraryControlVisibility = (input: {
     emptyArtists: artistBrowser && isLoadedAndEmpty(input.artistStatus, input.artistCount),
   }
 }
+
+// The controls row sits above the state chain, so the view toggle needs the
+// condition the album branch gets for free from its `v-else`: exactly the
+// states none of the branches before it claims. Spelled out as the two
+// statuses those branches take, not as `=== 'success'`, so a fourth status
+// would reach the album list here and in the template alike.
+export const showsAlbumContent = (input: {
+  readonly status: LoadingStatus
+  readonly artistBrowser: boolean
+  readonly emptyLibrary: boolean
+  readonly tidalFeatured: boolean
+}): boolean =>
+  input.status !== 'loading' &&
+  input.status !== 'error' &&
+  !input.artistBrowser &&
+  !input.emptyLibrary &&
+  !input.tidalFeatured
+
+export type FilterControlPresentation = {
+  readonly chips: boolean
+  readonly sheet: boolean
+}
+
+// A phone browses far longer than it filters, so there the three chip rows
+// collapse into one summary line that opens the sheet; anywhere wider the
+// chips are the better control and stay.
+export const filterControlPresentation = (input: {
+  readonly isPhone: boolean
+  readonly albumControls: boolean
+}): FilterControlPresentation => ({
+  chips: input.albumControls && !input.isPhone,
+  sheet: input.albumControls && input.isPhone,
+})
 
 // The status of the list actually on screen: the mode that is hidden keeps
 // loading and failing on its own without dragging the visible one along.
@@ -279,10 +324,67 @@ const SORT_PLACEHOLDER = '{sort}'
 export const buildDecadeScopeMessage = (template: string, sortLabel: string): string =>
   template.split(SORT_PLACEHOLDER).join(sortLabel)
 
-// A sort outside the option list falls back to its own value rather than an
-// empty string: the label goes into a sentence, and 'recently-added' still
-// reads as something where '' leaves a gap.
-export const findSortLabel = (
-  options: ReadonlyArray<{ readonly value: SortOption; readonly label: string }>,
-  sort: SortOption,
-): string => options.find((option) => option.value === sort)?.label ?? sort
+// Sort and decade ask the same question, so they share one lookup. A value
+// outside the option list falls back to itself rather than an empty string: the
+// label goes into a sentence, and 'recently-added' still reads as something
+// where '' leaves a gap.
+export const findOptionLabel = <Value extends string>(
+  options: ReadonlyArray<{ readonly value: Value; readonly label: string }>,
+  value: Value,
+): string => options.find((option) => option.value === value)?.label ?? value
+
+const SUMMARY_SEPARATOR = ' · '
+
+const isPresent = (part: string | undefined): part is string => part !== undefined && part !== ''
+
+// The sort always leads; the caller leaves out every filter that hides nothing,
+// so an empty tail is the summary's own signal to say that nothing is filtered
+// rather than to end after the sort.
+export const buildFilterSummary = (input: {
+  readonly sortLabel: string
+  readonly decadeLabel?: string
+  readonly genreName?: string
+  readonly noFilterLabel: string
+}): string => {
+  const active = [input.decadeLabel, input.genreName].filter(isPresent)
+  const parts = active.length > 0 ? active : [input.noFilterLabel]
+
+  return [input.sortLabel, ...parts].join(SUMMARY_SEPARATOR)
+}
+
+// ARIA APG "Tabs": ArrowRight/ArrowLeft wrap at the ends, every other key is
+// left to the browser — `undefined` rather than the current index, so the
+// handler can tell "stay here" from "move nowhere" and skip preventDefault.
+export const nextRovingTabIndex = (
+  key: string,
+  currentIndex: number,
+  tabCount: number,
+): number | undefined => {
+  if (tabCount <= 0 || currentIndex < 0 || currentIndex >= tabCount) {
+    return undefined
+  }
+
+  if (key === 'ArrowRight') {
+    return (currentIndex + 1) % tabCount
+  }
+
+  if (key === 'ArrowLeft') {
+    return (currentIndex - 1 + tabCount) % tabCount
+  }
+
+  return undefined
+}
+
+// Both edges are viewport-relative (getBoundingClientRect), so their difference
+// is the part of the chip past the fold. A chip flush with the edge is already
+// whole: only a positive overshoot scrolls, or every render would drift the row.
+export const chipRevealScrollLeft = (input: {
+  readonly scrollLeft: number
+  readonly chipRight: number
+  readonly rowRight: number
+  readonly gutterPx: number
+}): number => {
+  const overshoot = input.chipRight - input.rowRight
+
+  return overshoot > 0 ? input.scrollLeft + overshoot + input.gutterPx : input.scrollLeft
+}

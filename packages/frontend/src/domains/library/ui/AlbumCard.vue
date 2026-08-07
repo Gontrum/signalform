@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18nStore } from '@/app/i18nStore'
 import type { LibraryAlbum } from '@/domains/library/core/types'
 
 const props = defineProps<{
@@ -21,6 +22,23 @@ const onCoverError = (): void => {
 const navigate = (): void => {
   emit('click:navigate', props.album.id)
 }
+
+const i18n = useI18nStore()
+
+const navigateAriaLabel = computed(() =>
+  i18n
+    .t('library.viewAlbum')
+    .replace('{title}', props.album.title)
+    .replace('{name}', props.album.artist),
+)
+
+const playAriaLabel = computed(() =>
+  i18n.t('home.playAlbumAria').replace('{title}', props.album.title),
+)
+
+const addToQueueAriaLabel = computed(() =>
+  i18n.t('home.addAlbumToQueue').replace('{title}', props.album.title),
+)
 </script>
 
 <template>
@@ -42,7 +60,7 @@ const navigate = (): void => {
       data-testid="album-navigate-button"
       role="button"
       tabindex="0"
-      :aria-label="`View ${album.title} by ${album.artist}`"
+      :aria-label="navigateAriaLabel"
       @click="navigate"
       @keydown.enter="navigate"
       @keydown.space.prevent="navigate"
@@ -53,7 +71,7 @@ const navigate = (): void => {
         <img
           v-if="!coverError"
           :src="album.coverArtUrl"
-          :alt="`${album.title} by ${album.artist}`"
+          alt=""
           data-testid="album-cover-img"
           loading="lazy"
           class="h-full w-full object-cover"
@@ -115,7 +133,7 @@ const navigate = (): void => {
         type="button"
         data-testid="play-album-button"
         class="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-neutral-900 shadow-lg hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-        :aria-label="`Play ${album.title}`"
+        :aria-label="playAriaLabel"
         @click.stop="emit('click:play', album.id)"
       >
         <svg class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -128,7 +146,7 @@ const navigate = (): void => {
         type="button"
         data-testid="add-album-to-queue-button"
         class="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-neutral-900 shadow hover:bg-white hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2"
-        :aria-label="`Add ${album.title} to queue`"
+        :aria-label="addToQueueAriaLabel"
         @click.stop="emit('click:add-to-queue', album.id)"
       >
         <svg

@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AlbumListRow from './AlbumListRow.vue'
+import { setupTestEnv } from '@/test-utils'
 
 const makeAlbum = (): {
   readonly id: string
@@ -35,6 +36,10 @@ const makeAlbumNoYear = (): {
 })
 
 describe('AlbumListRow', () => {
+  beforeEach(() => {
+    setupTestEnv()
+  })
+
   // AC3 / AC6: renders album data
   it('renders album title, artist, and year', () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
@@ -125,14 +130,17 @@ describe('AlbumListRow', () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 
     const btn = wrapper.find('[data-testid="list-row-play-button"]')
-    expect(btn.attributes('aria-label')).toBe('Play Dark Side of the Moon')
+    expect(btn.attributes('aria-label')).toBe('Play album Dark Side of the Moon')
   })
 
-  it('thumbnail has correct alt text', () => {
+  // Decorative: title and artist are visible text in the same row, and the row
+  // itself carries a translated accessible name. An alternative text here would
+  // be read out twice — and would be an untranslated English string.
+  it('leaves the thumbnail out of the accessible name', () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 
     const img = wrapper.find('[data-testid="list-row-thumbnail"]')
-    expect(img.attributes('alt')).toBe('Dark Side of the Moon by Pink Floyd')
+    expect(img.attributes('alt')).toBe('')
   })
 
   // AC3 (Story 9.4): add-to-queue button alongside play button
