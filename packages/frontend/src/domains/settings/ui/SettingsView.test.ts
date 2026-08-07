@@ -6,10 +6,6 @@ import { useI18nStore } from '@/app/i18nStore'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 
-// ---------------------------------------------------------------------------
-// Mocks
-// ---------------------------------------------------------------------------
-
 // Module-level ref so individual tests can flip isPhone before mounting; reset
 // to false in beforeEach so phone-mode leaks never bleed into other tests.
 const isPhone = ref(false)
@@ -94,10 +90,6 @@ vi.mock('@/platform/api/usersApi', async () => {
   }
 })
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const settingsRoutes = [
   { path: '/', name: 'home', component: { template: '<div />' } },
   { path: '/settings', name: 'settings', component: { template: '<div />' } },
@@ -143,10 +135,6 @@ describe('SettingsView', () => {
     await flushPromises()
     return wrapper
   }
-
-  // ---------------------------------------------------------------------------
-  // Loading config on mount
-  // ---------------------------------------------------------------------------
 
   it('loads config on mount and populates fields', async () => {
     const { getConfig } = await import('@/platform/api/configApi')
@@ -237,10 +225,6 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="settings-load-error"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="settings-form"]').exists()).toBe(false)
   })
-
-  // ---------------------------------------------------------------------------
-  // Save
-  // ---------------------------------------------------------------------------
 
   it('calls updateConfig with form values on save', async () => {
     const { updateConfig } = await import('@/platform/api/configApi')
@@ -358,10 +342,6 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="save-success"]').exists()).toBe(false)
   })
 
-  // ---------------------------------------------------------------------------
-  // Discover servers
-  // ---------------------------------------------------------------------------
-
   it('shows discovered servers in dropdown after discover', async () => {
     const { discoverServers } = await import('@/platform/api/setupApi')
     const { ok } = await import('@signalform/shared')
@@ -401,10 +381,6 @@ describe('SettingsView', () => {
     expectInputValue(wrapper, '[data-testid="lms-host-input"]', '192.168.1.50')
   })
 
-  // ---------------------------------------------------------------------------
-  // List players
-  // ---------------------------------------------------------------------------
-
   it('shows player dropdown after list-players', async () => {
     const { getPlayers } = await import('@/platform/api/setupApi')
     const { ok } = await import('@signalform/shared')
@@ -433,10 +409,6 @@ describe('SettingsView', () => {
     expectInputValue(wrapper, '[data-testid="player-id-input"]', 'bb:bb:c4:1e:ea:48')
   })
 
-  // ---------------------------------------------------------------------------
-  // Run setup wizard link
-  // ---------------------------------------------------------------------------
-
   it('navigates to /setup when run-setup-button is clicked', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
@@ -450,9 +422,7 @@ describe('SettingsView', () => {
   // src/App.spec.ts), not by SettingsView itself. Its `nav-search` link
   // target is already covered by src/app/MainNavBar.test.ts.
 
-  // ---------------------------------------------------------------------------
   // Section heading contrast (WCAG 1.4.3)
-  // ---------------------------------------------------------------------------
 
   it('renders section headings with sufficient-contrast text-neutral-600, not text-neutral-400', async () => {
     const router = await createRouter()
@@ -464,10 +434,6 @@ describe('SettingsView', () => {
     expect(headings.every((heading) => !heading.classes().includes('text-neutral-400'))).toBe(true)
   })
 
-  // ---------------------------------------------------------------------------
-  // App version footer
-  // ---------------------------------------------------------------------------
-
   it('renders the app version footer', async () => {
     const router = await createRouter()
     const wrapper = await mountView(router)
@@ -477,9 +443,7 @@ describe('SettingsView', () => {
     expect(footer.text()).toContain('Signalform v')
   })
 
-  // ---------------------------------------------------------------------------
   // API key configured indicators
-  // ---------------------------------------------------------------------------
 
   it('shows the shared-secret configured badge and placeholder when a secret is stored', async () => {
     const { getConfig } = await import('@/platform/api/configApi')
@@ -522,9 +486,7 @@ describe('SettingsView', () => {
     )
   })
 
-  // ---------------------------------------------------------------------------
   // Users section
-  // ---------------------------------------------------------------------------
 
   it('always stacks user rows (name above buttons), regardless of viewport width', async () => {
     const router = await createRouter()
@@ -693,9 +655,7 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="user-action-error"]').exists()).toBe(true)
   })
 
-  // ---------------------------------------------------------------------------
   // "This is me" selection + scrobble target display
-  // ---------------------------------------------------------------------------
 
   it('selects and persists the user when "This is me" is clicked', async () => {
     const { useUserStore } = await import('@/domains/user/shell/useUserStore')
@@ -767,9 +727,7 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="scrobble-target"]').exists()).toBe(false)
   })
 
-  // ---------------------------------------------------------------------------
   // Per-user Last.fm connect flow
-  // ---------------------------------------------------------------------------
 
   it('connect button triggers auth flow for the target user and shows pending prompt', async () => {
     const { requestLastFmAuth } = await import('@/platform/api/lastFmAuthApi')
@@ -899,9 +857,7 @@ describe('SettingsView', () => {
     expect(wrapper.find('[data-testid="lastfm-auth-error"]').exists()).toBe(true)
   })
 
-  // ---------------------------------------------------------------------------
   // Global toggles (Personal Radio, Scrobbling)
-  // ---------------------------------------------------------------------------
 
   it('Personal Radio toggle calls updateConfig with personalRadioEnabled', async () => {
     const { updateConfig } = await import('@/platform/api/configApi')

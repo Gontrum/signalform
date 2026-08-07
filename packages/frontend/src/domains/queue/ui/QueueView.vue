@@ -15,8 +15,12 @@ import { useQueueStore } from '../shell/useQueueStore'
 
 const { isPhone } = useResponsiveLayout()
 
+// Roving-focus handler and template must agree on how to find the list. Its
+// aria-label is translated, so it cannot serve as the selector any more.
+const TRACK_LIST_TESTID = 'queue-track-list'
+
 const i18nStore = useI18nStore()
-const t = i18nStore.t
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
 const queueStore = useQueueStore()
 const {
@@ -65,8 +69,8 @@ const {
   reorderBusyTrackId,
   reorderTrack: queueStore.reorderTrack,
   dropMessages: {
-    before: t('queue.dropBefore'),
-    after: t('queue.dropAfter'),
+    before: () => t('queue.dropBefore'),
+    after: () => t('queue.dropAfter'),
   },
 })
 
@@ -176,7 +180,7 @@ const handleQueueItemKeydown = (event: KeyboardEvent): void => {
   }
 
   const currentTarget = event.currentTarget
-  const list = currentTarget.closest('[aria-label="Queue tracks"]')
+  const list = currentTarget.closest(`[data-testid="${TRACK_LIST_TESTID}"]`)
   const items = list
     ? Array.from(list.querySelectorAll<HTMLElement>('[data-testid="queue-track-jump"]'))
     : []
@@ -195,6 +199,22 @@ const isRadioTrack = (track: (typeof tracks.value)[number], index: number): bool
   isQueueRadioTrack(track, index, radioBoundaryIndex.value)
 
 const getTrackKey = (track: (typeof tracks.value)[number]): string => getQueueEntryKey(track)
+
+// Both row actions are icon-only, so the title in the accessible name is the
+// only thing telling a screen-reader user which row they are on.
+const removeTrackAriaLabel = (title: string): string =>
+  t('queue.removeTrack').replace('{title}', title)
+
+const reorderTrackAriaLabel = (title: string): string =>
+  t('queue.reorderTrack').replace('{title}', title)
+
+const selectTrackAriaLabel = (title: string): string =>
+  t('queue.selectTrack').replace('{title}', title)
+
+const jumpToTrackAriaLabel = (track: (typeof tracks.value)[number]): string =>
+  t(track.isCurrent ? 'queue.trackLabelCurrent' : 'queue.trackLabel')
+    .replace('{title}', track.title)
+    .replace('{name}', track.artist)
 
 const draggedTrack = computed(
   () => tracks.value.find((track) => getTrackKey(track) === dragTrackId.value) ?? null,
@@ -436,14 +456,15 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
             'min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-4',
             isJumping ? 'pointer-events-none opacity-60' : '',
           ]"
-          aria-label="Queue tracks"
+          :data-testid="TRACK_LIST_TESTID"
+          :aria-label="t('queue.trackListLabel')"
         >
           <template v-for="(track, index) in tracks" :key="getTrackKey(track)">
             <li
               v-if="radioBoundaryIndex !== null && index === radioBoundaryIndex"
               :ref="scrollBoundaryIntoView"
               role="separator"
-              aria-label="Radio mode starts here"
+              :aria-label="t('queue.radioBoundaryLabel')"
               data-testid="radio-boundary"
               class="flex select-none items-center gap-3 border-t-2 border-dashed border-accent-300 bg-accent-50/20 px-4 py-2"
             >
@@ -497,7 +518,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                   <input
                     type="checkbox"
                     :checked="selectedTrackIds.has(track.id)"
-                    :aria-label="`Select ${track.title}`"
+                    :aria-label="selectTrackAriaLabel(track.title)"
                     class="h-4 w-4 cursor-pointer rounded border-neutral-300 accent-accent-500 focus:ring-accent-500"
                     @change="handleToggleTrackSelection(track.id)"
                     @click.stop
@@ -513,7 +534,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                       ? 'cursor-not-allowed opacity-70'
                       : 'hover:bg-neutral-50',
                   ]"
-                  :aria-label="`${track.title} by ${track.artist}${track.isCurrent ? ' — currently playing' : ''}`"
+                  :aria-label="jumpToTrackAriaLabel(track)"
                   :aria-current="track.isCurrent ? 'true' : undefined"
                   :disabled="isRowBusy(getTrackKey(track)) || isMutatingQueue"
                   @click="
@@ -565,7 +586,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                     data-testid="queue-track-reorder"
                     class="min-h-9 min-w-9 touch-none select-none rounded-lg px-2 py-2 text-xs text-neutral-400 hover:text-neutral-600 active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isMutatingQueue || isJumping"
-                    :aria-label="`Reorder ${track.title}`"
+                    :aria-label="reorderTrackAriaLabel(track.title)"
                     @mousedown="startMouseDrag($event, getTrackKey(track), index)"
                     @touchstart="startTouchDrag($event, getTrackKey(track), index)"
                   >
@@ -576,7 +597,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
                     data-testid="queue-track-remove"
                     class="min-h-9 min-w-9 rounded-lg px-2 py-2 text-xs text-error hover:text-error active:opacity-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-error disabled:cursor-not-allowed disabled:opacity-50"
                     :disabled="isMutatingQueue || isJumping"
-                    :aria-label="`Remove ${track.title}`"
+                    :aria-label="removeTrackAriaLabel(track.title)"
                     @click="handleRemoveTrack(getTrackKey(track), track.position - 1)"
                   >
                     <span aria-hidden="true">✕</span>

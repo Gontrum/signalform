@@ -315,14 +315,19 @@ const handleDisconnectLastFm = (userId: string): void => {
 
         <section>
           <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-600">
-            API Keys
+            {{ t('settings.apiKeysSection') }}
           </h2>
 
           <div class="space-y-4">
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-key">
-                Last.fm API Key
-                <span v-if="hasLastFmKey" class="ml-1 text-success">✓ configured</span>
+                {{ t('settings.lastfmKeyLabel') }}
+                <span
+                  v-if="hasLastFmKey"
+                  data-testid="lastfm-key-configured"
+                  class="ml-1 text-success"
+                  >✓ {{ t('settings.apiKeyConfigured') }}</span
+                >
               </label>
               <input
                 id="lastfm-key"
@@ -340,8 +345,13 @@ const handleDisconnectLastFm = (userId: string): void => {
 
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="lastfm-secret">
-                Last.fm Shared Secret
-                <span v-if="hasLastFmSharedSecret" class="ml-1 text-success">✓ configured</span>
+                {{ t('settings.lastfmSecretLabel') }}
+                <span
+                  v-if="hasLastFmSharedSecret"
+                  data-testid="lastfm-secret-configured"
+                  class="ml-1 text-success"
+                  >✓ {{ t('settings.apiKeyConfigured') }}</span
+                >
               </label>
               <input
                 id="lastfm-secret"
@@ -359,8 +369,13 @@ const handleDisconnectLastFm = (userId: string): void => {
 
             <div>
               <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="fanart-key">
-                Fanart.tv API Key
-                <span v-if="hasFanartKey" class="ml-1 text-success">✓ configured</span>
+                {{ t('settings.fanartKeyLabel') }}
+                <span
+                  v-if="hasFanartKey"
+                  data-testid="fanart-key-configured"
+                  class="ml-1 text-success"
+                  >✓ {{ t('settings.apiKeyConfigured') }}</span
+                >
               </label>
               <input
                 id="fanart-key"

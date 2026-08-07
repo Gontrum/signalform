@@ -228,8 +228,6 @@ describe('NowPlayingPanel', () => {
     expect(svg.classes()).toContain('lg:w-20')
   })
 
-  // === WHEN ===
-
   const createMountedContext = async (): Promise<TestContext> => {
     const router = await createRouter()
     const wrapper = mount(NowPlayingPanel, { global: { plugins: [router] } })
@@ -267,8 +265,6 @@ describe('NowPlayingPanel', () => {
     return context
   }
 
-  // === THEN ===
-
   const thenEmptyStateTextIsVisible = async (wrapper: VueWrapper): Promise<void> => {
     const emptyState = wrapper.find('[data-testid="empty-state"]')
     expect(emptyState.exists()).toBe(true)
@@ -305,7 +301,7 @@ describe('NowPlayingPanel', () => {
     expect(panel.classes()).toEqual(expect.arrayContaining([expect.stringMatching(/sticky/)]))
   }
 
-  // === AlbumCover Integration (Story 4.2) ===
+  // AlbumCover Integration (Story 4.2)
 
   it('passes coverArtUrl to AlbumCover when currentTrack has it', async () => {
     const context = await givenTrackIsPlayingWithCoverArtUrl(
@@ -316,8 +312,6 @@ describe('NowPlayingPanel', () => {
     expect(thumbnail.exists()).toBe(true)
     expect(thumbnail.attributes('src')).toBe('http://localhost:9000/music/123/cover_100x100.jpg')
   })
-
-  // === Integration Tests: QualityBadge ===
 
   describe('QualityBadge Integration', () => {
     it('does not show quality badge when no track is playing', async () => {
@@ -366,7 +360,7 @@ describe('NowPlayingPanel', () => {
     })
   })
 
-  // === Integration Tests: Source Transparency (Story 3.4) ===
+  // Integration Tests: Source Transparency (Story 3.4)
 
   describe('Source Transparency', () => {
     it('shows "Also available on" in now playing when multiple sources', async () => {
@@ -393,8 +387,6 @@ describe('NowPlayingPanel', () => {
       expect(alsoAvailable.exists()).toBe(false)
     })
   })
-
-  // === Error State ===
 
   describe('Error State', () => {
     it('shows error panel and dismiss button when store has error', async () => {
@@ -423,8 +415,6 @@ describe('NowPlayingPanel', () => {
     })
   })
 
-  // === Integration Tests: PlaybackControls ===
-
   describe('PlaybackControls Integration', () => {
     it('does not show playback controls when no track is playing', async () => {
       const context = await createMountedContext()
@@ -450,8 +440,6 @@ describe('NowPlayingPanel', () => {
       await thenPlaybackControlsAreCentered(context.wrapper)
     })
   })
-
-  // === GIVEN (new) ===
 
   const givenTrackIsPlayingWithSource = async (
     source: 'local' | 'qobuz' | 'tidal' | 'unknown',
@@ -527,7 +515,7 @@ describe('NowPlayingPanel', () => {
     })
   }
 
-  // === Navigation Links (Story 4.5) ===
+  // Navigation Links (Story 4.5)
 
   const givenTrackIsPlayingWithIds = async (
     artistId: string,
@@ -617,7 +605,7 @@ describe('NowPlayingPanel', () => {
     })
   })
 
-  // === Queue Preview (Story 4.6) ===
+  // Queue Preview (Story 4.6)
 
   describe('Queue Preview', () => {
     it('shows queue preview items when queuePreview has tracks', async () => {
@@ -725,8 +713,6 @@ describe('NowPlayingPanel', () => {
     })
   })
 
-  // === THEN (new) ===
-
   const thenPlaybackControlsAreNotVisible = async (wrapper: VueWrapper): Promise<void> => {
     const controls = wrapper.find('[data-testid="playback-controls"]')
     expect(controls.exists()).toBe(false)
@@ -755,13 +741,13 @@ describe('NowPlayingPanel', () => {
     expect(parent?.classList.toString()).toMatch(/flex|items-center|justify-center/)
   }
 
-  // === LMS Connectivity Banner (S02) ===
+  // LMS Connectivity Banner (S02)
 
   describe('LMS error banner', () => {
     it('shows lms-error-banner when isLmsDisconnected is true', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
-        store.$patch({ lmsError: 'Cannot connect to music server' })
+        store.$patch({ isLmsDisconnected: true })
       })
 
       const banner = context.wrapper.find('[data-testid="lms-error-banner"]')
@@ -779,7 +765,7 @@ describe('NowPlayingPanel', () => {
     it('shows Retry button in lms-error-banner', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
-        store.$patch({ lmsError: 'Cannot connect to music server' })
+        store.$patch({ isLmsDisconnected: true })
       })
 
       const retryBtn = context.wrapper.find('[data-testid="lms-retry-button"]')
@@ -794,7 +780,7 @@ describe('NowPlayingPanel', () => {
       const store = await getPlaybackStore()
       const retrySpy = vi.spyOn(store, 'retryLmsConnection').mockResolvedValue(undefined)
       await patchPlaybackStore((currentStore) => {
-        currentStore.$patch({ lmsError: 'Cannot connect to music server' })
+        currentStore.$patch({ isLmsDisconnected: true })
       })
 
       await context.wrapper.find('[data-testid="lms-retry-button"]').trigger('click')
@@ -803,21 +789,21 @@ describe('NowPlayingPanel', () => {
       expect(retrySpy).toHaveBeenCalledOnce()
     })
 
-    it('clears banner when lmsError is set to null', async () => {
+    it('clears banner once the LMS connection is restored', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((currentStore) => {
-        currentStore.$patch({ lmsError: 'Cannot connect to music server' })
+        currentStore.$patch({ isLmsDisconnected: true })
       })
       expect(context.wrapper.find('[data-testid="lms-error-banner"]').exists()).toBe(true)
 
       await patchPlaybackStore((currentStore) => {
-        currentStore.$patch({ lmsError: null })
+        currentStore.$patch({ isLmsDisconnected: false })
       })
       expect(context.wrapper.find('[data-testid="lms-error-banner"]').exists()).toBe(false)
     })
   })
 
-  // === ARIA live track announcements (S04/M002) ===
+  // ARIA live track announcements (S04/M002)
 
   describe('track announcement aria-live region', () => {
     it('is empty when no track is playing', async () => {
@@ -878,7 +864,7 @@ describe('NowPlayingPanel', () => {
     })
   })
 
-  // === Love Button (Story 5) ===
+  // Love Button (Story 5)
 
   describe('Love Button', () => {
     it('shows love button when Last.fm session is active and track is playing', async () => {
@@ -905,8 +891,6 @@ describe('NowPlayingPanel', () => {
       expect(mockToggleLove).toHaveBeenCalledOnce()
     })
   })
-
-  // === Sleep Timer ===
 
   describe('Sleep Timer', () => {
     it('shows the sleep timer button when a track is playing', async () => {

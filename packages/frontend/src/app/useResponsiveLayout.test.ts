@@ -17,13 +17,9 @@ describe('useResponsiveLayout', () => {
     await thenBreakpointFlagsAreBoolean(layout)
   })
 
-  // === WHEN ===
-
   const whenUseResponsiveLayoutIsCalled = (): ReturnType<typeof useResponsiveLayout> => {
     return useResponsiveLayout()
   }
-
-  // === THEN ===
 
   const thenIsPhoneIsComputedRef = async (
     layout: ReturnType<typeof useResponsiveLayout>,

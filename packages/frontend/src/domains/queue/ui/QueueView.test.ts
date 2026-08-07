@@ -626,7 +626,7 @@ describe('QueueView', () => {
     const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
     await flushPromises()
 
-    const scrollContainerElement = wrapper.find('ul[aria-label="Queue tracks"]').element
+    const scrollContainerElement = wrapper.find('ul[data-testid="queue-track-list"]').element
     expect(scrollContainerElement).toBeInstanceOf(HTMLElement)
     const scrollContainer =
       scrollContainerElement instanceof HTMLElement ? scrollContainerElement : document.body
@@ -813,7 +813,7 @@ describe('QueueView', () => {
 
     // Neutral container so cursor position never triggers auto-scroll during the test.
     vi.spyOn(
-      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      wrapper.find('ul[data-testid="queue-track-list"]').element,
       'getBoundingClientRect',
     ).mockReturnValue(makeRect(0, 1000))
     // Row 2 spans 100..200 → midpoint 150.
@@ -858,7 +858,7 @@ describe('QueueView', () => {
 
     // Neutral container so cursor position never triggers auto-scroll during the test.
     vi.spyOn(
-      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      wrapper.find('ul[data-testid="queue-track-list"]').element,
       'getBoundingClientRect',
     ).mockReturnValue(makeRect(0, 1000))
     // Row 0 spans 100..200 → midpoint 150; row 1 spans 300..400 → midpoint 350.
@@ -920,7 +920,7 @@ describe('QueueView', () => {
     await flushPromises()
 
     vi.spyOn(
-      wrapper.find('ul[aria-label="Queue tracks"]').element,
+      wrapper.find('ul[data-testid="queue-track-list"]').element,
       'getBoundingClientRect',
     ).mockReturnValue(makeRect(0, 1000))
     // Row 0 spans 100..200 → midpoint 150; y=180 is the lower half → "after" row 0.
@@ -955,7 +955,7 @@ describe('QueueView', () => {
     const wrapper = mount(QueueView, { attachTo: document.body, global: { plugins: [router] } })
     await flushPromises()
 
-    const scrollContainerElement = wrapper.find('ul[aria-label="Queue tracks"]').element
+    const scrollContainerElement = wrapper.find('ul[data-testid="queue-track-list"]').element
     const scrollContainer =
       scrollContainerElement instanceof HTMLElement ? scrollContainerElement : document.body
     vi.spyOn(scrollContainer, 'scrollBy').mockImplementation(() => {})

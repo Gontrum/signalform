@@ -1,5 +1,5 @@
-import { onMounted, ref } from 'vue'
-import type { Ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import {
   deletePlaylist,
   getPlaylistTracks,
@@ -9,14 +9,15 @@ import {
   renamePlaylist,
   savePlaylist,
 } from '@/platform/api/playlistsApi'
-import type { PlaylistTrack, SavedPlaylist } from '@/platform/api/playlistsApi'
+import type { PlaylistTrack, PlaylistWriteResult, SavedPlaylist } from '@/platform/api/playlistsApi'
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
 
 type UsePlaylistsResult = {
   readonly playlists: Ref<readonly SavedPlaylist[]>
   readonly isLoading: Ref<boolean>
   readonly isSaving: Ref<boolean>
-  readonly error: Ref<boolean>
+  readonly error: ComputedRef<boolean>
+  readonly playlistDirMissing: ComputedRef<boolean>
   readonly expandedId: Ref<string | undefined>
   readonly tracks: Ref<readonly PlaylistTrack[]>
   readonly isTracksLoading: Ref<boolean>
@@ -37,11 +38,17 @@ const TRACKS_PAGE_SIZE = 250
 // that in one go — beyond it the user pages forward again.
 const TRACKS_MAX_LIMIT = 999
 
+// One source of truth: "there is an error" and "which error" can never drift
+// apart, and clearing one clears the other.
+type PlaylistsErrorKind = 'generic' | 'no-playlist-dir'
+
 export const usePlaylists = (): UsePlaylistsResult => {
   const playlists = ref<readonly SavedPlaylist[]>([])
   const isLoading = ref(false)
   const isSaving = ref(false)
-  const error = ref(false)
+  const errorKind = ref<PlaylistsErrorKind | undefined>(undefined)
+  const error = computed(() => errorKind.value !== undefined)
+  const playlistDirMissing = computed(() => errorKind.value === 'no-playlist-dir')
   const expandedId = ref<string | undefined>(undefined)
   const tracks = ref<readonly PlaylistTrack[]>([])
   const isTracksLoading = ref(false)
@@ -50,12 +57,24 @@ export const usePlaylists = (): UsePlaylistsResult => {
 
   const queueStore = useQueueStore()
 
+  const fail = (): void => {
+    errorKind.value = 'generic'
+  }
+
+  const clearError = (): void => {
+    errorKind.value = undefined
+  }
+
+  const failFromWrite = (result: PlaylistWriteResult): void => {
+    errorKind.value = result === 'no-playlist-dir' ? 'no-playlist-dir' : 'generic'
+  }
+
   const fetchList = async (): Promise<void> => {
     isLoading.value = true
     try {
       playlists.value = await listPlaylists()
     } catch {
-      error.value = true
+      fail()
     } finally {
       isLoading.value = false
     }
@@ -66,47 +85,47 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
-    error.value = false
+    clearError()
     isSaving.value = true
     try {
       const saved = await savePlaylist(name)
-      if (saved) {
+      if (saved === 'ok') {
         await fetchList()
       } else {
-        error.value = true
+        failFromWrite(saved)
       }
     } catch {
-      error.value = true
+      fail()
     } finally {
       isSaving.value = false
     }
   }
 
   const load = async (id: string): Promise<void> => {
-    error.value = false
+    clearError()
     try {
       const loaded = await loadPlaylist(id)
       if (loaded) {
         await queueStore.fetchQueue()
       } else {
-        error.value = true
+        fail()
       }
     } catch {
-      error.value = true
+      fail()
     }
   }
 
   const remove = async (id: string): Promise<void> => {
-    error.value = false
+    clearError()
     try {
       const removed = await deletePlaylist(id)
-      if (removed) {
+      if (removed === 'ok') {
         await fetchList()
       } else {
-        error.value = true
+        failFromWrite(removed)
       }
     } catch {
-      error.value = true
+      fail()
     }
   }
 
@@ -115,16 +134,16 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
-    error.value = false
+    clearError()
     try {
       const renamed = await renamePlaylist(id, name)
-      if (renamed) {
+      if (renamed === 'ok') {
         await fetchList()
       } else {
-        error.value = true
+        failFromWrite(renamed)
       }
     } catch {
-      error.value = true
+      fail()
     }
   }
 
@@ -143,13 +162,13 @@ export const usePlaylists = (): UsePlaylistsResult => {
     try {
       const page = await getPlaylistTracks(id, limit, offset)
       if (!page) {
-        error.value = true
+        fail()
         return undefined
       }
       hasMoreTracks.value = page.hasMore
       return page.tracks
     } catch {
-      error.value = true
+      fail()
       return undefined
     } finally {
       isTracksLoading.value = false
@@ -162,7 +181,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
-    error.value = false
+    clearError()
     collapseTracks()
     expandedId.value = id
 
@@ -183,7 +202,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
-    error.value = false
+    clearError()
     const page = await fetchTracksPage(id, TRACKS_PAGE_SIZE, tracks.value.length)
     if (!page || expandedId.value !== id) {
       return
@@ -215,17 +234,17 @@ export const usePlaylists = (): UsePlaylistsResult => {
       return
     }
 
-    error.value = false
+    clearError()
     isRemovingTrack.value = true
     try {
       const removed = await removePlaylistTrack(id, index)
-      if (!removed) {
-        error.value = true
+      if (removed !== 'ok') {
+        failFromWrite(removed)
         return
       }
       await reloadTracks(id)
     } catch {
-      error.value = true
+      fail()
     } finally {
       isRemovingTrack.value = false
     }
@@ -240,6 +259,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
     isLoading,
     isSaving,
     error,
+    playlistDirMissing,
     expandedId,
     tracks,
     isTracksLoading,

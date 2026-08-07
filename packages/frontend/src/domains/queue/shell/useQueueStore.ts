@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type { QueueTrack, QueueUpdatedPayload } from '@signalform/shared'
+import { useI18nStore } from '@/app/i18nStore'
 import { useWebSocket } from '@/app/useWebSocket'
 import {
   getQueue,
@@ -26,10 +27,12 @@ type QueueStoreSnapshot = {
 }
 
 export const useQueueStore = defineStore('queue', () => {
+  const i18nStore = useI18nStore()
+
   const tracks = ref<readonly QueueTrack[]>([])
   const isLoading = ref(false)
   const error = ref<string | null>(null)
-  const jumpError = ref<string | null>(null)
+  const jumpFailed = ref(false)
   const isJumping = ref(false)
   const removeBusyTrackId = ref<string | null>(null)
   const reorderBusyTrackId = ref<string | null>(null)
@@ -48,6 +51,11 @@ export const useQueueStore = defineStore('queue', () => {
   const isClearingQueue = ref(false)
   const isBatchRemoving = ref(false)
 
+  // Derived rather than stored: a sentence written into a ref when the jump
+  // failed would keep the language that was active at that moment.
+  const jumpError = computed<string | null>(() =>
+    jumpFailed.value ? i18nStore.t('queue.jumpFailed') : null,
+  )
   const currentTrack = computed(() => getCurrentQueueTrack(tracks.value))
   const upcomingTracks = computed(() => getUpcomingQueueTracks(tracks.value))
   const selectedCount = computed(() => selectedTrackIds.value.size)
@@ -104,7 +112,7 @@ export const useQueueStore = defineStore('queue', () => {
     applyQueueSnapshot(snapshot)
     hasPendingQueueMutationSync.value = false
     isJumping.value = false
-    jumpError.value = null
+    jumpFailed.value = false
     resetMutationState()
   }
 
@@ -124,7 +132,7 @@ export const useQueueStore = defineStore('queue', () => {
 
     const fetchUntilSettled = async (): Promise<void> => {
       pendingQueueRefresh.value = false
-      jumpError.value = null
+      jumpFailed.value = false
 
       const result = await getQueue()
       if (result.ok) {
@@ -154,7 +162,7 @@ export const useQueueStore = defineStore('queue', () => {
     }
 
     isJumping.value = true
-    jumpError.value = null
+    jumpFailed.value = false
 
     const result = await apiJumpToTrack(trackIndex)
     if (result.ok) {
@@ -165,7 +173,7 @@ export const useQueueStore = defineStore('queue', () => {
 
       await fetchQueue()
     } else {
-      jumpError.value = 'Failed to jump to track'
+      jumpFailed.value = true
     }
 
     isJumping.value = false

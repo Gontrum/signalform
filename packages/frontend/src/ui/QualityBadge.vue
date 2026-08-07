@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 
 import type { AudioQuality } from '@signalform/shared'
+import { useI18nStore } from '@/app/i18nStore'
+import { getSourceLabel } from '@/utils/sourceInfo'
 
 interface Props {
   readonly source: 'local' | 'qobuz' | 'tidal' | 'unknown'
@@ -9,6 +11,11 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const i18nStore = useI18nStore()
+// Reading `i18nStore.t` per call (rather than capturing it once) is what makes the
+// labels follow a language switch.
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 
 // Format sample rate: 96000 → "96", 44100 → "44.1" (industry-standard display)
 const formatSampleRate = (hz: number): string => {
@@ -32,13 +39,7 @@ const badgeText = computed((): string => {
     // Lossy: format + bitrate kbps only (no sample rate — per AC: "AAC 320", "MP3 128")
     return `${props.quality.format} ${Math.round(props.quality.bitrate / 1000)}`
   }
-  const sourceLabels: Record<string, string> = {
-    local: 'Local',
-    qobuz: 'Qobuz',
-    tidal: 'Tidal',
-    unknown: 'Unknown',
-  }
-  return sourceLabels[props.source] ?? 'Unknown'
+  return getSourceLabel(t, props.source)
 })
 
 // Color tier: 'lossless' | 'high' | 'standard'
@@ -74,11 +75,14 @@ const badgeClasses = computed((): string => {
   return tierClasses[qualityTier.value]
 })
 
+// The lossless variant is a whole sentence of its own, not "Quality: …" plus an
+// appended qualifier — German fronts the adjective ("Verlustfreie Qualität: …").
 const ariaLabel = computed((): string => {
   if (props.quality) {
-    return `Quality: ${badgeText.value}${props.quality.lossless ? ' (lossless)' : ''}`
+    const key = props.quality.lossless ? 'quality.ariaLabelLossless' : 'quality.ariaLabel'
+    return t(key).replace('{quality}', badgeText.value)
   }
-  return `Source: ${badgeText.value}`
+  return t('quality.sourceAriaLabel').replace('{source}', badgeText.value)
 })
 </script>
 

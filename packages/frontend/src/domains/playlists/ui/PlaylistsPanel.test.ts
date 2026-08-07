@@ -107,13 +107,17 @@ describe('PlaylistsPanel', () => {
       { id: 'b', name: 'Two' },
     ]
 
-    it('renders a delete button per playlist with the normal label', () => {
+    it('renders an unarmed delete button per playlist', () => {
       playlistsRef.value = twoPlaylists
       const wrapper = mount(PlaylistsPanel)
 
       const deleteButtons = wrapper.findAll('[data-testid="playlist-delete-button"]')
       expect(deleteButtons).toHaveLength(2)
-      expect(deleteButtons[0]?.text()).toBe('Delete')
+      // The button is icon-only, so the armed state shows as a separate hint
+      // line rather than as a changed button label.
+      expect(deleteButtons[0]?.text()).toBe('')
+      expect(deleteButtons[0]?.attributes('aria-label')).toBe('Delete playlist One')
+      expect(wrapper.findAll('[data-testid="playlist-delete-confirm"]')).toHaveLength(0)
     })
 
     it('names the playlist in the accessible label of each delete button', () => {
@@ -137,10 +141,16 @@ describe('PlaylistsPanel', () => {
 
       expect(removeMock).not.toHaveBeenCalled()
       const armed = wrapper.findAll('[data-testid="playlist-delete-button"]')
-      expect(armed[0]?.text()).toBe('Tap again to delete')
       expect(armed[0]?.attributes('aria-label')).toBe('Tap again to delete playlist One')
-      expect(armed[1]?.text()).toBe('Delete')
       expect(armed[1]?.attributes('aria-label')).toBe('Delete playlist Two')
+
+      // Sighted users get the armed state from the hint under the row it
+      // belongs to — the icon alone cannot say "tap again".
+      const rows = wrapper.findAll('[data-testid="playlist-row"]')
+      expect(rows[0]?.find('[data-testid="playlist-delete-confirm"]').text()).toBe(
+        'Tap again to delete',
+      )
+      expect(rows[1]?.find('[data-testid="playlist-delete-confirm"]').exists()).toBe(false)
     })
 
     it('deletes on the second click of the same row', async () => {
@@ -166,9 +176,15 @@ describe('PlaylistsPanel', () => {
       await flushPromises()
 
       expect(removeMock).not.toHaveBeenCalled()
+      const rows = wrapper.findAll('[data-testid="playlist-row"]')
+      expect(rows[0]?.find('[data-testid="playlist-delete-confirm"]').exists()).toBe(false)
+      expect(rows[1]?.find('[data-testid="playlist-delete-confirm"]').text()).toBe(
+        'Tap again to delete',
+      )
+
       const afterSwitch = wrapper.findAll('[data-testid="playlist-delete-button"]')
-      expect(afterSwitch[0]?.text()).toBe('Delete')
-      expect(afterSwitch[1]?.text()).toBe('Tap again to delete')
+      expect(afterSwitch[0]?.attributes('aria-label')).toBe('Delete playlist One')
+      expect(afterSwitch[1]?.attributes('aria-label')).toBe('Tap again to delete playlist Two')
 
       // The second tap on B must delete B — never the previously armed A.
       await afterSwitch[1]?.trigger('click')
@@ -184,13 +200,16 @@ describe('PlaylistsPanel', () => {
         const wrapper = mount(PlaylistsPanel)
 
         await wrapper.findAll('[data-testid="playlist-delete-button"]')[0]?.trigger('click')
-        expect(wrapper.findAll('[data-testid="playlist-delete-button"]')[0]?.text()).toBe(
+        expect(wrapper.find('[data-testid="playlist-delete-confirm"]').text()).toBe(
           'Tap again to delete',
         )
 
         vi.advanceTimersByTime(3000)
         await wrapper.vm.$nextTick()
-        expect(wrapper.findAll('[data-testid="playlist-delete-button"]')[0]?.text()).toBe('Delete')
+        expect(wrapper.find('[data-testid="playlist-delete-confirm"]').exists()).toBe(false)
+        expect(
+          wrapper.findAll('[data-testid="playlist-delete-button"]')[0]?.attributes('aria-label'),
+        ).toBe('Delete playlist One')
 
         await wrapper.findAll('[data-testid="playlist-delete-button"]')[0]?.trigger('click')
         expect(removeMock).not.toHaveBeenCalled()

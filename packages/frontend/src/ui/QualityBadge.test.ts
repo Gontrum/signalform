@@ -1,9 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import QualityBadge from './QualityBadge.vue'
 import type { AudioQuality } from '@signalform/shared'
+import { setupTestEnv } from '@/test-utils'
 
 describe('QualityBadge', () => {
+  beforeEach(() => {
+    setupTestEnv()
+  })
+
   // 5.1 — renders source badge "Local" when source=local and no quality
   it('renders source badge "Local" when source=local and no quality', () => {
     const wrapper = mount(QualityBadge, {

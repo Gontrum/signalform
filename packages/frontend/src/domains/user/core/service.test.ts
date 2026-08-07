@@ -76,8 +76,6 @@ describe('needsSelection', () => {
   })
 })
 
-// === GIVEN ===
-
 const givenUsers = (...ids: readonly string[]): readonly UserSummary[] =>
   ids.map((id) => ({
     id,

@@ -145,10 +145,10 @@ describe('NowPlayingPanel — player connectivity banner', () => {
       expect(context.wrapper.find('[data-testid="player-error-banner"]').exists()).toBe(false)
     })
 
-    it('appears with the playerError text when playerError is set', async () => {
+    it('appears with the player message once the player disconnects', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
-        store.$patch({ playerError: 'Speaker lost connection to server' })
+        store.$patch({ isPlayerDisconnected: true })
       })
 
       const banner = context.wrapper.find('[data-testid="player-error-banner"]')
@@ -156,15 +156,15 @@ describe('NowPlayingPanel — player connectivity banner', () => {
       expect(banner.text()).toContain('Speaker lost connection to server')
     })
 
-    it('disappears again once playerError is cleared', async () => {
+    it('disappears again once the player reconnects', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
-        store.$patch({ playerError: 'Speaker lost connection to server' })
+        store.$patch({ isPlayerDisconnected: true })
       })
       expect(context.wrapper.find('[data-testid="player-error-banner"]').exists()).toBe(true)
 
       await patchPlaybackStore((store) => {
-        store.$patch({ playerError: null })
+        store.$patch({ isPlayerDisconnected: false })
       })
       expect(context.wrapper.find('[data-testid="player-error-banner"]').exists()).toBe(false)
     })
@@ -172,7 +172,7 @@ describe('NowPlayingPanel — player connectivity banner', () => {
     it('has no action button — purely informational (nothing the app can do remotely about a speaker WiFi drop)', async () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
-        store.$patch({ playerError: 'Speaker lost connection to server' })
+        store.$patch({ isPlayerDisconnected: true })
       })
 
       const banner = context.wrapper.find('[data-testid="player-error-banner"]')
@@ -198,7 +198,7 @@ describe('NowPlayingPanel — player connectivity banner', () => {
       await patchPlaybackStore((store) => {
         store.$patch({
           playerStatusUnavailable: true,
-          lmsError: 'Cannot connect to music server',
+          isLmsDisconnected: true,
         })
       })
 
@@ -210,8 +210,8 @@ describe('NowPlayingPanel — player connectivity banner', () => {
       const context = await createMountedContext()
       await patchPlaybackStore((store) => {
         store.$patch({
-          playerError: 'Speaker lost connection to server',
-          lmsError: 'Cannot connect to music server',
+          isPlayerDisconnected: true,
+          isLmsDisconnected: true,
         })
       })
 

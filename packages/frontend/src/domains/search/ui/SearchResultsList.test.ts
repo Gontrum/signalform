@@ -417,9 +417,7 @@ describe('SearchResultsList', () => {
     expect(wrapper.emitted('pause')).toBeTruthy()
   })
 
-  // ============================================================
   // Story 7.4 Acceptance Tests (Task 0 — AC4d/e, AC5)
-  // ============================================================
 
   describe('Artists section (Story 7.4)', () => {
     const makeArtist = (name: string, artistId?: string): ArtistResult => ({
@@ -462,9 +460,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 7.5 Acceptance Tests (Task 0 — AC1/AC2/AC3/AC5)
-  // ============================================================
 
   describe('Story 7.5 — Direct Navigation from Search', () => {
     it('AC1a: emits navigate-artist when artist name in track row is clicked', async () => {
@@ -647,9 +643,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 8.3 Acceptance Tests (Task 0 — RED phase)
-  // ============================================================
 
   describe('Story 8.3 — Show Streaming Albums in Search Results', () => {
     it('AC1/AC2/AC3: streaming album (no albumId) renders as non-clickable div with no Play Album button', async () => {
@@ -746,9 +740,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 8.5 Acceptance Tests (Task 0 — RED phase)
-  // ============================================================
 
   describe('Story 8.5 — Navigate Artists from Search Results', () => {
     it('AC1: streaming artist (artistId=null) renders as <button>, not <div>', async () => {
@@ -826,9 +818,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 9.12 Acceptance Tests — Tidal Album Card Navigation
-  // ============================================================
 
   describe('Story 9.12 — Tidal Album Card Navigation (AC1, AC6)', () => {
     const tidalAlbum: AlbumResult = {
@@ -917,8 +907,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // === WHEN ===
-
   const whenTrackResultsListIsMounted = async (
     results: readonly TrackResult[],
   ): Promise<VueWrapper> => {
@@ -962,8 +950,6 @@ describe('SearchResultsList', () => {
     await listbox.vm.$emit('update:modelValue', track)
     await nextTick()
   }
-
-  // === THEN ===
 
   const thenResultListIsVisible = async (wrapper: VueWrapper): Promise<void> => {
     const list = wrapper.find('[data-testid="results-list"]')
@@ -1243,9 +1229,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 9.7 Acceptance Tests (Task 0 — RED phase)
-  // ============================================================
 
   describe('Story 9.7 — Tidal Artist Navigation from Search Results', () => {
     it('AC1: Tidal track with undefined artistId renders artist name as clickable link', async () => {
@@ -1484,9 +1468,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 9.8: Cover Art Unification in Search Results (AC1-AC3)
-  // ============================================================
 
   describe('Story 9.8 — Cover Art Unification in Search Results', () => {
     it('AC1: local album with coverArtUrl renders <img> instead of ♪ placeholder', async () => {
@@ -1575,9 +1557,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // ============================================================
   // Story 9.15 Acceptance Tests — Mobile Responsive Album Card (AC4)
-  // ============================================================
 
   // Story 9.15 AC5: track list has overflow-x-hidden to prevent horizontal scroll on phone
   describe('Story 9.15 — Track list overflow fix on phone (AC5)', () => {

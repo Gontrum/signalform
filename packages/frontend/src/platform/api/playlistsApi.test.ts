@@ -26,22 +26,22 @@ describe('playlistsApi', () => {
   })
 
   describe('savePlaylist', () => {
-    it('POSTs { name } and returns true on ok', async () => {
+    it("POSTs { name } and reports 'ok'", async () => {
       fetchMock.mockResolvedValue({ ok: true })
 
       const result = await savePlaylist('Road trip')
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const call = fetchMock.mock.calls[0]
       expect(call?.[0]).toContain('/api/playlists')
       expect(call?.[1]?.method).toBe('POST')
       expect(bodyOf(call?.[1])).toEqual({ name: 'Road trip' })
     })
 
-    it('returns false on http error', async () => {
+    it("reports 'failed' on http error", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 400 })
 
-      expect(await savePlaylist('')).toBe(false)
+      expect(await savePlaylist('')).toBe('failed')
     })
   })
 
@@ -105,12 +105,12 @@ describe('playlistsApi', () => {
   })
 
   describe('renamePlaylist', () => {
-    it('PATCHes /api/playlists/:id with { name } and returns true on ok', async () => {
+    it("PATCHes /api/playlists/:id with { name } and reports 'ok'", async () => {
       fetchMock.mockResolvedValue({ ok: true })
 
       const result = await renamePlaylist('pl-1', 'Road trip vol. 2')
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const call = fetchMock.mock.calls[0]
       expect(String(call?.[0])).toMatch(/\/api\/playlists\/pl-1$/u)
       expect(call?.[1]?.method).toBe('PATCH')
@@ -126,26 +126,26 @@ describe('playlistsApi', () => {
       expect(String(call?.[0])).toMatch(/\/api\/playlists\/my%20mix%2F2%3Fa%3Db$/u)
     })
 
-    it('returns false when the server rejects the name', async () => {
+    it("reports 'failed' when the server rejects the name", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 400 })
 
-      expect(await renamePlaylist('pl-1', '   ')).toBe(false)
+      expect(await renamePlaylist('pl-1', '   ')).toBe('failed')
     })
 
-    it('returns false when LMS is unreachable', async () => {
+    it("reports 'failed' when LMS is unreachable", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 503 })
 
-      expect(await renamePlaylist('pl-1', 'New')).toBe(false)
+      expect(await renamePlaylist('pl-1', 'New')).toBe('failed')
     })
   })
 
   describe('deletePlaylist', () => {
-    it('DELETEs /api/playlists/:id without a body and returns true on ok', async () => {
+    it("DELETEs /api/playlists/:id without a body and reports 'ok'", async () => {
       fetchMock.mockResolvedValue({ ok: true })
 
       const result = await deletePlaylist('pl-1')
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const call = fetchMock.mock.calls[0]
       // Anchored: `toContain` would also pass for `/api/playlists/pl-1/x`.
       expect(String(call?.[0])).toMatch(/\/api\/playlists\/pl-1$/u)
@@ -164,10 +164,10 @@ describe('playlistsApi', () => {
       expect(String(call?.[0])).toMatch(/\/api\/playlists\/my%20mix%2F2%3Fa%3Db$/u)
     })
 
-    it('returns false on http error', async () => {
+    it("reports 'failed' on http error", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 400 })
 
-      expect(await deletePlaylist('missing')).toBe(false)
+      expect(await deletePlaylist('missing')).toBe('failed')
     })
   })
 
@@ -275,7 +275,7 @@ describe('playlistsApi', () => {
 
       const result = await removePlaylistTrack('pl-1', 7)
 
-      expect(result).toBe(true)
+      expect(result).toBe('ok')
       const call = fetchMock.mock.calls[0]
       expect(String(call?.[0])).toMatch(/\/api\/playlists\/pl-1\/tracks\/7$/u)
       expect(call?.[1]?.method).toBe('DELETE')
@@ -301,16 +301,89 @@ describe('playlistsApi', () => {
       )
     })
 
-    it('returns false when the server rejects the index', async () => {
+    it("reports 'failed' when the server rejects the index", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 400 })
 
-      expect(await removePlaylistTrack('pl-1', 99)).toBe(false)
+      expect(await removePlaylistTrack('pl-1', 99)).toBe('failed')
     })
 
-    it('returns false when LMS is unreachable', async () => {
+    it("reports 'failed' when LMS is unreachable", async () => {
       fetchMock.mockResolvedValue({ ok: false, status: 503 })
 
-      expect(await removePlaylistTrack('pl-1', 1)).toBe(false)
+      expect(await removePlaylistTrack('pl-1', 1)).toBe('failed')
+    })
+  })
+
+  // The 409 body is the only thing telling "LMS is gone" apart from "LMS
+  // cannot write playlists at all" — every write has to read it.
+  describe("the server's missing playlist folder", () => {
+    const givenNoPlaylistDir = (): void => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: 'PLAYLIST_DIR_NOT_CONFIGURED',
+          message: 'Lyrion Music Server has no playlist folder configured',
+        }),
+      })
+    }
+
+    it("savePlaylist reports 'no-playlist-dir'", async () => {
+      givenNoPlaylistDir()
+
+      expect(await savePlaylist('Road trip')).toBe('no-playlist-dir')
+    })
+
+    it("renamePlaylist reports 'no-playlist-dir'", async () => {
+      givenNoPlaylistDir()
+
+      expect(await renamePlaylist('pl-1', 'New')).toBe('no-playlist-dir')
+    })
+
+    it("deletePlaylist reports 'no-playlist-dir'", async () => {
+      givenNoPlaylistDir()
+
+      expect(await deletePlaylist('pl-1')).toBe('no-playlist-dir')
+    })
+
+    it("removePlaylistTrack reports 'no-playlist-dir'", async () => {
+      givenNoPlaylistDir()
+
+      expect(await removePlaylistTrack('pl-1', 3)).toBe('no-playlist-dir')
+    })
+
+    it("reports 'failed' for a 503 whose body carries the server's own error code", async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 503,
+        json: async () => ({ error: 'LMS_UNREACHABLE', message: 'Cannot connect' }),
+      })
+
+      expect(await savePlaylist('Road trip')).toBe('failed')
+    })
+
+    it("reports 'failed' when the error body is not JSON", async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      })
+
+      expect(await savePlaylist('Road trip')).toBe('failed')
+    })
+
+    it("reports 'failed' when the error response carries no body at all", async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 500 })
+
+      expect(await savePlaylist('Road trip')).toBe('failed')
+    })
+
+    it('does not read a body from a successful write', async () => {
+      const json = vi.fn()
+      fetchMock.mockResolvedValue({ ok: true, json })
+
+      expect(await savePlaylist('Road trip')).toBe('ok')
+      expect(json).not.toHaveBeenCalled()
     })
   })
 })

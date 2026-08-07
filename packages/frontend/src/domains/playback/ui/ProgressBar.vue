@@ -5,7 +5,7 @@
     <div
       class="time-display flex justify-between text-xs font-medium text-neutral-600 [font-variant-numeric:tabular-nums]"
       role="timer"
-      :aria-label="`Playback time: ${formattedTime}`"
+      :aria-label="timeAriaLabel"
     >
       <span>{{ formattedTime }}</span>
     </div>
@@ -33,7 +33,7 @@
           :aria-valuemin="0"
           :aria-valuemax="trackDuration || 0"
           :aria-valuetext="formattedTime"
-          :aria-label="`Playback position: ${formattedTime}`"
+          :aria-label="positionAriaLabel"
           @keydown="handleKeyDown"
         />
       </div>
@@ -42,6 +42,8 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18nStore } from '@/app/i18nStore'
 import { useProgressBar } from '@/domains/playback/shell/useProgressBar'
 
 const {
@@ -54,4 +56,14 @@ const {
   handleTouchStart,
   handleKeyDown,
 } = useProgressBar()
+
+const i18n = useI18nStore()
+
+const timeAriaLabel = computed(() =>
+  i18n.t('nowPlaying.playbackTime').replace('{time}', formattedTime.value),
+)
+
+const positionAriaLabel = computed(() =>
+  i18n.t('nowPlaying.playbackPosition').replace('{time}', formattedTime.value),
+)
 </script>

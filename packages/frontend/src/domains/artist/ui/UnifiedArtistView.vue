@@ -4,10 +4,15 @@ import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import ArtistHero from './ArtistHero.vue'
 import SimilarArtistGrid from './SimilarArtistGrid.vue'
+import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useUnifiedArtistView } from '../shell/useUnifiedArtistView'
 
 const i18n = useI18nStore()
 const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
+
+// Read per call like `t`: the language lands after setup, and the host default
+// would otherwise group 1,234,567 into an otherwise German page.
+const locale = (): string => i18n.currentLanguage
 const {
   status,
   data,
@@ -40,6 +45,20 @@ const {
   genreRadioActiveTag,
   handleGenreRadioStart,
 } = useUnifiedArtistView(t('artist.errorNotFoundMessage'))
+
+// Icon-only button, one per row: without the title the accessible name is the
+// same for every top track.
+const addTopTrackAriaLabel = (title: string): string =>
+  t('artist.addTopTrackToQueue').replace('{title}', title)
+
+const playTopTrackAriaLabel = (title: string): string =>
+  t('artist.playTopTrack').replace('{title}', title)
+
+const listenersLabel = (count: number): string =>
+  buildCountLabel(count, t('enrichment.listenersOne'), t('enrichment.listenersOther'), locale())
+
+const playsLabel = (count: number): string =>
+  buildCountLabel(count, t('enrichment.playsOne'), t('enrichment.playsOther'), locale())
 </script>
 
 <template>
@@ -145,8 +164,8 @@ const {
               data-testid="enrichment-stats"
               :class="hasImage ? 'mt-1 text-sm text-white/80' : 'mt-1 text-sm text-neutral-500'"
             >
-              {{ enrichment.listeners.toLocaleString() }} listeners ·
-              {{ enrichment.playcount.toLocaleString() }} plays
+              {{ listenersLabel(enrichment.listeners) }} ·
+              {{ playsLabel(enrichment.playcount) }}
             </div>
             <p
               v-if="enrichment.bio"
@@ -247,7 +266,7 @@ const {
               type="button"
               data-testid="top-track-add-to-queue-button"
               class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-neutral-300 text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40"
-              :aria-label="`Add ${track.title} to queue`"
+              :aria-label="addTopTrackAriaLabel(track.title)"
               :disabled="track.url === ''"
               @click="handleTopTrackAddToQueue(track)"
             >
@@ -270,7 +289,7 @@ const {
               type="button"
               data-testid="top-track-play-button"
               class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-neutral-900 text-white hover:bg-neutral-700"
-              :aria-label="`${t('artist.playTopTrack')} ${track.title}`"
+              :aria-label="playTopTrackAriaLabel(track.title)"
               @click="handleTopTrackPlay(track)"
             >
               <svg
@@ -366,7 +385,7 @@ const {
               <img
                 v-if="album.coverArtUrl && !coverErrors[album.id]"
                 :src="album.coverArtUrl"
-                :alt="`Cover for ${album.title}`"
+                alt=""
                 class="h-full w-full object-cover"
                 data-testid="album-cover"
                 @error="onCoverError(album.id)"
@@ -390,7 +409,7 @@ const {
 
       <!-- On Tidal section -->
       <section v-if="data.tidalAlbums.length > 0" class="mb-10" data-testid="tidal-section">
-        <h2 class="mb-4 text-xl font-semibold text-neutral-800">On Tidal</h2>
+        <h2 class="mb-4 text-xl font-semibold text-neutral-800">{{ t('artist.tidalHeading') }}</h2>
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           <button
             v-for="album in sortedTidalAlbums"
@@ -404,7 +423,7 @@ const {
               <img
                 v-if="album.coverArtUrl && !coverErrors[album.id]"
                 :src="album.coverArtUrl"
-                :alt="`Cover for ${album.title}`"
+                alt=""
                 class="h-full w-full object-cover"
                 data-testid="album-cover"
                 @error="onCoverError(album.id)"

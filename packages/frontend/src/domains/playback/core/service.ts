@@ -1,5 +1,5 @@
 import type { PlayerStatusPayload, QueuePreviewItem, QueueTrack } from '@signalform/shared'
-import { SOURCE_LABELS } from '@/utils/sourceInfo'
+import { getSourceLabel, type SourceTranslator } from '@/utils/sourceInfo'
 import type { PlaybackStatus, TrackInfo } from './types'
 
 type PlaybackState = {
@@ -60,24 +60,28 @@ export const calculateProgressPercent = (
   return (currentTime / trackDuration) * 100
 }
 
-export const createTrackAnnouncement = (track: TrackInfo | null): string => {
+export const createTrackAnnouncement = (t: SourceTranslator, track: TrackInfo | null): string => {
   if (track === null) {
     return ''
   }
 
-  return `Now playing: ${track.title} by ${track.artist}`
+  return t('nowPlaying.trackAnnouncement')
+    .replace('{title}', track.title)
+    .replace('{name}', track.artist)
 }
 
-export const createAlsoAvailableText = (track: TrackInfo | null): string => {
+export const createAlsoAvailableText = (t: SourceTranslator, track: TrackInfo | null): string => {
   if (!track?.availableSources || track.availableSources.length <= 1) {
     return ''
   }
 
   const otherSources = track.availableSources
     .filter((source) => source.source !== track.source)
-    .map((source) => SOURCE_LABELS[source.source] ?? 'Unknown')
+    .map((source) => getSourceLabel(t, source.source))
 
-  return otherSources.length > 0 ? `Also available on: ${otherSources.join(', ')}` : ''
+  return otherSources.length > 0
+    ? t('source.alsoAvailable').replace('{sources}', otherSources.join(', '))
+    : ''
 }
 
 export const validateVolumeLevel = (level: number): string | null => {

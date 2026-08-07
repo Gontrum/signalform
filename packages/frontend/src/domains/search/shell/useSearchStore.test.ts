@@ -168,8 +168,6 @@ describe('searchStore', () => {
     await thenShowTidalWarningIs(store, false)
   })
 
-  // === GIVEN ===
-
   const givenSearchApiReturnsResults = async (): Promise<void> => {
     vi.mocked(searchApi.searchTracks).mockResolvedValue(
       ok({
@@ -263,8 +261,6 @@ describe('searchStore', () => {
     )
   }
 
-  // === WHEN ===
-
   const whenSearchStoreIsCreated = (): ReturnType<typeof useSearchStore> => {
     return useSearchStore()
   }
@@ -307,8 +303,6 @@ describe('searchStore', () => {
   ): Promise<void> => {
     await store.searchFullResults(query)
   }
-
-  // === THEN ===
 
   const thenSearchQueryIsEmpty = async (
     store: ReturnType<typeof useSearchStore>,

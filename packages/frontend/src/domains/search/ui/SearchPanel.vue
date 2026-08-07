@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import EmptyState from '@/ui/EmptyState.vue'
@@ -6,6 +7,7 @@ import AutocompleteDropdown from './AutocompleteDropdown.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import SearchResultsList from './SearchResultsList.vue'
+import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useSearchPanel } from '../shell/useSearchPanel'
 
 const { isPhone } = useResponsiveLayout()
@@ -48,6 +50,17 @@ const {
   lovedRadioError,
   startLovedRadioMode,
 } = useSearchPanel()
+
+// Read per call like `t`: the language lands after setup, and the host default
+// would otherwise group 1,234 into an otherwise German page.
+const locale = (): string => i18nStore.currentLanguage
+
+// The bare number is read out as "7" by a screen reader, which names nothing.
+const suggestionCountLabel = computed(() => {
+  const count = searchStore.suggestionCount
+
+  return buildCountLabel(count, t('home.suggestionsOne'), t('home.suggestionsOther'), locale())
+})
 </script>
 
 <template>
@@ -113,7 +126,7 @@ const {
           aria-atomic="true"
           data-testid="results-count"
         >
-          {{ searchStore.suggestionCount }}
+          {{ suggestionCountLabel }}
         </div>
 
         <!-- Personal Radio — only shown when feature is enabled in settings -->

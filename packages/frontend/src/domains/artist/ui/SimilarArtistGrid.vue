@@ -22,7 +22,7 @@ defineEmits<{
 }>()
 
 const i18n = useI18nStore()
-const t = i18n.t
+const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
 </script>
 
 <template>

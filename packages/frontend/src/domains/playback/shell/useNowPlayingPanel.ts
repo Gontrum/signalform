@@ -1,8 +1,9 @@
 import { computed, onMounted, watch } from 'vue'
 import type { ComputedRef } from 'vue'
 import { useRouter } from 'vue-router'
-import { SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
+import { getSourceTooltip } from '@/utils/sourceInfo'
 import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/playback/core/service'
+import { useI18nStore } from '@/app/i18nStore'
 import { usePlaybackStore } from './usePlaybackStore'
 
 const ERROR_DISMISS_TIMEOUT_MS = 5000
@@ -23,6 +24,7 @@ type UseNowPlayingPanelResult = {
 export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   const router = useRouter()
   const playbackStore = usePlaybackStore()
+  const i18nStore = useI18nStore()
 
   onMounted(() => {
     void playbackStore.fetchCurrentStatus()
@@ -61,7 +63,7 @@ export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
 
   const sourceTooltip = computed((): string => {
     const source = playbackStore.currentTrack?.source
-    return source ? (SOURCE_TOOLTIP_TEXT[source] ?? 'Source unknown') : ''
+    return source ? getSourceTooltip((key) => i18nStore.t(key), source) : ''
   })
 
   const queuedTracks = computed(() =>
@@ -73,10 +75,10 @@ export const useNowPlayingPanel = (): UseNowPlayingPanelResult => {
   )
 
   const trackAnnouncement = computed((): string =>
-    createTrackAnnouncement(playbackStore.currentTrack),
+    createTrackAnnouncement((key) => i18nStore.t(key), playbackStore.currentTrack),
   )
   const alsoAvailableText = computed((): string =>
-    createAlsoAvailableText(playbackStore.currentTrack),
+    createAlsoAvailableText((key) => i18nStore.t(key), playbackStore.currentTrack),
   )
   return {
     playbackStore,

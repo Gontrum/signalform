@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { setupSteps } from '../core/service'
 import { useSetupWizard } from '../shell/useSetupWizard'
@@ -31,6 +32,14 @@ const {
   finish,
   t,
 } = useSetupWizard()
+
+// One sentence around both values: German puts "verbunden" last, which no
+// concatenation of host and player fragments could produce.
+const connectedMessage = computed(() =>
+  t('setup.doneConnected')
+    .replace('{host}', selectedHost.value)
+    .replace('{player}', selectedPlayerName.value),
+)
 </script>
 
 <template>
@@ -157,8 +166,9 @@ const {
             </div>
             <span
               v-if="player.connected"
+              data-testid="player-online-badge"
               class="rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success"
-              >online</span
+              >{{ t('setup.playerOnline') }}</span
             >
           </button>
         </div>
@@ -191,15 +201,17 @@ const {
 
         <div class="mb-6 space-y-6">
           <div>
-            <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="setup-lastfm-key"
-              >Last.fm API key</label
+            <label
+              class="mb-1.5 block text-xs font-medium text-neutral-700"
+              for="setup-lastfm-key"
+              >{{ t('setup.lastfmKeyLabel') }}</label
             >
             <input
               id="setup-lastfm-key"
               v-model="lastFmApiKey"
               type="text"
               data-testid="lastfm-key-input"
-              placeholder="Optional — enables artist enrichment"
+              :placeholder="t('setup.lastfmKeyPlaceholder')"
               class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
             <p class="mt-1.5 text-xs text-neutral-400">
@@ -214,15 +226,17 @@ const {
             </p>
           </div>
           <div>
-            <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="setup-fanart-key"
-              >Fanart.tv API key</label
+            <label
+              class="mb-1.5 block text-xs font-medium text-neutral-700"
+              for="setup-fanart-key"
+              >{{ t('setup.fanartKeyLabel') }}</label
             >
             <input
               id="setup-fanart-key"
               v-model="fanartApiKey"
               type="text"
               data-testid="fanart-key-input"
-              placeholder="Optional — enables artist hero images"
+              :placeholder="t('setup.fanartKeyPlaceholder')"
               class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
             <p class="mt-1.5 text-xs text-neutral-400">
@@ -268,8 +282,8 @@ const {
       <div v-else-if="step === 'done'" data-testid="step-done" class="text-center">
         <div class="mb-4 text-5xl">🎵</div>
         <h1 class="mb-2 text-2xl font-bold text-neutral-900">{{ t('queue.backToNowPlaying') }}</h1>
-        <p class="mb-8 text-sm text-neutral-500">
-          Signalform is connected to {{ selectedHost }} · {{ selectedPlayerName }}.
+        <p data-testid="setup-done-message" class="mb-8 text-sm text-neutral-500">
+          {{ connectedMessage }}
         </p>
         <button
           type="button"

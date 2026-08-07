@@ -223,13 +223,6 @@ describe('PlaybackControls', () => {
     })
   })
 
-  // =============================================================================
-  // HELPER FUNCTIONS - Test framework code isolated here
-  // =============================================================================
-
-  // GIVEN helpers - Setup preconditions
-  // -----------------------------------------------------------------------------
-
   const givenTrackIsPlaying = async (): Promise<void> => {
     vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
       ok({
@@ -269,9 +262,6 @@ describe('PlaybackControls', () => {
     store.$patch({ isLoading: true })
     await nextTick()
   }
-
-  // WHEN helpers - Execute actions
-  // -----------------------------------------------------------------------------
 
   const createTestContext = (): TestContext => {
     const store = usePlaybackStore()
@@ -324,9 +314,6 @@ describe('PlaybackControls', () => {
     expect(button.element.tagName).toBe('BUTTON')
     expect(button.attributes('type')).toBe('button')
   }
-
-  // THEN helpers - Verify outcomes
-  // -----------------------------------------------------------------------------
 
   const thenPreviousButtonIsVisible = async (wrapper: VueWrapper): Promise<void> => {
     const button = wrapper.find('[data-testid="previous-button"]')

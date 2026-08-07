@@ -129,8 +129,6 @@ describe('AppLayout', () => {
     expect(context.wrapper.find('[data-testid="bottom-nav"]').exists()).toBe(false)
   })
 
-  // === GIVEN ===
-
   const givenViewportIsTablet = async (): Promise<TestContext> => {
     const router = await createRouter()
     setViewportWidth(1024)
@@ -159,8 +157,6 @@ describe('AppLayout', () => {
     return { router, wrapper }
   }
 
-  // === WHEN ===
-
   const whenLayoutIsMounted = async (wrapper: VueWrapper): Promise<void> => {
     await wrapper.vm.$nextTick()
   }
@@ -170,8 +166,6 @@ describe('AppLayout', () => {
     globalThis.dispatchEvent(new Event('resize'))
     await wrapper.vm.$nextTick()
   }
-
-  // === THEN ===
 
   const thenLeftPanelIsVisible = async (wrapper: VueWrapper): Promise<void> => {
     const leftPanel = wrapper.find('[data-testid="left-panel"]')

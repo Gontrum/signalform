@@ -31,9 +31,11 @@ const navLinkClasses = (isActive: boolean): readonly string[] => [
         data-testid="brand-badge"
         class="flex min-w-0 flex-1 items-center gap-3 sm:max-w-[15rem] sm:flex-none"
       >
+        <!-- Decorative: the brand name is right beside it as visible text, so
+             an alternative text would only repeat it for a screen reader. -->
         <img
           src="/icon-192.png"
-          alt="Signalform icon"
+          alt=""
           class="h-10 w-10 flex-shrink-0 rounded-2xl border border-neutral-200 bg-neutral-950/5 p-1 shadow-sm"
         />
         <div class="min-w-0">

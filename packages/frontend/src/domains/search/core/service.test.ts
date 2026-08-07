@@ -33,8 +33,6 @@ describe('shouldShowTidalWarning', () => {
     expect(result).toBe(false)
   })
 
-  // === GIVEN ===
-
   const givenResponseWithTidalAvailable = (
     tidalAvailable: boolean | undefined,
   ): SearchResultsResponse => ({

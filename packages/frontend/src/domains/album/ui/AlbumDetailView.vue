@@ -5,11 +5,17 @@ import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import PageHeader from '@/ui/PageHeader.vue'
 import AlbumActionButtons from '@/domains/search/ui/AlbumActionButtons.vue'
+import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useAlbumDetailView } from '../shell/useAlbumDetailView'
 
 const i18n = useI18nStore()
 
 const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
+
+// Read per call like `t`: the language lands after setup, and the host default
+// would otherwise group 1,234,567 into an otherwise German page.
+const locale = (): string => i18n.currentLanguage
+
 const {
   status,
   album,
@@ -33,9 +39,20 @@ const {
   detectSource,
 } = useAlbumDetailView()
 
-// Trivial UI-only derivation of the album-level queue button state (success/error/idle)
-// from the two transient flag sets already exposed by the composable — no new business
-// logic, just the same three-way branch AlbumDetailView's hand-rolled markup used inline.
+const playTrackAriaLabel = (title: string): string => t('album.playTrack').replace('{title}', title)
+
+const addTrackToQueueAriaLabel = (title: string): string =>
+  t('home.addTrackToQueue').replace('{title}', title)
+
+const trackCountLabel = (count: number): string =>
+  buildCountLabel(count, t('album.trackCountOne'), t('album.trackCountOther'), locale())
+
+const listenersLabel = (count: number): string =>
+  buildCountLabel(count, t('enrichment.listenersOne'), t('enrichment.listenersOther'), locale())
+
+const playsLabel = (count: number): string =>
+  buildCountLabel(count, t('enrichment.playsOne'), t('enrichment.playsOther'), locale())
+
 const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
   albumQueueErrorFlag.items.value.has(albumQueueKey)
     ? 'error'
@@ -47,7 +64,7 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
 
 <template>
   <div class="h-full min-h-0 overflow-y-auto bg-white" data-testid="album-detail-view">
-    <PageHeader :title="album?.title ?? 'Album'" :show-back="true" />
+    <PageHeader :title="album?.title ?? t('album.titleFallback')" :show-back="true" />
 
     <div class="px-4 py-4 sm:px-6">
       <!-- Loading state -->
@@ -102,7 +119,7 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
             <img
               v-if="album.coverArtUrl && !coverError"
               :src="album.coverArtUrl"
-              :alt="`${album.title} by ${album.artist}`"
+              alt=""
               data-testid="album-cover-image"
               class="h-full w-full object-cover"
               loading="lazy"
@@ -145,7 +162,7 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
               {{ album.releaseYear }}
             </p>
             <p data-testid="album-track-count" class="text-sm text-neutral-500">
-              {{ album.tracks.length }} tracks
+              {{ trackCountLabel(album.tracks.length) }}
             </p>
 
             <!-- AC2 (Story 9.4): Play Album + Add Album to Queue buttons -->
@@ -200,7 +217,7 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
               data-testid="track-play-button"
               class="rounded-full p-2 text-accent-400 hover:bg-accent-400/10 hover:text-accent-300 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!track.url"
-              :aria-label="`Play ${track.title}`"
+              :aria-label="playTrackAriaLabel(track.title)"
               @click="handlePlayTrack(track.url)"
             >
               <svg
@@ -220,7 +237,7 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
               data-testid="track-add-to-queue-button"
               class="rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-accent-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="!track.url"
-              :aria-label="`Add ${track.title} to queue`"
+              :aria-label="addTrackToQueueAriaLabel(track.title)"
               @click="handleAddTrackToQueue(track.url)"
             >
               <svg
@@ -314,8 +331,8 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
           <!-- Enrichment content -->
           <div v-else-if="enrichment" data-testid="enrichment-block">
             <div data-testid="enrichment-stats" class="text-sm text-neutral-500 mt-2">
-              {{ enrichment.listeners.toLocaleString() }} listeners ·
-              {{ enrichment.playcount.toLocaleString() }} plays
+              {{ listenersLabel(enrichment.listeners) }} ·
+              {{ playsLabel(enrichment.playcount) }}
             </div>
             <p
               v-if="enrichment.wiki"

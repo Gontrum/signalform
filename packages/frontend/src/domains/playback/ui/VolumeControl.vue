@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { useVolumeControl } from '@/domains/playback/shell/useVolumeControl'
+import { useI18nStore } from '@/app/i18nStore'
 
 const { isLoading, currentVolume, isMuted, handleVolumeChange, handleToggleMute } =
   useVolumeControl()
+
+const i18nStore = useI18nStore()
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 </script>
 
 <template>
   <div
     class="volume-control flex items-center gap-2 px-4 py-3"
     role="group"
-    aria-label="Volume control"
+    :aria-label="t('nowPlaying.volumeControl')"
   >
     <!-- Mute Button -->
     <button
       type="button"
       :disabled="isLoading"
-      :aria-label="isMuted ? 'Unmute' : 'Mute'"
+      :aria-label="isMuted ? t('nowPlaying.unmute') : t('nowPlaying.mute')"
       class="mute-button flex min-h-11 min-w-11 items-center justify-center rounded-lg border-0 bg-transparent transition-all duration-200 hover:bg-accent-50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-600 focus-visible:outline-offset-2"
       :class="{ 'bg-error/10': isMuted }"
       @click="handleToggleMute"
@@ -70,7 +74,7 @@ const { isLoading, currentVolume, isMuted, handleVolumeChange, handleToggleMute 
       max="100"
       :value="currentVolume ?? 50"
       :disabled="isLoading"
-      aria-label="Volume slider"
+      :aria-label="t('nowPlaying.volumeSlider')"
       class="volume-slider h-1 min-w-37.5 flex-1 cursor-pointer appearance-none rounded-sm bg-neutral-200 outline-none disabled:cursor-not-allowed disabled:opacity-40 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-accent-600 [&::-webkit-slider-thumb]:shadow [&::-webkit-slider-thumb]:transition-all [&::-webkit-slider-thumb]:duration-200 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-accent-600 [&::-moz-range-thumb]:shadow [&::-moz-range-thumb]:transition-all [&::-moz-range-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:h-4.5 hover:[&::-webkit-slider-thumb]:w-4.5 hover:[&::-webkit-slider-thumb]:shadow-md hover:[&::-moz-range-thumb]:h-4.5 hover:[&::-moz-range-thumb]:w-4.5 hover:[&::-moz-range-thumb]:shadow-md active:[&::-webkit-slider-thumb]:bg-accent-700 active:[&::-moz-range-thumb]:bg-accent-700"
       :style="{
         background: `linear-gradient(to right, #2563EB 0%, #2563EB ${currentVolume ?? 50}%, #E5E5E5 ${currentVolume ?? 50}%, #E5E5E5 100%)`,

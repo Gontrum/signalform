@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
+import { useI18nStore } from '@/app/i18nStore'
 
 const { isPhone, isTablet, isDesktop } = useResponsiveLayout()
+
+const i18nStore = useI18nStore()
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 </script>
 
 <template>
@@ -39,7 +43,7 @@ const { isPhone, isTablet, isDesktop } = useResponsiveLayout()
     <aside
       v-if="isTablet || isDesktop"
       data-testid="right-panel"
-      aria-label="Now Playing"
+      :aria-label="t('nowPlaying.regionLabel')"
       class="h-full w-full overflow-y-auto md:w-[40%] transition-all duration-300 ease-out"
     >
       <slot name="right" />

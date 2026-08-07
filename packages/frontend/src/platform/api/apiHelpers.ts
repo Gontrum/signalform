@@ -18,26 +18,18 @@ import type {
   BaseApiError,
 } from '@/domains/shared/core/api-errors'
 
-// ---------------------------------------------------------------------------
-// Error-body schema — used by every API file that reads a JSON error payload
-// ---------------------------------------------------------------------------
+const ErrorBodySchema = z.object({ message: z.string().optional() }).nullable()
 
-export const ErrorBodySchema = z.object({ message: z.string().optional() }).nullable()
-
-// ---------------------------------------------------------------------------
 // parseErrorBody — extracts the optional `message` field from a failed HTTP
 // response, falling back gracefully when the body is absent or malformed.
-// ---------------------------------------------------------------------------
 
 export const parseErrorBody = async (response: Response): Promise<string | undefined> => {
   const parsed = ErrorBodySchema.safeParse(await response.json().catch(() => null))
   return parsed.success ? parsed.data?.message : undefined
 }
 
-// ---------------------------------------------------------------------------
 // Base API error types — re-exported from domains/shared/core/api-errors so
 // that shell (API files) and core (domain types) share one definition.
-// ---------------------------------------------------------------------------
 
 export type {
   NetworkError as NetworkApiError,
@@ -50,11 +42,9 @@ export type {
   ValidationError,
 } from '@/domains/shared/core/api-errors'
 
-// ---------------------------------------------------------------------------
 // mapApiThrownError — maps a caught JS exception to a BaseApiError-compatible
 // shape.  The caller supplies a type-narrowed constructor so the return type
 // stays precise (no widening to BaseApiError required at call sites).
-// ---------------------------------------------------------------------------
 
 type ThrownErrorMessages = {
   readonly abort?: string
@@ -90,13 +80,11 @@ export const mapApiThrownError = (
   return { type: 'NETWORK_ERROR', message: messages.network ?? 'Unknown network error' }
 }
 
-// ---------------------------------------------------------------------------
 // Validatable request helpers — shared by API files whose error union is a
 // plain `BaseApiError` plus a status-code-driven `VALIDATION_ERROR` variant
 // (e.g. playbackApi, sleepTimerApi). Keeps the fixed abort/timeout messages
 // (rather than the `error.message` passthrough of `mapApiThrownError`) that
 // those two files rely on for their fallback wording.
-// ---------------------------------------------------------------------------
 
 /** The error union shared by every "validatable" request (play, seek, sleep timer, ...). */
 export type ValidatableApiError = BaseApiError | ValidationError

@@ -575,8 +575,6 @@ describe('SearchPanel', () => {
     expect(true).toBe(true)
   })
 
-  // === WHEN ===
-
   const whenSearchPanelIsMounted = async (): Promise<TestContext> => {
     return createMountedContext()
   }
@@ -587,8 +585,6 @@ describe('SearchPanel', () => {
     await input.trigger('input')
     await nextTick()
   }
-
-  // === THEN ===
 
   const thenSearchInputExists = async (wrapper: VueWrapper): Promise<void> => {
     const input = wrapper.find('input')
@@ -704,7 +700,7 @@ describe('SearchPanel', () => {
     expect(autocomplete.props('isLoading')).toBe(true)
   }
 
-  // === Autocomplete Navigation Tests (Story 4.6) ===
+  // Autocomplete Navigation Tests (Story 4.6)
 
   it('navigates to unified-artist when artist suggestion is selected', async (): Promise<void> => {
     const context = await whenSearchPanelIsMounted()
@@ -784,8 +780,6 @@ describe('SearchPanel', () => {
       query: { name: 'Streaming Artist' },
     })
   })
-
-  // === Full Results Mode Tests ===
 
   describe('Full Results Mode', () => {
     it('switches to full results mode when Enter pressed', async (): Promise<void> => {

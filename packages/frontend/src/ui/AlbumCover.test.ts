@@ -44,6 +44,33 @@ describe('AlbumCover', () => {
     )
   })
 
+  // Decorative default: every consumer renders the title as visible text next
+  // to the cover, so an alt would only repeat it to a screen reader.
+  it('leaves alt empty by default so the cover stays decorative', async () => {
+    const wrapper = mount(AlbumCover, {
+      props: { coverArtUrl: 'http://localhost:9000/music/123/cover.jpg' },
+    })
+    await wrapper.find('[data-testid="album-cover-thumbnail"]').trigger('load')
+    expect(wrapper.find('[data-testid="album-cover-thumbnail"]').attributes('alt')).toBe('')
+    expect(wrapper.find('[data-testid="album-cover-image"]').attributes('alt')).toBe('')
+  })
+
+  it('uses a provided alt instead of the empty default', async () => {
+    const wrapper = mount(AlbumCover, {
+      props: {
+        coverArtUrl: 'http://localhost:9000/music/123/cover.jpg',
+        alt: 'Albumcover von The Wall',
+      },
+    })
+    await wrapper.find('[data-testid="album-cover-thumbnail"]').trigger('load')
+    expect(wrapper.find('[data-testid="album-cover-thumbnail"]').attributes('alt')).toBe(
+      'Albumcover von The Wall',
+    )
+    expect(wrapper.find('[data-testid="album-cover-image"]').attributes('alt')).toBe(
+      'Albumcover von The Wall',
+    )
+  })
+
   it('shows music note fallback on image error', async () => {
     const wrapper = mount(AlbumCover, {
       props: { coverArtUrl: 'http://localhost:9000/music/999/cover.jpg' },

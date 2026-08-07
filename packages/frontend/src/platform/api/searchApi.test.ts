@@ -116,8 +116,6 @@ describe('searchApi', () => {
     }
   })
 
-  // === GIVEN ===
-
   const givenBackendReturnsSuccessfulResponse = async (): Promise<void> => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -176,15 +174,11 @@ describe('searchApi', () => {
     fetchMock.mockRejectedValueOnce(new Error('Failed to fetch'))
   }
 
-  // === WHEN ===
-
   const whenSearchTracksIsCalled = async (
     query: string,
   ): Promise<Awaited<ReturnType<typeof searchTracks>>> => {
     return searchTracks(query)
   }
-
-  // === THEN ===
 
   const thenFetchWasCalledWithCorrectUrl = async (): Promise<void> => {
     expect(fetchMock).toHaveBeenCalledWith(
@@ -361,8 +355,6 @@ describe('fetchAutocomplete', () => {
     }
   })
 
-  // === GIVEN ===
-
   const givenBackendReturnsAutocompleteSuccess = async (): Promise<void> => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -400,8 +392,6 @@ describe('fetchAutocomplete', () => {
     fetchMock.mockRejectedValueOnce(new DOMException('The operation was aborted', 'AbortError'))
   }
 
-  // === WHEN ===
-
   const whenFetchAutocompleteIsCalled = async (
     query: string,
   ): Promise<Awaited<ReturnType<typeof fetchAutocomplete>>> => {
@@ -414,8 +404,6 @@ describe('fetchAutocomplete', () => {
   ): Promise<Awaited<ReturnType<typeof fetchAutocomplete>>> => {
     return fetchAutocomplete(query, { signal })
   }
-
-  // === THEN ===
 
   const thenFetchWasCalledWithGetMethod = async (): Promise<void> => {
     expect(fetchMock).toHaveBeenCalledWith(
@@ -596,8 +584,6 @@ describe('fetchFullResults', () => {
     }
   })
 
-  // === GIVEN ===
-
   const givenBackendReturnsFullResults = async (): Promise<void> => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -656,16 +642,12 @@ describe('fetchFullResults', () => {
     })
   }
 
-  // === WHEN ===
-
   const whenFetchFullResultsIsCalled = async (
     query: string,
   ): Promise<Awaited<ReturnType<typeof import('./searchApi').fetchFullResults>>> => {
     const { fetchFullResults } = await import('./searchApi')
     return fetchFullResults(query)
   }
-
-  // === THEN ===
 
   const thenFetchWasCalledWithFullParam = async (): Promise<void> => {
     expect(fetchMock).toHaveBeenCalledWith(

@@ -19,9 +19,11 @@ type UseQueueDragArgs = {
   readonly removeBusyTrackId: Ref<string | null>
   readonly reorderBusyTrackId: Ref<string | null>
   readonly reorderTrack: (trackId: string, fromIndex: number, toIndex: number) => Promise<void>
+  // Getters, not strings: read once at setup they would keep announcing the
+  // language that was active when the view mounted.
   readonly dropMessages: {
-    readonly before: string
-    readonly after: string
+    readonly before: () => string
+    readonly after: () => string
   }
 }
 
@@ -339,7 +341,7 @@ export const useQueueDrag = ({
       dragOverIndex.value,
       dragFromIndex.value,
       dragOverHalf.value,
-      dropMessages,
+      { before: dropMessages.before(), after: dropMessages.after() },
     )
 
   const setScrollContainer = (el: Element | ComponentPublicInstance | null): void => {

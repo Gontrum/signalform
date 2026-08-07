@@ -6,7 +6,8 @@ import type { TrackResult, AlbumResult, ArtistResult } from '../core/types'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import AlbumActionButtons from './AlbumActionButtons.vue'
-import { SOURCE_LABELS, SOURCE_TOOLTIP_TEXT } from '@/utils/sourceInfo'
+import { getSourceLabel, getSourceTooltip } from '@/utils/sourceInfo'
+import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/playback/core/service'
 import { useI18nStore } from '@/app/i18nStore'
 import { useSearchResultsActions } from '../shell/useSearchResultsActions'
 
@@ -41,7 +42,9 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const i18nStore = useI18nStore()
-const t = i18nStore.t
+// Reading `i18nStore.t` per call (rather than capturing it once) is what makes the
+// translated computeds below re-evaluate when the language changes.
+const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 const {
   playbackStore,
   selectedTrack,
@@ -138,19 +141,42 @@ const handleSelect = (track: TrackResult): void => {
   selectTrack(track, (nextTrack) => emit('play', nextTrack))
 }
 
-const getSourceTooltip = (source: string): string => SOURCE_TOOLTIP_TEXT[source] ?? 'Source unknown'
+const sourceTooltip = (source: string): string => getSourceTooltip(t, source)
 
-const getAlsoAvailableOn = (result: TrackResult): string => {
-  if (!result.availableSources || result.availableSources.length <= 1) return ''
-  const otherSources = result.availableSources
-    .filter((s) => s.source !== result.source)
-    .map((s) => SOURCE_LABELS[s.source] ?? 'Unknown')
-  return otherSources.length > 0 ? `Also available on: ${otherSources.join(', ')}` : ''
-}
+const viewArtistAriaLabel = (artist: ArtistResult): string =>
+  t('home.viewArtist').replace('{name}', artist.name)
 
-// Pre-compute "also available" text per result to avoid double function call in template (M3 fix)
+// All three row actions are icon-only or icon-plus-generic-word, so the track
+// title in the accessible name is what tells the rows apart.
+const addToQueueAriaLabel = (result: TrackResult): string =>
+  t('home.addTrackToQueue').replace('{title}', result.title)
+
+const playAriaLabel = (result: TrackResult): string =>
+  t('home.playTrack').replace('{title}', result.title).replace('{name}', result.artist)
+
+const pauseAriaLabel = (result: TrackResult): string =>
+  t('home.pauseTrack').replace('{title}', result.title).replace('{name}', result.artist)
+
+const albumSourceLabel = (source: string | undefined): string =>
+  getSourceLabel(t, source, 'source.streaming')
+
+// Keyed by result id so the template builds each sentence once instead of per binding.
 const alsoAvailableTexts = computed((): Readonly<Record<string, string>> =>
-  Object.fromEntries(props.results.map((r) => [r.id, getAlsoAvailableOn(r)])),
+  Object.fromEntries(props.results.map((r) => [r.id, createAlsoAvailableText(t, r)])),
+)
+
+// The Now Playing panel speaks this sentence through the same core builder; a second
+// copy of it here is how this one stayed English through a whole translation pass.
+const trackAnnouncement = computed((): string =>
+  createTrackAnnouncement(t, playbackStore.currentTrack),
+)
+
+const pausedAnnouncement = computed((): string =>
+  t('nowPlaying.pausedAnnouncement').replace('{title}', playbackStore.currentTrack?.title ?? ''),
+)
+
+const errorAnnouncement = computed((): string =>
+  t('nowPlaying.errorAnnouncement').replace('{message}', playbackStore.error ?? ''),
 )
 
 // Tidal results carry no duration, and LMS reports 0 for tracks it has no length for —
@@ -176,7 +202,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
           <button
             type="button"
             class="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 text-left transition-all duration-200 hover:border-accent-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500"
-            :aria-label="t('home.viewArtist') + ' ' + artist.name"
+            :aria-label="viewArtistAriaLabel(artist)"
             @click="handleArtistClick(artist)"
           >
             <!-- Artist image: loaded from enrichment API (Fanart.tv), lazy + cached -->
@@ -209,7 +235,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
     </h2>
     <Listbox v-model="selectedTrack" @update:model-value="handleSelect">
       <div data-testid="results-list" class="space-y-2 overflow-x-hidden">
-        <ListboxOptions static class="space-y-2" aria-label="Search results">
+        <ListboxOptions static class="space-y-2" :aria-label="t('home.resultsListLabel')">
           <ListboxOption
             v-for="result in results"
             :key="result.id"
@@ -249,7 +275,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 </p>
                 <!-- Source info: badge (Story 3.3) + tooltip + also-available (Story 3.4) -->
                 <div class="mt-1">
-                  <span :title="getSourceTooltip(result.source)">
+                  <span :title="sourceTooltip(result.source)">
                     <QualityBadge :source="result.source" :quality="result.audioQuality" />
                   </span>
                   <p
@@ -273,7 +299,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
               <!-- Add to Queue Button -->
               <button
                 type="button"
-                :aria-label="`Add ${result.title} to queue`"
+                :aria-label="addToQueueAriaLabel(result)"
                 data-testid="add-to-queue-button"
                 class="ml-2 rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 focus:outline-none focus:ring-2 focus:ring-accent-500"
                 @click.stop="handleAddToQueue(result)"
@@ -335,7 +361,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 :data-testid="`play-button-${result.id}`"
                 type="button"
                 class="ml-4 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 active:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                :aria-label="`Play ${result.title} by ${result.artist}`"
+                :aria-label="playAriaLabel(result)"
                 :disabled="playbackStore.isLoading"
                 @click.stop="handlePlay(result)"
               >
@@ -352,7 +378,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 >
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                <span v-if="playbackStore.isLoading">Playing...</span>
+                <span v-if="playbackStore.isLoading">{{ t('home.playing') }}</span>
               </button>
 
               <!-- Pause Button (shown when this track is playing) -->
@@ -361,7 +387,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 :data-testid="`pause-button-${result.id}`"
                 type="button"
                 class="ml-4 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg bg-accent-700 px-4 py-2 text-sm font-medium text-white transition-all duration-200 ease-out hover:bg-accent-800 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 active:bg-accent-900"
-                :aria-label="`Pause ${result.title} by ${result.artist}`"
+                :aria-label="pauseAriaLabel(result)"
                 @click.stop="handlePause"
               >
                 <!-- Pause Icon -->
@@ -386,7 +412,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
       v-if="albums && albums.length > 0"
       data-testid="albums-list"
       class="mt-8 space-y-2"
-      aria-label="Albums"
+      :aria-label="t('home.albumsSection')"
     >
       <h2 class="text-lg font-semibold text-neutral-900 mb-4">{{ t('home.albumsSection') }}</h2>
       <template v-for="album in albums" :key="album.id">
@@ -416,7 +442,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
             <img
               v-if="tidalFallbackCovers[album.id] && !coverErrors[album.id]"
               :src="tidalFallbackCovers[album.id]"
-              :alt="`${album.title} cover art`"
+              alt=""
               loading="lazy"
               class="h-full w-full object-cover"
               @error="onAlbumCoverError(album.id)"
@@ -425,7 +451,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
             <img
               v-else-if="album.coverArtUrl && !coverErrors[album.id]"
               :src="album.coverArtUrl"
-              :alt="`${album.title} cover art`"
+              alt=""
               loading="lazy"
               class="h-full w-full object-cover"
               @load="onAlbumCoverLoad($event, album)"
@@ -517,7 +543,7 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
             data-testid="album-streaming-badge"
             class="ml-4 inline-flex items-center rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-500"
           >
-            {{ SOURCE_LABELS[album.source ?? ''] ?? 'Streaming' }}
+            {{ albumSourceLabel(album.source) }}
           </span>
         </div>
       </template>
@@ -525,14 +551,23 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
 
     <!-- ARIA Live Region for Playback Status Announcements (Issue #20: Accessibility) -->
     <div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
-      <span v-if="playbackStore.isCurrentlyPlaying && playbackStore.currentTrack">
-        Now playing: {{ playbackStore.currentTrack.title }} by
-        {{ playbackStore.currentTrack.artist }}
+      <!-- The track conditions stay: the core builders return '' for a missing track,
+           but an empty first branch would still take the chain and silence the error. -->
+      <span
+        v-if="playbackStore.isCurrentlyPlaying && playbackStore.currentTrack"
+        data-testid="playback-announcement"
+      >
+        {{ trackAnnouncement }}
       </span>
-      <span v-else-if="playbackStore.isPaused && playbackStore.currentTrack">
-        Paused: {{ playbackStore.currentTrack.title }}
+      <span
+        v-else-if="playbackStore.isPaused && playbackStore.currentTrack"
+        data-testid="playback-announcement"
+      >
+        {{ pausedAnnouncement }}
       </span>
-      <span v-else-if="playbackStore.error"> Error: {{ playbackStore.error }} </span>
+      <span v-else-if="playbackStore.error" data-testid="playback-announcement">
+        {{ errorAnnouncement }}
+      </span>
     </div>
   </div>
 </template>

@@ -106,7 +106,7 @@ watch(
         v-else
         class="divide-y divide-neutral-200"
         role="listbox"
-        aria-label="Autocomplete suggestions"
+        :aria-label="t('home.autocompleteLabel')"
       >
         <!--
           Keyboard selection is fully handled by the parent input's
@@ -139,7 +139,7 @@ watch(
             <img
               v-if="artistImageState.getImage(suggestion.artist) || suggestion.albumCover"
               :src="artistImageState.getImage(suggestion.artist) ?? suggestion.albumCover"
-              :alt="`${suggestion.album || suggestion.artist} cover art`"
+              alt=""
               class="h-full w-full object-cover"
             />
             <span v-else class="text-xs text-neutral-500">♪</span>
@@ -192,7 +192,7 @@ watch(
               : 'bg-neutral-100 text-neutral-700',
           ]"
           data-testid="autocomplete-footer-hint"
-          :aria-label="`Search for ${query}`"
+          :aria-label="t('home.searchForQuery').replace('{query}', String(query ?? ''))"
           role="option"
           tabindex="-1"
           :aria-selected="activeIndex === suggestions.length"

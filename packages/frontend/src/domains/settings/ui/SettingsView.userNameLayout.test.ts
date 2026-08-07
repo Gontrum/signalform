@@ -5,7 +5,6 @@ import SettingsView from '@/domains/settings/ui/SettingsView.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 
-// ---------------------------------------------------------------------------
 // Regression coverage for the user-row name truncation bug: the row renders
 // inside AppLayout's left column, which is only 60% of the *viewport* width
 // on tablet/desktop, not the full viewport — so a `md:flex-row` layout on
@@ -16,7 +15,6 @@ import type { Router } from 'vue-router'
 // class-list assertions; this file focuses on real long-name content not
 // being clipped, using a name long enough (two words, 25+ characters) that
 // a narrow-column truncation bug reliably reproduces.
-// ---------------------------------------------------------------------------
 
 const isPhone = ref(false)
 

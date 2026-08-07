@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 
+// Decorative by default: the cover is always rendered next to the visible
+// title. A caller that shows no caption passes its own translated `alt`.
 const props = withDefaults(
   defineProps<{
     coverArtUrl?: string
     alt?: string
   }>(),
-  { coverArtUrl: undefined, alt: 'Album cover' },
+  { coverArtUrl: undefined, alt: '' },
 )
 
 const thumbnailLoaded = ref(false)

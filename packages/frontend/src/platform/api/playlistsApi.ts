@@ -20,9 +20,40 @@ export type PlaylistTrack = {
   readonly duration?: number
 }
 
-export type PlaylistTracksPage = {
+type PlaylistTracksPage = {
   readonly tracks: readonly PlaylistTrack[]
   readonly hasMore: boolean
+}
+
+/**
+ * Outcome of a playlist write. `no-playlist-dir` is its own case because LMS
+ * refuses every write when its playlist folder is unset — nothing a retry can
+ * fix, and the user has to be pointed at the LMS settings rather than at a
+ * server that is running fine.
+ */
+export type PlaylistWriteResult = 'ok' | 'no-playlist-dir' | 'failed'
+
+const PLAYLIST_DIR_ERROR_CODE = 'PLAYLIST_DIR_NOT_CONFIGURED'
+
+const ErrorCodeSchema = z.object({ error: z.string().optional() })
+
+// try/catch, not .catch(): an error response may carry no body at all, and
+// then `json()` throws before it ever returns a promise.
+const readErrorCode = async (response: Response): Promise<string | undefined> => {
+  try {
+    const parsed = ErrorCodeSchema.safeParse(await response.json())
+    return parsed.success ? parsed.data.error : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const toWriteResult = async (response: Response): Promise<PlaylistWriteResult> => {
+  if (response.ok) {
+    return 'ok'
+  }
+
+  return (await readErrorCode(response)) === PLAYLIST_DIR_ERROR_CODE ? 'no-playlist-dir' : 'failed'
 }
 
 const SavedPlaylistSchema = z.object({
@@ -47,7 +78,7 @@ const PlaylistTracksResponseSchema = z.object({
   hasMore: z.boolean(),
 })
 
-export const savePlaylist = async (name: string): Promise<boolean> => {
+export const savePlaylist = async (name: string): Promise<PlaylistWriteResult> => {
   const response = await fetch(
     getApiUrl('/api/playlists'),
     withUserHeader({
@@ -59,7 +90,7 @@ export const savePlaylist = async (name: string): Promise<boolean> => {
       signal: AbortSignal.timeout(15000),
     }),
   )
-  return response.ok
+  return await toWriteResult(response)
 }
 
 export const listPlaylists = async (): Promise<readonly SavedPlaylist[]> => {
@@ -78,7 +109,7 @@ export const listPlaylists = async (): Promise<readonly SavedPlaylist[]> => {
   return parsed.success ? parsed.data.playlists : []
 }
 
-export const deletePlaylist = async (id: string): Promise<boolean> => {
+export const deletePlaylist = async (id: string): Promise<PlaylistWriteResult> => {
   const response = await fetch(
     getApiUrl(`/api/playlists/${encodeURIComponent(id)}`),
     withUserHeader({
@@ -86,10 +117,10 @@ export const deletePlaylist = async (id: string): Promise<boolean> => {
       signal: AbortSignal.timeout(15000),
     }),
   )
-  return response.ok
+  return await toWriteResult(response)
 }
 
-export const renamePlaylist = async (id: string, name: string): Promise<boolean> => {
+export const renamePlaylist = async (id: string, name: string): Promise<PlaylistWriteResult> => {
   const response = await fetch(
     getApiUrl(`/api/playlists/${encodeURIComponent(id)}`),
     withUserHeader({
@@ -101,7 +132,7 @@ export const renamePlaylist = async (id: string, name: string): Promise<boolean>
       signal: AbortSignal.timeout(15000),
     }),
   )
-  return response.ok
+  return await toWriteResult(response)
 }
 
 /**
@@ -135,7 +166,10 @@ export const getPlaylistTracks = async (
  * Remove one track by its position. The caller must reload the page
  * afterwards: every later index has shifted down by one.
  */
-export const removePlaylistTrack = async (id: string, index: number): Promise<boolean> => {
+export const removePlaylistTrack = async (
+  id: string,
+  index: number,
+): Promise<PlaylistWriteResult> => {
   const response = await fetch(
     getApiUrl(`/api/playlists/${encodeURIComponent(id)}/tracks/${String(index)}`),
     withUserHeader({
@@ -143,7 +177,7 @@ export const removePlaylistTrack = async (id: string, index: number): Promise<bo
       signal: AbortSignal.timeout(15000),
     }),
   )
-  return response.ok
+  return await toWriteResult(response)
 }
 
 export const loadPlaylist = async (id: string): Promise<boolean> => {

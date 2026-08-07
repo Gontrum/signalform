@@ -82,12 +82,12 @@ export const usePlaybackStore = defineStore('playback', () => {
   const repeatMode = ref<RepeatMode>('off')
 
   // LMS connectivity state (S02: actionable error with retry)
-  const lmsError = ref<string | null>(null)
+  const isLmsDisconnected = ref(false)
   const isRetryingLms = ref(false)
   // Player connectivity state (physical/software player lost its own
-  // connection to LMS — distinct root cause from lmsError above, see
+  // connection to LMS — distinct root cause from the LMS flag above, see
   // docs/review/06-resilience-lms.md Fix 0).
-  const playerError = ref<string | null>(null)
+  const isPlayerDisconnected = ref(false)
   // The status read itself failed while the server answered a separate probe:
   // the speaker is off. Deliberately not folded into playerError — that one
   // follows the player_connected flag of a *successful* read and is retracted
@@ -102,8 +102,16 @@ export const usePlaybackStore = defineStore('playback', () => {
   const hasCurrentTrack = computed(() => currentTrack.value !== null)
   const isCurrentlyPlaying = computed(() => isPlaying.value && !isPaused.value)
   const hasError = computed(() => error.value !== null)
-  const isLmsDisconnected = computed(() => lmsError.value !== null)
-  const isPlayerDisconnected = computed(() => playerError.value !== null)
+  // The flag is the state, the sentence is derived from it: a message stored
+  // when the disconnect event arrived would keep the language of that moment,
+  // and the language itself arrives from the server config after this store
+  // has already been created.
+  const lmsError = computed<string | null>(() =>
+    isLmsDisconnected.value ? i18nStore.t('player.lmsDisconnected') : null,
+  )
+  const playerError = computed<string | null>(() =>
+    isPlayerDisconnected.value ? i18nStore.t('player.disconnected') : null,
+  )
   // A silent speaker is worth reporting only while the server itself answers —
   // once LMS is gone that is the cause the user has to act on, and saying "the
   // music server is reachable" alongside "cannot connect to music server"
@@ -355,20 +363,20 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   // Listen to system events
   on('system.lmsDisconnected', (_payload: SystemEventPayload) => {
-    lmsError.value = 'Cannot connect to music server'
+    isLmsDisconnected.value = true
   })
 
   on('system.lmsReconnected', (_payload: SystemEventPayload) => {
-    lmsError.value = null
+    isLmsDisconnected.value = false
     syncPlaybackState()
   })
 
   on('system.playerDisconnected', (_payload: SystemEventPayload) => {
-    playerError.value = 'Speaker lost connection to server'
+    isPlayerDisconnected.value = true
   })
 
   on('system.playerReconnected', (_payload: SystemEventPayload) => {
-    playerError.value = null
+    isPlayerDisconnected.value = false
     syncPlaybackState()
   })
 
@@ -698,7 +706,7 @@ export const usePlaybackStore = defineStore('playback', () => {
       .catch<Response | null>(() => null)
 
     if (response?.ok) {
-      lmsError.value = null
+      isLmsDisconnected.value = false
       isRetryingLms.value = false
       subscribe()
       syncPlaybackState()
@@ -738,9 +746,7 @@ export const usePlaybackStore = defineStore('playback', () => {
     queuePreview,
     shuffleMode,
     repeatMode,
-    lmsError,
     isRetryingLms,
-    playerError,
     playerStatusUnavailable,
     connectionState,
     // Getters
@@ -749,6 +755,8 @@ export const usePlaybackStore = defineStore('playback', () => {
     hasError,
     isLmsDisconnected,
     isPlayerDisconnected,
+    lmsError,
+    playerError,
     playerAlert,
     hasPlayerAlert,
     progressPercent,

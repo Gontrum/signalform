@@ -33,7 +33,22 @@ interface Emits {
 const emit = defineEmits<Emits>()
 
 const i18n = useI18nStore()
-const t = i18n.t
+// Reading `i18n.t` per call (rather than capturing it once) is what keeps the
+// labels reactive to a language switch.
+const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
+
+const addToQueueAriaLabel = computed(() =>
+  t('home.addAlbumToQueue').replace('{title}', props.albumTitle),
+)
+
+// The visible button captions stay `home.playAlbum` / `home.goToArtist`; the
+// accessible names need their own keys because German puts the interpolated
+// value before the verb, which appending to the caption cannot express.
+const playAriaLabel = computed(() => t('home.playAlbumAria').replace('{title}', props.albumTitle))
+
+const goToArtistAriaLabel = computed(() =>
+  t('home.goToArtistAria').replace('{name}', props.albumArtist),
+)
 
 // 'large' is the always-labelled, more generously padded variant used by the album
 // detail page's hero CTA; 'compact' (default) preserves the dense search-results row
@@ -82,7 +97,7 @@ const queueButtonClasses = computed(() =>
       :data-testid="playButtonTestId"
       type="button"
       :class="playButtonClasses"
-      :aria-label="`${t('home.playAlbum')} ${props.albumTitle}`"
+      :aria-label="playAriaLabel"
       @click.stop="emit('play')"
     >
       <svg
@@ -127,7 +142,7 @@ const queueButtonClasses = computed(() =>
       :data-testid="queueButtonTestId"
       type="button"
       :class="queueButtonClasses"
-      :aria-label="`${t('home.addAlbumToQueue')} ${props.albumTitle}`"
+      :aria-label="addToQueueAriaLabel"
       @click.stop="emit('add-to-queue')"
     >
       <svg
@@ -166,7 +181,9 @@ const queueButtonClasses = computed(() =>
       >
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
       </svg>
-      <span v-if="isLarge" data-testid="add-album-to-queue-text">+ Queue</span>
+      <span v-if="isLarge" data-testid="add-album-to-queue-text"
+        >+ {{ t('home.addAlbumToQueueButton') }}</span
+      >
     </button>
 
     <button
@@ -174,7 +191,7 @@ const queueButtonClasses = computed(() =>
       :data-testid="goToArtistTestId"
       type="button"
       class="hidden min-h-11 items-center justify-center rounded-lg border border-neutral-300 px-3 py-2 text-sm font-medium text-neutral-600 transition-all duration-200 ease-out hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 sm:inline-flex"
-      :aria-label="`${t('home.goToArtist')}: ${props.albumArtist}`"
+      :aria-label="goToArtistAriaLabel"
       @click.stop="emit('go-to-artist')"
     >
       {{ t('home.goToArtist') }}

@@ -53,10 +53,10 @@ describe('usePlaylists', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockListPlaylists.mockResolvedValue([])
-    mockSavePlaylist.mockResolvedValue(true)
+    mockSavePlaylist.mockResolvedValue('ok')
     mockLoadPlaylist.mockResolvedValue(true)
-    mockDeletePlaylist.mockResolvedValue(true)
-    mockRenamePlaylist.mockResolvedValue(true)
+    mockDeletePlaylist.mockResolvedValue('ok')
+    mockRenamePlaylist.mockResolvedValue('ok')
     fetchQueueMock.mockResolvedValue(undefined)
   })
 
@@ -92,7 +92,7 @@ describe('usePlaylists', () => {
   })
 
   it('sets error and does not crash when save fails', async () => {
-    mockSavePlaylist.mockResolvedValue(false)
+    mockSavePlaylist.mockResolvedValue('failed')
     const { result } = await mountComposable()
 
     await result.save('Boom')
@@ -139,7 +139,7 @@ describe('usePlaylists', () => {
 
   it('sets error and keeps the list when remove fails', async () => {
     mockListPlaylists.mockResolvedValue([{ id: 'a', name: 'One' }])
-    mockDeletePlaylist.mockResolvedValue(false)
+    mockDeletePlaylist.mockResolvedValue('failed')
     const { result } = await mountComposable()
     mockListPlaylists.mockClear()
 
@@ -162,7 +162,7 @@ describe('usePlaylists', () => {
   })
 
   it('clears a stale error when a later save succeeds', async () => {
-    mockSavePlaylist.mockResolvedValueOnce(false)
+    mockSavePlaylist.mockResolvedValueOnce('failed')
     const { result } = await mountComposable()
 
     await result.save('Boom')
@@ -186,7 +186,7 @@ describe('usePlaylists', () => {
   })
 
   it('clears a stale error when a later remove succeeds', async () => {
-    mockDeletePlaylist.mockResolvedValueOnce(false)
+    mockDeletePlaylist.mockResolvedValueOnce('failed')
     const { result } = await mountComposable()
 
     await result.remove('a')
@@ -225,7 +225,7 @@ describe('usePlaylists', () => {
 
     it('sets error and keeps the old name when the server rejects the rename', async () => {
       mockListPlaylists.mockResolvedValue(twoPlaylists)
-      mockRenamePlaylist.mockResolvedValue(false)
+      mockRenamePlaylist.mockResolvedValue('failed')
       const { result } = await mountComposable()
       mockListPlaylists.mockClear()
 
@@ -260,7 +260,7 @@ describe('usePlaylists', () => {
     })
 
     it('clears a stale error when a later rename succeeds', async () => {
-      mockRenamePlaylist.mockResolvedValueOnce(false)
+      mockRenamePlaylist.mockResolvedValueOnce('failed')
       const { result } = await mountComposable()
 
       await result.rename('a', 'New name')
@@ -269,6 +269,86 @@ describe('usePlaylists', () => {
       await result.rename('a', 'New name')
 
       expect(result.error.value).toBe(false)
+    })
+  })
+
+  // The write reached LMS, LMS is up — it just has nowhere to put the file.
+  // Reported as a plain error, the user checks the server instead of the one
+  // setting that is actually missing.
+  describe("the server's missing playlist folder", () => {
+    it('save flags the missing folder next to the error', async () => {
+      mockSavePlaylist.mockResolvedValue('no-playlist-dir')
+      const { result } = await mountComposable()
+
+      await result.save('Boom')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(true)
+    })
+
+    it('rename flags the missing folder next to the error', async () => {
+      mockRenamePlaylist.mockResolvedValue('no-playlist-dir')
+      const { result } = await mountComposable()
+
+      await result.rename('a', 'New name')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(true)
+    })
+
+    it('remove flags the missing folder next to the error', async () => {
+      mockDeletePlaylist.mockResolvedValue('no-playlist-dir')
+      const { result } = await mountComposable()
+
+      await result.remove('a')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(true)
+    })
+
+    it('leaves the flag down for an ordinary server failure', async () => {
+      mockSavePlaylist.mockResolvedValue('failed')
+      const { result } = await mountComposable()
+
+      await result.save('Boom')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+    })
+
+    it('leaves the flag down when the request throws', async () => {
+      mockSavePlaylist.mockRejectedValue(new Error('network'))
+      const { result } = await mountComposable()
+
+      await result.save('Boom')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+    })
+
+    it('drops the flag once a later write succeeds', async () => {
+      mockSavePlaylist.mockResolvedValueOnce('no-playlist-dir')
+      const { result } = await mountComposable()
+
+      await result.save('Boom')
+      expect(result.playlistDirMissing.value).toBe(true)
+
+      await result.save('Fine')
+
+      expect(result.error.value).toBe(false)
+      expect(result.playlistDirMissing.value).toBe(false)
+    })
+
+    it('drops the flag when a later ordinary failure replaces it', async () => {
+      mockSavePlaylist.mockResolvedValueOnce('no-playlist-dir')
+      mockSavePlaylist.mockResolvedValueOnce('failed')
+      const { result } = await mountComposable()
+
+      await result.save('Boom')
+      await result.save('Boom again')
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
     })
   })
 

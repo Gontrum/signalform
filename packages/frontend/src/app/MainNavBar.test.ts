@@ -64,7 +64,9 @@ describe('MainNavBar', () => {
     const icon = badge.find('img')
     expect(icon.exists()).toBe(true)
     expect(icon.attributes('src')).toBe('/icon-192.png')
-    expect(icon.attributes('alt')).toBe('Signalform icon')
+    // Decorative: the brand name is right beside it, so the icon stays out of
+    // the accessible name instead of repeating it in one fixed language.
+    expect(icon.attributes('alt')).toBe('')
   })
 
   it('renders a semantic nav element with aria-label from i18n', async () => {

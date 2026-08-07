@@ -90,7 +90,7 @@ const modeButtonClass = (isActive: boolean): readonly string[] => [
       data-testid="previous-button"
       class="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
       :disabled="!canSkipPrevious"
-      :aria-label="'Skip to previous track'"
+      :aria-label="t('nowPlaying.skipPrevious')"
       @click="handlePrevious"
     >
       <!-- Previous/Skip-Back Icon (⏮) -->
@@ -110,7 +110,11 @@ const modeButtonClass = (isActive: boolean): readonly string[] => [
       data-testid="play-pause-button"
       class="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-accent-500 hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50 transition-colors shadow-md"
       :disabled="playbackStore.isLoading"
-      :aria-label="playbackStore.isPlaying && !playbackStore.isPaused ? 'Pause' : 'Play'"
+      :aria-label="
+        playbackStore.isPlaying && !playbackStore.isPaused
+          ? t('nowPlaying.pause')
+          : t('nowPlaying.play')
+      "
       @click="handlePlayPause"
     >
       <!-- Loading Spinner -->
@@ -152,7 +156,7 @@ const modeButtonClass = (isActive: boolean): readonly string[] => [
       data-testid="next-button"
       class="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 transition-colors"
       :disabled="!canSkipNext"
-      :aria-label="'Skip to next track'"
+      :aria-label="t('nowPlaying.skipNext')"
       @click="handleNext"
     >
       <!-- Next/Skip-Forward Icon (⏭) -->

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { formatSeconds } from '@signalform/shared'
 import AlbumCover from '@/ui/AlbumCover.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
@@ -53,6 +53,17 @@ const selectSleepOff = async (): Promise<void> => {
   isSleepMenuOpen.value = false
   await cancel()
 }
+
+const artistPageAriaLabel = computed((): string =>
+  t('nowPlaying.goToArtist').replace('{name}', playbackStore.currentTrack?.artist ?? ''),
+)
+
+const albumPageAriaLabel = computed((): string =>
+  t('nowPlaying.goToAlbum').replace(
+    '{title}',
+    playbackStore.currentTrack?.album ?? t('album.titleFallback'),
+  ),
+)
 </script>
 
 <template>
@@ -79,12 +90,10 @@ const selectSleepOff = async (): Promise<void> => {
       v-if="playbackStore.hasCurrentTrack"
       class="flex w-full flex-col items-center text-center"
       role="region"
-      aria-label="Now Playing"
+      :aria-label="t('nowPlaying.regionLabel')"
     >
-      <AlbumCover
-        :cover-art-url="playbackStore.currentTrack?.coverArtUrl"
-        :alt="`${playbackStore.currentTrack?.title ?? ''} by ${playbackStore.currentTrack?.artist ?? ''}`"
-      />
+      <!-- Decorative: title and artist follow as visible text below the cover. -->
+      <AlbumCover :cover-art-url="playbackStore.currentTrack?.coverArtUrl" alt="" />
 
       <!-- Track Info -->
       <div class="w-full max-w-sm space-y-2">
@@ -95,7 +104,7 @@ const selectSleepOff = async (): Promise<void> => {
           v-if="playbackStore.currentTrack?.artist"
           type="button"
           data-testid="track-artist"
-          :aria-label="`Go to ${playbackStore.currentTrack?.artist ?? 'artist'} page`"
+          :aria-label="artistPageAriaLabel"
           class="min-h-11 px-2 text-base text-neutral-600 truncate hover:underline hover:text-neutral-900 focus:underline focus:text-neutral-900 focus:outline-none"
           @click="navigateToArtist"
         >
@@ -108,7 +117,7 @@ const selectSleepOff = async (): Promise<void> => {
           v-if="playbackStore.currentTrack?.albumId"
           type="button"
           data-testid="track-album"
-          :aria-label="`Go to ${playbackStore.currentTrack?.album ?? 'album'} page`"
+          :aria-label="albumPageAriaLabel"
           class="min-h-11 px-2 text-sm text-neutral-500 truncate hover:underline hover:text-neutral-700 focus:underline focus:text-neutral-700 focus:outline-none"
           @click="navigateToAlbum"
         >
@@ -121,7 +130,7 @@ const selectSleepOff = async (): Promise<void> => {
         <div v-if="hasLastFmSession" class="mt-2 flex justify-center">
           <button
             type="button"
-            :aria-label="isLoved ? 'Unlove track on Last.fm' : 'Love track on Last.fm'"
+            :aria-label="isLoved ? t('nowPlaying.unloveTrack') : t('nowPlaying.loveTrack')"
             :disabled="isLoving"
             data-testid="love-button"
             class="min-h-11 min-w-11 flex items-center justify-center rounded-full text-neutral-400 hover:text-error focus:outline-none focus:text-error disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -277,7 +286,7 @@ const selectSleepOff = async (): Promise<void> => {
       <div
         class="mt-4 w-full max-w-sm pb-1"
         data-testid="queue-preview"
-        aria-label="Upcoming tracks"
+        :aria-label="t('nowPlaying.queuePreviewLabel')"
       >
         <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
           {{ t('nowPlaying.upNext') }}
@@ -339,7 +348,7 @@ const selectSleepOff = async (): Promise<void> => {
         v-if="queuedTracks.length > 0"
         class="mt-6 w-full max-w-sm pb-1 text-left"
         data-testid="queued-empty-state"
-        aria-label="Queued tracks"
+        :aria-label="t('nowPlaying.queuedTracksLabel')"
       >
         <h3 class="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-600">
           {{ t('nowPlaying.upNext') }}
@@ -382,7 +391,7 @@ const selectSleepOff = async (): Promise<void> => {
           class="min-h-11 px-2 text-xs font-medium text-error underline hover:text-error"
           @click="playbackStore.clearError"
         >
-          Dismiss
+          {{ t('nowPlaying.dismissError') }}
         </button>
       </template>
     </Banner>

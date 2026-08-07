@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import type { VNode } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
-import type { PlaylistTrack } from '@/platform/api/playlistsApi'
+import type { PlaylistTrack, PlaylistWriteResult } from '@/platform/api/playlistsApi'
 
 vi.mock('@/platform/api/playlistsApi', () => ({
   savePlaylist: vi.fn(),
@@ -61,7 +61,7 @@ describe('usePlaylists – track list', () => {
       { id: 'b', name: 'Two' },
     ])
     mockGetPlaylistTracks.mockResolvedValue({ tracks: pageA, hasMore: false })
-    mockRemovePlaylistTrack.mockResolvedValue(true)
+    mockRemovePlaylistTrack.mockResolvedValue('ok')
   })
 
   it('starts with no playlist expanded and no tracks', async () => {
@@ -245,8 +245,21 @@ describe('usePlaylists – track list', () => {
       expect(mockGetPlaylistTracks).toHaveBeenCalledWith('a', 403, 0)
     })
 
+    it('names the missing playlist folder when LMS cannot write playlists at all', async () => {
+      mockRemovePlaylistTrack.mockResolvedValue('no-playlist-dir')
+      const { result } = await mountComposable()
+      await result.toggleTracks('a')
+      mockGetPlaylistTracks.mockClear()
+
+      await result.removeTrack(6)
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(true)
+      expect(result.tracks.value).toEqual(pageA)
+    })
+
     it('sets the error and leaves the list untouched when the removal fails', async () => {
-      mockRemovePlaylistTrack.mockResolvedValue(false)
+      mockRemovePlaylistTrack.mockResolvedValue('failed')
       const { result } = await mountComposable()
       await result.toggleTracks('a')
       mockGetPlaylistTracks.mockClear()
@@ -257,6 +270,7 @@ describe('usePlaylists – track list', () => {
       expect(result.tracks.value).toEqual(pageA)
       expect(result.expandedId.value).toBe('a')
       expect(result.error.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
     })
 
     it('sets the error and leaves the list untouched when removePlaylistTrack throws', async () => {
@@ -287,10 +301,10 @@ describe('usePlaylists – track list', () => {
     })
 
     it('ignores a second removal while the first is still in flight', async () => {
-      let releaseFirst: ((removed: boolean) => void) | undefined
+      let releaseFirst: ((removed: PlaylistWriteResult) => void) | undefined
       mockRemovePlaylistTrack.mockImplementationOnce(
         async () =>
-          await new Promise<boolean>((resolve) => {
+          await new Promise<PlaylistWriteResult>((resolve) => {
             releaseFirst = resolve
           }),
       )
@@ -305,7 +319,7 @@ describe('usePlaylists – track list', () => {
       expect(mockRemovePlaylistTrack).toHaveBeenCalledWith('a', 6)
       expect(result.isRemovingTrack.value).toBe(true)
 
-      releaseFirst?.(true)
+      releaseFirst?.('ok')
       await first
       expect(result.isRemovingTrack.value).toBe(false)
     })

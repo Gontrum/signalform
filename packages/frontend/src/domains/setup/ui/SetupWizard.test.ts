@@ -5,7 +5,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { setActivePinia, createPinia } from 'pinia'
 import type { Router } from 'vue-router'
 import type { VueWrapper } from '@vue/test-utils'
+import type { Language } from '@/types/i18n'
 import SetupWizard from '@/domains/setup/ui/SetupWizardView.vue'
+import { setupTestEnv } from '@/test-utils'
 
 vi.mock('@/platform/api/setupApi', () => ({
   discoverServers: vi.fn(),
@@ -302,5 +304,65 @@ describe('SetupWizard', () => {
 
     expect(context.wrapper.find('[data-testid="save-error"]').exists()).toBe(true)
     expect(context.wrapper.find('[data-testid="step-done"]').exists()).toBe(false)
+  })
+})
+
+describe('SetupWizard — API key step in both languages', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+
+    const { discoverServers, getPlayers } = await import('@/platform/api/setupApi')
+    vi.mocked(discoverServers).mockResolvedValue({ ok: true, value: [] })
+    vi.mocked(getPlayers).mockResolvedValue({ ok: true, value: [makePlayer()] })
+  })
+
+  const mountKeysStep = async (language: Language): Promise<VueWrapper> => {
+    const router = makeRouter()
+    await router.push('/setup')
+    await router.isReady()
+
+    const i18nStore = setupTestEnv()
+    i18nStore.setLanguage(language)
+
+    const wrapper = mount(SetupWizard, { global: { plugins: [router] } })
+    await wrapper.find('[data-testid="manual-host-input"]').setValue('192.168.1.100')
+    await wrapper.find('[data-testid="proceed-to-player-button"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-testid="player-item"]').trigger('click')
+    await wrapper.find('[data-testid="proceed-to-keys-button"]').trigger('click')
+    await nextTick()
+    return wrapper
+  }
+
+  const keyFieldTexts = (
+    wrapper: VueWrapper,
+  ): {
+    readonly lastFmLabel: string
+    readonly lastFmPlaceholder: string | undefined
+    readonly fanartLabel: string
+    readonly fanartPlaceholder: string | undefined
+  } => ({
+    lastFmLabel: wrapper.find('label[for="setup-lastfm-key"]').text(),
+    lastFmPlaceholder: wrapper.find('[data-testid="lastfm-key-input"]').attributes('placeholder'),
+    fanartLabel: wrapper.find('label[for="setup-fanart-key"]').text(),
+    fanartPlaceholder: wrapper.find('[data-testid="fanart-key-input"]').attributes('placeholder'),
+  })
+
+  it('labels both key fields in English', async () => {
+    expect(keyFieldTexts(await mountKeysStep('en'))).toEqual({
+      lastFmLabel: 'Last.fm API key',
+      lastFmPlaceholder: 'Optional — enables artist enrichment',
+      fanartLabel: 'Fanart.tv API key',
+      fanartPlaceholder: 'Optional — enables artist hero images',
+    })
+  })
+
+  it('labels both key fields in German while keeping the service names', async () => {
+    expect(keyFieldTexts(await mountKeysStep('de'))).toEqual({
+      lastFmLabel: 'Last.fm-API-Schlüssel',
+      lastFmPlaceholder: 'Optional — aktiviert Künstlerinfos',
+      fanartLabel: 'Fanart.tv-API-Schlüssel',
+      fanartPlaceholder: 'Optional — aktiviert Künstlerbilder',
+    })
   })
 })
