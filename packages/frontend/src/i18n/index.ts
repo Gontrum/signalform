@@ -9,7 +9,6 @@ export type MessageKey =
   | 'settings.languageGerman'
   | 'settings.saving'
   | 'settings.saveButton'
-  | 'settings.backToHome'
   | 'settings.runSetupAgain'
   | 'settings.fullResultsBack'
   | 'settings.discoverScanning'
@@ -21,6 +20,7 @@ export type MessageKey =
   | 'settings.playersFailed'
   | 'settings.lastfmPlaceholderConfigured'
   | 'settings.lastfmPlaceholderEmpty'
+  | 'settings.apiKeyConfigured'
   | 'settings.fanartPlaceholderConfigured'
   | 'settings.fanartPlaceholderEmpty'
   | 'settings.hostLabel'
@@ -40,12 +40,14 @@ export type MessageKey =
   | 'connection.lost'
   | 'connection.reconnecting'
   | 'player.statusUnavailable'
-  | 'home.title'
+  | 'player.lmsDisconnected'
+  | 'player.disconnected'
   | 'home.searchPlaceholder'
-  | 'home.searchPlaceholderHero'
   | 'home.emptyState.title'
   | 'home.emptyState.description'
   | 'home.minLengthHint'
+  | 'home.suggestionsOne'
+  | 'home.suggestionsOther'
   | 'home.resultsFor'
   | 'home.loading'
   | 'home.searching'
@@ -56,12 +58,13 @@ export type MessageKey =
   | 'home.goToArtist'
   | 'home.playAlbum'
   | 'home.addAlbumToQueue'
+  | 'home.addAlbumToQueueButton'
   | 'queue.title'
   | 'queue.menu'
   | 'queue.empty'
   | 'queue.clear'
-  | 'queue.remove'
   | 'queue.backToNowPlaying'
+  | 'queue.jumpFailed'
   | 'library.emptyLocal'
   | 'library.emptyTidal'
   | 'library.featuredTidal'
@@ -94,18 +97,31 @@ export type MessageKey =
   | 'library.searchArtistsPlaceholder'
   | 'library.recentlyAddedCapNotice'
   | 'library.decadeScopeNotice'
+  | 'library.clearFilters'
+  | 'library.decadeAll'
+  | 'library.decade2020s'
+  | 'library.decade2010s'
+  | 'library.decade2000s'
+  | 'library.decade1990s'
+  | 'library.decadeOlder'
+  | 'library.filterSummaryNone'
+  | 'library.filterSummaryAria'
+  | 'library.filterSheetTitle'
+  | 'library.filterSheetClose'
+  | 'library.filterSheetDone'
   | 'setup.title'
   | 'setup.next'
   | 'setup.back'
   | 'setup.skip'
   | 'setup.save'
-  | 'setup.tryAgain'
   | 'setup.error.loadFailed'
   | 'setup.error.saveFailed'
   | 'setup.hint.connection'
   | 'setup.hint.keys'
   | 'setup.hint.lastfm'
   | 'setup.hint.fanart'
+  | 'setup.playerOnline'
+  | 'setup.doneConnected'
   | 'queue.loading'
   | 'queue.dragHint'
   | 'queue.dropAfter'
@@ -113,7 +129,6 @@ export type MessageKey =
   | 'queue.dragging'
   | 'queue.dragOverlay'
   | 'queue.nowPlayingLabel'
-  | 'settings.section.general'
   | 'settings.section.integration'
   | 'settings.section.experience'
   | 'settings.section.advanced'
@@ -125,6 +140,14 @@ export type MessageKey =
   | 'album.enrichment.heading'
   | 'album.enrichment.error.notFound'
   | 'album.enrichment.error.unavailable'
+  | 'album.trackCountOne'
+  | 'album.trackCountOther'
+  // Both the album and the artist view print the same Last.fm stat line, so the
+  // two share one key set rather than keeping wordings that can drift apart.
+  | 'enrichment.listenersOne'
+  | 'enrichment.listenersOther'
+  | 'enrichment.playsOne'
+  | 'enrichment.playsOther'
   | 'album.errorNotFoundTitle'
   | 'album.errorNotFoundMessage'
   | 'nowPlaying.emptyTitle'
@@ -140,12 +163,8 @@ export type MessageKey =
   | 'nowPlaying.repeat.off'
   | 'nowPlaying.repeat.track'
   | 'nowPlaying.repeat.playlist'
-  | 'artist.errorNotFoundTitle'
-  | 'artist.errorServerTitle'
   | 'artist.errorNotFoundMessage'
   | 'artist.errorServerMessage'
-  | 'artist.tidalAlbumCount'
-  | 'artist.tidalEmpty'
   | 'artist.localEmpty'
   | 'artist.topTracksHeading'
   | 'artist.playTopTrack'
@@ -157,8 +176,6 @@ export type MessageKey =
   | 'artist.similarInLibrarySr'
   | 'artist.similarMatch'
   | 'queue.radioModeToggle'
-  | 'queue.radioModeOn'
-  | 'queue.radioModeOff'
   | 'queue.radioModeSeparator'
   | 'queue.updating'
   | 'home.tidalUnavailable'
@@ -166,10 +183,12 @@ export type MessageKey =
   | 'queue.selectMode'
   | 'queue.cancelSelect'
   | 'queue.removeSelected'
+  | 'queue.removeTrack'
+  | 'queue.reorderTrack'
   | 'queue.selectAll'
   | 'queue.clearConfirm'
-  | 'artist.addTopTrackToQueue'
   | 'artist.addAllTopTracksToQueue'
+  | 'artist.addTopTrackToQueue'
   | 'artist.startRadio'
   | 'artist.radioStarting'
   | 'artist.radioError'
@@ -221,26 +240,92 @@ export type MessageKey =
   | 'playlists.title'
   | 'playlists.namePlaceholder'
   | 'playlists.save'
-  | 'playlists.load'
-  | 'playlists.delete'
+  | 'playlists.loadAria'
   | 'playlists.deleteConfirm'
   | 'playlists.deleteAria'
   | 'playlists.deleteConfirmAria'
-  | 'playlists.rename'
   | 'playlists.renameAria'
   | 'playlists.renameInputAria'
   | 'playlists.renameConfirm'
   | 'playlists.renameCancel'
   | 'playlists.empty'
   | 'playlists.error'
-  | 'playlists.tracks'
+  | 'playlists.errorNoPlaylistDir'
   | 'playlists.tracksShowAria'
   | 'playlists.tracksHideAria'
   | 'playlists.tracksLoading'
   | 'playlists.tracksEmpty'
   | 'playlists.tracksMore'
-  | 'playlists.trackRemove'
   | 'playlists.trackRemoveAria'
+  | 'library.sourceLocal'
+  | 'library.sourceTidal'
+  | 'artist.tidalHeading'
+  | 'album.titleFallback'
+  | 'nowPlaying.dismissError'
+  | 'home.playing'
+  | 'source.local'
+  | 'source.qobuz'
+  | 'source.tidal'
+  | 'source.unknown'
+  | 'source.streaming'
+  | 'source.alsoAvailable'
+  | 'source.tooltip.local'
+  | 'source.tooltip.qobuz'
+  | 'source.tooltip.tidal'
+  | 'source.tooltip.unknown'
+  | 'settings.apiKeysSection'
+  | 'settings.lastfmKeyLabel'
+  | 'settings.lastfmSecretLabel'
+  | 'settings.fanartKeyLabel'
+  | 'setup.lastfmKeyLabel'
+  | 'setup.lastfmKeyPlaceholder'
+  | 'setup.fanartKeyLabel'
+  | 'setup.fanartKeyPlaceholder'
+  | 'library.sourceTabsLabel'
+  | 'library.sortOrderLabel'
+  | 'library.decadeFilterLabel'
+  | 'library.gridView'
+  | 'library.listView'
+  | 'library.rescanAriaIdle'
+  | 'library.rescanAriaScanning'
+  | 'queue.trackListLabel'
+  | 'queue.radioBoundaryLabel'
+  | 'queue.selectTrack'
+  | 'queue.trackLabel'
+  | 'queue.trackLabelCurrent'
+  | 'nowPlaying.regionLabel'
+  | 'nowPlaying.trackAnnouncement'
+  | 'nowPlaying.pausedAnnouncement'
+  | 'nowPlaying.errorAnnouncement'
+  | 'nowPlaying.queuePreviewLabel'
+  | 'nowPlaying.queuedTracksLabel'
+  | 'nowPlaying.goToArtist'
+  | 'nowPlaying.goToAlbum'
+  | 'nowPlaying.loveTrack'
+  | 'nowPlaying.unloveTrack'
+  | 'nowPlaying.volumeControl'
+  | 'nowPlaying.volumeSlider'
+  | 'nowPlaying.mute'
+  | 'nowPlaying.unmute'
+  | 'home.resultsListLabel'
+  | 'home.autocompleteLabel'
+  | 'home.searchForQuery'
+  | 'home.addTrackToQueue'
+  | 'home.playTrack'
+  | 'home.pauseTrack'
+  | 'home.playAlbumAria'
+  | 'home.goToArtistAria'
+  | 'album.playTrack'
+  | 'library.viewAlbum'
+  | 'nowPlaying.play'
+  | 'nowPlaying.pause'
+  | 'nowPlaying.skipPrevious'
+  | 'nowPlaying.skipNext'
+  | 'nowPlaying.playbackTime'
+  | 'nowPlaying.playbackPosition'
+  | 'quality.ariaLabel'
+  | 'quality.ariaLabelLossless'
+  | 'quality.sourceAriaLabel'
 
 export const messages: Record<Language, Record<MessageKey, string>> = {
   en: {
@@ -252,7 +337,6 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.languageGerman': 'German',
     'settings.saving': 'Saving…',
     'settings.saveButton': 'Save settings',
-    'settings.backToHome': 'Back to home',
     'settings.runSetupAgain': 'Run setup wizard again',
     'settings.fullResultsBack': 'Back',
     'settings.discoverScanning': 'Scanning…',
@@ -264,6 +348,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.playersFailed': 'Could not connect to LMS at {host}:{port}.',
     'settings.lastfmPlaceholderConfigured': 'Enter new key to replace',
     'settings.lastfmPlaceholderEmpty': 'Optional — enables artist enrichment',
+    'settings.apiKeyConfigured': 'configured',
     'settings.fanartPlaceholderConfigured': 'Enter new key to replace',
     'settings.fanartPlaceholderEmpty': 'Optional — enables artist hero images',
     'settings.hostLabel': 'LMS Host',
@@ -285,12 +370,14 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'connection.reconnecting': 'Reconnecting to server…',
     'player.statusUnavailable':
       'Speaker is not answering — the music server is reachable, so check the speaker',
-    'home.title': 'Start',
+    'player.lmsDisconnected': 'Cannot connect to music server',
+    'player.disconnected': 'Speaker lost connection to server',
     'home.searchPlaceholder': 'Search albums, artists or tracks…',
-    'home.searchPlaceholderHero': 'Search for music',
     'home.emptyState.title': 'Nothing here yet',
     'home.emptyState.description': 'Start a search to find music in your library.',
     'home.minLengthHint': 'Type at least 2 characters to see suggestions.',
+    'home.suggestionsOne': '{count} suggestion',
+    'home.suggestionsOther': '{count} suggestions',
     'home.resultsFor': 'Results for',
     'home.loading': 'Loading…',
     'home.searching': 'Searching…',
@@ -301,12 +388,13 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.goToArtist': 'Go to artist',
     'home.playAlbum': 'Play album',
     'home.addAlbumToQueue': 'Add album {title} to queue',
+    'home.addAlbumToQueueButton': 'Queue',
     'queue.title': 'Queue',
     'queue.menu': 'Queue options',
     'queue.empty': 'Your queue is currently empty.',
     'queue.clear': 'Clear queue',
-    'queue.remove': 'Remove from queue',
     'queue.backToNowPlaying': 'Back to now playing',
+    'queue.jumpFailed': 'Failed to jump to track',
     'queue.loading': 'Loading queue…',
     'library.emptyLocal': 'No albums found in your library',
     'library.emptyTidal': 'No albums found in your Tidal library',
@@ -343,6 +431,18 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
       'End of the list — LMS reports at most the 100 most recently added albums.',
     'library.decadeScopeNotice':
       'Inside a decade the server orders by year first, then by {sort}. Albums without a release year belong to no decade and show up only without a decade filter.',
+    'library.clearFilters': 'Clear all filters',
+    'library.decadeAll': 'All years',
+    'library.decade2020s': '2020s',
+    'library.decade2010s': '2010s',
+    'library.decade2000s': '2000s',
+    'library.decade1990s': '90s',
+    'library.decadeOlder': 'Older',
+    'library.filterSummaryNone': 'All albums',
+    'library.filterSummaryAria': 'Sort and filter: {filters}',
+    'library.filterSheetTitle': 'Sort & filter',
+    'library.filterSheetClose': 'Close sort and filter',
+    'library.filterSheetDone': 'Show albums',
     'queue.dragHint': 'Drag a row, then release on the highlighted insertion target.',
     'queue.dropAfter': 'Release to move after this track.',
     'queue.dropBefore': 'Release to move before this track.',
@@ -354,14 +454,14 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'setup.back': 'Back',
     'setup.skip': 'Skip for now',
     'setup.save': 'Save configuration',
-    'setup.tryAgain': 'Try again',
     'setup.error.loadFailed': 'The configuration could not be loaded.',
     'setup.error.saveFailed': 'Saving the configuration failed.',
     'setup.hint.connection': 'Use the host and port of your Logitech Media Server.',
     'setup.hint.keys': 'API keys are optional but improve artwork and scrobbling.',
     'setup.hint.lastfm': 'Free. Register an API application at ',
     'setup.hint.fanart': 'Free. Log in to Fanart.tv and copy your personal API key from ',
-    'settings.section.general': 'General',
+    'setup.playerOnline': 'online',
+    'setup.doneConnected': 'Signalform is connected to {host} · {player}.',
     'settings.section.integration': 'Integrations',
     'settings.section.experience': 'Experience',
     'settings.section.advanced': 'Advanced',
@@ -373,6 +473,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'album.enrichment.heading': 'Album notes',
     'album.enrichment.error.notFound': 'No additional album information is available.',
     'album.enrichment.error.unavailable': 'Album information is currently unavailable.',
+    'album.trackCountOne': '{count} track',
+    'album.trackCountOther': '{count} tracks',
+    'enrichment.listenersOne': '{count} listener',
+    'enrichment.listenersOther': '{count} listeners',
+    'enrichment.playsOne': '{count} play',
+    'enrichment.playsOther': '{count} plays',
     'album.errorNotFoundTitle': 'Album not found',
     'album.errorNotFoundMessage': 'This album is not available.',
     'nowPlaying.emptyTitle': 'No track playing',
@@ -388,15 +494,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nowPlaying.repeat.off': 'Repeat off',
     'nowPlaying.repeat.track': 'Repeat track',
     'nowPlaying.repeat.playlist': 'Repeat queue',
-    'artist.errorNotFoundTitle': 'No albums found',
-    'artist.errorServerTitle': 'Unable to load artist',
     'artist.errorNotFoundMessage': 'No albums were found for this artist.',
     'artist.errorServerMessage': 'There was a problem loading this artist.',
-    'artist.tidalAlbumCount': '{count} {count, plural, one {album} other {albums}}',
-    'artist.tidalEmpty': 'No albums found for {name}',
     'artist.localEmpty': 'No albums found for {name}',
     'artist.topTracksHeading': 'Top tracks',
-    'artist.playTopTrack': 'Play',
+    'artist.playTopTrack': 'Play {title}',
     'artist.sortLabel': 'Sort',
     'artist.sort.year': 'Year',
     'artist.sort.popularity': 'Popular',
@@ -405,8 +507,6 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.similarInLibrarySr': 'In library',
     'artist.similarMatch': '{percent}% match',
     'queue.radioModeToggle': 'Radio',
-    'queue.radioModeOn': 'Radio mode is on',
-    'queue.radioModeOff': 'Radio mode is off',
     'queue.radioModeSeparator': '— Radio Mode —',
     'queue.updating': 'Updating queue…',
     'home.tidalUnavailable': 'Tidal is currently unavailable. Only local results are shown.',
@@ -414,10 +514,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.selectMode': 'Select',
     'queue.cancelSelect': 'Cancel',
     'queue.removeSelected': 'Remove selected',
+    'queue.removeTrack': 'Remove {title} from queue',
+    'queue.reorderTrack': 'Reorder {title}',
     'queue.selectAll': 'Select all',
     'queue.clearConfirm': 'Clear?',
-    'artist.addTopTrackToQueue': 'Add to queue',
     'artist.addAllTopTracksToQueue': 'Add all to queue',
+    'artist.addTopTrackToQueue': 'Add {title} to queue',
     'artist.startRadio': 'Artist Radio',
     'artist.radioStarting': 'Starting radio…',
     'artist.radioError': 'Could not start radio',
@@ -469,26 +571,93 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.title': 'Playlists',
     'playlists.namePlaceholder': 'Playlist name',
     'playlists.save': 'Save queue',
-    'playlists.load': 'Load',
-    'playlists.delete': 'Delete',
+    'playlists.loadAria': 'Load playlist {name}',
     'playlists.deleteConfirm': 'Tap again to delete',
     'playlists.deleteAria': 'Delete playlist {name}',
     'playlists.deleteConfirmAria': 'Tap again to delete playlist {name}',
-    'playlists.rename': 'Rename',
     'playlists.renameAria': 'Rename playlist {name}',
     'playlists.renameInputAria': 'New name for playlist {name}',
     'playlists.renameConfirm': 'Save name',
     'playlists.renameCancel': 'Cancel',
     'playlists.empty': 'No saved playlists yet',
     'playlists.error': 'Something went wrong. Please try again.',
-    'playlists.tracks': 'Tracks',
+    'playlists.errorNoPlaylistDir':
+      'Lyrion Music Server has no playlist folder configured, so it cannot save playlists. Set a playlist folder in the LMS settings.',
     'playlists.tracksShowAria': 'Show tracks of playlist {name}',
     'playlists.tracksHideAria': 'Hide tracks of playlist {name}',
     'playlists.tracksLoading': 'Loading tracks…',
     'playlists.tracksEmpty': 'This playlist has no tracks',
     'playlists.tracksMore': 'Show more tracks',
-    'playlists.trackRemove': 'Remove',
     'playlists.trackRemoveAria': 'Remove {title} from playlist {name}',
+    'library.sourceLocal': 'Local',
+    'library.sourceTidal': 'Tidal',
+    'artist.tidalHeading': 'On Tidal',
+    'album.titleFallback': 'Album',
+    'nowPlaying.dismissError': 'Dismiss',
+    'home.playing': 'Playing…',
+    'source.local': 'Local',
+    'source.qobuz': 'Qobuz',
+    'source.tidal': 'Tidal',
+    'source.unknown': 'Unknown',
+    'source.streaming': 'Streaming',
+    'source.alsoAvailable': 'Also available on: {sources}',
+    'source.tooltip.local': 'Playing from Local library',
+    'source.tooltip.qobuz': 'Streaming from Qobuz',
+    'source.tooltip.tidal': 'Streaming from Tidal',
+    'source.tooltip.unknown': 'Source unknown',
+    'settings.apiKeysSection': 'API Keys',
+    'settings.lastfmKeyLabel': 'Last.fm API Key',
+    'settings.lastfmSecretLabel': 'Last.fm Shared Secret',
+    'settings.fanartKeyLabel': 'Fanart.tv API Key',
+    'setup.lastfmKeyLabel': 'Last.fm API key',
+    'setup.lastfmKeyPlaceholder': 'Optional — enables artist enrichment',
+    'setup.fanartKeyLabel': 'Fanart.tv API key',
+    'setup.fanartKeyPlaceholder': 'Optional — enables artist hero images',
+    'library.sourceTabsLabel': 'Music source',
+    'library.sortOrderLabel': 'Sort order',
+    'library.decadeFilterLabel': 'Filter by decade',
+    'library.gridView': 'Grid view',
+    'library.listView': 'List view',
+    'library.rescanAriaIdle': 'Refresh local library',
+    'library.rescanAriaScanning': 'Scanning library…',
+    'queue.trackListLabel': 'Queue tracks',
+    'queue.radioBoundaryLabel': 'Radio mode starts here',
+    'queue.selectTrack': 'Select {title}',
+    'queue.trackLabel': '{title} by {name}',
+    'queue.trackLabelCurrent': '{title} by {name} — currently playing',
+    'nowPlaying.regionLabel': 'Now Playing',
+    'nowPlaying.trackAnnouncement': 'Now playing: {title} by {name}',
+    'nowPlaying.pausedAnnouncement': 'Paused: {title}',
+    'nowPlaying.errorAnnouncement': 'Error: {message}',
+    'nowPlaying.queuePreviewLabel': 'Upcoming tracks',
+    'nowPlaying.queuedTracksLabel': 'Queued tracks',
+    'nowPlaying.goToArtist': 'Go to {name} page',
+    'nowPlaying.goToAlbum': 'Go to {title} page',
+    'nowPlaying.loveTrack': 'Love track on Last.fm',
+    'nowPlaying.unloveTrack': 'Unlove track on Last.fm',
+    'nowPlaying.volumeControl': 'Volume control',
+    'nowPlaying.volumeSlider': 'Volume slider',
+    'nowPlaying.mute': 'Mute',
+    'nowPlaying.unmute': 'Unmute',
+    'home.resultsListLabel': 'Search results',
+    'home.autocompleteLabel': 'Autocomplete suggestions',
+    'home.searchForQuery': 'Search for {query}',
+    'home.addTrackToQueue': 'Add {title} to queue',
+    'home.playTrack': 'Play {title} by {name}',
+    'home.pauseTrack': 'Pause {title} by {name}',
+    'home.playAlbumAria': 'Play album {title}',
+    'home.goToArtistAria': 'Go to artist {name}',
+    'album.playTrack': 'Play {title}',
+    'library.viewAlbum': 'View {title} by {name}',
+    'nowPlaying.play': 'Play',
+    'nowPlaying.pause': 'Pause',
+    'nowPlaying.skipPrevious': 'Skip to previous track',
+    'nowPlaying.skipNext': 'Skip to next track',
+    'nowPlaying.playbackTime': 'Playback time: {time}',
+    'nowPlaying.playbackPosition': 'Playback position: {time}',
+    'quality.ariaLabel': 'Quality: {quality}',
+    'quality.ariaLabelLossless': 'Quality: {quality} (lossless)',
+    'quality.sourceAriaLabel': 'Source: {source}',
   },
   de: {
     'settings.title': 'Einstellungen',
@@ -499,7 +668,6 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.languageGerman': 'Deutsch',
     'settings.saving': 'Speichern…',
     'settings.saveButton': 'Einstellungen speichern',
-    'settings.backToHome': 'Zurück zur Startseite',
     'settings.runSetupAgain': 'Setup-Assistent erneut ausführen',
     'settings.fullResultsBack': 'Zurück',
     'settings.discoverScanning': 'Netzwerk wird durchsucht…',
@@ -510,7 +678,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.playersNone': 'Keine Player auf diesem Server gefunden.',
     'settings.playersFailed': 'Verbindung zum LMS unter {host}:{port} nicht möglich.',
     'settings.lastfmPlaceholderConfigured': 'Neuen Schlüssel eingeben, um zu ersetzen',
-    'settings.lastfmPlaceholderEmpty': 'Optional — enables artist enrichment',
+    'settings.lastfmPlaceholderEmpty': 'Optional – aktiviert Künstlerinfos',
+    'settings.apiKeyConfigured': 'hinterlegt',
     'settings.fanartPlaceholderConfigured': 'Neuen Schlüssel eingeben, um zu ersetzen',
     'settings.fanartPlaceholderEmpty': 'Optional – aktiviert Künstlerbilder',
     'settings.hostLabel': 'LMS Host',
@@ -532,12 +701,14 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'connection.reconnecting': 'Verbindung wird wiederhergestellt…',
     'player.statusUnavailable':
       'Lautsprecher antwortet nicht — der Musikserver ist erreichbar, prüfe den Lautsprecher',
-    'home.title': 'Startseite',
+    'player.lmsDisconnected': 'Keine Verbindung zum Musikserver',
+    'player.disconnected': 'Lautsprecher hat die Verbindung zum Server verloren',
     'home.searchPlaceholder': 'Alben, Künstler oder Titel suchen…',
-    'home.searchPlaceholderHero': 'Nach Musik suchen',
     'home.emptyState.title': 'Hier ist noch nichts',
     'home.emptyState.description': 'Starte eine Suche, um Musik in deiner Bibliothek zu finden.',
     'home.minLengthHint': 'Gib mindestens 2 Zeichen ein, um Vorschläge zu sehen.',
+    'home.suggestionsOne': '{count} Vorschlag',
+    'home.suggestionsOther': '{count} Vorschläge',
     'home.resultsFor': 'Ergebnisse für',
     'home.loading': 'Wird geladen…',
     'home.searching': 'Suche läuft…',
@@ -548,12 +719,13 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'home.goToArtist': 'Zum Künstler',
     'home.playAlbum': 'Album abspielen',
     'home.addAlbumToQueue': 'Album {title} zur Warteschlange hinzufügen',
+    'home.addAlbumToQueueButton': 'Warteschlange',
     'queue.title': 'Warteschlange',
     'queue.menu': 'Optionen',
     'queue.empty': 'Deine Warteschlange ist aktuell leer.',
     'queue.clear': 'Warteschlange leeren',
-    'queue.remove': 'Aus Warteschlange entfernen',
     'queue.backToNowPlaying': 'Zur aktuellen Wiedergabe',
+    'queue.jumpFailed': 'Wechsel zum Titel fehlgeschlagen',
     'queue.loading': 'Warteschlange wird geladen…',
     'library.emptyLocal': 'Keine Alben in deiner Bibliothek gefunden',
     'library.emptyTidal': 'Keine Alben in deiner Tidal-Bibliothek gefunden',
@@ -591,6 +763,18 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
       'Ende der Liste – LMS liefert höchstens die 100 zuletzt hinzugefügten Alben.',
     'library.decadeScopeNotice':
       'Innerhalb einer Dekade ordnet der Server zuerst nach Jahr, darin nach {sort}. Alben ohne Jahresangabe gehören zu keiner Dekade und erscheinen nur ohne Dekaden-Filter.',
+    'library.clearFilters': 'Alle Filter zurücksetzen',
+    'library.decadeAll': 'Alle Jahre',
+    'library.decade2020s': '2020er',
+    'library.decade2010s': '2010er',
+    'library.decade2000s': '2000er',
+    'library.decade1990s': '90er',
+    'library.decadeOlder': 'Älter',
+    'library.filterSummaryNone': 'Alle Alben',
+    'library.filterSummaryAria': 'Sortieren und filtern: {filters}',
+    'library.filterSheetTitle': 'Sortieren & filtern',
+    'library.filterSheetClose': 'Sortieren und filtern schließen',
+    'library.filterSheetDone': 'Alben anzeigen',
     'queue.dragHint': 'Ziehe eine Zeile und lasse sie auf dem markierten Ziel los.',
     'queue.dropAfter': 'Nach diesem Titel einfügen.',
     'queue.dropBefore': 'Vor diesem Titel einfügen.',
@@ -602,7 +786,6 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'setup.back': 'Zurück',
     'setup.skip': 'Später einrichten',
     'setup.save': 'Konfiguration speichern',
-    'setup.tryAgain': 'Erneut versuchen',
     'setup.error.loadFailed': 'Die Konfiguration konnte nicht geladen werden.',
     'setup.error.saveFailed': 'Das Speichern der Konfiguration ist fehlgeschlagen.',
     'setup.hint.connection': 'Verwende Host und Port deines Logitech Media Servers.',
@@ -610,7 +793,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'setup.hint.lastfm': 'Kostenlos. Registriere eine API-Anwendung unter ',
     'setup.hint.fanart':
       'Kostenlos. Melde dich bei Fanart.tv an und kopiere deinen persönlichen API-Key aus deinem Profil: ',
-    'settings.section.general': 'Allgemein',
+    'setup.playerOnline': 'online',
+    'setup.doneConnected': 'Signalform ist mit {host} · {player} verbunden.',
     'settings.section.integration': 'Integrationen',
     'settings.section.experience': 'Erlebnis',
     'settings.section.advanced': 'Erweitert',
@@ -622,6 +806,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'album.enrichment.heading': 'Albumnotizen',
     'album.enrichment.error.notFound': 'Keine zusätzlichen Albuminformationen verfügbar.',
     'album.enrichment.error.unavailable': 'Albuminformationen sind derzeit nicht verfügbar.',
+    'album.trackCountOne': '{count} Titel',
+    'album.trackCountOther': '{count} Titel',
+    'enrichment.listenersOne': '{count} Hörer',
+    'enrichment.listenersOther': '{count} Hörer',
+    'enrichment.playsOne': '{count} Wiedergabe',
+    'enrichment.playsOther': '{count} Wiedergaben',
     'album.errorNotFoundTitle': 'Album nicht gefunden',
     'album.errorNotFoundMessage': 'Dieses Album ist nicht verfügbar.',
     'nowPlaying.emptyTitle': 'Kein Titel wird abgespielt',
@@ -637,15 +827,11 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'nowPlaying.repeat.off': 'Wiederholung aus',
     'nowPlaying.repeat.track': 'Titel wiederholen',
     'nowPlaying.repeat.playlist': 'Warteschlange wiederholen',
-    'artist.errorNotFoundTitle': 'Keine Alben gefunden',
-    'artist.errorServerTitle': 'Künstler konnte nicht geladen werden',
     'artist.errorNotFoundMessage': 'Für diesen Künstler wurden keine Alben gefunden.',
     'artist.errorServerMessage': 'Beim Laden dieses Künstlers ist ein Fehler aufgetreten.',
-    'artist.tidalAlbumCount': '{count} {count, plural, one {Album} other {Alben}}',
-    'artist.tidalEmpty': 'Keine Alben für {name} gefunden',
     'artist.localEmpty': 'Keine Alben für {name} gefunden',
     'artist.topTracksHeading': 'Top-Titel',
-    'artist.playTopTrack': 'Abspielen',
+    'artist.playTopTrack': '{title} abspielen',
     'artist.sortLabel': 'Sortieren',
     'artist.sort.year': 'Jahr',
     'artist.sort.popularity': 'Beliebtheit',
@@ -654,8 +840,6 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'artist.similarInLibrarySr': 'In Bibliothek',
     'artist.similarMatch': '{percent}% Übereinstimmung',
     'queue.radioModeToggle': 'Radio',
-    'queue.radioModeOn': 'Radiomodus ist an',
-    'queue.radioModeOff': 'Radiomodus ist aus',
     'queue.radioModeSeparator': '— Radiomodus —',
     'queue.updating': 'Warteschlange wird aktualisiert…',
     'home.tidalUnavailable':
@@ -664,10 +848,12 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'queue.selectMode': 'Auswählen',
     'queue.cancelSelect': 'Abbrechen',
     'queue.removeSelected': 'Auswahl entfernen',
+    'queue.removeTrack': '{title} aus Warteschlange entfernen',
+    'queue.reorderTrack': '{title} verschieben',
     'queue.selectAll': 'Alle auswählen',
     'queue.clearConfirm': 'Wirklich leeren?',
-    'artist.addTopTrackToQueue': 'Zur Warteschlange',
     'artist.addAllTopTracksToQueue': 'Alle zur Warteschlange',
+    'artist.addTopTrackToQueue': '{title} zur Warteschlange hinzufügen',
     'artist.startRadio': 'Künstler-Radio',
     'artist.radioStarting': 'Radio wird gestartet…',
     'artist.radioError': 'Radio konnte nicht gestartet werden',
@@ -722,26 +908,93 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.title': 'Playlists',
     'playlists.namePlaceholder': 'Playlist-Name',
     'playlists.save': 'Queue speichern',
-    'playlists.load': 'Laden',
-    'playlists.delete': 'Löschen',
+    'playlists.loadAria': 'Playlist {name} laden',
     'playlists.deleteConfirm': 'Zum Löschen erneut tippen',
     'playlists.deleteAria': 'Playlist {name} löschen',
     'playlists.deleteConfirmAria': 'Zum Löschen der Playlist {name} erneut tippen',
-    'playlists.rename': 'Umbenennen',
     'playlists.renameAria': 'Playlist {name} umbenennen',
     'playlists.renameInputAria': 'Neuer Name für Playlist {name}',
     'playlists.renameConfirm': 'Name speichern',
     'playlists.renameCancel': 'Abbrechen',
     'playlists.empty': 'Noch keine gespeicherten Playlists',
     'playlists.error': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
-    'playlists.tracks': 'Titel',
+    'playlists.errorNoPlaylistDir':
+      'Im Lyrion Music Server ist kein Playlist-Ordner konfiguriert, deshalb kann er keine Playlists speichern. Bitte in den LMS-Einstellungen einen Playlist-Ordner festlegen.',
     'playlists.tracksShowAria': 'Titel der Playlist {name} anzeigen',
     'playlists.tracksHideAria': 'Titel der Playlist {name} ausblenden',
     'playlists.tracksLoading': 'Titel werden geladen …',
     'playlists.tracksEmpty': 'Diese Playlist enthält keine Titel',
     'playlists.tracksMore': 'Weitere Titel anzeigen',
-    'playlists.trackRemove': 'Entfernen',
     'playlists.trackRemoveAria': '{title} aus Playlist {name} entfernen',
+    'library.sourceLocal': 'Lokal',
+    'library.sourceTidal': 'Tidal',
+    'artist.tidalHeading': 'Bei Tidal',
+    'album.titleFallback': 'Album',
+    'nowPlaying.dismissError': 'Ausblenden',
+    'home.playing': 'Wird gestartet…',
+    'source.local': 'Lokal',
+    'source.qobuz': 'Qobuz',
+    'source.tidal': 'Tidal',
+    'source.unknown': 'Unbekannt',
+    'source.streaming': 'Streaming',
+    'source.alsoAvailable': 'Auch verfügbar auf: {sources}',
+    'source.tooltip.local': 'Wird aus der lokalen Bibliothek abgespielt',
+    'source.tooltip.qobuz': 'Wird von Qobuz gestreamt',
+    'source.tooltip.tidal': 'Wird von Tidal gestreamt',
+    'source.tooltip.unknown': 'Quelle unbekannt',
+    'settings.apiKeysSection': 'API-Schlüssel',
+    'settings.lastfmKeyLabel': 'Last.fm-API-Schlüssel',
+    'settings.lastfmSecretLabel': 'Last.fm-Shared-Secret',
+    'settings.fanartKeyLabel': 'Fanart.tv-API-Schlüssel',
+    'setup.lastfmKeyLabel': 'Last.fm-API-Schlüssel',
+    'setup.lastfmKeyPlaceholder': 'Optional — aktiviert Künstlerinfos',
+    'setup.fanartKeyLabel': 'Fanart.tv-API-Schlüssel',
+    'setup.fanartKeyPlaceholder': 'Optional — aktiviert Künstlerbilder',
+    'library.sourceTabsLabel': 'Musikquelle',
+    'library.sortOrderLabel': 'Sortierung',
+    'library.decadeFilterLabel': 'Nach Dekade filtern',
+    'library.gridView': 'Rasteransicht',
+    'library.listView': 'Listenansicht',
+    'library.rescanAriaIdle': 'Lokale Bibliothek aktualisieren',
+    'library.rescanAriaScanning': 'Bibliothek wird durchsucht…',
+    'queue.trackListLabel': 'Titel in der Warteschlange',
+    'queue.radioBoundaryLabel': 'Ab hier beginnt der Radiomodus',
+    'queue.selectTrack': '{title} auswählen',
+    'queue.trackLabel': '{title} von {name}',
+    'queue.trackLabelCurrent': '{title} von {name} — läuft gerade',
+    'nowPlaying.regionLabel': 'Läuft gerade',
+    'nowPlaying.trackAnnouncement': 'Läuft jetzt: {title} von {name}',
+    'nowPlaying.pausedAnnouncement': 'Pausiert: {title}',
+    'nowPlaying.errorAnnouncement': 'Fehler: {message}',
+    'nowPlaying.queuePreviewLabel': 'Kommende Titel',
+    'nowPlaying.queuedTracksLabel': 'Titel in der Warteschlange',
+    'nowPlaying.goToArtist': 'Zur Seite von {name}',
+    'nowPlaying.goToAlbum': 'Zum Album {title}',
+    'nowPlaying.loveTrack': 'Titel auf Last.fm liken',
+    'nowPlaying.unloveTrack': 'Like auf Last.fm entfernen',
+    'nowPlaying.volumeControl': 'Lautstärkeregelung',
+    'nowPlaying.volumeSlider': 'Lautstärkeregler',
+    'nowPlaying.mute': 'Stummschalten',
+    'nowPlaying.unmute': 'Stummschaltung aufheben',
+    'home.resultsListLabel': 'Suchergebnisse',
+    'home.autocompleteLabel': 'Suchvorschläge',
+    'home.searchForQuery': 'Nach {query} suchen',
+    'home.addTrackToQueue': '{title} zur Warteschlange hinzufügen',
+    'home.playTrack': '{title} von {name} abspielen',
+    'home.pauseTrack': '{title} von {name} pausieren',
+    'home.playAlbumAria': 'Album {title} abspielen',
+    'home.goToArtistAria': 'Zum Künstler {name}',
+    'album.playTrack': '{title} abspielen',
+    'library.viewAlbum': '{title} von {name} anzeigen',
+    'nowPlaying.play': 'Abspielen',
+    'nowPlaying.pause': 'Pause',
+    'nowPlaying.skipPrevious': 'Zum vorherigen Titel springen',
+    'nowPlaying.skipNext': 'Zum nächsten Titel springen',
+    'nowPlaying.playbackTime': 'Wiedergabezeit: {time}',
+    'nowPlaying.playbackPosition': 'Wiedergabeposition: {time}',
+    'quality.ariaLabel': 'Qualität: {quality}',
+    'quality.ariaLabelLossless': 'Verlustfreie Qualität: {quality}',
+    'quality.sourceAriaLabel': 'Quelle: {source}',
   },
 }
 
