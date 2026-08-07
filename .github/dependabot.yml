@@ -18,7 +18,9 @@ updates:
           - "minor"
           - "patch"
 
-  # npm packages (root)
+  # npm packages. One entry for the whole pnpm workspace: dependabot's npm
+  # fetcher pulls in pnpm-workspace.yaml and every member package.json from
+  # here, so a second entry per package raises the same bump twice.
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
@@ -32,87 +34,12 @@ updates:
     cooldown:
       default-days: 1
     groups:
-      root-dev-dependencies:
+      dev-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
-      root-production-patches:
-        dependency-type: "production"
-        update-types:
-          - "patch"
-
-  # npm packages (frontend)
-  - package-ecosystem: "npm"
-    directory: "/packages/frontend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels:
-      - "dependencies"
-      - "javascript"
-      - "frontend"
-    open-pull-requests-limit: 5
-    versioning-strategy: increase
-    cooldown:
-      default-days: 1
-    groups:
-      frontend-dev-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-      frontend-production-patches:
-        dependency-type: "production"
-        update-types:
-          - "patch"
-
-  # npm packages (backend)
-  - package-ecosystem: "npm"
-    directory: "/packages/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels:
-      - "dependencies"
-      - "javascript"
-      - "backend"
-    open-pull-requests-limit: 5
-    versioning-strategy: increase
-    cooldown:
-      default-days: 1
-    groups:
-      backend-dev-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-      backend-production-patches:
-        dependency-type: "production"
-        update-types:
-          - "patch"
-
-  # npm packages (shared)
-  - package-ecosystem: "npm"
-    directory: "/packages/shared"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    labels:
-      - "dependencies"
-      - "javascript"
-      - "shared"
-    open-pull-requests-limit: 5
-    versioning-strategy: increase
-    cooldown:
-      default-days: 1
-    groups:
-      shared-dev-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
-      shared-production-patches:
+      production-patches:
         dependency-type: "production"
         update-types:
           - "patch"
