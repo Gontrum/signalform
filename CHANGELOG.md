@@ -5,7 +5,7 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-08-07
 
 ### Added
 
@@ -18,15 +18,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - shuffle and repeat, set on LMS so they hold whatever else is controlling the
   player. Starting an album no longer silently clears repeat
 - track durations in search results
-- saved playlists can be renamed in place, and single tracks removed from them
+- saved playlists can be renamed in place
 - the library says where it is not showing everything: the 100-album LMS cap on
   "recently added", and that albums without a release year belong to no decade
+- browse a saved playlist's tracks and remove them one at a time
+- the interface is actually bilingual. Around fifty strings — visible text,
+  aria-labels and alt text — were hardcoded English and stayed English in
+  German mode; `pnpm check:i18n` now fails the build on a new one
 
 ### Changed
 
 - a decade page only counts the years it needs. A cold "older" page used to
   count every year in the decade before showing an album, and each keystroke in
   the search field paid for all of them again
+- managing playlists on a phone. The row gained renaming and track browsing
+  without spending the name on button text — the actions are icons, so the
+  playlist you are about to delete stays readable
+- browsing the library on a phone. Three chip rows and a genre field held the
+  top of the screen permanently; they now sit in a sheet behind a one-line
+  summary, and the source, mode and view switches share one row. Two full
+  album rows fit with music playing, where before not even one did
 
 ### Fixed
 
@@ -36,11 +47,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - polling backs off while LMS is unreachable instead of retrying every six
   seconds around the clock — roughly 10,000 failed requests a day against a
   server that is deliberately asleep
-
-### Planned
-
-- Mobile app improvements
-- Additional streaming service integrations
+- a switched-off speaker was reported as "cannot connect to music server" while
+  the server was answering fine. Those two are now told apart, which also stops
+  a wake-on-LAN packet being fired at a server that is already awake
+- an album that is simply not on Tidal no longer shows the same message as a
+  broken Tidal service, and the not-found screen no longer says "No albums
+  found" for a single album
+- a track cut off mid-play is now recorded with its position, and a deliberate
+  skip is told apart from it, so the long-standing "tracks break off" report
+  can be answered from the log instead of guessed at
+- playlist tracks show the album artist when a compilation track carries no
+  artist of its own, matching what the queue already showed
+- the sort and decade labels stayed English for German users everywhere,
+  including on desktop: both lists were built once at startup, before the
+  configured language had arrived
+- an LMS with no playlist folder configured reported "cannot connect to music
+  server" on every save, while the server was answering everything else
+- renaming a playlist, deleting one, or removing a single track from one said
+  "cannot connect to music server" when the playlist was already gone from the
+  server, and offered a retry that could never succeed. It now names the
+  missing playlist and reloads the stale list
 
 ---
 
@@ -896,14 +922,6 @@ First public beta release of Signalform - a modern web interface for Lyrion Musi
 
 ## Release Notes
 
-### What's Next?
-
-This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release with:
-
-- Improved mobile experience
-- Performance optimizations
-- Bug fixes based on community feedback
-
 ### How to Report Issues
 
 - **Bugs:** [GitHub Issues](https://github.com/Gontrum/signalform/issues)
@@ -912,7 +930,7 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.10.1...HEAD
+[1.0.0]: https://github.com/Gontrum/signalform/compare/v0.20.0...v1.0.0
 [0.10.1]: https://github.com/Gontrum/signalform/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Gontrum/signalform/compare/v0.9.10...v0.10.0
 [0.9.10]: https://github.com/Gontrum/signalform/compare/v0.9.8...v0.9.10
