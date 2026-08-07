@@ -94,6 +94,7 @@ export const createPlaylistsRoute = (
           request,
           lmsClient,
           result.error,
+          { kind: "new-playlist" },
           "LMS save playlist failed",
           { name: parsed.value },
         );
@@ -181,7 +182,7 @@ export const createPlaylistsRoute = (
    *
    * Delete a saved playlist.
    * Param: id — non-empty string (Fastify decodes percent-encoded segments)
-   * 204 | 400 | 5xx
+   * 204 | 400 | 404 | 5xx
    */
   fastify.delete<{ readonly Params: unknown }>(
     "/api/playlists/:id",
@@ -208,6 +209,7 @@ export const createPlaylistsRoute = (
           request,
           lmsClient,
           result.error,
+          { kind: "existing-playlist", playlistId: id },
           "LMS delete playlist failed",
           { id },
         );
@@ -225,10 +227,10 @@ export const createPlaylistsRoute = (
    * replaced, hence PATCH rather than PUT.
    * Param: id — non-empty string (Fastify decodes percent-encoded segments)
    * Body: { name: string } — same rule as POST /api/playlists
-   * 200 { id, name } | 400 | 5xx
+   * 200 { id, name } | 400 | 404 | 5xx
    *
-   * An unknown id is passed through to LMS, which acknowledges it silently —
-   * same behaviour as DELETE /api/playlists/:id.
+   * LMS drops the connection on an unknown id instead of answering, which
+   * surfaces as 404 — same behaviour as DELETE /api/playlists/:id.
    */
   fastify.patch<{ readonly Params: unknown; readonly Body: unknown }>(
     "/api/playlists/:id",
@@ -267,6 +269,7 @@ export const createPlaylistsRoute = (
           request,
           lmsClient,
           result.error,
+          { kind: "existing-playlist", playlistId: id },
           "LMS rename playlist failed",
           { id, name: parsed.value },
         );
@@ -341,14 +344,14 @@ export const createPlaylistsRoute = (
    *
    * Remove a single track from a saved playlist.
    * Params: id — non-empty string; index — non-negative integer
-   * 204 | 400 | 5xx
+   * 204 | 400 | 404 | 5xx
    *
    * The index is a position, not an identifier: removing track 3 shifts every
    * later track down by one. A caller deleting two tracks from one stale list
    * hits the wrong track the second time — it must reload after every delete.
    *
-   * An unknown id is passed through to LMS, which acknowledges it silently —
-   * same behaviour as DELETE /api/playlists/:id.
+   * LMS drops the connection on an unknown id instead of answering, which
+   * surfaces as 404 — same behaviour as DELETE /api/playlists/:id.
    */
   fastify.delete<{ readonly Params: unknown }>(
     "/api/playlists/:id/tracks/:index",
@@ -379,6 +382,7 @@ export const createPlaylistsRoute = (
           request,
           lmsClient,
           result.error,
+          { kind: "existing-playlist", playlistId: id },
           "LMS delete playlist track failed",
           { id, index },
         );

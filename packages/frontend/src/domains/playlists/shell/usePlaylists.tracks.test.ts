@@ -258,6 +258,23 @@ describe('usePlaylists – track list', () => {
       expect(result.tracks.value).toEqual(pageA)
     })
 
+    it('reports a gone playlist and reloads the list it was picked from', async () => {
+      mockRemovePlaylistTrack.mockResolvedValue('playlist-gone')
+      const { result } = await mountComposable()
+      await result.toggleTracks('a')
+      mockGetPlaylistTracks.mockClear()
+      mockListPlaylists.mockResolvedValue([{ id: 'b', name: 'Two' }])
+
+      await result.removeTrack(6)
+
+      expect(result.error.value).toBe(true)
+      expect(result.playlistGone.value).toBe(true)
+      expect(result.playlistDirMissing.value).toBe(false)
+      expect(result.playlists.value).toEqual([{ id: 'b', name: 'Two' }])
+      // The playlist is gone; re-requesting its tracks would only fail again.
+      expect(mockGetPlaylistTracks).not.toHaveBeenCalled()
+    })
+
     it('sets the error and leaves the list untouched when the removal fails', async () => {
       mockRemovePlaylistTrack.mockResolvedValue('failed')
       const { result } = await mountComposable()
@@ -271,6 +288,7 @@ describe('usePlaylists – track list', () => {
       expect(result.expandedId.value).toBe('a')
       expect(result.error.value).toBe(true)
       expect(result.playlistDirMissing.value).toBe(false)
+      expect(result.playlistGone.value).toBe(false)
     })
 
     it('sets the error and leaves the list untouched when removePlaylistTrack throws', async () => {

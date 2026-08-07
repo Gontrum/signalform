@@ -386,4 +386,42 @@ describe('playlistsApi', () => {
       expect(json).not.toHaveBeenCalled()
     })
   })
+
+  describe('a playlist that is gone from the server', () => {
+    const givenPlaylistNotFound = (): void => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 404,
+        json: async () => ({
+          error: 'PLAYLIST_NOT_FOUND',
+          message:
+            'That playlist no longer exists on Lyrion Music Server. Your list of playlists may be out of date — reload it and try again.',
+        }),
+      })
+    }
+
+    it("renamePlaylist reports 'playlist-gone'", async () => {
+      givenPlaylistNotFound()
+
+      expect(await renamePlaylist('pl-1', 'New')).toBe('playlist-gone')
+    })
+
+    it("deletePlaylist reports 'playlist-gone'", async () => {
+      givenPlaylistNotFound()
+
+      expect(await deletePlaylist('pl-1')).toBe('playlist-gone')
+    })
+
+    it("removePlaylistTrack reports 'playlist-gone'", async () => {
+      givenPlaylistNotFound()
+
+      expect(await removePlaylistTrack('pl-1', 3)).toBe('playlist-gone')
+    })
+
+    it("reports 'failed' for a 404 without the code", async () => {
+      fetchMock.mockResolvedValue({ ok: false, status: 404, json: async () => ({}) })
+
+      expect(await deletePlaylist('pl-1')).toBe('failed')
+    })
+  })
 })

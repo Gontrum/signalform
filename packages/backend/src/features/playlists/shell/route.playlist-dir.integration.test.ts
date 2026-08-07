@@ -3,8 +3,10 @@
  *
  * Sibling of route.integration.test.ts: an LMS with no `playlistdir` drops the
  * connection on every playlist write, which reaches the adapter as a plain
- * NetworkError. These cases pin which of the two answers the user gets — and
- * that the extra pref lookup never runs on a write that worked.
+ * NetworkError. These cases pin the answer the user gets for the empty folder —
+ * and that the extra pref lookup never runs on a write that worked. The other
+ * cause of the same dropped connection, an unknown playlist id, lives in
+ * route.unknown-playlist.integration.test.ts.
  */
 
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
@@ -41,6 +43,9 @@ type MockLmsClient = LmsClient & {
   readonly getPlaylistDir: ReturnType<
     typeof vi.fn<LmsClient["getPlaylistDir"]>
   >;
+  readonly listSavedPlaylists: ReturnType<
+    typeof vi.fn<LmsClient["listSavedPlaylists"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -60,6 +65,9 @@ const createMockLmsClient = (): MockLmsClient => ({
   getPlaylistDir: vi
     .fn<LmsClient["getPlaylistDir"]>()
     .mockResolvedValue(ok("/music/playlists")),
+  listSavedPlaylists: vi
+    .fn<LmsClient["listSavedPlaylists"]>()
+    .mockResolvedValue(ok([])),
 });
 
 const CONNECTION_DROPPED = {
@@ -71,6 +79,12 @@ const EXPECTED_BODY = {
   error: "PLAYLIST_DIR_NOT_CONFIGURED",
   message:
     "Lyrion Music Server has no playlist folder configured, so it cannot save playlists. Set a playlist folder in the LMS settings.",
+};
+
+const EXPECTED_UNREACHABLE_BODY = {
+  error: "LMS_UNREACHABLE",
+  message:
+    "Cannot connect to music server. Please check that Lyrion Music Server is running.",
 };
 
 describe("Playlist writes against an LMS without a playlist folder", () => {
@@ -138,11 +152,7 @@ describe("Playlist writes against an LMS without a playlist folder", () => {
       const response = await whenSavingPlaylist();
 
       expect(response.statusCode).toBe(503);
-      expect(JSON.parse(response.body)).toEqual({
-        error: "LMS_UNREACHABLE",
-        message:
-          "Cannot connect to music server. Please check that Lyrion Music Server is running.",
-      });
+      expect(JSON.parse(response.body)).toEqual(EXPECTED_UNREACHABLE_BODY);
     });
 
     it("keeps the 503 when the pref lookup fails too", async () => {
@@ -152,11 +162,7 @@ describe("Playlist writes against an LMS without a playlist folder", () => {
       const response = await whenSavingPlaylist();
 
       expect(response.statusCode).toBe(503);
-      expect(JSON.parse(response.body)).toEqual({
-        error: "LMS_UNREACHABLE",
-        message:
-          "Cannot connect to music server. Please check that Lyrion Music Server is running.",
-      });
+      expect(JSON.parse(response.body)).toEqual(EXPECTED_UNREACHABLE_BODY);
     });
 
     it("does not ask for the pref when the save succeeded", async () => {
@@ -209,15 +215,6 @@ describe("Playlist writes against an LMS without a playlist folder", () => {
       expect(JSON.parse(response.body)).toEqual(EXPECTED_BODY);
     });
 
-    it("still returns 503 when a folder is configured", async () => {
-      mockLmsClient.renamePlaylist.mockResolvedValue(err(CONNECTION_DROPPED));
-      givenPlaylistDirConfigured();
-
-      const response = await whenRenamingPlaylist();
-
-      expect(response.statusCode).toBe(503);
-    });
-
     it("does not ask for the pref when the rename succeeded", async () => {
       const response = await whenRenamingPlaylist();
 
@@ -239,17 +236,6 @@ describe("Playlist writes against an LMS without a playlist folder", () => {
       expect(JSON.parse(response.body)).toEqual(EXPECTED_BODY);
     });
 
-    it("still returns 503 when a folder is configured", async () => {
-      mockLmsClient.deleteSavedPlaylist.mockResolvedValue(
-        err(CONNECTION_DROPPED),
-      );
-      givenPlaylistDirConfigured();
-
-      const response = await whenDeletingPlaylist();
-
-      expect(response.statusCode).toBe(503);
-    });
-
     it("does not ask for the pref when the delete succeeded", async () => {
       const response = await whenDeletingPlaylist();
 
@@ -269,17 +255,6 @@ describe("Playlist writes against an LMS without a playlist folder", () => {
 
       expect(response.statusCode).toBe(409);
       expect(JSON.parse(response.body)).toEqual(EXPECTED_BODY);
-    });
-
-    it("still returns 503 when a folder is configured", async () => {
-      mockLmsClient.removeSavedPlaylistTrack.mockResolvedValue(
-        err(CONNECTION_DROPPED),
-      );
-      givenPlaylistDirConfigured();
-
-      const response = await whenDeletingTrack();
-
-      expect(response.statusCode).toBe(503);
     });
 
     it("does not ask for the pref when the track removal succeeded", async () => {

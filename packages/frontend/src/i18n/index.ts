@@ -251,6 +251,7 @@ export type MessageKey =
   | 'playlists.empty'
   | 'playlists.error'
   | 'playlists.errorNoPlaylistDir'
+  | 'playlists.errorPlaylistGone'
   | 'playlists.tracksShowAria'
   | 'playlists.tracksHideAria'
   | 'playlists.tracksLoading'
@@ -583,6 +584,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.error': 'Something went wrong. Please try again.',
     'playlists.errorNoPlaylistDir':
       'Lyrion Music Server has no playlist folder configured, so it cannot save playlists. Set a playlist folder in the LMS settings.',
+    'playlists.errorPlaylistGone':
+      'This playlist no longer exists on Lyrion Music Server. Your list was out of date.',
     'playlists.tracksShowAria': 'Show tracks of playlist {name}',
     'playlists.tracksHideAria': 'Hide tracks of playlist {name}',
     'playlists.tracksLoading': 'Loading tracks…',
@@ -920,6 +923,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.error': 'Etwas ist schiefgelaufen. Bitte erneut versuchen.',
     'playlists.errorNoPlaylistDir':
       'Im Lyrion Music Server ist kein Playlist-Ordner konfiguriert, deshalb kann er keine Playlists speichern. Bitte in den LMS-Einstellungen einen Playlist-Ordner festlegen.',
+    'playlists.errorPlaylistGone':
+      'Diese Playlist gibt es im Lyrion Music Server nicht mehr. Die Liste war nicht mehr aktuell.',
     'playlists.tracksShowAria': 'Titel der Playlist {name} anzeigen',
     'playlists.tracksHideAria': 'Titel der Playlist {name} ausblenden',
     'playlists.tracksLoading': 'Titel werden geladen …',

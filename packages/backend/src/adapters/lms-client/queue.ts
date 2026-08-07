@@ -32,6 +32,8 @@ import {
   appendTracksToQueue,
 } from "./schemas.js";
 
+export const SAVED_PLAYLISTS_PAGE_LIMIT = 200;
+
 export type QueueMethods = {
   readonly getQueue: () => Promise<Result<readonly QueueTrack[], LmsError>>;
   readonly jumpToTrack: (trackIndex: number) => Promise<Result<void, LmsError>>;
@@ -321,17 +323,21 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     },
 
     /**
-     * List all saved LMS playlists.
+     * List saved LMS playlists, up to `SAVED_PLAYLISTS_PAGE_LIMIT`.
      *
-     * Command: ["playlists", "0", 200] → playlists_loop with { id, playlist }.
-     * A missing or empty loop is a valid empty result.
+     * Command: ["playlists", "0", SAVED_PLAYLISTS_PAGE_LIMIT] → playlists_loop
+     * with { id, playlist }. A missing or empty loop is a valid empty result.
      *
      * @returns Result with saved playlists (id coerced to string) or error
      */
     listSavedPlaylists: async (): Promise<
       Result<readonly SavedPlaylist[], LmsError>
     > => {
-      const command: LmsCommand = ["playlists", "0", 200];
+      const command: LmsCommand = [
+        "playlists",
+        "0",
+        SAVED_PLAYLISTS_PAGE_LIMIT,
+      ];
       const result = await executeCommand(command, savedPlaylistsPayloadParser);
       if (!result.ok) {
         return result;

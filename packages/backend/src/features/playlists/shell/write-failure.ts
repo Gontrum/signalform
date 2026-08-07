@@ -2,20 +2,28 @@
  * Failure reporting for the four playlist commands that write to disk
  * (`playlist save`, `playlists rename`, `playlists delete`, `playlists edit`).
  *
- * Measured on LMS 9.1.1: with the `playlistdir` pref empty, LMS drops the HTTP
- * connection on every one of them without answering and logs "Bad Lyrion Music
- * Server config" internally. The adapter sees only `fetch failed`, so without
- * this the user is told the music server is unreachable while it is serving
- * every read request just fine.
+ * Measured on LMS 9.1.1: LMS drops the HTTP connection without answering on
+ * all four when its `playlistdir` pref is empty, and on the three that address
+ * an existing playlist when the `playlist_id` is unknown. The adapter sees only
+ * `fetch failed` in both cases — and in the third case, a server that really
+ * went away. Each reading is confirmed against LMS before it is reported, so
+ * neither the folder nor the id is blamed for a lost connection.
  */
 
 import type { FastifyReply, FastifyRequest } from "fastify";
-import type {
-  LmsClient,
-  LmsError,
+import {
+  SAVED_PLAYLISTS_PAGE_LIMIT,
+  type LmsClient,
+  type LmsError,
 } from "../../../adapters/lms-client/index.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import { getUserFriendlyErrorMessage } from "../../playback/core/error-mappers.js";
+
+type WriteFailureAnswer = {
+  readonly status: number;
+  readonly error: string;
+  readonly message: string;
+};
 
 /**
  * 409 rather than 503 or 400: the server is up and the request is well formed,
@@ -23,37 +31,83 @@ import { getUserFriendlyErrorMessage } from "../../playback/core/error-mappers.j
  * can fix by retrying or by sending different input — someone has to set the
  * folder in LMS.
  */
-const PLAYLIST_DIR_NOT_CONFIGURED_STATUS = 409;
+const PLAYLIST_DIR_NOT_CONFIGURED: WriteFailureAnswer = {
+  status: 409,
+  error: "PLAYLIST_DIR_NOT_CONFIGURED",
+  message:
+    "Lyrion Music Server has no playlist folder configured, so it cannot save playlists. Set a playlist folder in the LMS settings.",
+};
 
-const PLAYLIST_DIR_NOT_CONFIGURED_ERROR = "PLAYLIST_DIR_NOT_CONFIGURED";
-
-const PLAYLIST_DIR_NOT_CONFIGURED_MESSAGE =
-  "Lyrion Music Server has no playlist folder configured, so it cannot save playlists. Set a playlist folder in the LMS settings.";
-
-type PlaylistDirProbe = Pick<LmsClient, "getPlaylistDir">;
+const PLAYLIST_NOT_FOUND: WriteFailureAnswer = {
+  status: 404,
+  error: "PLAYLIST_NOT_FOUND",
+  message:
+    "That playlist no longer exists on Lyrion Music Server. Your list of playlists may be out of date — reload it and try again.",
+};
 
 /**
- * The dropped connection is the only shape the missing folder takes; every
- * other error already says what it means and is passed through untouched.
+ * What the command addressed. `playlist save` creates a playlist, so a dropped
+ * connection there can never mean a missing one; the other three name an id
+ * that has to be checked against the saved playlists before it is blamed.
  */
-const isMissingPlaylistDir = async (
-  lmsClient: PlaylistDirProbe,
+export type PlaylistWriteTarget =
+  | { readonly kind: "new-playlist" }
+  | { readonly kind: "existing-playlist"; readonly playlistId: string };
+
+type PlaylistWriteProbe = Pick<
+  LmsClient,
+  "getPlaylistDir" | "listSavedPlaylists"
+>;
+
+/**
+ * A dropped connection is the shape both the unset folder and the unknown id
+ * take; every other error already says what it means and is passed through
+ * untouched. The empty pref is the unambiguous reading, so it is answered
+ * before the id is blamed, and the id is only blamed once the saved playlists
+ * show it gone — otherwise the answer denies a playlist that is still listed.
+ */
+const classifyDroppedConnection = async (
+  lmsClient: PlaylistWriteProbe,
   error: LmsError,
-): Promise<boolean> => {
+  target: PlaylistWriteTarget,
+): Promise<WriteFailureAnswer | undefined> => {
   if (error.type !== "NetworkError") {
-    return false;
+    return undefined;
   }
 
   const playlistDir = await lmsClient.getPlaylistDir();
-  // A failing probe means LMS really is unreachable — keep the original error.
-  return playlistDir.ok && playlistDir.value === "";
+  // A failing probe means LMS really may be unreachable — keep the original error.
+  if (!playlistDir.ok) {
+    return undefined;
+  }
+  if (playlistDir.value === "") {
+    return PLAYLIST_DIR_NOT_CONFIGURED;
+  }
+  if (target.kind !== "existing-playlist") {
+    return undefined;
+  }
+
+  const savedPlaylists = await lmsClient.listSavedPlaylists();
+  // Absence is unprovable while the server is not answering.
+  if (!savedPlaylists.ok) {
+    return undefined;
+  }
+  // A full page may be a truncated one, so a missing id proves nothing.
+  if (savedPlaylists.value.length >= SAVED_PLAYLISTS_PAGE_LIMIT) {
+    return undefined;
+  }
+  const stillListed = savedPlaylists.value.some(
+    (playlist) => playlist.id === target.playlistId,
+  );
+  return stillListed ? undefined : PLAYLIST_NOT_FOUND;
 };
 
 /**
  * Report a failed playlist write, asking LMS for the `playlistdir` pref first
- * when the failure could be the missing folder.
+ * when the failure could be the unset folder rather than a lost server, and for
+ * the saved playlists when it could be an id LMS no longer knows.
  *
- * The pref is asked for only on the way into a failure, never before the write
+ * Both are asked for only on the way into a failure, never before the write
  * — same load rule as the player probe in 36fa28cf: a preflight on every save,
  * rename and delete would double the request count of an operation that
  * normally succeeds, to learn something that normally does not matter.
@@ -61,12 +115,15 @@ const isMissingPlaylistDir = async (
 export const sendPlaylistWriteFailure = async (
   reply: FastifyReply,
   request: FastifyRequest,
-  lmsClient: PlaylistDirProbe,
+  lmsClient: PlaylistWriteProbe,
   error: LmsError,
+  target: PlaylistWriteTarget,
   logMessage: string,
   extraContext?: Record<string, unknown>,
 ): Promise<ReturnType<FastifyReply["send"]>> => {
-  if (!(await isMissingPlaylistDir(lmsClient, error))) {
+  const answer = await classifyDroppedConnection(lmsClient, error, target);
+
+  if (answer === undefined) {
     return sendLmsError(
       reply,
       request,
@@ -82,14 +139,14 @@ export const sendPlaylistWriteFailure = async (
       ...extraContext,
       lmsErrorType: error.type,
       lmsErrorMessage: error.message,
-      httpStatus: PLAYLIST_DIR_NOT_CONFIGURED_STATUS,
-      errorType: PLAYLIST_DIR_NOT_CONFIGURED_ERROR,
+      httpStatus: answer.status,
+      errorType: answer.error,
     },
     logMessage,
   );
 
-  return reply.code(PLAYLIST_DIR_NOT_CONFIGURED_STATUS).send({
-    error: PLAYLIST_DIR_NOT_CONFIGURED_ERROR,
-    message: PLAYLIST_DIR_NOT_CONFIGURED_MESSAGE,
+  return reply.code(answer.status).send({
+    error: answer.error,
+    message: answer.message,
   });
 };

@@ -308,8 +308,11 @@ describe("Playlists Routes", () => {
       thenDeleteWasNotCalled();
     });
 
-    it("returns 503 with a user-friendly message when LMS is unreachable", async () => {
+    it("returns 503 with a user-friendly message when the pref probe fails too", async () => {
       mockLmsClient.deleteSavedPlaylist.mockResolvedValue(
+        err({ type: "NetworkError", message: "connection refused" }),
+      );
+      mockLmsClient.getPlaylistDir.mockResolvedValue(
         err({ type: "NetworkError", message: "connection refused" }),
       );
 
@@ -404,8 +407,11 @@ describe("Playlists Routes", () => {
       thenRenameWasNotCalled();
     });
 
-    it("returns 503 with a user-friendly message when LMS is unreachable", async () => {
+    it("returns 503 with a user-friendly message when the pref probe fails too", async () => {
       mockLmsClient.renamePlaylist.mockResolvedValue(
+        err({ type: "NetworkError", message: "connection refused" }),
+      );
+      mockLmsClient.getPlaylistDir.mockResolvedValue(
         err({ type: "NetworkError", message: "connection refused" }),
       );
 
@@ -420,7 +426,7 @@ describe("Playlists Routes", () => {
       thenRenameWasCalledWith("42", "Evening");
     });
 
-    it("succeeds for an unknown id, mirroring DELETE — LMS acknowledges silently", async () => {
+    it("returns 200 when LMS acknowledges the rename of an id it knows", async () => {
       const response = await whenRenamingPlaylist("9999", { name: "Evening" });
 
       expect(response.statusCode).toBe(200);

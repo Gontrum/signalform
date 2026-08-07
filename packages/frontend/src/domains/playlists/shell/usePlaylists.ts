@@ -18,6 +18,7 @@ type UsePlaylistsResult = {
   readonly isSaving: Ref<boolean>
   readonly error: ComputedRef<boolean>
   readonly playlistDirMissing: ComputedRef<boolean>
+  readonly playlistGone: ComputedRef<boolean>
   readonly expandedId: Ref<string | undefined>
   readonly tracks: Ref<readonly PlaylistTrack[]>
   readonly isTracksLoading: Ref<boolean>
@@ -40,7 +41,7 @@ const TRACKS_MAX_LIMIT = 999
 
 // One source of truth: "there is an error" and "which error" can never drift
 // apart, and clearing one clears the other.
-type PlaylistsErrorKind = 'generic' | 'no-playlist-dir'
+type PlaylistsErrorKind = 'generic' | 'no-playlist-dir' | 'playlist-gone'
 
 export const usePlaylists = (): UsePlaylistsResult => {
   const playlists = ref<readonly SavedPlaylist[]>([])
@@ -49,6 +50,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
   const errorKind = ref<PlaylistsErrorKind | undefined>(undefined)
   const error = computed(() => errorKind.value !== undefined)
   const playlistDirMissing = computed(() => errorKind.value === 'no-playlist-dir')
+  const playlistGone = computed(() => errorKind.value === 'playlist-gone')
   const expandedId = ref<string | undefined>(undefined)
   const tracks = ref<readonly PlaylistTrack[]>([])
   const isTracksLoading = ref(false)
@@ -58,6 +60,11 @@ export const usePlaylists = (): UsePlaylistsResult => {
   const queueStore = useQueueStore()
 
   const fail = (): void => {
+    // The server's 404 is settled; a later failed request adds bad news but
+    // cannot turn a gone playlist back into something worth retrying.
+    if (errorKind.value === 'playlist-gone') {
+      return
+    }
     errorKind.value = 'generic'
   }
 
@@ -65,8 +72,11 @@ export const usePlaylists = (): UsePlaylistsResult => {
     errorKind.value = undefined
   }
 
-  const failFromWrite = (result: PlaylistWriteResult): void => {
-    errorKind.value = result === 'no-playlist-dir' ? 'no-playlist-dir' : 'generic'
+  const toErrorKind = (result: PlaylistWriteResult): PlaylistsErrorKind => {
+    if (result === 'no-playlist-dir') {
+      return 'no-playlist-dir'
+    }
+    return result === 'playlist-gone' ? 'playlist-gone' : 'generic'
   }
 
   const fetchList = async (): Promise<void> => {
@@ -77,6 +87,16 @@ export const usePlaylists = (): UsePlaylistsResult => {
       fail()
     } finally {
       isLoading.value = false
+    }
+  }
+
+  // A gone playlist proves the list on screen is stale. `fetchList` neither
+  // clears nor downgrades the error, so the message survives the reload it
+  // triggers.
+  const failFromWrite = async (result: PlaylistWriteResult): Promise<void> => {
+    errorKind.value = toErrorKind(result)
+    if (result === 'playlist-gone') {
+      await fetchList()
     }
   }
 
@@ -92,7 +112,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       if (saved === 'ok') {
         await fetchList()
       } else {
-        failFromWrite(saved)
+        await failFromWrite(saved)
       }
     } catch {
       fail()
@@ -122,7 +142,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       if (removed === 'ok') {
         await fetchList()
       } else {
-        failFromWrite(removed)
+        await failFromWrite(removed)
       }
     } catch {
       fail()
@@ -140,7 +160,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
       if (renamed === 'ok') {
         await fetchList()
       } else {
-        failFromWrite(renamed)
+        await failFromWrite(renamed)
       }
     } catch {
       fail()
@@ -239,7 +259,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
     try {
       const removed = await removePlaylistTrack(id, index)
       if (removed !== 'ok') {
-        failFromWrite(removed)
+        await failFromWrite(removed)
         return
       }
       await reloadTracks(id)
@@ -260,6 +280,7 @@ export const usePlaylists = (): UsePlaylistsResult => {
     isSaving,
     error,
     playlistDirMissing,
+    playlistGone,
     expandedId,
     tracks,
     isTracksLoading,

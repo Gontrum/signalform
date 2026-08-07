@@ -35,6 +35,9 @@ type MockLmsClient = LmsClient & {
   readonly getPlaylistDir: ReturnType<
     typeof vi.fn<LmsClient["getPlaylistDir"]>
   >;
+  readonly listSavedPlaylists: ReturnType<
+    typeof vi.fn<LmsClient["listSavedPlaylists"]>
+  >;
 };
 
 const createMockLmsClient = (): MockLmsClient => ({
@@ -50,6 +53,9 @@ const createMockLmsClient = (): MockLmsClient => ({
   getPlaylistDir: vi
     .fn<LmsClient["getPlaylistDir"]>()
     .mockResolvedValue(ok("/music/playlists")),
+  listSavedPlaylists: vi
+    .fn<LmsClient["listSavedPlaylists"]>()
+    .mockResolvedValue(ok([])),
 });
 
 const track = (
@@ -285,7 +291,7 @@ describe("Playlist Tracks Routes", () => {
       });
     });
 
-    it("returns an empty page for an unknown id, mirroring the other playlist routes", async () => {
+    it("returns an empty page for an unknown id rather than a 404", async () => {
       const response = await whenListingTracks("/api/playlists/9999/tracks");
 
       expect(response.statusCode).toBe(200);
@@ -363,8 +369,11 @@ describe("Playlist Tracks Routes", () => {
       thenRemoveWasNotCalled();
     });
 
-    it("returns 503 with a user-friendly message when LMS is unreachable", async () => {
+    it("returns 503 with a user-friendly message when the pref probe fails too", async () => {
       mockLmsClient.removeSavedPlaylistTrack.mockResolvedValue(
+        err({ type: "NetworkError", message: "connection refused" }),
+      );
+      mockLmsClient.getPlaylistDir.mockResolvedValue(
         err({ type: "NetworkError", message: "connection refused" }),
       );
 
@@ -382,7 +391,7 @@ describe("Playlist Tracks Routes", () => {
       );
     });
 
-    it("succeeds for an unknown id, mirroring DELETE /api/playlists/:id", async () => {
+    it("returns 204 when LMS acknowledges the removal", async () => {
       const response = await whenDeletingTrack("/api/playlists/9999/tracks/0");
 
       expect(response.statusCode).toBe(204);
