@@ -5,6 +5,14 @@
  * (checked via isLiveBackendAvailable()). They are designed to run
  * against a real local LMS stack for manual pre-release verification.
  *
+ * A run changes the running household system, not a fixture: the setup appends
+ * tracks to the real queue and removes them again, switches radio mode on (the
+ * radio test) or off (the local test, which also deletes the upcoming radio
+ * segment), and can make real speakers resume, because radio replenishment
+ * starts a stopped player. The afterEach hook restores that baseline — playback
+ * paused, radio mode off, every track the run put into the queue swept out —
+ * including after a failing test. Playback position it cannot rewind.
+ *
  * The WebKit test.skip in queue-management.spec.ts is a known issue:
  * WebKit intermittently bypasses per-page route mocks and resolves
  * against the live backend search corpus. This is a Playwright/WebKit
@@ -21,6 +29,7 @@ import {
   fetchQueueDomSnapshot,
   isLiveBackendAvailable,
   isRadioTrack,
+  restoreLiveQueueBaseline,
   waitForQueueBusyToClear,
   waitForQueueDomToMatchApi,
   type LiveQueueTrackSnapshot,
@@ -49,27 +58,35 @@ const skipUnlessLiveBackendAvailable = async (request: APIRequestContext): Promi
 }
 
 test.describe('Live queue editing proof', () => {
+  // afterEach, not afterAll: a failing radio test must not hand the next test —
+  // or the household — a queue with radio mode still on.
+  test.afterEach(async ({ request }) => {
+    await restoreLiveQueueBaseline(request)
+  })
+
   test('removes a live queue track and keeps queue DOM settled against the real local stack', async ({
     page,
     request,
   }) => {
     await skipUnlessLiveBackendAvailable(request)
 
-    const setup = await ensureQueueEditingState({ page, request })
+    const setup = await ensureQueueEditingState({
+      page,
+      request,
+      scenario: 'user-track-removal',
+    })
 
     expect(setup.initialQueue.length).toBeGreaterThan(0)
     expect(setup.browserQueue.rowCount).toBeGreaterThan(0)
     expect(setup.browserQueue.busyTrackIds).toEqual([])
 
     const beforeQueue = await fetchLiveQueue(request)
-    const removeTarget =
-      beforeQueue.find((track) => track.isCurrent === false && !isRadioTrack(track)) ??
-      beforeQueue.find((track) => !isRadioTrack(track)) ??
-      beforeQueue[0]
-    expect(removeTarget).toBeDefined()
+    const removeTarget = setup.removableTrack
+    expect(isRadioTrack(removeTarget)).toBe(false)
+    expect(removeTarget.isCurrent).toBe(false)
 
     const removeRow = page.locator(
-      `[data-testid="queue-track"][data-track-id="${removeTarget?.id ?? ''}"]`,
+      `[data-testid="queue-track"][data-track-id="${removeTarget.id}"]`,
     )
     await expect(removeRow).toBeVisible({ timeout: 15_000 })
 
@@ -82,7 +99,7 @@ test.describe('Live queue editing proof', () => {
     const afterQueue = await fetchLiveQueue(request)
     const beforeRadioTrackCount = countRadioTracks(beforeQueue)
 
-    expect(afterQueue.some((track) => track.id === removeTarget?.id)).toBe(false)
+    expect(afterQueue.some((track) => track.id === removeTarget.id)).toBe(false)
     // The user segment must lose exactly the removed track; the radio segment is
     // free to replenish underneath, which is why the raw length cannot be asserted.
     expect(countUserTracks(afterQueue)).toBe(countUserTracks(beforeQueue) - 1)
@@ -103,21 +120,19 @@ test.describe('Live queue editing proof', () => {
   }) => {
     await skipUnlessLiveBackendAvailable(request)
 
-    const setup = await ensureQueueEditingState({ page, request })
-
-    test.skip(
-      setup.removableRadioTrack === null,
-      'Live stack did not expose a removable radio track',
-    )
+    const setup = await ensureQueueEditingState({
+      page,
+      request,
+      scenario: 'radio-track-removal',
+    })
 
     const beforeQueue = await fetchLiveQueue(request)
     const beforeRadioTrackCount = countRadioTracks(beforeQueue)
-    const radioTarget = setup.removableRadioTrack
-    expect(radioTarget).not.toBeNull()
+    const radioTarget = setup.removableTrack
+    expect(isRadioTrack(radioTarget)).toBe(true)
+    expect(radioTarget.isCurrent).toBe(false)
 
-    const radioRow = page.locator(
-      `[data-testid="queue-track"][data-track-id="${radioTarget?.id ?? ''}"]`,
-    )
+    const radioRow = page.locator(`[data-testid="queue-track"][data-track-id="${radioTarget.id}"]`)
     await expect(radioRow).toBeVisible({ timeout: 15_000 })
 
     await radioRow.getByTestId('queue-track-remove').click()
@@ -133,7 +148,7 @@ test.describe('Live queue editing proof', () => {
       .toBeGreaterThan(0)
 
     const afterQueue = await fetchLiveQueue(request)
-    expect(afterQueue.some((track) => track.id === radioTarget?.id)).toBe(false)
+    expect(afterQueue.some((track) => track.id === radioTarget.id)).toBe(false)
     expect(countRadioTracks(afterQueue)).toBeGreaterThanOrEqual(beforeRadioTrackCount - 1)
 
     const settledDom = await waitForQueueDomToMatchApi(page, request)
