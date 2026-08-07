@@ -32,6 +32,12 @@ implementation code directly in the main context.
 The test requirements for every delegation are in AGENTS.md, section "Testing" —
 deliberately in one place only.
 
+A delegating prompt must not override AGENTS.md. The rule that broke first was
+"Comments": never instruct an agent to record a reason in a comment — an agent
+obeys the prompt over the file, and no gate catches it, because each such
+comment reads as a legitimate why. A reason that matters goes in the commit
+message.
+
 ## Style plugins
 
 Output-style plugins (ponytail, caveman) govern tone and solution size, never
