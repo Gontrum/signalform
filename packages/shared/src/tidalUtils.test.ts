@@ -50,7 +50,7 @@ describe("isTidalAlbumId", () => {
     });
   });
 
-  describe('search-artist album IDs with "7_" prefix (Story 8.9 AC1)', () => {
+  describe('search-artist album IDs with "7_" prefix', () => {
     it('returns true for "7_sabrina carpenter.2.0.1.4" (verified live probe 2026-03-17)', () => {
       expect(isTidalAlbumId("7_sabrina carpenter.2.0.1.4")).toBe(true);
     });

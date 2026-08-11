@@ -490,7 +490,7 @@ describe('AlbumDetailView', () => {
   })
 })
 
-describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
+describe('AlbumDetailView — regression: local numeric album IDs', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -517,7 +517,7 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
     return { wrapper, router }
   }
 
-  it('AC6: albumId "92" calls getAlbumDetail, NOT getTidalAlbumDetail', async () => {
+  it('albumId "92" calls getAlbumDetail, NOT getTidalAlbumDetail', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
@@ -536,7 +536,7 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
 
   // Note: the year-string regression guard (string "2008" → Zod PARSE_ERROR) is in albumApi.test.ts.
   // This test verifies the view renders correctly after the backend returns a proper number.
-  it('AC6: albumId "92" renders album data from getAlbumDetail response', async () => {
+  it('albumId "92" renders album data from getAlbumDetail response', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
       ok: true,
@@ -558,7 +558,7 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
   })
 })
 
-describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
+describe('AlbumDetailView — Tidal album play from LibraryView', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -588,7 +588,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     return { wrapper, router }
   }
 
-  it('AC1: calls getTidalAlbumDetail with LibraryView albumId "4.0" on mount', async () => {
+  it('calls getTidalAlbumDetail with LibraryView albumId "4.0" on mount', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -609,7 +609,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     expect(getTidalAlbumDetail).toHaveBeenCalledWith('4.0')
   })
 
-  it('AC1: "Play Album" button exists for Tidal LibraryView album', async () => {
+  it('"Play Album" button exists for Tidal LibraryView album', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -630,7 +630,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
     expect(wrapper.find('[data-testid^="play-album-button"]').exists()).toBe(true)
   })
 
-  it('AC1: clicking "Play Album" calls playAlbum("4.0")', async () => {
+  it('clicking "Play Album" calls playAlbum("4.0")', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
@@ -656,7 +656,7 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
   })
 })
 
-describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () => {
+describe('AlbumDetailView — Tidal album play from ArtistDetailView', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -687,7 +687,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     return { wrapper, router }
   }
 
-  it('AC2: calls getTidalAlbumDetail with artist-browse albumId "6.0.1.0" on mount', async () => {
+  it('calls getTidalAlbumDetail with artist-browse albumId "6.0.1.0" on mount', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -708,7 +708,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     expect(getTidalAlbumDetail).toHaveBeenCalledWith('6.0.1.0')
   })
 
-  it('AC2: "Play Album" button exists for Tidal artist-browse album', async () => {
+  it('"Play Album" button exists for Tidal artist-browse album', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -729,7 +729,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
     expect(wrapper.find('[data-testid^="play-album-button"]').exists()).toBe(true)
   })
 
-  it('AC2: clicking "Play Album" calls playAlbum("6.0.1.0")', async () => {
+  it('clicking "Play Album" calls playAlbum("6.0.1.0")', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
@@ -755,7 +755,7 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
   })
 })
 
-describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', () => {
+describe('AlbumDetailView — Tidal album with "7_" prefix ID', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -785,7 +785,7 @@ describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', 
     return { wrapper, router }
   }
 
-  it('AC2: calls getTidalAlbumDetail for "7_" prefix ID (not getAlbumDetail)', async () => {
+  it('calls getTidalAlbumDetail for "7_" prefix ID (not getAlbumDetail)', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
@@ -809,7 +809,7 @@ describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', 
   })
 })
 
-describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
+describe('AlbumDetailView — Tidal mode with artist navigation', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -845,7 +845,7 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     return { wrapper, router }
   }
 
-  it('AC4: renders artist name as button when tidalArtistId is in history.state', async () => {
+  it('renders artist name as button when tidalArtistId is in history.state', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -869,7 +869,7 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     expect(artistButton.text()).toBe('Bill Evans')
   })
 
-  it('AC4: clicking artist button navigates to unified-artist?name=artist', async () => {
+  it('clicking artist button navigates to unified-artist?name=artist', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
       ok: true,
@@ -901,7 +901,7 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
   })
 })
 
-describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
+describe('AlbumDetailView — queue buttons', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
     setupTestEnv()
@@ -928,7 +928,7 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
     return { wrapper, router }
   }
 
-  it('AC1: renders add-to-queue button for each track', async () => {
+  it('renders add-to-queue button for each track', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
       ok: true,
@@ -944,7 +944,7 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
     expect(addButtons).toHaveLength(2)
   })
 
-  it('AC1: track add-to-queue button is disabled when track.url is empty', async () => {
+  it('track add-to-queue button is disabled when track.url is empty', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
       ok: true,
@@ -964,7 +964,7 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
-  it('AC2: renders "Add Album to Queue" button', async () => {
+  it('renders "Add Album to Queue" button', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
       ok: true,
@@ -980,7 +980,7 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
   })
 })
 
-describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
+describe('AlbumDetailView — Tidal Search Album path', () => {
   const tidalSearchHistoryState = {
     coverArtUrl: 'http://example.com/cover.jpg',
     trackUrls: ['tidal://111.flc', 'tidal://222.flc'],
@@ -1008,13 +1008,13 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     return { wrapper, router }
   }
 
-  it('AC5: route /album/tidal-search uses tidal-search-album route name', async () => {
+  it('route /album/tidal-search uses tidal-search-album route name', async () => {
     const { router } = await mountView()
     expect(router.currentRoute.value.name).toBe('tidal-search-album')
     expect(router.currentRoute.value.path).toBe('/album/tidal-search')
   })
 
-  it('AC2+AC4: renders album metadata from query params and history.state', async () => {
+  it('renders album metadata from query params and history.state', async () => {
     const { wrapper } = await mountView()
     await nextTick()
     await nextTick()
@@ -1025,7 +1025,7 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     expect(wrapper.find('[data-testid="album-track-count"]').text()).toBe('2 tracks')
   })
 
-  it('AC4: renders track titles from history.state', async () => {
+  it('renders track titles from history.state', async () => {
     const { wrapper } = await mountView()
     await nextTick()
     await nextTick()

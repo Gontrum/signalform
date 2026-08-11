@@ -10,7 +10,7 @@ import {
 import type { CandidateTrack } from "./core/types.js";
 
 describe("Artist Diversity Filter — Acceptance Tests", () => {
-  test("Scenario 1: Miles Davis in recent 10 → filtered out; Coltrane not in window → kept (AC1+AC2)", () => {
+  test("Scenario 1: Miles Davis in recent 10 → filtered out; Coltrane not in window → kept", () => {
     const recentArtists = [
       "Coltrane",
       "Monk",
@@ -32,7 +32,7 @@ describe("Artist Diversity Filter — Acceptance Tests", () => {
     expect(result.some((t) => t.artist === "John Coltrane")).toBe(true);
   });
 
-  test("Scenario 2: Miles Davis NOT in recent 10 → Miles Davis candidate kept (AC1)", () => {
+  test("Scenario 2: Miles Davis NOT in recent 10 → Miles Davis candidate kept", () => {
     const recentArtists = [
       "Coltrane",
       "Monk",
@@ -53,7 +53,7 @@ describe("Artist Diversity Filter — Acceptance Tests", () => {
     expect(result[0]?.artist).toBe("Miles Davis");
   });
 
-  test("Scenario 3: Empty window → all candidates pass (AC5 graceful degradation)", () => {
+  test("Scenario 3: Empty window → all candidates pass (graceful degradation)", () => {
     const candidates: readonly CandidateTrack[] = [
       { name: "Kind of Blue", artist: "Miles Davis", match: 0.9, url: "" },
       { name: "Giant Steps", artist: "Coltrane", match: 0.85, url: "" },
@@ -62,7 +62,7 @@ describe("Artist Diversity Filter — Acceptance Tests", () => {
     expect(result).toHaveLength(2);
   });
 
-  test("Scenario 4: 10 new tracks after Miles Davis → Miles Davis pushed out of window → allowed again (AC4)", () => {
+  test("Scenario 4: 10 new tracks after Miles Davis → Miles Davis pushed out of window → allowed again", () => {
     const initialWindow: readonly string[] = ["Miles Davis"];
     // Add 10 more artists → Miles Davis (index 0) is pushed out by slice(-10)
     const updatedWindow = [
@@ -87,7 +87,7 @@ describe("Artist Diversity Filter — Acceptance Tests", () => {
     expect(result).toHaveLength(1); // Miles Davis allowed again after 10 tracks
   });
 
-  test("Scenario 5: All candidates by artists in window → empty result, no error (AC5)", () => {
+  test("Scenario 5: All candidates by artists in window → empty result, no error", () => {
     const recentArtists = ["Miles Davis", "Coltrane"];
     const candidates: readonly CandidateTrack[] = [
       { name: "Track1", artist: "Miles Davis", match: 0.9, url: "" },
@@ -97,7 +97,7 @@ describe("Artist Diversity Filter — Acceptance Tests", () => {
     expect(result).toHaveLength(0);
   });
 
-  test("Scenario 6: Pure function — same input always returns same output (AC6)", () => {
+  test("Scenario 6: Pure function — same input always returns same output", () => {
     const recentArtists = ["Miles Davis", "Coltrane"];
     const candidates: readonly CandidateTrack[] = [
       { name: "Night Train", artist: "Evans", match: 0.8, url: "" },

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { getHistoryStateValue } from './historyState'
 
-describe('getHistoryStateValue (AC5)', () => {
+describe('getHistoryStateValue', () => {
   // Save and restore the original history state between tests
   const originalReplaceState = window.history.replaceState.bind(window.history)
 

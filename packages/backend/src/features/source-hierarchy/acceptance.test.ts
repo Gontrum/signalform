@@ -51,7 +51,6 @@ const thenSelectionFailsWith = (
   }
 };
 
-// Quality presets matching story specification
 const Q_24_96: AudioQuality = {
   format: "FLAC",
   bitrate: 4608,

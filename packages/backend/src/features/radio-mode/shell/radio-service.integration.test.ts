@@ -789,7 +789,7 @@ describe("C3: Unexpected JS exception in handleQueueEnd does not propagate", () 
   });
 });
 
-describe("6.5 AC2: queue-end stop advances into first radio track", () => {
+describe("queue-end stop advances into first radio track", () => {
   test("nextTrack() called when getStatus() returns stop after queue-end radio adds tracks", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -901,7 +901,7 @@ describe("6.5 AC2: queue-end stop advances into first radio track", () => {
   });
 });
 
-describe("6.5 AC3: duplicate artist prevention — same artist skipped within one batch", () => {
+describe("duplicate artist prevention — same artist skipped within one batch", () => {
   test("second candidate from same artist skips LMS search entirely", async () => {
     // Three candidates all from same artist → only first should reach lmsClient.search
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -1044,7 +1044,7 @@ describe("5.7: diversity filter prevents same artist from appearing twice", () =
   });
 });
 
-describe("6.6 AC1: selectBestSource() score formula — 24/96 FLAC wins over 16/44.1 FLAC even with lower bitrate", () => {
+describe("selectBestSource() score formula — 24/96 FLAC wins over 16/44.1 FLAC even with lower bitrate", () => {
   test("FLAC 24/96 selected over FLAC 16/44.1 when 16/44.1 has higher bitrate", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -1117,7 +1117,7 @@ describe("6.6 AC1: selectBestSource() score formula — 24/96 FLAC wins over 16/
   });
 });
 
-describe("6.6 AC3: tie-breaking — local source wins over Qobuz when quality score is equal", () => {
+describe("tie-breaking — local source wins over Qobuz when quality score is equal", () => {
   test("local URL selected over Qobuz URL for identical FLAC quality", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -1184,7 +1184,7 @@ describe("6.6 AC3: tie-breaking — local source wins over Qobuz when quality sc
   });
 });
 
-describe("6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 after radio adds tracks to empty queue", () => {
+describe("player.queue.updated emitted with radioBoundaryIndex: 0 after radio adds tracks to empty queue", () => {
   test("radioBoundaryIndex: 0 present in player.queue.updated payload", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -1236,7 +1236,7 @@ describe("6.7 AC5: player.queue.updated emitted with radioBoundaryIndex: 0 after
   });
 });
 
-describe("6.7 AC5b: radioBoundaryIndex equals pre-radio queue length when queue had prior tracks", () => {
+describe("radioBoundaryIndex equals pre-radio queue length when queue had prior tracks", () => {
   test("radioBoundaryIndex: 2 when 2 user tracks existed before radio added tracks", async () => {
     // Reproduces the real bug: LMS keeps played tracks in queue after mode→stop.
     // Pre-radio queue has 2 tracks (e.g. "1000 Liter" + "Alte Lieder" already played).
@@ -1354,7 +1354,7 @@ describe("6.7 AC5b: radioBoundaryIndex equals pre-radio queue length when queue 
   });
 });
 
-describe("6.6 AC6: fallback — addToQueue called even when all search results have no audioQuality", () => {
+describe("fallback — addToQueue called even when all search results have no audioQuality", () => {
   test("track added via fallback when audioQuality is undefined on all results", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -1396,7 +1396,7 @@ describe("6.6 AC6: fallback — addToQueue called even when all search results h
   });
 });
 
-describe("6.8 AC3: CircuitOpenError from getSimilarTracks → player.radio.unavailable emitted", () => {
+describe("CircuitOpenError from getSimilarTracks → player.radio.unavailable emitted", () => {
   test("emits player.radio.unavailable when getSimilarTracks returns CircuitOpenError", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: false,
@@ -1455,7 +1455,7 @@ describe("6.8 AC3: CircuitOpenError from getSimilarTracks → player.radio.unava
   });
 });
 
-describe("9.17 AC4: intra-batch artist dedup — only 1 track per artist in a single radio batch", () => {
+describe("intra-batch artist dedup — only 1 track per artist in a single radio batch", () => {
   test("when last.fm returns 3 candidates from same artist, only 1 is added to queue", async () => {
     // last.fm gives 3 candidates all by "Adele" + 1 by "Elton John"
     const candidates = [

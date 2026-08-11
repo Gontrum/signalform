@@ -200,8 +200,8 @@ describe("getLibraryAlbums service", () => {
     }
   });
 
-  describe("AC3 — 1-hour TTL cache", () => {
-    it("AC3a: second call with same offset/limit is served from cache (lmsClient called only once)", async () => {
+  describe("1-hour TTL cache", () => {
+    it("second call with same offset/limit is served from cache (lmsClient called only once)", async () => {
       const client = makeMockClient([makeRawAlbum()], 1);
 
       await getLibraryAlbums(0, 250, client, defaultConfig);
@@ -210,7 +210,7 @@ describe("getLibraryAlbums service", () => {
       expect(client.getLibraryAlbums).toHaveBeenCalledOnce();
     });
 
-    it("AC3b: different offset/limit = separate cache entries (lmsClient called twice)", async () => {
+    it("different offset/limit = separate cache entries (lmsClient called twice)", async () => {
       const client = makeMockClient([makeRawAlbum()], 1);
 
       await getLibraryAlbums(0, 250, client, defaultConfig);
@@ -219,7 +219,7 @@ describe("getLibraryAlbums service", () => {
       expect(client.getLibraryAlbums).toHaveBeenCalledTimes(2);
     });
 
-    it("AC3c: cache expires after TTL — re-fetches from LMS", async () => {
+    it("cache expires after TTL — re-fetches from LMS", async () => {
       const mockNow = vi.spyOn(Date, "now");
       mockNow.mockReturnValue(0);
 
@@ -240,7 +240,7 @@ describe("getLibraryAlbums service", () => {
       expect(client.getLibraryAlbums).toHaveBeenCalledTimes(2);
     });
 
-    it("AC3d: LMS error on first call is NOT cached (next call retries LMS)", async () => {
+    it("LMS error on first call is NOT cached (next call retries LMS)", async () => {
       const errorClient: MockLmsClient = {
         ...makeMockClient([], 0),
         getLibraryAlbums: vi
@@ -269,7 +269,7 @@ describe("getLibraryAlbums service", () => {
       expect(errorClient.getLibraryAlbums).toHaveBeenCalledTimes(2);
     });
 
-    it("AC3b-limit: different limit with same offset = separate cache entries", async () => {
+    it("different limit with same offset = separate cache entries", async () => {
       const client = makeMockClient([makeRawAlbum()], 1);
 
       await getLibraryAlbums(0, 100, client, defaultConfig);
@@ -278,7 +278,7 @@ describe("getLibraryAlbums service", () => {
       expect(client.getLibraryAlbums).toHaveBeenCalledTimes(2);
     });
 
-    it("AC3-ttl-boundary: cache entry at exact TTL boundary (expireAt) is expired", async () => {
+    it("cache entry at exact TTL boundary (expireAt) is expired", async () => {
       const mockNow = vi.spyOn(Date, "now");
       mockNow.mockReturnValue(0); // t=0, expireAt = 3600000
 
@@ -322,7 +322,7 @@ describe("getLibraryAlbums service", () => {
       );
     });
 
-    it("AC3e: cached response has same shape as non-cached response", async () => {
+    it("cached response has same shape as non-cached response", async () => {
       const client = makeMockClient([makeRawAlbum()], 1);
 
       const firstResult = await getLibraryAlbums(0, 250, client, defaultConfig);

@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("createLastFmClient - getSimilarTracks", () => {
-  it("AC2: getSimilarTracks returns SimilarTrack[] on success", async () => {
+  it("getSimilarTracks returns SimilarTrack[] on success", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -51,7 +51,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC2: getSimilarTracks calls correct last.fm API URL with params", async () => {
+  it("getSimilarTracks calls correct last.fm API URL with params", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () => JSON.stringify({ similartracks: { track: [] } }),
@@ -73,7 +73,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     expect(calledUrl).toContain("limit=10");
   });
 
-  it("AC4: SimilarTrack maps empty mbid string to undefined", async () => {
+  it("SimilarTrack maps empty mbid string to undefined", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -106,7 +106,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC5: returns RateLimitError on HTTP 429", async () => {
+  it("returns RateLimitError on HTTP 429", async () => {
     fetchMock.mockResolvedValue({
       status: 429,
       text: async () => "",
@@ -124,7 +124,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC6: returns NotFoundError when last.fm returns error code 6", async () => {
+  it("returns NotFoundError when last.fm returns error code 6", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -146,7 +146,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC6: returns ApiError when last.fm returns a non-6 error code", async () => {
+  it("returns ApiError when last.fm returns a non-6 error code", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -168,7 +168,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC6: returns NetworkError when fetch throws", async () => {
+  it("returns NetworkError when fetch throws", async () => {
     fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
     const client = createLastFmClient({
       apiKey: "testkey",
@@ -183,7 +183,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC6: returns ParseError on malformed JSON", async () => {
+  it("returns ParseError on malformed JSON", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () => "not-json",
@@ -201,7 +201,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC6: returns TimeoutError when fetch times out (AbortError DOMException)", async () => {
+  it("returns TimeoutError when fetch times out (AbortError DOMException)", async () => {
     const timeoutError = new DOMException(
       "The operation was aborted",
       "TimeoutError",
@@ -220,7 +220,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
     }
   });
 
-  it("AC7/AC8: returns empty array when last.fm returns empty string for tracks", async () => {
+  it("returns empty array when last.fm returns empty string for tracks", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -243,7 +243,7 @@ describe("createLastFmClient - getSimilarTracks", () => {
 });
 
 describe("createLastFmClient - getSimilarArtists", () => {
-  it("AC3: getSimilarArtists returns SimilarArtist[] on success", async () => {
+  it("getSimilarArtists returns SimilarArtist[] on success", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -276,7 +276,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC3: getSimilarArtists calls correct last.fm API URL with params", async () => {
+  it("getSimilarArtists calls correct last.fm API URL with params", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () => JSON.stringify({ similarartists: { artist: [] } }),
@@ -297,7 +297,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     expect(calledUrl).toContain("limit=20");
   });
 
-  it("AC4: SimilarArtist maps empty mbid string to undefined", async () => {
+  it("SimilarArtist maps empty mbid string to undefined", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -327,7 +327,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC5: getSimilarArtists returns RateLimitError on HTTP 429", async () => {
+  it("getSimilarArtists returns RateLimitError on HTTP 429", async () => {
     fetchMock.mockResolvedValue({
       status: 429,
       text: async () => "",
@@ -345,7 +345,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC6: getSimilarArtists returns NotFoundError when last.fm returns error code 6", async () => {
+  it("getSimilarArtists returns NotFoundError when last.fm returns error code 6", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>
@@ -367,7 +367,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC6: getSimilarArtists returns NetworkError when fetch throws", async () => {
+  it("getSimilarArtists returns NetworkError when fetch throws", async () => {
     fetchMock.mockRejectedValue(new Error("ECONNREFUSED"));
     const client = createLastFmClient({
       apiKey: "testkey",
@@ -382,7 +382,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC6: getSimilarArtists returns ParseError on malformed JSON", async () => {
+  it("getSimilarArtists returns ParseError on malformed JSON", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () => "not-json",
@@ -400,7 +400,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC6: getSimilarArtists returns TimeoutError when fetch times out", async () => {
+  it("getSimilarArtists returns TimeoutError when fetch times out", async () => {
     const timeoutError = new DOMException(
       "The operation was aborted",
       "TimeoutError",
@@ -419,7 +419,7 @@ describe("createLastFmClient - getSimilarArtists", () => {
     }
   });
 
-  it("AC8: returns empty array when last.fm returns empty string for artists", async () => {
+  it("returns empty array when last.fm returns empty string for artists", async () => {
     fetchMock.mockResolvedValue({
       status: 200,
       text: async () =>

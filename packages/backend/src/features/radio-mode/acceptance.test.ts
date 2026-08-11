@@ -20,7 +20,7 @@ const whenFilteringWithContext = (
 // Acceptance Scenarios (AC 1–6)
 
 describe("Context-Aware Filter — Acceptance Tests", () => {
-  test("Scenario 1 (AC1+AC2): 50s Jazz seed — keeps Jazz 1939-1979, removes 2020 Pop", () => {
+  test("Scenario 1: 50s Jazz seed — keeps Jazz 1939-1979, removes 2020 Pop", () => {
     const candidates: readonly CandidateTrack[] = [
       {
         name: "Autumn Leaves",
@@ -67,7 +67,7 @@ describe("Context-Aware Filter — Acceptance Tests", () => {
     expect(result.some((t) => t.name === "Blinding Lights")).toBe(false);
   });
 
-  test("Scenario 2 (AC5): Candidate with no year is always kept (graceful degradation)", () => {
+  test("Scenario 2: Candidate with no year is always kept (graceful degradation)", () => {
     const candidates: readonly CandidateTrack[] = [
       {
         name: "Unknown Era Track",
@@ -88,7 +88,7 @@ describe("Context-Aware Filter — Acceptance Tests", () => {
     expect(result[0]?.name).toBe("Unknown Era Track");
   });
 
-  test("Scenario 3 (AC5): No seedYear → genre filter only, no era filter applied", () => {
+  test("Scenario 3: No seedYear → genre filter only, no era filter applied", () => {
     const candidates: readonly CandidateTrack[] = [
       {
         name: "Future Jazz",
@@ -117,7 +117,7 @@ describe("Context-Aware Filter — Acceptance Tests", () => {
     expect(result.some((t) => t.name === "Future Pop")).toBe(false);
   });
 
-  test("Scenario 4 (AC4): Era window expands when fewer than 10 tracks found", () => {
+  test("Scenario 4: Era window expands when fewer than 10 tracks found", () => {
     // 5 Jazz tracks in ±20 window (1939-1979), 3 more Jazz tracks in ±30 window (1929-1989)
     const within20 = Array.from(
       { length: 5 },
@@ -155,7 +155,7 @@ describe("Context-Aware Filter — Acceptance Tests", () => {
     expect(result.some((t) => t.name === "Early Jazz 0")).toBe(true);
   });
 
-  test("Scenario 5 (AC5): No metadata at all → all candidates pass through", () => {
+  test("Scenario 5: No metadata at all → all candidates pass through", () => {
     const candidates: readonly CandidateTrack[] = [
       {
         name: "Track A",
@@ -184,7 +184,7 @@ describe("Context-Aware Filter — Acceptance Tests", () => {
     expect(result).toHaveLength(2);
   });
 
-  test("Scenario 6 (AC6): Pure function — same input always returns same output", () => {
+  test("Scenario 6: Pure function — same input always returns same output", () => {
     const candidates: readonly CandidateTrack[] = [
       {
         name: "Take Five",

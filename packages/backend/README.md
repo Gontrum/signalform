@@ -21,7 +21,7 @@ This package follows strict functional programming patterns:
 
 - ✅ **No Classes** - Only functions (factory functions for DI)
 - ✅ **Immutability** - Only `const`, no `let` (enforced by ESLint)
-- ✅ **Result Types** - Using Result<T, E> for error handling (Story 1.4)
+- ✅ **Result Types** - Using Result<T, E> for error handling
 - ✅ **Feature-Based Structure** - NOT layer-based (no controllers/, services/, models/)
 - ✅ **TypeScript Strict Mode** - All safety flags enabled
 
@@ -154,7 +154,7 @@ pnpm test:unit
 ## Related Packages
 
 - [frontend](../frontend) - Vue.js 3 SPA
-- [@signalform/shared](../shared) - Shared types and utilities (Story 1.4)
+- [@signalform/shared](../shared) - Shared types and utilities
 
 ## License
 

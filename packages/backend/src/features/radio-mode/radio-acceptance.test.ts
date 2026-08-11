@@ -225,7 +225,7 @@ const makeLmsSearchResult = (
   },
 });
 
-describe("AC1: Queue-end detection (play → stop transition)", () => {
+describe("Queue-end detection (play → stop transition)", () => {
   test("startStatusPolling signature accepts onQueueEnd callback as 6th parameter", async () => {
     // Verify the status-poller API contract: accepts onQueueEnd callback
     const { startStatusPolling } =
@@ -322,7 +322,7 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
   });
 });
 
-describe("AC2: Seamless radio start — last.fm getSimilarTracks called with seed", () => {
+describe("Seamless radio start — last.fm getSimilarTracks called with seed", () => {
   test("handleQueueEnd calls getSimilarTracks with seed artist and title, no user prompt", async () => {
     const mockSimilarTracks = [makeSimilarTrack("Kind Artist", "Cool Track")];
     const mockLastFmClient = createMockLastFmClient({
@@ -362,7 +362,7 @@ describe("AC2: Seamless radio start — last.fm getSimilarTracks called with see
   });
 });
 
-describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
+describe("Tracks found in LMS added to queue (up to 5)", () => {
   test("handleQueueEnd adds up to 5 tracks to LMS queue", async () => {
     // Provide 10 similar tracks → only top 5 should be added
     const mockSimilarTracks = Array.from({ length: 10 }, (_, i) =>
@@ -426,7 +426,7 @@ describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
   });
 });
 
-describe("AC4: WebSocket events emitted after tracks added", () => {
+describe("WebSocket events emitted after tracks added", () => {
   test("handleQueueEnd emits player.radio.started and player.queue.updated", async () => {
     const mockSimilarTracks = [makeSimilarTrack("Artist A", "Track A")];
     const mockLastFmClient = createMockLastFmClient({
@@ -519,7 +519,7 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
   });
 });
 
-describe("AC5: Artist diversity maintained across radio triggers", () => {
+describe("Artist diversity maintained across radio triggers", () => {
   test("artist added in first trigger is filtered out in second trigger (sliding window)", async () => {
     // cross-trigger diversity: the same artist should not appear
     // in consecutive radio batches because the sliding window tracks recent artists.
@@ -604,7 +604,7 @@ describe("AC5: Artist diversity maintained across radio triggers", () => {
   });
 });
 
-describe("AC6: Graceful degradation on failure", () => {
+describe("Graceful degradation on failure", () => {
   test("last.fm API failure does not crash — error logged, polling continues", async () => {
     const mockLastFmClient = createMockLastFmClient({
       getSimilarTracks: vi.fn().mockResolvedValue({
@@ -681,7 +681,7 @@ describe("AC6: Graceful degradation on failure", () => {
   });
 });
 
-describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-empty → empty during playback", () => {
+describe("Proactive trigger fires when queuePreview transitions non-empty → empty during playback", () => {
   test("onQueueEnd called with currently-playing track when queuePreview goes empty while playing", async () => {
     const { startStatusPolling } =
       await import("../../infrastructure/websocket/status-poller.js");
@@ -877,7 +877,7 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
   });
 });
 
-describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when player stops after adding tracks", () => {
+describe("queue-end recovery — lmsClient.nextTrack() called when player stops after adding tracks", () => {
   test("nextTrack() called when getStatus() returns stop after tracks added", async () => {
     const mockSimilarTracks = [
       makeSimilarTrack("Herbie Hancock", "Watermelon Man"),
@@ -989,7 +989,7 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
   });
 });
 
-describe("6.5 AC3: Duplicate artist prevention — same artist appears at most once per batch", () => {
+describe("Duplicate artist prevention — same artist appears at most once per batch", () => {
   test("second candidate from same artist is skipped — LMS search not called for it", async () => {
     // Three candidates all from same artist → only first should reach LMS search
     const mockSimilarTracks = [
@@ -1107,7 +1107,7 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
   });
 });
 
-describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePreview was always empty", () => {
+describe("Single-track edge case — stop fallback fires when queuePreview was always empty", () => {
   test("stop trigger fires when queuePreview was always empty (single track queue)", async (): Promise<void> => {
     const { startStatusPolling } =
       await import("../../infrastructure/websocket/status-poller.js");
@@ -1358,7 +1358,7 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
   });
 });
 
-describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger", () => {
+describe("handleQueueEnd completes within 2000ms with proactive trigger", () => {
   test("handleQueueEnd resolves within 2000ms even with getStatus and resume calls", async () => {
     const mockSimilarTracks = Array.from({ length: 10 }, (_, i) =>
       makeSimilarTrack(`Artist ${i}`, `Track ${i}`, 0.9 - i * 0.05),
@@ -1440,7 +1440,7 @@ const makeTidalLmsSearchResult = (
   },
 });
 
-describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proactive)", () => {
+describe("Status poller triggers onQueueEnd when Tidal track ends (proactive)", () => {
   test("onQueueEnd called with Tidal track's artist+title when queuePreview goes empty while playing", async () => {
     const { startStatusPolling } =
       await import("../../infrastructure/websocket/status-poller.js");
@@ -1554,7 +1554,7 @@ describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proa
   });
 });
 
-describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (stop fallback)", () => {
+describe("Status poller triggers onQueueEnd when Tidal track ends (stop fallback)", () => {
   test("onQueueEnd called with Tidal track's artist+title on play→stop transition", async () => {
     const { startStatusPolling } =
       await import("../../infrastructure/websocket/status-poller.js");
@@ -1637,7 +1637,7 @@ describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (sto
   });
 });
 
-describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids advance the queue", () => {
+describe("Status poller emits queue updates when duplicate track ids advance the queue", () => {
   test("player.queue.updated is emitted when queuePreview changes even if currentTrack.id stays the same", async () => {
     const { startStatusPolling } =
       await import("../../infrastructure/websocket/status-poller.js");
@@ -1765,7 +1765,7 @@ describe("9.9 AC1c: Status poller emits queue updates when duplicate track ids a
   });
 });
 
-describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's artist+title", () => {
+describe("handleQueueEnd calls getSimilarTracks with Tidal track's artist+title", () => {
   test("getSimilarTracks called with Tidal seed artist+title and limit=50 — same invocation as local seed", async () => {
     const mockLastFmClient = createMockLastFmClient({
       getSimilarTracks: vi.fn().mockResolvedValue({
@@ -1803,7 +1803,7 @@ describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's arti
   });
 });
 
-describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Tidal-only results", () => {
+describe("Radio engine adds Tidal track URL when LMS search returns Tidal-only results", () => {
   test("Tidal URL (tidal://trackId.flc) added to queue when LMS search returns only Tidal results", async () => {
     // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion
     const tidalResult = makeTidalLmsSearchResult("Radiohead", "Creep");
@@ -1855,7 +1855,7 @@ describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Ti
   });
 });
 
-describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal track has no audioQuality", () => {
+describe("Graceful degradation — computeFallbackUrl used when Tidal track has no audioQuality", () => {
   test("track added via computeFallbackUrl when Tidal search result lacks audioQuality", async () => {
     // Tidal result without audioQuality (enrichment failed / not yet enriched)
     const tidalResultNoQuality = {
@@ -1919,7 +1919,7 @@ describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal 
   });
 });
 
-describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source hierarchy)", () => {
+describe("selectBestTrackUrl prefers local FLAC over Tidal FLAC (source hierarchy)", () => {
   test("local FLAC URL added to queue when LMS returns both local and Tidal results", async () => {
     const localResult = makeLmsSearchResult("Radiohead", "Creep", true); // local FLAC
     const tidalResult = makeTidalLmsSearchResult("Radiohead", "Creep", true); // Tidal FLAC
@@ -1973,7 +1973,7 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
   });
 });
 
-describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-triggered radio", () => {
+describe("radioBoundaryIndex equals pre-radio queue length after Tidal-triggered radio", () => {
   test("player.queue.updated emitted with correct radioBoundaryIndex from Tidal-triggered radio", async () => {
     // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion
     const tidalResult = makeTidalLmsSearchResult("Radiohead", "Creep");
@@ -2193,7 +2193,7 @@ describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => 
   });
 });
 
-describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylor Swift tracks in batch", () => {
+describe("seed artist excluded — after playing Taylor Swift, 0 Taylor Swift tracks in batch", () => {
   test("Taylor Swift candidates are excluded when seedArtist is Taylor Swift", async () => {
     // last.fm returns Taylor Swift tracks (same as seed artist) + others
     const mockSimilarTracks = [
@@ -2296,7 +2296,7 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
   });
 });
 
-describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tidal has track", () => {
+describe("Tidal URL added to queue when local search returns 0 but Tidal has track", () => {
   test("tidal:// URL is added to queue when search() returns only Tidal result", async () => {
     const tidalTrackUrl = "tidal://58990486.flc";
     const mockSimilarTracks = [makeSimilarTrack("Adele", "Hello")];
@@ -2355,7 +2355,7 @@ describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tid
   });
 });
 
-describe("AC7: Server wiring — lastFmClient properly integrated", () => {
+describe("Server wiring — lastFmClient properly integrated", () => {
   test("createRadioEngine is exported from radio-mode feature", async () => {
     // This test verifies the public API of the radio-mode module
     // Import from index.ts — will fail RED until Task 7 exports are added

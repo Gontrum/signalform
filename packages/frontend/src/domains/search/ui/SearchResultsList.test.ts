@@ -415,7 +415,7 @@ describe('SearchResultsList', () => {
     expect(wrapper.emitted('pause')).toBeTruthy()
   })
 
-  describe('Artists section (Story 7.4)', () => {
+  describe('Artists section', () => {
     const makeArtist = (name: string, artistId?: string): ArtistResult => ({
       name,
       artistId: artistId ?? null,
@@ -430,20 +430,20 @@ describe('SearchResultsList', () => {
       return w
     }
 
-    it('renders artists section when artists prop is non-empty (AC4d)', async () => {
+    it('renders artists section when artists prop is non-empty', async () => {
       const w = await mountWithArtists([makeArtist('Pink Floyd', '42')])
 
       expect(w.find('[data-testid="artist-results"]').exists()).toBe(true)
       expect(w.find('[data-testid="artist-result-name"]').text()).toBe('Pink Floyd')
     })
 
-    it('does NOT render artists section when artists prop is empty (AC4e)', async () => {
+    it('does NOT render artists section when artists prop is empty', async () => {
       const w = await mountWithArtists([])
 
       expect(w.find('[data-testid="artist-results"]').exists()).toBe(false)
     })
 
-    it('emits navigate-artist event with artistId and name when artist item is clicked (AC5)', async () => {
+    it('emits navigate-artist event with artistId and name when artist item is clicked', async () => {
       const w = await mountWithArtists([makeArtist('Pink Floyd', '42')])
 
       const artistButton = w.find('[data-testid="artist-result-item"] button')
@@ -456,8 +456,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 7.5 — Direct Navigation from Search', () => {
-    it('AC1a: emits navigate-artist when artist name in track row is clicked', async () => {
+  describe('Direct Navigation from Search', () => {
+    it('emits navigate-artist when artist name in track row is clicked', async () => {
       const track: TrackResult = {
         id: 't1',
         title: 'Wish You Were Here',
@@ -483,7 +483,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ artistId: '42', name: 'Pink Floyd' }])
     })
 
-    it('AC1b: does NOT render track-artist-link when track has empty artist name', async () => {
+    it('does NOT render track-artist-link when track has empty artist name', async () => {
       // Link is hidden only when artist NAME is empty, not when artistId is absent
       const track: TrackResult = {
         id: 't2',
@@ -503,7 +503,7 @@ describe('SearchResultsList', () => {
       expect(w.find('[data-testid="track-artist-link"]').exists()).toBe(false)
     })
 
-    it('AC2a: emits navigate-album when album cover is clicked', async () => {
+    it('emits navigate-album when album cover is clicked', async () => {
       const album: AlbumResult = {
         id: 'a1',
         albumId: 'a1',
@@ -525,7 +525,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ albumId: 'a1' }])
     })
 
-    it('AC2b: emits navigate-album when album title is clicked', async () => {
+    it('emits navigate-album when album title is clicked', async () => {
       const album: AlbumResult = {
         id: 'a1',
         albumId: 'a1',
@@ -547,7 +547,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ albumId: 'a1' }])
     })
 
-    it('AC3: clicking track title plays track without emitting navigation events', async () => {
+    it('clicking track title plays track without emitting navigation events', async () => {
       const track: TrackResult = {
         id: 't3',
         title: 'Comfortably Numb',
@@ -576,7 +576,7 @@ describe('SearchResultsList', () => {
       expect(w.emitted('play')).toBeTruthy()
     })
 
-    it('AC4: artist name link has cursor-pointer and hover classes', async () => {
+    it('artist name link has cursor-pointer and hover classes', async () => {
       const track: TrackResult = {
         id: 't4',
         title: 'Wish You Were Here',
@@ -599,7 +599,7 @@ describe('SearchResultsList', () => {
       expect(classes).toContain('hover:underline')
     })
 
-    it('AC4: album row has cursor-pointer class', async () => {
+    it('album row has cursor-pointer class', async () => {
       const album: AlbumResult = {
         id: 'a4',
         albumId: 'a4',
@@ -618,7 +618,7 @@ describe('SearchResultsList', () => {
       expect(albumRow.classes()).toContain('cursor-pointer')
     })
 
-    it('AC5: clicking artist in Artists section still emits navigate-artist (regression guard)', async () => {
+    it('clicking artist in Artists section still emits navigate-artist (regression guard)', async () => {
       const artist: ArtistResult = { name: 'Pink Floyd', artistId: '42' }
       const w = mount(SearchResultsList, {
         props: { results: [], artists: [artist], albums: [] },
@@ -636,8 +636,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 8.3 — Show Streaming Albums in Search Results', () => {
-    it('AC1/AC2/AC3: streaming album (no albumId) renders as non-clickable div with no Play Album button', async () => {
+  describe('Show Streaming Albums in Search Results', () => {
+    it('streaming album (no albumId) renders as non-clickable div with no Play Album button', async () => {
       // Note: data-testid uses the lowercase compound "artist::album" key from the backend.
       // CSS attribute selectors support spaces and '::' in quoted values — safe in Vitest/JSDOM.
       const streamingAlbum: AlbumResult = {
@@ -669,7 +669,7 @@ describe('SearchResultsList', () => {
       expect(w.emitted('navigate-album')).toBeFalsy()
     })
 
-    it('AC4: streaming album displays a source-specific badge with correct label text', async () => {
+    it('streaming album displays a source-specific badge with correct label text', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'die toten hosen::opel-gang',
         title: 'Opel-Gang',
@@ -693,7 +693,7 @@ describe('SearchResultsList', () => {
       expect(streamingBadge.text()).toBe('Tidal')
     })
 
-    it('AC5: local album (with albumId) remains fully functional — clickable and Play Album button visible', async () => {
+    it('local album (with albumId) remains fully functional — clickable and Play Album button visible', async () => {
       const localAlbum: AlbumResult = {
         id: '99',
         albumId: '99',
@@ -724,8 +724,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 8.5 — Navigate Artists from Search Results', () => {
-    it('AC1: streaming artist (artistId=null) renders as <button>, not <div>', async () => {
+  describe('Navigate Artists from Search Results', () => {
+    it('streaming artist (artistId=null) renders as <button>, not <div>', async () => {
       const streamingArtist: ArtistResult = { name: 'Die Toten Hosen', artistId: null }
       const w = mount(SearchResultsList, {
         props: { results: [], artists: [streamingArtist], albums: [] },
@@ -743,7 +743,7 @@ describe('SearchResultsList', () => {
       expect(nonInteractiveDiv.exists()).toBe(false)
     })
 
-    it('AC2: clicking streaming artist emits navigate-artist with artistId=null and name', async () => {
+    it('clicking streaming artist emits navigate-artist with artistId=null and name', async () => {
       const streamingArtist: ArtistResult = { name: 'Die Toten Hosen', artistId: null }
       const w = mount(SearchResultsList, {
         props: { results: [], artists: [streamingArtist], albums: [] },
@@ -760,7 +760,7 @@ describe('SearchResultsList', () => {
       expect(emitted[0]).toEqual({ artistId: null, name: 'Die Toten Hosen' })
     })
 
-    it('AC3: local artist (with artistId) still emits navigate-artist with artistId and name', async () => {
+    it('local artist (with artistId) still emits navigate-artist with artistId and name', async () => {
       const localArtist: ArtistResult = { name: 'Pink Floyd', artistId: '42' }
       const w = mount(SearchResultsList, {
         props: { results: [], artists: [localArtist], albums: [] },
@@ -777,7 +777,7 @@ describe('SearchResultsList', () => {
       expect(emitted[0]).toEqual({ artistId: '42', name: 'Pink Floyd' })
     })
 
-    it('AC4: all artist buttons (local and streaming) have visible focus ring classes', async () => {
+    it('all artist buttons (local and streaming) have visible focus ring classes', async () => {
       const streamingArtist: ArtistResult = { name: 'Die Toten Hosen', artistId: null }
       const w1 = mount(SearchResultsList, {
         props: { results: [], artists: [streamingArtist], albums: [] },
@@ -800,7 +800,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.12 — Tidal Album Card Navigation (AC1, AC6)', () => {
+  describe('Tidal Album Card Navigation', () => {
     const tidalAlbum: AlbumResult = {
       id: 'radiohead::ok computer',
       source: 'tidal',
@@ -810,7 +810,7 @@ describe('SearchResultsList', () => {
       trackUrls: ['tidal://111.flc', 'tidal://222.flc'],
     }
 
-    it('AC1: Tidal album card with trackUrls has role="button" and tabindex="0"', async () => {
+    it('Tidal album card with trackUrls has role="button" and tabindex="0"', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [tidalAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -823,7 +823,7 @@ describe('SearchResultsList', () => {
       expect(albumCard.attributes('tabindex')).toBe('0')
     })
 
-    it('AC1: clicking Tidal album card emits navigate-tidal-album with album data', async () => {
+    it('clicking Tidal album card emits navigate-tidal-album with album data', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [tidalAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -843,7 +843,7 @@ describe('SearchResultsList', () => {
       })
     })
 
-    it('AC1: Enter key on Tidal album card emits navigate-tidal-album', async () => {
+    it('Enter key on Tidal album card emits navigate-tidal-album', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [tidalAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -857,7 +857,7 @@ describe('SearchResultsList', () => {
       expect(w.emitted('navigate-tidal-album')).toHaveLength(1)
     })
 
-    it('AC1: Space key on Tidal album card emits navigate-tidal-album', async () => {
+    it('Space key on Tidal album card emits navigate-tidal-album', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [tidalAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -871,7 +871,7 @@ describe('SearchResultsList', () => {
       expect(w.emitted('navigate-tidal-album')).toHaveLength(1)
     })
 
-    it('AC6: clicking Play Album button on Tidal card does NOT emit navigate-tidal-album', async () => {
+    it('clicking Play Album button on Tidal card does NOT emit navigate-tidal-album', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [tidalAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -1000,8 +1000,8 @@ describe('SearchResultsList', () => {
     expect(listOptions.exists()).toBe(true)
   }
 
-  describe('Story 9.4 — Add Album to Queue from Search Results (AC4)', () => {
-    it('AC4: local album (with albumId) shows an Add to Queue button', async () => {
+  describe('Add Album to Queue from Search Results', () => {
+    it('local album (with albumId) shows an Add to Queue button', async () => {
       const localAlbum: AlbumResult = {
         id: '123',
         albumId: '123',
@@ -1020,7 +1020,7 @@ describe('SearchResultsList', () => {
       expect(addToQueueBtn.exists()).toBe(true)
     })
 
-    it('AC4: streaming album (no albumId) does NOT show Add to Queue button', async () => {
+    it('streaming album (no albumId) does NOT show Add to Queue button', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'pink floyd::the wall',
         // no albumId
@@ -1041,8 +1041,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.5 — Streaming album Play/Queue from Search Results', () => {
-    it('AC1: streaming album WITH trackUrls shows a Play button', async () => {
+  describe('Streaming album Play/Queue from Search Results', () => {
+    it('streaming album WITH trackUrls shows a Play button', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'pink floyd::the wall',
         title: 'The Wall',
@@ -1062,7 +1062,7 @@ describe('SearchResultsList', () => {
       expect(playBtn.exists()).toBe(true)
     })
 
-    it('AC2: streaming album WITH trackUrls shows an Add to Queue button', async () => {
+    it('streaming album WITH trackUrls shows an Add to Queue button', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'pink floyd::the wall',
         title: 'The Wall',
@@ -1082,7 +1082,7 @@ describe('SearchResultsList', () => {
       expect(addBtn.exists()).toBe(true)
     })
 
-    it('AC3: streaming album WITHOUT trackUrls still shows streaming badge', async () => {
+    it('streaming album WITHOUT trackUrls still shows streaming badge', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'pink floyd::the wall',
         title: 'The Wall',
@@ -1104,7 +1104,7 @@ describe('SearchResultsList', () => {
       expect(playBtn.exists()).toBe(false)
     })
 
-    it('AC4: streaming album WITH trackUrls does NOT show static streaming badge', async () => {
+    it('streaming album WITH trackUrls does NOT show static streaming badge', async () => {
       const streamingAlbum: AlbumResult = {
         id: 'pink floyd::the wall',
         title: 'The Wall',
@@ -1125,7 +1125,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.6 — Tidal Album Full Playback from Search', () => {
+  describe('Tidal Album Full Playback from Search', () => {
     const tidalAlbum: AlbumResult = {
       id: 'sabrina carpenter::short n sweet',
       title: "Short n' Sweet",
@@ -1135,7 +1135,7 @@ describe('SearchResultsList', () => {
       trackUrls: ['tidal://111.flc', 'tidal://222.flc'],
     }
 
-    it('AC1: play button on Tidal album calls /api/playback/play-tidal-search-album', async () => {
+    it('play button on Tidal album calls /api/playback/play-tidal-search-album', async () => {
       const { playTidalSearchAlbum } = await import('@/platform/api/playbackApi')
       const mockPlayTidal = vi.mocked(playTidalSearchAlbum)
 
@@ -1155,7 +1155,7 @@ describe('SearchResultsList', () => {
       ])
     })
 
-    it('AC3: add-to-queue button on Tidal album calls /api/queue/add-tidal-search-album', async () => {
+    it('add-to-queue button on Tidal album calls /api/queue/add-tidal-search-album', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 204 }))
 
       const w = mount(SearchResultsList, {
@@ -1179,7 +1179,7 @@ describe('SearchResultsList', () => {
       expect(body.trackUrls).toEqual(['tidal://111.flc', 'tidal://222.flc'])
     })
 
-    it('AC5: play button on non-Tidal streaming album still calls /api/playback/play-track-list', async () => {
+    it('play button on non-Tidal streaming album still calls /api/playback/play-track-list', async () => {
       const { playTrackList } = await import('@/platform/api/playbackApi')
       const mockPlayTrackList = vi.mocked(playTrackList)
 
@@ -1206,8 +1206,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.7 — Tidal Artist Navigation from Search Results', () => {
-    it('AC1: Tidal track with undefined artistId renders artist name as clickable link', async () => {
+  describe('Tidal Artist Navigation from Search Results', () => {
+    it('Tidal track with undefined artistId renders artist name as clickable link', async () => {
       // Tidal tracks have no artistId (undefined) — link must still render after v-if="result.artist" fix
       const tidalTrack: TrackResult = {
         id: 'tidal-track-1',
@@ -1229,7 +1229,7 @@ describe('SearchResultsList', () => {
       expect(artistLink.exists()).toBe(true)
     })
 
-    it('AC1: clicking Tidal track artist link emits navigate-artist with { artistId: null, name }', async () => {
+    it('clicking Tidal track artist link emits navigate-artist with { artistId: null, name }', async () => {
       // artistId is undefined → result.artistId ?? null evaluates to null in emit
       const tidalTrack: TrackResult = {
         id: 'tidal-track-1',
@@ -1256,7 +1256,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ artistId: null, name: 'Sabrina Carpenter' }])
     })
 
-    it('AC2: Tidal album card with trackUrls renders "Go to Artist" button', async () => {
+    it('Tidal album card with trackUrls renders "Go to Artist" button', async () => {
       const tidalAlbumWithTracks: AlbumResult = {
         id: 'tidal-album-1',
         title: 'Short n Sweet',
@@ -1275,7 +1275,7 @@ describe('SearchResultsList', () => {
       expect(button.exists()).toBe(true)
     })
 
-    it('AC2: clicking "Go to Artist" on Tidal album emits navigate-artist with { artistId: null, name }', async () => {
+    it('clicking "Go to Artist" on Tidal album emits navigate-artist with { artistId: null, name }', async () => {
       const tidalAlbumWithTracks: AlbumResult = {
         id: 'tidal-album-1',
         title: 'Short n Sweet',
@@ -1299,7 +1299,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ artistId: null, name: 'Sabrina Carpenter' }])
     })
 
-    it('AC5 (regression): local track artist link emits navigate-artist with string artistId', async () => {
+    it('regression: local track artist link emits navigate-artist with string artistId', async () => {
       const localTrack: TrackResult = {
         id: 'local-track-1',
         title: 'Some Track',
@@ -1443,8 +1443,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.8 — Cover Art Unification in Search Results', () => {
-    it('AC1: local album with coverArtUrl renders <img> instead of ♪ placeholder', async () => {
+  describe('Cover Art Unification in Search Results', () => {
+    it('local album with coverArtUrl renders <img> instead of ♪ placeholder', async () => {
       const localAlbumWithArt: AlbumResult = {
         id: '55',
         albumId: '55',
@@ -1471,7 +1471,7 @@ describe('SearchResultsList', () => {
       expect(placeholder.exists()).toBe(false)
     })
 
-    it('AC2: album without coverArtUrl renders ♪ placeholder (Tidal or local without art)', async () => {
+    it('album without coverArtUrl renders ♪ placeholder (Tidal or local without art)', async () => {
       const albumNoArt: AlbumResult = {
         id: 'tidal::no-art',
         title: 'Short n Sweet',
@@ -1496,7 +1496,7 @@ describe('SearchResultsList', () => {
       expect(img.exists()).toBe(false)
     })
 
-    it('AC3: cover img load error shows ♪ placeholder fallback', async () => {
+    it('cover img load error shows ♪ placeholder fallback', async () => {
       const localAlbumWithBrokenArt: AlbumResult = {
         id: '66',
         albumId: '66',
@@ -1530,8 +1530,8 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.15 — Track list overflow fix on phone (AC5)', () => {
-    it('AC5: results-list container has overflow-x-hidden to prevent horizontal scroll', async () => {
+  describe('Track list overflow fix on phone', () => {
+    it('results-list container has overflow-x-hidden to prevent horizontal scroll', async () => {
       const track: TrackResult = {
         id: 'ac5-track',
         title: 'Some Track',
@@ -1552,7 +1552,7 @@ describe('SearchResultsList', () => {
     })
   })
 
-  describe('Story 9.15 — Album card overflow fix on phone (AC4)', () => {
+  describe('Album card overflow fix on phone', () => {
     const localAlbum: AlbumResult = {
       id: '123',
       albumId: '123',
@@ -1562,7 +1562,7 @@ describe('SearchResultsList', () => {
       source: 'local',
     }
 
-    it('AC4: Play Album button text label has hidden class for icon-only display on phone', async () => {
+    it('Play Album button text label has hidden class for icon-only display on phone', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [localAlbum], artists: [] },
         global: { plugins: [await createRouter()] },
@@ -1578,7 +1578,7 @@ describe('SearchResultsList', () => {
       expect(textLabel.classes()).toContain('hidden')
     })
 
-    it('AC4: Album info div has min-w-0 to prevent overflow', async () => {
+    it('Album info div has min-w-0 to prevent overflow', async () => {
       const w = mount(SearchResultsList, {
         props: { results: [], albums: [localAlbum], artists: [] },
         global: { plugins: [await createRouter()] },

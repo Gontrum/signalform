@@ -64,7 +64,7 @@ const thenResultHasAvailableSourceCount = (
   expect(results[index]?.availableSources).toHaveLength(expectedCount);
 };
 
-describe("Story 3.2: Deduplicate Search Results Across Sources", () => {
+describe("Deduplicate Search Results Across Sources", () => {
   test("User searches 'Money' available from local, Qobuz, Tidal → 1 result with local selected", () => {
     const lmsResults = givenLmsTracksFromSources(
       "Money",

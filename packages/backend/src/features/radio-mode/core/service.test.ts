@@ -82,22 +82,22 @@ describe("areGenresRelated", () => {
 });
 
 describe("passesEraFilter", () => {
-  test("candidate within ±20 years of seed → passes (AC1)", () => {
+  test("candidate within ±20 years of seed → passes", () => {
     const candidate = makeCandidate({ year: 1965 });
     expect(passesEraFilter(candidate, 1959, 20)).toBe(true);
   });
 
-  test("candidate outside ±20 years of seed → fails (AC1)", () => {
+  test("candidate outside ±20 years of seed → fails", () => {
     const candidate = makeCandidate({ year: 2020 });
     expect(passesEraFilter(candidate, 1959, 20)).toBe(false);
   });
 
-  test("candidate with no year → always passes (AC5 graceful degradation)", () => {
+  test("candidate with no year → always passes (graceful degradation)", () => {
     const candidate = makeCandidate({ year: undefined });
     expect(passesEraFilter(candidate, 1959, 20)).toBe(true);
   });
 
-  test("no seedYear → all candidates pass (AC5)", () => {
+  test("no seedYear → all candidates pass", () => {
     const candidate = makeCandidate({ year: 2020 });
     expect(passesEraFilter(candidate, undefined, 20)).toBe(true);
   });
@@ -129,42 +129,42 @@ describe("passesEraFilter", () => {
 });
 
 describe("passesGenreFilter", () => {
-  test("Jazz seed, Cool Jazz candidate → passes (same group, AC2)", () => {
+  test("Jazz seed, Cool Jazz candidate → passes (same group)", () => {
     const candidate = makeCandidate({ genres: ["Cool Jazz"] });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(true);
   });
 
-  test("Jazz seed, Bebop candidate → passes (same group, AC2)", () => {
+  test("Jazz seed, Bebop candidate → passes (same group)", () => {
     const candidate = makeCandidate({ genres: ["Bebop"] });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(true);
   });
 
-  test("Jazz seed, Pop candidate → fails (different group, AC2)", () => {
+  test("Jazz seed, Pop candidate → fails (different group)", () => {
     const candidate = makeCandidate({ genres: ["Pop"] });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(false);
   });
 
-  test("Jazz seed, Rock candidate → fails (different group, AC2)", () => {
+  test("Jazz seed, Rock candidate → fails (different group)", () => {
     const candidate = makeCandidate({ genres: ["Rock"] });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(false);
   });
 
-  test("candidate with no genres → always passes (AC5)", () => {
+  test("candidate with no genres → always passes", () => {
     const candidate = makeCandidate({ genres: undefined });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(true);
   });
 
-  test("candidate with empty genres array → always passes (AC5)", () => {
+  test("candidate with empty genres array → always passes", () => {
     const candidate = makeCandidate({ genres: [] });
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(true);
   });
 
-  test("no seedGenres → all candidates pass (AC5)", () => {
+  test("no seedGenres → all candidates pass", () => {
     const candidate = makeCandidate({ genres: ["Pop"] });
     expect(passesGenreFilter(candidate, undefined)).toBe(true);
   });
 
-  test("empty seedGenres → all candidates pass (AC5)", () => {
+  test("empty seedGenres → all candidates pass", () => {
     const candidate = makeCandidate({ genres: ["Pop"] });
     expect(passesGenreFilter(candidate, [])).toBe(true);
   });
@@ -264,7 +264,7 @@ describe("filterByContext — combined filtering", () => {
   });
 });
 
-describe("filterByContext — era window expansion (AC4)", () => {
+describe("filterByContext — era window expansion", () => {
   test("expands era window when fewer than minResults found", () => {
     // 5 candidates within ±20 years, 5 more within ±30 years → total 10 after expansion
     const within20 = Array.from({ length: 5 }, (_, i) =>
@@ -369,7 +369,7 @@ describe("filterByContext — eraExpansionStep edge cases", () => {
   });
 });
 
-describe("filterByContext — graceful degradation (AC5)", () => {
+describe("filterByContext — graceful degradation", () => {
   test("candidates with no year pass era filter (graceful degradation)", () => {
     const candidates = [
       makeCandidate({ year: undefined, genres: ["Jazz"] }),
@@ -394,7 +394,7 @@ describe("filterByContext — graceful degradation (AC5)", () => {
     expect(result).toHaveLength(2);
   });
 
-  test("candidates < minResults all passing → returns all (AC3)", () => {
+  test("candidates < minResults all passing → returns all", () => {
     // Only 5 candidates, all pass → return all 5 even though minResults=10
     const candidates = Array.from({ length: 5 }, (_, i) =>
       makeCandidate({ year: 1959 + i, genres: ["Jazz"] }),

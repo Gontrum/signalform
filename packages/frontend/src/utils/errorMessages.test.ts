@@ -26,7 +26,7 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback - cannot connect to server')
     })
 
-    it('maps SERVER_ERROR with LMS unreachable to standard message (AC5)', () => {
+    it('maps SERVER_ERROR with LMS unreachable to standard message', () => {
       const error: PlaybackApiError = {
         type: 'SERVER_ERROR',
         status: 503,
@@ -38,7 +38,7 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback - music server not reachable')
     })
 
-    it('maps SERVER_ERROR with timeout to standard message (AC5)', () => {
+    it('maps SERVER_ERROR with timeout to standard message', () => {
       const error: PlaybackApiError = {
         type: 'SERVER_ERROR',
         status: 503,
@@ -50,7 +50,7 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback - music server did not respond in time')
     })
 
-    it('maps generic SERVER_ERROR to standard message (AC5)', () => {
+    it('maps generic SERVER_ERROR to standard message', () => {
       const error: PlaybackApiError = {
         type: 'SERVER_ERROR',
         status: 500,
@@ -62,7 +62,7 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback')
     })
 
-    it('maps VALIDATION_ERROR to standard message (AC5)', () => {
+    it('maps VALIDATION_ERROR to standard message', () => {
       const error: PlaybackApiError = {
         type: 'VALIDATION_ERROR',
         status: 400,
@@ -74,7 +74,7 @@ describe('errorMessages', () => {
       expect(result).toBe('Could not start playback - invalid track URL')
     })
 
-    it('maps ABORT_ERROR to standard message (AC5)', () => {
+    it('maps ABORT_ERROR to standard message', () => {
       const error: PlaybackApiError = {
         type: 'ABORT_ERROR',
         message: 'Request aborted',
@@ -114,7 +114,7 @@ describe('errorMessages', () => {
       expect(mapPlaybackErrorMessage(error, 'repeat')).toBe('Could not change repeat mode')
     })
 
-    it('critical error messages include "Could not start playback" (AC5 compliance)', () => {
+    it('critical error messages include "Could not start playback"', () => {
       const errorTypes: readonly PlaybackApiError[] = [
         { type: 'VALIDATION_ERROR', status: 400, message: 'validation' },
         { type: 'SERVER_ERROR', status: 500, message: 'server' },

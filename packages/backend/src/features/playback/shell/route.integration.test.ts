@@ -409,7 +409,7 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).toHaveBeenCalledWith("42");
     });
 
-    it("AC1: returns 200 for Tidal LibraryView albumId '4.0' via playTidalAlbum", async () => {
+    it("returns 200 for Tidal LibraryView albumId '4.0' via playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, { albumId: "4.0" });
 
       await thenResponseStatusIs(response, 200);
@@ -417,7 +417,7 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    it("AC2: returns 200 for Tidal artist-browse albumId '6.0.1.0' via playTidalAlbum", async () => {
+    it("returns 200 for Tidal artist-browse albumId '6.0.1.0' via playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "6.0.1.0",
       });
@@ -427,7 +427,7 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    it("AC1/AC3: search-artist album ID '7_query.2.0.1.4' routes to playTidalAlbum", async () => {
+    it("search-artist album ID '7_query.2.0.1.4' routes to playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "7_sabrina carpenter.2.0.1.4",
       });
@@ -439,7 +439,7 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    it("AC2: featured album ID '1.0.1.0' routes to playTidalAlbum", async () => {
+    it("featured album ID '1.0.1.0' routes to playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "1.0.1.0",
       });
@@ -449,7 +449,7 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    it("AC4: local numeric albumId uses playAlbum (not playTidalAlbum)", async () => {
+    it("local numeric albumId uses playAlbum (not playTidalAlbum)", async () => {
       await whenPostingToPlayAlbum(server, { albumId: "42" });
 
       expect(mockLmsClient.playAlbum).toHaveBeenCalledWith("42");
@@ -719,7 +719,7 @@ describe("POST /api/playback/play-track-list - Integration Tests", () => {
   });
 });
 
-describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 9.6)", () => {
+describe("POST /api/playback/play-tidal-search-album - Integration Tests", () => {
   let server: FastifyInstance;
 
   beforeEach(async () => {

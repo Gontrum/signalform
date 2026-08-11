@@ -464,7 +464,7 @@ describe('SearchPanel', () => {
     expect(searchApi.fetchFullResults).toHaveBeenCalledWith('The Peacocks')
   })
 
-  it('handles Enter key press (AC3: pressing Enter triggers full search)', async (): Promise<void> => {
+  it('handles Enter key press (pressing Enter triggers full search)', async (): Promise<void> => {
     vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
       ok({
         tracks: [],
@@ -733,7 +733,7 @@ describe('SearchPanel', () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: 'album-detail', params: { albumId: '100' } })
   })
 
-  it('AC2c: navigates to album-detail when navigate-album emitted from SearchResultsList', async (): Promise<void> => {
+  it('navigates to album-detail when navigate-album emitted from SearchResultsList', async (): Promise<void> => {
     vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
       ok({
         tracks: [],
@@ -1274,7 +1274,7 @@ describe('SearchPanel', () => {
 
     // Back button must be INSIDE the scroll container
     // so hovering over the Back button routes scroll events to the results list
-    it('back button is a descendant of the scrollable container (AC3 — scroll propagation)', async (): Promise<void> => {
+    it('back button is a descendant of the scrollable container (scroll propagation)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
       )
@@ -1293,7 +1293,7 @@ describe('SearchPanel', () => {
       expect(backButtonInContainer.exists()).toBe(true)
     })
 
-    it('scroll header inside container has sticky, top-0, and z-raised classes (AC3)', async (): Promise<void> => {
+    it('scroll header inside container has sticky, top-0, and z-raised classes', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
       )
@@ -1317,7 +1317,7 @@ describe('SearchPanel', () => {
       expect(scrollHeader.classes()).toContain('rounded-xl')
     })
 
-    it('full results list has overflow-y-auto and min-h-0 for scroll containment (AC1)', async (): Promise<void> => {
+    it('full results list has overflow-y-auto and min-h-0 for scroll containment', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [
@@ -1350,7 +1350,7 @@ describe('SearchPanel', () => {
       expect(fullResultsList.classes()).toContain('min-h-0')
     })
 
-    it('full results mode container is bounded with flex-1 and min-h-0 (AC1 — no ancestor scrolls)', async (): Promise<void> => {
+    it('full results mode container is bounded with flex-1 and min-h-0 (no ancestor scrolls)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
       )
@@ -1370,7 +1370,7 @@ describe('SearchPanel', () => {
       expect(fullResultsList.classes()).toContain('min-h-0')
     })
 
-    it('AC2 (9.13 supersedes 8.8): navigate-artist with null artistId routes to unified-artist (no Tidal search)', async (): Promise<void> => {
+    it('navigate-artist with null artistId routes to unified-artist (no Tidal search)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [],
@@ -1399,7 +1399,7 @@ describe('SearchPanel', () => {
       })
     })
 
-    it('AC2 (9.13 supersedes 8.8): navigate-artist with null artistId routes to unified-artist (no fallback search)', async (): Promise<void> => {
+    it('navigate-artist with null artistId routes to unified-artist (no fallback search)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [],
@@ -1428,7 +1428,7 @@ describe('SearchPanel', () => {
       })
     })
 
-    it('AC1 (9.13 supersedes 8.5): navigate-artist with local artistId routes to unified-artist', async (): Promise<void> => {
+    it('navigate-artist with local artistId routes to unified-artist', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [],
@@ -1457,7 +1457,7 @@ describe('SearchPanel', () => {
       })
     })
 
-    it('footer search event from AutocompleteDropdown triggers full search (AC2)', async (): Promise<void> => {
+    it('footer search event from AutocompleteDropdown triggers full search', async (): Promise<void> => {
       const context = await whenSearchPanelIsMounted()
       await whenUserTypesInSearchInput(context.wrapper, 'Pink Floyd')
 
@@ -1586,8 +1586,8 @@ describe('SearchPanel', () => {
     })
   })
 
-  describe('Story 9.13: Unified artist navigation', () => {
-    it('AC1: navigate-artist with local artistId routes to unified-artist (not artist-detail)', async (): Promise<void> => {
+  describe('Unified artist navigation', () => {
+    it('navigate-artist with local artistId routes to unified-artist (not artist-detail)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [
@@ -1622,7 +1622,7 @@ describe('SearchPanel', () => {
       expect(pushSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'unified-artist' }))
     })
 
-    it('AC1: navigate-artist with null artistId routes to unified-artist (not Tidal search)', async (): Promise<void> => {
+    it('navigate-artist with null artistId routes to unified-artist (not Tidal search)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [
@@ -1657,7 +1657,7 @@ describe('SearchPanel', () => {
       expect(pushSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'unified-artist' }))
     })
 
-    it('AC1: unified route query includes artist name from navigate-artist payload', async (): Promise<void> => {
+    it('unified route query includes artist name from navigate-artist payload', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
           tracks: [

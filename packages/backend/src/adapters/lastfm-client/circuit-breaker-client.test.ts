@@ -100,7 +100,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     vi.useRealTimers();
   });
 
-  it("AC1: opens after 5 consecutive qualifying NetworkErrors; 6th call returns CircuitOpenError", async () => {
+  it("opens after 5 consecutive qualifying NetworkErrors; 6th call returns CircuitOpenError", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 
@@ -120,7 +120,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     expect(getSimilarTracksMock).toHaveBeenCalledTimes(5);
   });
 
-  it("AC2: OPEN state returns CircuitOpenError immediately without calling inner client", async () => {
+  it("OPEN state returns CircuitOpenError immediately without calling inner client", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 
@@ -145,7 +145,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     }
   });
 
-  it("AC4a: after 60s, circuit transitions to HALF_OPEN and passes one call through (success → CLOSED)", async () => {
+  it("after 60s, circuit transitions to HALF_OPEN and passes one call through (success → CLOSED)", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 
@@ -170,7 +170,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     expect(getSimilarTracksMock).toHaveBeenCalledTimes(2); // 1 half-open + 1 closed
   });
 
-  it("AC4b: HALF_OPEN failure → back to OPEN, new 60s timer started", async () => {
+  it("HALF_OPEN failure → back to OPEN, new 60s timer started", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 
@@ -202,7 +202,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     expect(resultHalfOpen2.ok).toBe(true);
   });
 
-  it("AC5: HALF_OPEN success → CLOSED; failure count reset; subsequent calls pass through", async () => {
+  it("HALF_OPEN success → CLOSED; failure count reset; subsequent calls pass through", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 
@@ -227,7 +227,7 @@ describe("createCircuitBreakerLastFmClient", () => {
     });
   });
 
-  it("AC6: 5× NotFoundError → circuit stays CLOSED; 6th call reaches inner client", async () => {
+  it("5× NotFoundError → circuit stays CLOSED; 6th call reaches inner client", async () => {
     const { client: inner, getSimilarTracksMock } = makeInnerClient();
     const cb = createCircuitBreakerLastFmClient(inner, DEFAULT_CONFIG);
 

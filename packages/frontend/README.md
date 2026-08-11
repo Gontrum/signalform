@@ -7,24 +7,29 @@ A search-centric music player interface for Lyrion Music Server with multi-sourc
 ## Tech Stack
 
 **Framework:**
+
 - **Vue 3.5+** with Composition API (`<script setup lang="ts">`)
 - **TypeScript 5.9+** in strict mode
 - **Vite 7.3+** for development and bundling
 
 **State Management & Routing:**
+
 - **Vue Router 5.0+** for client-side routing
 - **Pinia 3.0+** for reactive state management
 
 **Styling & Components:**
+
 - **Tailwind CSS 4.1+** for utility-first styling (v4 architecture with `@tailwindcss/postcss`)
 - **Headless UI for Vue** for accessible unstyled components
 
 **Testing:**
+
 - **Vitest 4.0+** with happy-dom environment
 - **Vue Test Utils 2.4+** for component testing
 - BDD/TDD approach with co-located tests
 
 **Code Quality:**
+
 - **ESLint 9.39+** with functional programming rules
 - **Prettier 3.8+** for code formatting
 - **TypeScript strict mode** enabled
@@ -35,6 +40,7 @@ A search-centric music player interface for Lyrion Music Server with multi-sourc
 This package follows the **Epic 1 Architecture** requirements:
 
 ### Functional Programming (Mandatory)
+
 - ✅ No `let` - only `const` (enforced by ESLint)
 - ✅ No classes - functions only (enforced by ESLint)
 - ✅ Immutable data patterns (controlled mutations for Vue reactivity)
@@ -42,11 +48,13 @@ This package follows the **Epic 1 Architecture** requirements:
 - ✅ Composition API (naturally functional)
 
 ### Code Organization
+
 - **Feature-based structure** (to be introduced in Epic 2+)
 - Co-located tests: `Component.vue` + `Component.test.ts`
 - Composition API with `<script setup lang="ts">`
 
 ### TypeScript
+
 - Strict mode enabled via `@vue/tsconfig`
 - `noUncheckedIndexedAccess: true` for extra safety
 - Type inference over explicit types (Composition API style)
@@ -112,6 +120,7 @@ pnpm lint:oxlint
 ```
 
 **ESLint Rules:**
+
 - Functional programming enforcement (`eslint-plugin-functional`)
 - Vue 3 best practices
 - TypeScript strict rules
@@ -130,6 +139,7 @@ Uses Prettier with project-wide configuration.
 ### Recommended: VSCode
 
 **Extensions:**
+
 - [Volar (Vue Language Features)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) - **Required**
 - [TypeScript Vue Plugin](https://marketplace.visualstudio.com/items?itemName=Vue.vscode-typescript-vue-plugin)
 - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
@@ -141,10 +151,12 @@ Uses Prettier with project-wide configuration.
 ### Browser DevTools
 
 **Chrome/Edge/Brave:**
+
 - [Vue.js DevTools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
 - Enable "Custom Object Formatters" in DevTools settings
 
 **Firefox:**
+
 - [Vue.js DevTools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
 
 ## Key Configuration Files
@@ -200,7 +212,7 @@ See `postcss.config.js` for detailed v4 migration notes.
 
 ### Happy-dom Test Environment
 
-Vitest is configured with **happy-dom** instead of jsdom due to ES Module compatibility issues encountered in Story 1.2:
+Vitest is configured with **happy-dom** instead of jsdom due to ES Module compatibility issues:
 
 ```ts
 // vitest.config.ts

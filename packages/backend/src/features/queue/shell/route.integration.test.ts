@@ -1657,7 +1657,7 @@ describe("POST /api/queue/reorder", () => {
   });
 });
 
-describe("POST /api/queue/add-tidal-search-album (Story 9.6)", () => {
+describe("POST /api/queue/add-tidal-search-album", () => {
   let server: FastifyInstance;
 
   beforeEach(async () => {

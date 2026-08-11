@@ -348,7 +348,7 @@ describe('NowPlayingPanel', () => {
       expect(badge.classes()).toContain('bg-warning/10')
     })
 
-    it('shows FLAC quality badge text for Tidal track with audioQuality (AC3 fix)', async () => {
+    it('shows FLAC quality badge text for Tidal track with audioQuality', async () => {
       const context = await givenTidalTrackIsPlayingWithQuality()
 
       const badge = context.wrapper.find('[data-testid="quality-badge"]')

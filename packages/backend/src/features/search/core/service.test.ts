@@ -437,7 +437,7 @@ describe("transformToFullResults", () => {
     thenFullResultsHaveTotalCount(result, 1);
   });
 
-  it("AC4a: transformToFullResults returns artists array with unique artists from track results", () => {
+  it("transformToFullResults returns artists array with unique artists from track results", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -472,7 +472,7 @@ describe("transformToFullResults", () => {
     expect(result.value.artists[1]!.name).toBe("David Bowie");
   });
 
-  it("AC4b: transformToFullResults deduplicates artists by name (case-insensitive)", () => {
+  it("transformToFullResults deduplicates artists by name (case-insensitive)", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -503,7 +503,7 @@ describe("transformToFullResults", () => {
     expect(result.value.artists).toHaveLength(1);
   });
 
-  it("AC1 (Story 8.3): streaming track with no albumId → included in albums with albumId undefined, lowercase compound id, source set", () => {
+  it("streaming track with no albumId → included in albums with albumId undefined, lowercase compound id, source set", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "track-tidal",
@@ -530,7 +530,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC5 (Story 8.3): local albums unaffected — appear with albumId defined and source set", () => {
+  it("local albums unaffected — appear with albumId defined and source set", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "track-local",
@@ -555,7 +555,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1+AC5 (Story 8.3): streaming and local albums both included — correct ids, albumIds, and sources", () => {
+  it("streaming and local albums both included — correct ids, albumIds, and sources", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "track-local",
@@ -599,7 +599,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC4c: transformToFullResults includes artistId in artist results when available", () => {
+  it("transformToFullResults includes artistId in artist results when available", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -708,7 +708,7 @@ describe("transformToFullResults", () => {
     expect(result.value.artists[0]!.name).toBe("Taylor Swift");
   });
 
-  it("AC4 (Story 9.5): streaming album has trackUrls populated from track URLs", () => {
+  it("streaming album has trackUrls populated from track URLs", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -740,7 +740,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC4 (Story 9.5): local album has trackUrls undefined", () => {
+  it("local album has trackUrls undefined", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -766,7 +766,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1 (Story 9.8): local album result includes coverArtUrl from first track with coverArtUrl", () => {
+  it("local album result includes coverArtUrl from first track with coverArtUrl", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -805,7 +805,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1 (Story 9.8): local album without coverArtUrl has coverArtUrl undefined", () => {
+  it("local album without coverArtUrl has coverArtUrl undefined", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -831,7 +831,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1 (Story 9.8): album coverArtUrl uses any track with a URL when best-source track has none", () => {
+  it("album coverArtUrl uses any track with a URL when best-source track has none", () => {
     // Edge case: deduplication group where best-source track (Tidal, group[0]) has no coverArtUrl
     // but a secondary track (local) does. The find() in deduplicateTracks must search all tracks.
     const lmsResults = givenLmsResultsWithTracks([
@@ -872,7 +872,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1 (Story 9.12): streaming album has trackTitles populated from track titles", () => {
+  it("streaming album has trackTitles populated from track titles", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -903,7 +903,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC1 (Story 9.12): local album has trackTitles undefined", () => {
+  it("local album has trackTitles undefined", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -928,7 +928,7 @@ describe("transformToFullResults", () => {
     }
   });
 
-  it("AC4 (Story 9.5): streaming album with empty track URLs has trackUrls undefined", () => {
+  it("streaming album with empty track URLs has trackUrls undefined", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
         id: "t1",
@@ -953,7 +953,6 @@ describe("transformToFullResults", () => {
     }
   });
 
-  // Story tidal-enrichment-timeout: coverArtUrl-based grouping
   it("groups unenriched Tidal tracks with enriched ones when they share coverArtUrl", () => {
     // Simulates a 5-movement symphony on Tidal where tidal_info enrichment times out
     // for 4 movements, leaving artist/album empty.  All 5 share the same coverArtUrl
@@ -1566,7 +1565,7 @@ describe("deduplicateTracks", () => {
     expect(result).toHaveLength(1);
   });
 
-  it("AC2 (Story 7.9): deduplicates Tidal track with local after tidal_info enrichment populates artist/album", () => {
+  it("deduplicates Tidal track with local after tidal_info enrichment populates artist/album", () => {
     // Simulates the fresh-track enrichment path: tidal_info populates artist/album on a Tidal
     // track that was never played. After enrichment both local and Tidal share the same
     // normalizeDeduplicationKey → merged into 1 result, local preferred (source priority).
@@ -1731,7 +1730,7 @@ describe("deduplicateTracks", () => {
     expect(result).toHaveLength(10); // 10 unique title+artist combinations
   });
 
-  it("includes audioQuality from best source when all sources have quality (AC4)", () => {
+  it("includes audioQuality from best source when all sources have quality", () => {
     const flac: AudioQuality = {
       format: "FLAC",
       bitrate: 1411000,
@@ -1755,7 +1754,7 @@ describe("deduplicateTracks", () => {
     expect(result[0]?.audioQuality?.format).toBe("FLAC");
   });
 
-  it("falls back to source priority and clears audioQuality when not all sources have quality (AC9)", () => {
+  it("falls back to source priority and clears audioQuality when not all sources have quality", () => {
     const flac: AudioQuality = {
       format: "FLAC",
       bitrate: 1411000,
@@ -1781,7 +1780,7 @@ describe("deduplicateTracks", () => {
     expect(result[0]?.audioQuality).toBeUndefined();
   });
 
-  it("sets audioQuality to undefined when all sources have no quality (AC5)", () => {
+  it("sets audioQuality to undefined when all sources have no quality", () => {
     const tracks = [
       makeTrack("local", "Money", "Pink Floyd", "Dark Side", undefined),
       makeTrack("qobuz", "Money", "Pink Floyd", "Dark Side", undefined),
@@ -1822,7 +1821,7 @@ describe("selectBestAvailableSource", () => {
     expect(selectBestAvailableSource([])).toBeUndefined();
   });
 
-  it("uses quality-based selection when ALL sources have quality (AC4)", () => {
+  it("uses quality-based selection when ALL sources have quality", () => {
     const sources: readonly AvailableSource[] = [
       makeSource("local", "local://track", mp3),
       makeSource("qobuz", "qobuz://track", flac),
@@ -1833,7 +1832,7 @@ describe("selectBestAvailableSource", () => {
     expect(best?.audioQuality?.format).toBe("FLAC");
   });
 
-  it("uses source priority as tie-breaker for equal quality (AC8)", () => {
+  it("uses source priority as tie-breaker for equal quality", () => {
     const sources: readonly AvailableSource[] = [
       makeSource("qobuz", "qobuz://track", flac),
       makeSource("local", "local://track", flac),
@@ -1844,7 +1843,7 @@ describe("selectBestAvailableSource", () => {
     expect(best?.audioQuality?.format).toBe("FLAC");
   });
 
-  it("falls back to priority and clears audioQuality when not all sources have quality (AC9)", () => {
+  it("falls back to priority and clears audioQuality when not all sources have quality", () => {
     const sources: readonly AvailableSource[] = [
       makeSource("local", "local://track", flac),
       makeSource("qobuz", "qobuz://track", undefined), // no quality
@@ -1855,7 +1854,7 @@ describe("selectBestAvailableSource", () => {
     expect(best?.audioQuality).toBeUndefined();
   });
 
-  it("falls back to priority when no sources have quality (AC5)", () => {
+  it("falls back to priority when no sources have quality", () => {
     const sources: readonly AvailableSource[] = [
       makeSource("tidal"),
       makeSource("local"),
@@ -1892,8 +1891,8 @@ describe("selectBestAvailableSource", () => {
   });
 });
 
-describe("deduplicateTracks — Story 7.8 Tidal enrichment (AC2, AC3, AC6)", () => {
-  it("AC2: merges local and enriched Tidal track into one result when artist/album match", () => {
+describe("deduplicateTracks — Tidal enrichment", () => {
+  it("merges local and enriched Tidal track into one result when artist/album match", () => {
     const localCreep: LmsSearchResult = {
       id: "local-42",
       title: "Creep",
@@ -1924,7 +1923,7 @@ describe("deduplicateTracks — Story 7.8 Tidal enrichment (AC2, AC3, AC6)", () 
     expect(sources.some((s) => s.source === "tidal")).toBe(true);
   });
 
-  it("AC3: local FLAC wins over Tidal AAC via quality-based selection when both have audioQuality", () => {
+  it("local FLAC wins over Tidal AAC via quality-based selection when both have audioQuality", () => {
     const localFlac: LmsSearchResult = {
       id: "local-1",
       title: "Creep",
@@ -1965,7 +1964,7 @@ describe("deduplicateTracks — Story 7.8 Tidal enrichment (AC2, AC3, AC6)", () 
     expect(result[0]?.availableSources).toHaveLength(2);
   });
 
-  it("AC6: unenriched Tidal track (empty artist/album) is NOT merged with local — graceful degradation", () => {
+  it("unenriched Tidal track (empty artist/album) is NOT merged with local — graceful degradation", () => {
     const localCreep: LmsSearchResult = {
       id: "local-42",
       title: "Creep",

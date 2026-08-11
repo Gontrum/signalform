@@ -429,7 +429,7 @@ describe("GET /api/tidal/albums/:albumId/tracks", () => {
     );
   });
 
-  it("AC2: handles artist-browse albumId '6.0.1.0' format correctly", async () => {
+  it("handles artist-browse albumId '6.0.1.0' format correctly", async () => {
     mockLmsClient.getTidalAlbumTracks.mockResolvedValue(
       ok(makeTidalTracksResult(2)),
     );
@@ -494,7 +494,7 @@ describe("GET /api/tidal/albums/resolve", () => {
     void server.close();
   });
 
-  it("AC3: returns 200 with albumId when artist and album are found", async () => {
+  it("returns 200 with albumId when artist and album are found", async () => {
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({ artists: [{ id: "7_radiohead.2.0", name: "Radiohead" }], count: 1 }),
     );
@@ -515,7 +515,7 @@ describe("GET /api/tidal/albums/resolve", () => {
     expect(body.albumId).toBe("7_radiohead.2.0.1.0");
   });
 
-  it("AC4: returns 200 with albumId null when no artist found", async () => {
+  it("returns 200 with albumId null when no artist found", async () => {
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({ artists: [], count: 0 }),
     );
@@ -654,7 +654,7 @@ describe("GET /api/tidal/featured-albums", () => {
     void server.close();
   });
 
-  it("AC2: returns 200 with albums array and totalCount on success", async () => {
+  it("returns 200 with albums array and totalCount on success", async () => {
     mockLmsClient.getTidalFeaturedAlbums.mockResolvedValue(
       ok(makeFeaturedResult(3)),
     );
@@ -670,7 +670,7 @@ describe("GET /api/tidal/featured-albums", () => {
     expect(body.totalCount).toBe(3);
   });
 
-  it("AC2: maps album fields (splits 'Title - Artist' name format)", async () => {
+  it("maps album fields (splits 'Title - Artist' name format)", async () => {
     mockLmsClient.getTidalFeaturedAlbums.mockResolvedValue(
       ok({
         albums: [
@@ -701,7 +701,7 @@ describe("GET /api/tidal/featured-albums", () => {
     );
   });
 
-  it("AC2: returns 503 when LMS is unreachable", async () => {
+  it("returns 503 when LMS is unreachable", async () => {
     mockLmsClient.getTidalFeaturedAlbums.mockResolvedValue(
       err({ type: "NetworkError", message: "Connection refused" }),
     );

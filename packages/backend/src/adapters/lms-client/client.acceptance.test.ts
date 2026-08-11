@@ -782,7 +782,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 8: Parallel Tidal Search (Story 7.7)", () => {
+  describe("Rule 8: Parallel Tidal Search", () => {
     // Helper: mock first call (titles/local) and second call (tidal) separately
     const givenLocalReturnsTrack = (track: {
       readonly id: number;
@@ -904,7 +904,7 @@ describe("LMS Client - Acceptance Tests", () => {
       fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
     };
 
-    it("AC1: includes Tidal tracks in results when tidal plugin returns audio items", async () => {
+    it("includes Tidal tracks in results when tidal plugin returns audio items", async () => {
       givenLocalReturnsEmpty();
       givenTidalReturnsTrack({ name: "Creep", url: "tidal://58990486.flc" });
       givenTidalInfoReturns({ artist: "Radiohead", album: "Pablo Honey" });
@@ -922,7 +922,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC1: combines local and Tidal tracks with local results first", async () => {
+    it("combines local and Tidal tracks with local results first", async () => {
       givenLocalReturnsTrack({
         id: 42,
         title: "Karma Police (local)",
@@ -946,7 +946,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC4a: returns only local results when Tidal fetch throws (graceful degradation)", async () => {
+    it("returns only local results when Tidal fetch throws (graceful degradation)", async () => {
       givenLocalReturnsTrack({
         id: 8,
         title: "No Surprises",
@@ -965,7 +965,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC4b: returns only local results when Tidal command returns LMS error (graceful degradation)", async () => {
+    it("returns only local results when Tidal command returns LMS error (graceful degradation)", async () => {
       givenLocalReturnsTrack({
         id: 9,
         title: "Fake Plastic Trees",
@@ -984,7 +984,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC5: returns empty artist/album and no audioQuality when tidal_info enrichment fails (graceful degradation)", async () => {
+    it("returns empty artist/album and no audioQuality when tidal_info enrichment fails (graceful degradation)", async () => {
       // tidal_info enrichment normally populates artist/album/audioQuality.
       // When tidal_info fails, track is returned unchanged (empty artist/album, no audioQuality).
       givenLocalReturnsEmpty();
@@ -1004,7 +1004,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC6/Task3: returns only local results when Tidal exceeds 250ms timeout", async () => {
+    it("returns only local results when Tidal exceeds 250ms timeout", async () => {
       givenLocalReturnsTrack({
         id: 10,
         title: "Paranoid Android",
@@ -1027,7 +1027,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC6/parallel: makes exactly 2 fetch calls — titles (local) and tidal .4 tracks", async () => {
+    it("parallel: makes exactly 2 fetch calls — titles (local) and tidal .4 tracks", async () => {
       givenLocalReturnsEmpty();
       givenTidalReturnsEmpty();
 
@@ -1069,7 +1069,7 @@ describe("LMS Client - Acceptance Tests", () => {
       expect(command[5]).toBe("search:pink floyd");
     });
 
-    it("AC3/graceful-degradation: Tidal track not deduplicated with local when tidal_info enrichment fails", async () => {
+    it("graceful-degradation: Tidal track not deduplicated with local when tidal_info enrichment fails", async () => {
       // enrichTidalTracks() is always called via tidal_info. When tidal_info fails for a
       // Tidal track, that track keeps empty artist/album. normalizeDeduplicationKey() falls
       // back to URL for empty artist+album — so a local "Creep" (key: "radiohead::pablo honey::creep")
@@ -1099,7 +1099,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 12: Tidal Metadata Enrichment (Story 7.8 → updated Story 7.9)", () => {
+  describe("Rule 12: Tidal Metadata Enrichment", () => {
     const givenLocalEmpty = (): void => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -1171,7 +1171,7 @@ describe("LMS Client - Acceptance Tests", () => {
       fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
     };
 
-    it("AC1: enriches Tidal track artist and album via tidal_info (Story 7.9: works for fresh tracks)", async () => {
+    it("enriches Tidal track artist and album via tidal_info (works for fresh tracks)", async () => {
       givenLocalEmpty();
       givenTidalReturnsTracks([{ name: "Creep", url: "tidal://58990486.flc" }]);
       givenTidalInfoReturns12({ artist: "Radiohead", album: "Pablo Honey" });
@@ -1187,7 +1187,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC4: populates audioQuality from URL extension (.flc → FLAC lossless) for Tidal track", async () => {
+    it("populates audioQuality from URL extension (.flc → FLAC lossless) for Tidal track", async () => {
       givenLocalEmpty();
       givenTidalReturnsTracks([{ name: "Creep", url: "tidal://58990486.flc" }]);
       givenTidalInfoReturns12({ artist: "Radiohead", album: "Pablo Honey" });
@@ -1202,7 +1202,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC5: enriches N Tidal tracks in parallel — makes exactly N+2 fetch calls total", async () => {
+    it("enriches N Tidal tracks in parallel — makes exactly N+2 fetch calls total", async () => {
       // N+2 = 1 local + 1 tidal(.4) + N tidal_info
       givenLocalEmpty();
       givenTidalReturnsTracks([
@@ -1231,7 +1231,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC5-timeout: returns original track when tidal_info exceeds 500ms enrichment cap", async () => {
+    it("timeout: returns original track when tidal_info exceeds 500ms enrichment cap", async () => {
       givenLocalEmpty();
       givenTidalReturnsTracks([{ name: "Creep", url: "tidal://58990486.flc" }]);
       // tidal_info aborts when signal fires — simulates slow LMS that respects abort
@@ -1265,7 +1265,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC6: Tidal track still returned with empty strings when tidal_info enrichment fails", async () => {
+    it("Tidal track still returned with empty strings when tidal_info enrichment fails", async () => {
       givenLocalEmpty();
       givenTidalReturnsTracks([{ name: "Creep", url: "tidal://58990486.flc" }]);
       givenTidalInfoFails();
@@ -1282,7 +1282,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 13: Tidal Metadata via tidal_info — Direct LMS Plugin (Story 7.9)", () => {
+  describe("Rule 13: Tidal Metadata via tidal_info — Direct LMS Plugin", () => {
     const givenLocalEmpty13 = (): void => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -1390,7 +1390,7 @@ describe("LMS Client - Acceptance Tests", () => {
       fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
     };
 
-    it("AC1: fresh Tidal track gets artist and album from tidal_info even when never played before", async () => {
+    it("fresh Tidal track gets artist and album from tidal_info even when never played before", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Creep", url: "tidal://58990486.flc" },
@@ -1408,7 +1408,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC3: audioQuality inferred from Tidal URL extension (.flc → FLAC lossless)", async () => {
+    it("audioQuality inferred from Tidal URL extension (.flc → FLAC lossless)", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Creep", url: "tidal://58990486.flc" },
@@ -1427,7 +1427,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC3: audioQuality inferred from Tidal URL extension (.m4a → AAC lossy)", async () => {
+    it("audioQuality inferred from Tidal URL extension (.m4a → AAC lossy)", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Something", url: "tidal://99001122.m4a" },
@@ -1446,7 +1446,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC4: graceful degradation when tidal_info fails — Tidal track still returned with empty strings", async () => {
+    it("graceful degradation when tidal_info fails — Tidal track still returned with empty strings", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Creep", url: "tidal://58990486.flc" },
@@ -1464,7 +1464,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC5: enriches N Tidal tracks in parallel — makes N tidal_info calls (N+2 total fetch calls)", async () => {
+    it("enriches N Tidal tracks in parallel — makes N tidal_info calls (N+2 total fetch calls)", async () => {
       // N+2 = 1 local + 1 tidal(.4) + N tidal_info
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
@@ -1492,7 +1492,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC5-timeout: returns original track when tidal_info exceeds 500ms enrichment cap", async () => {
+    it("timeout: returns original track when tidal_info exceeds 500ms enrichment cap", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Creep", url: "tidal://58990486.flc" },
@@ -1525,7 +1525,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC6: enrichment uses LMS Tidal plugin — tidal_info command sent (no OAuth token config)", async () => {
+    it("enrichment uses LMS Tidal plugin — tidal_info command sent (no OAuth token config)", async () => {
       givenLocalEmpty13();
       givenTidalReturnsTracks13([
         { name: "Creep", url: "tidal://58990486.flc" },
@@ -1553,8 +1553,8 @@ describe("LMS Client - Acceptance Tests", () => {
   // Correct: /music/{item.id}/cover.jpg — track's decimal DB ID, always present, always correct.
   // Same as getAlbumDetail (firstTrack.id) and getPlayerStatus (currentTrackData.id).
 
-  describe("Rule 14 (Story 9.8): Cover Art URL from track id (item.id)", () => {
-    it("AC1: includes 'e' tag in titles search command (needed for album grouping, not cover art)", async () => {
+  describe("Rule 14: Cover Art URL from track id (item.id)", () => {
+    it("includes 'e' tag in titles search command (needed for album grouping, not cover art)", async () => {
       await givenLmsWillReturnEmptySearchResults();
 
       await whenSearchingForTracks("Pink Floyd");
@@ -1565,7 +1565,7 @@ describe("LMS Client - Acceptance Tests", () => {
       expect(command[4]).toContain("e");
     });
 
-    it("AC1: populates coverArtUrl using track id (item.id), not album_id", async () => {
+    it("populates coverArtUrl using track id (item.id), not album_id", async () => {
       // Regression guard: album_id (177) must NOT appear in coverArtUrl path — /music/177/cover.jpg
       // would return cover of track 177 (wrong song). Only the track's own id is correct.
       fetchMock.mockResolvedValue({
@@ -1603,7 +1603,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC1: coverArtUrl is always set — track id (item.id) is always present", async () => {
+    it("coverArtUrl is always set — track id (item.id) is always present", async () => {
       // Previously, coverArtUrl was undefined when album_id was absent/zero.
       // Now it always uses item.id, which is always present in titles_loop.
       fetchMock.mockResolvedValue({
@@ -1637,7 +1637,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC1: coverArtUrl uses track id even when album_id is '0'", async () => {
+    it("coverArtUrl uses track id even when album_id is '0'", async () => {
       // album_id = "0" is LMS sentinel for no album — track id is still valid for cover art
       fetchMock.mockResolvedValue({
         ok: true,
@@ -1670,7 +1670,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC1: coverArtUrl uses item.id even when both id and coverid are present", async () => {
+    it("coverArtUrl uses item.id even when both id and coverid are present", async () => {
       // coverid (c-tag, hex hash) was briefly used — must be ignored.
       // item.id (decimal track DB ID) is the only correct source.
       fetchMock.mockResolvedValue({
@@ -3709,7 +3709,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
   // Live-probe 2026-03-15: item_id:4 = "Alben" (user's Tidal library albums)
   // name = "{title} - {artist}", image = relative LMS proxy path, no separate artist/artwork_url fields
-  describe("Rule 14: getTidalAlbums — Tidal Album Browse (Story 8.1)", () => {
+  describe("Rule 14: getTidalAlbums — Tidal Album Browse", () => {
     // GIVEN helpers for getTidalAlbums (Rule 14)
     // LMS real format: loop_loop items with id, name ("{title} - {artist}"), image (relative path)
     const givenTidalAlbumsReturns = (
@@ -3822,7 +3822,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 15: getTidalArtistAlbums — Tidal Artist Album Browse (Story 8.6)", () => {
+  describe("Rule 15: getTidalArtistAlbums — Tidal Artist Album Browse", () => {
     const givenArtistAlbumsReturns = (
       albums: ReadonlyArray<{
         readonly id: string;
@@ -3932,7 +3932,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 16: searchTidalArtists — Tidal Artist Search (Story 8.8 AC2)", () => {
+  describe("Rule 16: searchTidalArtists — Tidal Artist Search", () => {
     const givenArtistSearchReturns = (
       artists: ReadonlyArray<{
         readonly id: string;
@@ -4053,7 +4053,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 17: addAlbumToQueue — local album queue (Story 9.4)", () => {
+  describe("Rule 17: addAlbumToQueue — local album queue", () => {
     it("sends playlistcontrol cmd:add album_id:X to LMS", async () => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -4095,7 +4095,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  describe("Rule 18: addTidalAlbumToQueue — Tidal album queue (Story 9.4)", () => {
+  describe("Rule 18: addTidalAlbumToQueue — Tidal album queue", () => {
     it("fetches tracks and adds each sequentially without clearing or playing", async () => {
       // Mock: tidal items fetch
       fetchMock.mockResolvedValueOnce({
@@ -4188,7 +4188,7 @@ describe("LMS Client - Acceptance Tests", () => {
   // Each image is the album cover for that track (relative LMS proxy URL, e.g. "/imageproxy/...").
   // coverArtUrl is constructed in searchTidal() and preserved through enrichTidalTracks() via spread.
   // No separate .3 (Albums) browse needed — simpler and one fewer LMS call.
-  describe("Rule 20: Tidal Track Cover Art from .4 browse (Story 9.11)", () => {
+  describe("Rule 20: Tidal Track Cover Art from .4 browse", () => {
     const givenLocalEmpty20 = (): void => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -4253,7 +4253,7 @@ describe("LMS Client - Acceptance Tests", () => {
       });
     };
 
-    it("AC1: image field in .4 track result is mapped to coverArtUrl", async () => {
+    it("image field in .4 track result is mapped to coverArtUrl", async () => {
       // Mock order: local, .4 (with image), tidal_info — N+2 = 3 fetch calls total
       givenLocalEmpty20();
       givenTidalTrackSearch20({
@@ -4277,7 +4277,7 @@ describe("LMS Client - Acceptance Tests", () => {
       expect(globalThis.fetch).toHaveBeenCalledTimes(3);
     });
 
-    it("AC2: coverArtUrl constructed as http://{host}:{port}{image}", async () => {
+    it("coverArtUrl constructed as http://{host}:{port}{image}", async () => {
       givenLocalEmpty20();
       givenTidalTrackSearch20({
         name: "Wish You Were Here",
@@ -4299,7 +4299,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC3: Tidal track without image field → undefined coverArtUrl (graceful degradation)", async () => {
+    it("Tidal track without image field → undefined coverArtUrl (graceful degradation)", async () => {
       givenLocalEmpty20();
       // No image field in the track result
       givenTidalTrackSearch20({
@@ -4316,7 +4316,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("AC4: coverArtUrl from .4 is preserved after tidal_info enrichment (spread does not overwrite)", async () => {
+    it("coverArtUrl from .4 is preserved after tidal_info enrichment (spread does not overwrite)", async () => {
       givenLocalEmpty20();
       givenTidalTrackSearch20({
         name: "Karma Police",
