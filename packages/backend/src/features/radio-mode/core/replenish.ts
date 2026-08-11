@@ -170,7 +170,7 @@ export const pickSpreadSimilarArtists = (
         .slice(0, max);
 
 /**
- * Exclude the seed artist from candidates (AC5/AC6 Story 9.17).
+ * Exclude the seed artist from candidates.
  * Radio should recommend OTHER artists — the seed artist is already known to the user.
  * Uses artistMatches() for NFD-normalized bidirectional includes-check.
  */

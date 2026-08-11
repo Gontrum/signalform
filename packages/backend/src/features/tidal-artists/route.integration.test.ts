@@ -77,7 +77,7 @@ const makeArtistSearchResult = (
   readonly artists: readonly TidalSearchArtistRaw[];
   readonly count: number;
 } => ({
-  // Story 8.9 AC3: LMS returns full format "7_{rawQuery}_{urlEncodedName}.2.{idx}"
+  // LMS returns full format "7_{rawQuery}_{urlEncodedName}.2.{idx}"
   artists: Array.from({ length: count }, (_, i) => ({
     id: `7_sabrina carpenter_sabrina%20carpenter.2.${i}`,
     name: i === 0 ? "Sabrina Carpenter" : `Sabrina Carpenter ${i}`,
@@ -103,7 +103,6 @@ describe("GET /api/tidal/artists/search", () => {
     void server.close();
   });
 
-  // AC2: returns 200 with artists array on success
   it("returns 200 with artists array and totalCount on success", async () => {
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok(makeArtistSearchResult(2)),
@@ -120,7 +119,7 @@ describe("GET /api/tidal/artists/search", () => {
     expect(body.totalCount).toBe(2);
   });
 
-  // AC2 + Story 8.9 AC3: artist domain fields mapped; ID normalized from LMS raw format
+  // artist domain fields mapped; ID normalized from LMS raw format
   it("maps artist domain fields (artistId, name, coverArtUrl) correctly", async () => {
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({
@@ -159,7 +158,6 @@ describe("GET /api/tidal/artists/search", () => {
     );
   });
 
-  // AC2: artist without image → empty string coverArtUrl
   it("returns empty string coverArtUrl when artist has no image", async () => {
     mockLmsClient.searchTidalArtists.mockResolvedValue(
       ok({

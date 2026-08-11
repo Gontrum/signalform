@@ -1,7 +1,6 @@
 <template>
   <div class="progress-container flex w-full flex-col gap-2 py-2">
     <!-- Time display -->
-    <!-- Issue #10: Add ARIA label for screen readers -->
     <div
       class="time-display flex justify-between text-xs font-medium text-neutral-600 [font-variant-numeric:tabular-nums]"
       role="timer"
@@ -11,7 +10,6 @@
     </div>
 
     <!-- Progress bar -->
-    <!-- Issue #13: Disable during loading -->
     <!-- eslint-disable-next-line vuejs-accessibility/no-static-element-interactions -- click-to-seek here is a mouse/touch convenience; keyboard seeking is fully supported via the sibling role="slider" thumb (tabindex, arrow keys), so no keyboard equivalent is needed on this wrapper. -->
     <div
       class="progress-wrapper cursor-pointer select-none py-4"

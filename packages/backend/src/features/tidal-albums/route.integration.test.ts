@@ -479,7 +479,6 @@ describe("GET /api/tidal/albums/:albumId/tracks", () => {
   });
 });
 
-// Story 9.14: GET /api/tidal/albums/resolve — resolve Tidal search album to browse ID
 describe("GET /api/tidal/albums/resolve", () => {
   let server: FastifyInstance;
   let mockLmsClient: MockLmsClient;
@@ -625,7 +624,7 @@ describe("GET /api/tidal/albums/resolve", () => {
   });
 });
 
-// Story 8.9 AC2: Featured Tidal albums (item_id:1.0.1 = Featured → Neu → Alben)
+// Featured Tidal albums (item_id:1.0.1 = Featured → Neu → Alben)
 const makeFeaturedResult = (
   count: number = 3,
 ): ReturnType<typeof makeTidalResult> => ({

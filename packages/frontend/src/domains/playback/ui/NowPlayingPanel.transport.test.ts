@@ -1,5 +1,5 @@
 /**
- * Transport connection banner tests (resilience fix, docs/review/06-resilience-lms.md Fix 1).
+ * Transport connection banner tests.
  *
  * Split from NowPlayingPanel.test.ts (already over the repo's 20KB
  * single-file threshold — see AGENTS.md "Testing"). Mirrors that file's

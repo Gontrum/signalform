@@ -16,8 +16,6 @@
 import { test, expect } from '@playwright/test'
 import { setupApiMocks, captureRequest } from '../helpers/mockApi.ts'
 
-// ── Fixtures ───────────────────────────────────────────────────────────────────
-
 const playingStatusResponse = {
   status: 'playing',
   currentTime: 42,
@@ -40,8 +38,6 @@ const pausedStatusResponse = {
   status: 'paused',
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
 /**
  * Navigate to home and wait for playback controls to be visible.
  * Returns after the controls panel is confirmed in the DOM.
@@ -54,8 +50,6 @@ const gotoWithPlaybackControls = async (
   await page.goto('/')
   await expect(page.getByTestId('playback-controls')).toBeVisible({ timeout: 5000 })
 }
-
-// ── Tests ──────────────────────────────────────────────────────────────────────
 
 test('Journey H.1a: clicking Pause while playing → POST /api/playback/pause', async ({ page }) => {
   await gotoWithPlaybackControls(page, playingStatusResponse)

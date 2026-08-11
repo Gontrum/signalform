@@ -2,7 +2,7 @@
  * Radio Mode — Public API
  *
  * Exports all public types and functions for the radio-mode feature module.
- * Helper functions exported for testability (AC6 pure function guarantee).
+ * Helper functions exported for testability.
  */
 
 // Domain types
@@ -21,7 +21,6 @@ export {
   passesGenreFilter,
 } from "./core/service.js";
 
-// New in Story 6.3
 export type { DiversityConfig } from "./core/types.js";
 export { DEFAULT_DIVERSITY_CONFIG } from "./core/types.js";
 export {
@@ -30,7 +29,6 @@ export {
   addToSlidingWindow,
 } from "./core/diversity-service.js";
 
-// New in Story 6.4
 export type { RadioEngine } from "./shell/radio-service.js";
 export { createRadioEngine } from "./shell/radio-service.js";
 // Genre Radio context

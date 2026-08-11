@@ -115,7 +115,7 @@ describe('albumApi', () => {
       await thenFetchWasCalledWithBaseUrl('http://localhost:3001')
     })
 
-    // Story 9.1: regression guard — backend was returning releaseYear as string "2008" before fix
+    // regression guard — backend was returning releaseYear as string "2008" before fix
     it('returns PARSE_ERROR when backend returns releaseYear as string (pre-fix regression)', async () => {
       fetchMock.mockResolvedValue({
         ok: true,

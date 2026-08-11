@@ -10,8 +10,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { err, ok } from '@signalform/shared'
 
-// ─── Hoisted mocks ────────────────────────────────────────────────────────────
-
 const { mockSearchTidalArtists, mockQueueFetch } = vi.hoisted(() => ({
   mockSearchTidalArtists: vi.fn(),
   mockQueueFetch: vi.fn(),
@@ -64,12 +62,8 @@ vi.mock('@/app/useTransientSet', () => ({
   }),
 }))
 
-// ─── Import after mocks ───────────────────────────────────────────────────────
-
 import { useSearchResultsActions } from './useSearchResultsActions'
 import type { AlbumResult } from '../core/types'
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const LMS_PLACEHOLDER_SIZE = 512
 
@@ -118,15 +112,11 @@ const makeTidalArtistResult = (
   },
 })
 
-// ─── Setup ────────────────────────────────────────────────────────────────────
-
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
   mockQueueFetch.mockResolvedValue(undefined)
 })
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('onAlbumCoverLoad — Tidal cover fallback', () => {
   it('does nothing when the loaded image is NOT a placeholder (not 512×512)', () => {

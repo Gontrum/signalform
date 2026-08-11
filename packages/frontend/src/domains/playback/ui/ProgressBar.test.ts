@@ -70,7 +70,6 @@ describe('ProgressBar Component', () => {
     setActivePinia(pinia)
     const playbackStore = usePlaybackStore()
 
-    // Issue #14: Use vi.spyOn instead of direct assignment
     vi.spyOn(playbackStore, 'seekToPosition').mockResolvedValue(undefined)
 
     const wrapper = mount(ProgressBar, {

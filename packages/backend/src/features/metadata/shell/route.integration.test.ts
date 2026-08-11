@@ -384,9 +384,7 @@ describe("GET /api/album/:albumId", () => {
   });
 });
 
-// ────────────────────────────────────────────────────────────
 // GET /api/artist/by-name
-// ────────────────────────────────────────────────────────────
 
 const makeLocalTrack = (
   overrides: Partial<SearchResult> = {},
@@ -437,7 +435,6 @@ describe("GET /api/artist/by-name", () => {
     void server.close();
   });
 
-  // AC1: returns 200 with localAlbums and tidalAlbums
   it("returns 200 with localAlbums and tidalAlbums when LMS responds", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -457,7 +454,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.tidalAlbums).toBeDefined();
   });
 
-  // AC2: splits albums by source
   it("splits albums by source — local tracks go to localAlbums, tidal to tidalAlbums", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -490,7 +486,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.tidalAlbums[0]?.trackUrls).toHaveLength(1);
   });
 
-  // AC3: deduplicates local albums by albumId
   it("deduplicates local albums by albumId (two tracks on same album → one entry)", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -518,7 +513,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums).toHaveLength(2);
   });
 
-  // AC4: returns 400 when name is missing
   it("returns 400 when name query parameter is missing", async () => {
     const response = await server.inject({
       method: "GET",
@@ -530,7 +524,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.code).toBe("INVALID_INPUT");
   });
 
-  // AC4: returns 400 when name is blank
   it("returns 400 when name is whitespace-only", async () => {
     const response = await server.inject({
       method: "GET",
@@ -542,7 +535,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.code).toBe("INVALID_INPUT");
   });
 
-  // AC5: returns 503 when LMS fails
   it("returns 503 when LMS search fails", async () => {
     mockLmsClient.search.mockResolvedValue(
       err({ type: "NetworkError", message: "Connection refused" }),
@@ -558,7 +550,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.code).toBe("LMS_UNREACHABLE");
   });
 
-  // AC6: graceful degradation — only local results
   it("returns empty tidalAlbums when no Tidal tracks found", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({ tracks: [makeLocalTrack()], tidalAvailable: true }),
@@ -575,7 +566,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.tidalAlbums).toHaveLength(0);
   });
 
-  // AC6: graceful degradation — only Tidal results
   it("returns empty localAlbums when no local tracks found", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({ tracks: [makeTidalTrack()], tidalAvailable: true }),
@@ -736,7 +726,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.tidalAlbums[0]?.trackUrls).toEqual(["tidal://99999.flc"]);
   });
 
-  // AC7: passes artist name to lmsClient.search
   it("passes name query param to lmsClient.search", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({ tracks: [], tidalAvailable: true }),
@@ -786,7 +775,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums[0]?.title).toBe("Pablo Honey");
   });
 
-  // AC1/AC6 (Story 9.16): exact match — rejects substring artist names
   // Bug: "rabauken von kiez".includes("rabauken") was true → wrongly included
   it("excludes tracks whose artist only contains the name as a substring", async () => {
     mockLmsClient.search.mockResolvedValue(
@@ -823,7 +811,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums[0]?.title).toBe("Randale");
   });
 
-  // AC2 (Story 9.16): case-insensitive exact match
   it("matches artist case-insensitively (die+rabauken matches Die Rabauken)", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -850,7 +837,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums[0]?.title).toBe("Randale");
   });
 
-  // AC3 (Story 9.16): diacritic normalization — "Bjork" matches "Björk"
   it("matches artist with diacritics via NFD normalization (Bjork matches Björk)", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -877,7 +863,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums[0]?.title).toBe("Debut");
   });
 
-  // AC6 reverse direction (Story 9.16 code review): "Floyd" must NOT return "Pink Floyd"
   // The old bug: "pink floyd".includes("floyd") === true → wrongly included
   it("excludes Pink Floyd when searching for Floyd (reverse substring rejection)", async () => {
     mockLmsClient.search.mockResolvedValue(
@@ -904,7 +889,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums).toHaveLength(0);
   });
 
-  // AC4 (Story 9.16 code review): multi-word exact match returns albums correctly
   it("returns albums for multi-word artist name (Pink Floyd exact match)", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({
@@ -960,7 +944,6 @@ describe("GET /api/artist/by-name", () => {
     expect(body.localAlbums[0]?.title).toBe("Red");
   });
 
-  // L4 (Story 9.16 code review): exact-match filter also applies to Tidal tracks
   it("excludes Tidal tracks whose artist only contains the name as a substring", async () => {
     mockLmsClient.search.mockResolvedValue(
       ok({

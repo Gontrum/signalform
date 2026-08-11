@@ -1,6 +1,4 @@
 /**
- * Library Feature Types — Story 7.1
- *
  * Domain types for the local music library view.
  * Separate from LMS raw types — service layer maps raw → domain.
  */

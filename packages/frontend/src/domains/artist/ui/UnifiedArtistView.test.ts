@@ -166,8 +166,6 @@ describe('UnifiedArtistView', () => {
     }
   }
 
-  // ── Existing tests ────────────────────────────────────────────────────────
-
   it('shows loading state initially', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistByName).mockReturnValue(new Promise(() => {}))
@@ -430,8 +428,6 @@ describe('UnifiedArtistView', () => {
     expect(getArtistByName).not.toHaveBeenCalled()
   })
 
-  // ── Enrichment tests ──────────────────────────────────────────────────────
-
   it('renders enrichment-stats after getArtistEnrichment resolves', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     const { getArtistEnrichment } = await import('@/platform/api/enrichmentApi')
@@ -608,8 +604,6 @@ describe('UnifiedArtistView', () => {
     expect(context.wrapper.find('[data-testid="local-section"]').exists()).toBe(true)
   })
 
-  // ── Hero image tests ──────────────────────────────────────────────────────
-
   it('renders background-image style when getArtistHeroImage returns a URL', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistByName).mockResolvedValue({
@@ -655,8 +649,6 @@ describe('UnifiedArtistView', () => {
 
     expect(getArtistHeroImage).toHaveBeenCalledWith('Radiohead')
   })
-
-  // ── Similar artists tests ─────────────────────────────────────────────────
 
   it('similar-artists-section absent when getSimilarArtists fails', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
@@ -745,8 +737,6 @@ describe('UnifiedArtistView', () => {
     )
   })
 
-  // ── Loading skeleton tests ────────────────────────────────────────────────
-
   it('enrichment-skeleton visible while getArtistEnrichment is in flight', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
     const { getArtistEnrichment } = await import('@/platform/api/enrichmentApi')
@@ -787,8 +777,6 @@ describe('UnifiedArtistView', () => {
     // Image appears reactively once Fanart.tv resolves — no blocking skeleton.
     expect(true).toBe(true)
   })
-
-  // ── Top tracks tests (AV-009) ─────────────────────────────────────────────
 
   it('renders top-tracks-section when getArtistTopTracks returns tracks', async () => {
     const { getArtistByName } = await import('@/platform/api/artistApi')
@@ -869,8 +857,6 @@ describe('UnifiedArtistView', () => {
 
     expect(playTrack).toHaveBeenCalledWith('file:///creep.flac')
   })
-
-  // ── Add to queue tests ────────────────────────────────────────────────────
 
   it('clicking top-track-add-to-queue-button calls addToQueue with track url', async () => {
     const { getArtistByName, getArtistTopTracks } = await import('@/platform/api/artistApi')
@@ -981,8 +967,6 @@ describe('UnifiedArtistView', () => {
     expect(btn.attributes('disabled')).toBeDefined()
   })
 
-  // ── Artist Radio tests ────────────────────────────────────────────────────
-
   it('artist-radio-button is present and calls startArtistRadio with artist name on click', async () => {
     const { getArtistByName, startArtistRadio } = await import('@/platform/api/artistApi')
     vi.mocked(getArtistByName).mockResolvedValue({ ok: true, value: makeResponse() })
@@ -1045,7 +1029,6 @@ describe('UnifiedArtistView', () => {
     deferred.resolve({ ok: true, value: { artistName: 'Radiohead', tracksAdded: 4 } })
     await flushPromises()
   })
-  // ── Album sorting test (AV-010) ───────────────────────────────────────────
 
   it('sorts tidal albums by last.fm popularity when sort-popularity is clicked', async () => {
     const { getArtistByName, getArtistTopAlbums } = await import('@/platform/api/artistApi')
@@ -1079,8 +1062,6 @@ describe('UnifiedArtistView', () => {
       .map((n) => n.text())
     expect(albumTitles).toEqual(['Pablo Honey', 'The Wall'])
   })
-
-  // ── Genre radio tags tests ────────────────────────────────────────────────
 
   describe('genre radio tags', () => {
     const mountWithEnrichment = async (

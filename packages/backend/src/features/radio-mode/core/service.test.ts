@@ -81,8 +81,6 @@ describe("areGenresRelated", () => {
   });
 });
 
-// passesEraFilter (AC1, AC5)
-
 describe("passesEraFilter", () => {
   test("candidate within ±20 years of seed → passes (AC1)", () => {
     const candidate = makeCandidate({ year: 1965 });
@@ -129,8 +127,6 @@ describe("passesEraFilter", () => {
     expect(passesEraFilter(candidate, 1959, 20)).toBe(true);
   });
 });
-
-// passesGenreFilter (AC2, AC5)
 
 describe("passesGenreFilter", () => {
   test("Jazz seed, Cool Jazz candidate → passes (same group, AC2)", () => {
@@ -191,8 +187,6 @@ describe("passesGenreFilter", () => {
     expect(passesGenreFilter(candidate, ["Jazz"])).toBe(false);
   });
 });
-
-// filterByContext (AC1–AC6)
 
 describe("filterByContext — combined filtering", () => {
   test("era + genre filter: only matching candidates pass", () => {
@@ -374,8 +368,6 @@ describe("filterByContext — eraExpansionStep edge cases", () => {
     expect(result).toHaveLength(1);
   });
 });
-
-// filterByContext — minimum results and graceful degradation (AC3, AC5)
 
 describe("filterByContext — graceful degradation (AC5)", () => {
   test("candidates with no year pass era filter (graceful degradation)", () => {

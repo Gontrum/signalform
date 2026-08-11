@@ -1,10 +1,9 @@
 #!/usr/bin/env node
-// Structural guard for docs/review/05-a11y-coverage.md finding #3: a
-// group-hover:opacity-* element that's invisible on keyboard focus because
-// it has no group-focus-within:opacity-* (or focus:opacity-*) counterpart.
-// Neither axe nor a testid-bound Playwright test can catch a *new*
-// occurrence of this pattern in a not-yet-written component — see the
-// report's "Ehrliche Antwort" section — so this is the only guard for it.
+// Structural guard for one a11y defect: a group-hover:opacity-* element that
+// is invisible on keyboard focus because it has no group-focus-within:opacity-*
+// (or focus:opacity-*) counterpart. Neither axe nor a testid-bound Playwright
+// test can catch a *new* occurrence of this pattern in a not-yet-written
+// component, so this is the only guard for it.
 //
 // ponytail: grep-based, not an AST/Tailwind-class parser. Flags any `class`/
 // `:class` attribute containing `group-hover:opacity-` without a

@@ -154,7 +154,6 @@ const albumPageAriaLabel = computed((): string =>
             </svg>
           </button>
         </div>
-        <!-- Source info (Story 3.3 badge + Story 3.4 tooltip & also-available) -->
         <!-- audioQuality set for Tidal tracks (inferred from URL extension via parseTidalAudioQuality) -->
         <div
           v-if="
@@ -282,7 +281,6 @@ const albumPageAriaLabel = computed((): string =>
         <ProgressBar />
       </div>
 
-      <!-- Queue Preview (Story 4.6) -->
       <div
         class="mt-4 w-full max-w-sm pb-1"
         data-testid="queue-preview"
@@ -418,7 +416,6 @@ const albumPageAriaLabel = computed((): string =>
       </template>
     </Banner>
 
-    <!-- WebSocket Transport Banner (resilience fix, docs/review/06-resilience-lms.md Fix 1) -->
     <Banner
       v-if="
         playbackStore.connectionState === 'disconnected' ||
@@ -435,9 +432,8 @@ const albumPageAriaLabel = computed((): string =>
       }}
     </Banner>
 
-    <!-- Player Connectivity Banner (docs/review/06-resilience-lms.md Fix 0) —
-         carries both speaker-side conditions: lost its link to LMS, and not
-         answering at all. -->
+    <!-- Carries both speaker-side conditions: the player lost its link to
+         LMS, and it is not answering at all. -->
     <Banner
       v-if="playbackStore.hasPlayerAlert"
       data-testid="player-error-banner"

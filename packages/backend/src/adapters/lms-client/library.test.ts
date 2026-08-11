@@ -16,8 +16,6 @@ import { createLibraryMethods } from "./library.js";
 import type { ExecuteDeps } from "./execute.js";
 import type { LmsError } from "./types.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const makeExecuteDeps = (
   executeCommand: ExecuteDeps["executeCommand"],
 ): ExecuteDeps => ({
@@ -35,8 +33,6 @@ const networkError: LmsError = {
   type: "NetworkError",
   message: "ECONNREFUSED",
 };
-
-// ─── getLibraryAlbums ────────────────────────────────────────────────────────
 
 describe("getLibraryAlbums", () => {
   it("costs exactly one LMS request per page", async () => {
@@ -107,8 +103,6 @@ describe("getLibraryAlbums", () => {
     expect(executeCommand).toHaveBeenCalledTimes(1);
   });
 });
-
-// ─── getLibraryAlbums — command construction ─────────────────────────────────
 
 describe("getLibraryAlbums command", () => {
   const emptyAlbumsPayload = ok({ albums_loop: [], count: 0 });
@@ -188,8 +182,6 @@ describe("getLibraryAlbums command", () => {
   });
 });
 
-// ─── getLibraryAlbumCount ────────────────────────────────────────────────────
-
 describe("getLibraryAlbumCount", () => {
   it("asks for a single row and returns the total count", async () => {
     const executeCommand = vi.fn().mockResolvedValue(ok({ count: 81 }));
@@ -239,8 +231,6 @@ describe("getLibraryAlbumCount", () => {
   });
 });
 
-// ─── getLibraryYears ─────────────────────────────────────────────────────────
-
 describe("getLibraryYears", () => {
   it("returns the distinct years, including 0 for albums without one", async () => {
     const executeCommand = vi.fn().mockResolvedValue(
@@ -287,8 +277,6 @@ describe("getLibraryYears", () => {
   });
 });
 
-// ─── getGenres ───────────────────────────────────────────────────────────────
-
 describe("getGenres", () => {
   it("maps the LMS genre field to name and normalises ids", async () => {
     const executeCommand = vi.fn().mockResolvedValue(
@@ -322,8 +310,6 @@ describe("getGenres", () => {
     expect(result.ok).toBe(false);
   });
 });
-
-// ─── getAlbumTracks — sort order ─────────────────────────────────────────────
 
 describe("getAlbumTracks", () => {
   it("sorts tracks by URL first (global file order for multi-disc albums)", async () => {
@@ -448,8 +434,6 @@ describe("getAlbumTracks", () => {
     }
   });
 });
-
-// ─── getRescanProgress — JsonParseError ──────────────────────────────────────
 
 // Helper: create a minimal Response-compatible object without unsafe casting
 const makeFakeResponse = (body: unknown): Response =>

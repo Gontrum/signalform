@@ -1,6 +1,4 @@
 /**
- * Tidal Artists Feature — Domain Types (Story 8.6)
- *
  * Represents an album from a specific Tidal artist's catalogue.
  * Distinct from TidalAlbum (tidal-albums feature): no artist field here
  * since the artist is known from the page context.

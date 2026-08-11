@@ -1,5 +1,5 @@
 /**
- * Radio Mode — Acceptance Tests (Story 6.4)
+ * Radio Mode — Acceptance Tests
  *
  * BDD-style acceptance tests — one scenario per AC.
  * Written BEFORE implementation (red-green-refactor).
@@ -232,7 +232,6 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
       await import("../../infrastructure/websocket/status-poller.js");
 
     // startStatusPolling must accept 6 parameters (onQueueEnd is optional 6th)
-    // If this test compiles and runs without TypeScript error, AC1 is partially satisfied
     expect(typeof startStatusPolling).toBe("function");
     // The function accepts 5 required + 1 optional parameter
     // length reflects required params only (default params not counted past the last required)
@@ -318,7 +317,6 @@ describe("AC1: Queue-end detection (play → stop transition)", () => {
     stopPolling();
     const result = mockOnQueueEnd.mock.calls[0];
 
-    // AC1: onQueueEnd must have been called with the seed track's artist + title
     expect(result).toEqual(["Miles Davis", "Blue in Green"]);
     expect(mockOnQueueEnd).toHaveBeenCalledWith("Miles Davis", "Blue in Green");
   });
@@ -356,7 +354,6 @@ describe("AC2: Seamless radio start — last.fm getSimilarTracks called with see
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC2: getSimilarTracks called with seed artist + title, limit=50
     expect(mockLastFmClient.getSimilarTracks).toHaveBeenCalledWith(
       "Miles Davis",
       "So What",
@@ -425,7 +422,6 @@ describe("AC3: Tracks found in LMS added to queue (up to 5)", () => {
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC3: addToQueue called at most 5 times (RADIO_BATCH_SIZE)
     expect(mockLmsClient.addToQueue).toHaveBeenCalledTimes(5);
   });
 });
@@ -504,14 +500,11 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC4a: player.radio.started emitted
     const emittedEvents = mockEmit.mock.calls.map((call) => call[0]);
     expect(emittedEvents).toContain("player.radio.started");
 
-    // AC4b: player.queue.updated emitted
     expect(emittedEvents).toContain("player.queue.updated");
 
-    // AC4c: player.radio.started payload has required fields
     const radioStartedCall = mockEmit.mock.calls.find(
       (call) => call[0] === "player.radio.started",
     );
@@ -528,7 +521,7 @@ describe("AC4: WebSocket events emitted after tracks added", () => {
 
 describe("AC5: Artist diversity maintained across radio triggers", () => {
   test("artist added in first trigger is filtered out in second trigger (sliding window)", async () => {
-    // AC5 tests the CROSS-TRIGGER diversity: the same artist should not appear
+    // cross-trigger diversity: the same artist should not appear
     // in consecutive radio batches because the sliding window tracks recent artists.
 
     const firstTriggerTracks = [makeSimilarTrack("Artist A", "Song 1")];
@@ -643,9 +636,7 @@ describe("AC6: Graceful degradation on failure", () => {
       engine.handleQueueEnd("Miles Davis", "So What"),
     ).resolves.toBeUndefined();
 
-    // AC6: error is logged
     expect(logger.warn).toHaveBeenCalled();
-    // AC6: queue not modified
     expect(mockLmsClient.addToQueue).not.toHaveBeenCalled();
   });
 
@@ -689,8 +680,6 @@ describe("AC6: Graceful degradation on failure", () => {
     );
   });
 });
-
-// Story 6.5 Acceptance Tests — written BEFORE implementation (RED phase)
 
 describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-empty → empty during playback", () => {
   test("onQueueEnd called with currently-playing track when queuePreview goes empty while playing", async () => {
@@ -785,7 +774,6 @@ describe("6.5 AC1: Proactive trigger fires when queuePreview transitions non-emp
     stopPolling();
     const result = mockOnQueueEnd.mock.calls[0];
 
-    // AC1: onQueueEnd fired with currently-playing track (not previous)
     expect(result).toEqual(["Miles Davis", "So What"]);
     expect(mockOnQueueEnd).toHaveBeenCalledWith("Miles Davis", "So What");
     // Verify proactive trigger fired exactly once (not multiple times across polls)
@@ -941,7 +929,7 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC2: nextTrack() must be called because player was stopped when tracks were added
+    // nextTrack() must be called because the player was stopped when tracks were added
     expect(mockLmsClient.nextTrack).toHaveBeenCalledOnce();
   });
 
@@ -996,7 +984,7 @@ describe("6.5 AC2: queue-end recovery — lmsClient.nextTrack() called when play
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC2 guard: nextTrack() must NOT be called if player is already playing
+    // nextTrack() must NOT be called if player is already playing
     expect(mockLmsClient.nextTrack).not.toHaveBeenCalled();
   });
 });
@@ -1056,9 +1044,8 @@ describe("6.5 AC3: Duplicate artist prevention — same artist appears at most o
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC3: only 1 LMS search (for "Watermelon Man") — the other two are skipped
+    // only 1 LMS search (for "Watermelon Man") — the other two are skipped
     expect(mockLmsClient.search).toHaveBeenCalledTimes(1);
-    // AC3: only 1 track added to queue
     expect(mockLmsClient.addToQueue).toHaveBeenCalledTimes(1);
   });
 
@@ -1196,7 +1183,6 @@ describe("6.5 AC4: Single-track edge case — stop fallback fires when queuePrev
     stopPolling();
     const result = mockOnQueueEnd.mock.calls[0];
 
-    // AC4: stop trigger fires with previousStatus.currentTrack as seed
     expect(result).toEqual(["Bill Evans", "Autumn Leaves"]);
     expect(mockOnQueueEnd).toHaveBeenCalledWith("Bill Evans", "Autumn Leaves");
     // Verify stop trigger fired exactly once (proactive trigger must NOT have fired)
@@ -1430,9 +1416,7 @@ describe("6.5 AC5: handleQueueEnd completes within 2000ms with proactive trigger
   });
 });
 
-// Story 9.9 Acceptance Tests — Radio Mode Verification for Tidal Content
-
-// Helper: Tidal search result (audioQuality populated by Story 7.8 enrichment)
+// Helper: Tidal search result (audioQuality populated by enrichment)
 const makeTidalLmsSearchResult = (
   artist: string,
   title: string,
@@ -1561,7 +1545,6 @@ describe("9.9 AC1: Status poller triggers onQueueEnd when Tidal track ends (proa
     stopPolling();
     const result = mockOnQueueEnd.mock.calls[0];
 
-    // AC1: onQueueEnd called with Tidal track's artist + title
     expect(result).toEqual(["Tame Impala", "The Less I Know The Better"]);
     expect(mockOnQueueEnd).toHaveBeenCalledWith(
       "Tame Impala",
@@ -1648,7 +1631,6 @@ describe("9.9 AC1b: Status poller triggers onQueueEnd when Tidal track ends (sto
     stopPolling();
     const result = mockOnQueueEnd.mock.calls[0];
 
-    // AC1b: stop trigger fires with Tidal track's artist+title from previousStatus
     expect(result).toEqual(["Billie Eilish", "Bad Guy"]);
     expect(mockOnQueueEnd).toHaveBeenCalledWith("Billie Eilish", "Bad Guy");
     expect(mockOnQueueEnd).toHaveBeenCalledOnce();
@@ -1813,7 +1795,6 @@ describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's arti
     // Simulate Tidal seed: artist+title come from a Tidal currentTrack
     await engine.handleQueueEnd("Tame Impala", "The Less I Know The Better");
 
-    // AC2: getSimilarTracks called with Tidal seed artist+title, limit=50 — same as local
     expect(mockLastFmClient.getSimilarTracks).toHaveBeenCalledWith(
       "Tame Impala",
       "The Less I Know The Better",
@@ -1824,7 +1805,7 @@ describe("9.9 AC2: handleQueueEnd calls getSimilarTracks with Tidal track's arti
 
 describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Tidal-only results", () => {
   test("Tidal URL (tidal://trackId.flc) added to queue when LMS search returns only Tidal results", async () => {
-    // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion (Story 9.17 AC5)
+    // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion
     const tidalResult = makeTidalLmsSearchResult("Radiohead", "Creep");
 
     const mockLastFmClient = createMockLastFmClient({
@@ -1869,7 +1850,6 @@ describe("9.9 AC3a: Radio engine adds Tidal track URL when LMS search returns Ti
 
     await engine.handleQueueEnd("Tame Impala", "The Less I Know The Better");
 
-    // AC3a: Tidal URL was added to queue
     expect(mockLmsClient.addToQueue).toHaveBeenCalledOnce();
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(tidalResult.url);
   });
@@ -1931,7 +1911,7 @@ describe("9.9 AC3b: Graceful degradation — computeFallbackUrl used when Tidal 
 
     await engine.handleQueueEnd("Tame Impala", "The Less I Know The Better");
 
-    // AC3b: track still added via fallback (computeFallbackUrl picks the only URL available)
+    // track still added via fallback (computeFallbackUrl picks the only URL available)
     expect(mockLmsClient.addToQueue).toHaveBeenCalledOnce();
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(
       tidalResultNoQuality.url,
@@ -1987,7 +1967,7 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC4: local FLAC preferred over Tidal FLAC (source hierarchy)
+    // local FLAC preferred over Tidal FLAC (source hierarchy)
     expect(mockLmsClient.addToQueue).toHaveBeenCalledOnce();
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(localResult.url);
   });
@@ -1995,7 +1975,7 @@ describe("9.9 AC4: selectBestTrackUrl prefers local FLAC over Tidal FLAC (source
 
 describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-triggered radio", () => {
   test("player.queue.updated emitted with correct radioBoundaryIndex from Tidal-triggered radio", async () => {
-    // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion (Story 9.17 AC5)
+    // Use different artist than seed ("Tame Impala") to avoid seed-artist exclusion
     const tidalResult = makeTidalLmsSearchResult("Radiohead", "Creep");
 
     const preRadioQueue = [
@@ -2081,7 +2061,7 @@ describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-
 
     await engine.handleQueueEnd("Tame Impala", "The Less I Know The Better");
 
-    // AC5: player.queue.updated emitted with radioBoundaryIndex = 2 (pre-radio queue length)
+    // player.queue.updated emitted with radioBoundaryIndex = 2 (pre-radio queue length)
     const queueUpdatedCall = mockEmit.mock.calls.find(
       (call) => call[0] === "player.queue.updated",
     );
@@ -2093,8 +2073,6 @@ describe("9.9 AC5: radioBoundaryIndex equals pre-radio queue length after Tidal-
     expect(queueUpdatedCall![1].tracks).toHaveLength(3); // post-radio queue has 3 tracks
   });
 });
-
-// --- 9.9 Bug Fix: Artist-match validation + URL deduplication ---------------
 
 describe("9.9 Bug Fix: Artist-match validation — spurious LMS results rejected", () => {
   test("track NOT added when LMS returns a result with a different artist (e.g. Various Artists)", async () => {
@@ -2215,8 +2193,6 @@ describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => 
   });
 });
 
-// Story 9.17 Acceptance Tests — Radio Tidal Source Integration
-
 describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylor Swift tracks in batch", () => {
   test("Taylor Swift candidates are excluded when seedArtist is Taylor Swift", async () => {
     // last.fm returns Taylor Swift tracks (same as seed artist) + others
@@ -2301,7 +2277,7 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
     // Seed: Taylor Swift track
     await engine.handleQueueEnd("Taylor Swift", "Cruel Summer");
 
-    // AC6: search() must NOT have been called for Taylor Swift candidates at all —
+    // search() must NOT have been called for Taylor Swift candidates at all —
     // seed exclusion happens before the LMS search to avoid wasteful API calls.
     const searchCalls = mockLmsClient.search.mock.calls.map(([query]) => query);
     const taylorSwiftSearched = searchCalls.filter((query) =>
@@ -2309,7 +2285,6 @@ describe("9.17 AC6: seed artist excluded — after playing Taylor Swift, 0 Taylo
     );
     expect(taylorSwiftSearched).toHaveLength(0);
 
-    // AC6: addToQueue must NOT have been called with any Taylor Swift URL
     const addCalls = mockLmsClient.addToQueue.mock.calls.map(([url]) => url);
     const taylorSwiftAdded = addCalls.filter((url) =>
       url.toLowerCase().includes("taylor"),
@@ -2376,7 +2351,6 @@ describe("9.17 AC7: Tidal URL added to queue when local search returns 0 but Tid
 
     await engine.handleQueueEnd("Miles Davis", "So What");
 
-    // AC7: tidal:// URL must be added to queue
     expect(mockLmsClient.addToQueue).toHaveBeenCalledWith(tidalTrackUrl);
   });
 });

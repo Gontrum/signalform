@@ -240,7 +240,7 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     /**
      * Add a local library album to the queue without interrupting playback.
      *
-     * Live probe 2026-03-17 (Story 9.4):
+     * Live probe 2026-03-17:
      * - Command: ["playlistcontrol", "cmd:add", "album_id:{albumId}"]
      * - Response: {"result":{"count":N}} where N = tracks added
      * - Does NOT clear queue or change current track (cmd:add vs cmd:load)
@@ -271,7 +271,7 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     /**
      * Add a Tidal album to the queue without clearing or interrupting playback.
      *
-     * Pattern adapted from playTidalAlbum (Story 8.7) — key differences:
+     * Pattern adapted from playTidalAlbum — key differences:
      * - NO clearQueue() call
      * - NO playlist "play" call for first track
      * - Only sequential playlist "add" calls for all tracks

@@ -18,7 +18,6 @@ const DOCS = path.resolve(
   '../../../docs/images/readme',
 )
 
-// ── SVG cover art ────────────────────────────────────────────────────────────
 // Album covers (300×300) and artist avatars (300×300) use http://cover.local/…
 // Two interception paths:
 //   1. proxyCoverArtUrl() converts http:// → /api/playback/cover?src=… (album covers, artist avatars)
@@ -184,8 +183,6 @@ const svgResponse = async (route: Route, key: string): Promise<void> => {
   const svg = COVERS[key] ?? COVERS['lowlight-city']!
   await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: svg })
 }
-
-// ── Fictional artist universe ────────────────────────────────────────────────
 
 const cover = (name: string): string => `http://cover.local/${name}`
 
@@ -390,8 +387,6 @@ const DEMO_CONFIG = {
   personalRadioDiscovery: 30,
 }
 
-// ── Mock wiring ──────────────────────────────────────────────────────────────
-
 const json200 = async (route: Route, body: unknown): Promise<void> => {
   await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) })
 }
@@ -443,8 +438,6 @@ const setupScreenshotMocks = async (page: Page): Promise<void> => {
     },
   )
 }
-
-// ── Screenshots ──────────────────────────────────────────────────────────────
 
 test('screenshot: search autocomplete', async ({ page }) => {
   await setupScreenshotMocks(page)

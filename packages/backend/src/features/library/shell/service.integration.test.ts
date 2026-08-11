@@ -200,7 +200,6 @@ describe("getLibraryAlbums service", () => {
     }
   });
 
-  // AC3 — Caching tests (Task 0: written RED before cache implementation)
   describe("AC3 — 1-hour TTL cache", () => {
     it("AC3a: second call with same offset/limit is served from cache (lmsClient called only once)", async () => {
       const client = makeMockClient([makeRawAlbum()], 1);

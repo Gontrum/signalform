@@ -1,5 +1,5 @@
 /**
- * Radio Mode — Unit Tests (Story 6.4)
+ * Radio Mode — Unit Tests
  *
  * Tests for the radio-service imperative shell.
  * All external dependencies are mocked.
@@ -2512,8 +2512,6 @@ describe("queue-remove replenish flow", () => {
     );
   });
 });
-
-// ── Edge Cases: busy state, concurrent triggers, state reset ───────────────
 
 describe("busy state cleared after failure", () => {
   test("isProcessing is cleared even when getSimilarTracks rejects with an exception", async () => {

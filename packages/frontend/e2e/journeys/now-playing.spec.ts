@@ -16,8 +16,6 @@
 import { test, expect } from '@playwright/test'
 import { setupApiMocks } from '../helpers/mockApi.ts'
 
-// ── Fixtures ───────────────────────────────────────────────────────────────────
-
 const playingTrack = {
   id: 'track-money-1',
   title: 'Money',
@@ -50,8 +48,6 @@ const stoppedStatusResponse = {
   currentTrack: null,
   queuePreview: [],
 }
-
-// ── Tests ──────────────────────────────────────────────────────────────────────
 
 test('Journey H.2a: Now Playing Panel shows track title, artist, and album when playing', async ({
   page,

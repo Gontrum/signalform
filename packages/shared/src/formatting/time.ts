@@ -18,7 +18,6 @@
  * @returns Formatted time string "M:SS" or "MM:SS"
  */
 export const formatSeconds = (seconds: number): string => {
-  // Issue #15: Guard against negative values
   if (seconds < 0) {
     return "0:00";
   }

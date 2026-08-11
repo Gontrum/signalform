@@ -31,10 +31,6 @@ describe('artistApi', () => {
     fetchMock.mockRejectedValue(new Error(message))
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // getArtistByName — Story 9.13
-  // ─────────────────────────────────────────────────────────────────────────
-
   const makeArtistByNameResponse = (): ArtistByNameResponse => ({
     localAlbums: [
       {

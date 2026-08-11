@@ -1,53 +1,71 @@
 #!/usr/bin/env node
 // Structural guard for two entries of the "Never" list in AGENTS.md, section
 // "Comments": banner separators and commented-out code. Both were prose-only
-// rules until now, and the banners proved what that is worth — 284 separator
-// lines across 32 files survived lint, review and every agent delegation,
+// rules until now, and the banners proved what that is worth — 174 separator
+// lines across 36 files survived lint, review and every agent delegation,
 // because nothing ever failed on them.
 //
 // Deliberately *not* checked: "JSDoc that repeats the signature", the third
-// entry of that list. This repo has 623 JSDoc blocks and not one of them
-// consists purely of @param/@returns tags, so the cheap structural version of
-// that rule would find nothing; the real question — whether the prose restates
-// the signature — is semantic, and a scanner that guessed at it would either
-// flag every documented function or none. Leaving it out is the honest
-// position, not an oversight: it belongs in review, not in a grep.
+// entry of that list. Not one JSDoc block in this repo consists purely of
+// @param/@returns tags, so the cheap structural version of that rule would
+// find nothing; the real question — whether the prose restates the signature —
+// is semantic, and a scanner that guessed at it would either flag every
+// documented function or none. Leaving it out is the honest position, not an
+// oversight: it belongs in review, not in a grep.
 //
 // ponytail: line-based regexes, no AST and no JS/TS parser. A "banner" is any
-// comment line that is nothing but 5+ repeats of -, =, * or _, or a heading
-// framed by two such runs; a "commented-out code" line is matched against an
-// explicit list of statement shapes. Known blind spots, in the order worth fixing: a commented-out block
-// whose lines are all fragments too short to match a shape (`//   title,`),
-// and the same defects inside `/* … */` blocks, which are only seen through
-// their ` * ` continuation lines. Upgrade path: feed each comment's text to a
-// real parser (`@babel/parser` in errorRecovery mode) and flag it when it
-// yields statements rather than an error — then the shape list disappears.
+// comment line that is nothing but repeats of -, =, *, _ or box-drawing, or a
+// heading framed by two such runs; a "commented-out code" line is matched
+// against an explicit list of statement shapes. Known blind spots, in the order
+// worth fixing: `#`-comment files (see the extension list below), a
+// commented-out block whose lines are all fragments too short to match a shape
+// (`//   title,`), and the same defects inside `/* … */` blocks, which are only
+// seen through their ` * ` continuation lines. Upgrade path: feed each
+// comment's text to a real parser (`@babel/parser` in errorRecovery mode) and
+// flag it when it yields statements rather than an error — then the shape list
+// disappears.
 //
 // The shape list replaces the obvious "ends with ; { }" heuristic on purpose.
 // Seven comments in packages/*/src end a *wrapped English sentence* with a
 // semicolon ("…as soon as the years counted so far prove it;"), so that
 // heuristic starts life with seven false positives and would be switched off
 // within a week.
-import { readFileSync, readdirSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const PACKAGES = ["shared", "backend", "frontend"];
-const SRC_DIRS = PACKAGES.map((name) =>
-  join(import.meta.dirname, "..", "packages", name, "src"),
+export const REPO_ROOT = join(import.meta.dirname, "..");
+
+// Two alphabets draw a separator, and they need different thresholds. `-=*_`
+// carry meaning elsewhere — a URL keeps its `--`, an ASCII table its `+` — so
+// they only count in longer runs. Box-drawing (`─`, `━`, `═`) has no other
+// use in a comment; two of them in a row are already a rule, never prose.
+const ASCII_RULE = String.raw`-=*_`;
+const BOX_RULE = String.raw`─━═`;
+const ANY_RULE = ASCII_RULE + BOX_RULE;
+
+// Nothing but repeats. A URL keeps its `--`/`==` only in the middle of a line,
+// never as the whole comment, so it never matches; the same holds for an ASCII
+// table, whose rows carry column text.
+const BANNER = new RegExp(
+  `^\\s*(?:\\/\\/|\\*)\\s*[${ANY_RULE}]{5,}\\s*[${ANY_RULE}]*\\s*$`,
 );
 
-// Nothing but repeats of a box-drawing character. A URL keeps its `--`/`==`
-// only in the middle of a line, never as the whole comment, so it never
-// matches; the same holds for an ASCII table, whose rows carry column text.
-const BANNER = /^\s*(?:\/\/|\*)\s*[-=*_]{5,}\s*[-=*_]*\s*$/;
-
 // The same separator with a heading wedged into it (`// ----- Helpers -----`).
-// Three repeats are enough where the bare line needs five, because the heading
-// framed by them carries the evidence the bare line lacks. An ASCII table row
-// breaks its runs with `|` or `+`, so barring those two characters from the
-// heading keeps every table row out.
-const TITLED_BANNER =
-  /^\s*(?:\/\/|\*)\s*[-=*_]{3,}[^|+]*\w[^|+]*[-=*_]{3,}\s*$/;
+// Fewer repeats are enough than the bare line needs, because the heading framed
+// by them carries the evidence the bare line lacks. An ASCII table row breaks
+// its runs with `|`, so barring that from the heading keeps every table row
+// out; the corner guards keep a row spelled with `+` out too, and are
+// lookarounds rather than characters so that a one-letter heading
+// (`// ---AC---`) still has to pass them instead of being too short to match.
+// Being zero-width, they let a `+` sit just inside the heading, so
+// `// ----+a+----` is a violation — a real table row always carries a `|` or an
+// outer corner, and both still block.
+const titledBanner = (rule, repeats) =>
+  `[${rule}]{${repeats},}(?!\\+)[^|]*\\w[^|]*(?<!\\+)[${rule}]{${repeats},}`;
+const TITLED_BANNER = new RegExp(
+  `^\\s*(?:\\/\\/|\\*)\\s*(?:${titledBanner(ASCII_RULE, 3)}|${titledBanner(BOX_RULE, 2)})\\s*$`,
+);
 
 // One entry per statement shape that a commented-out line can take. Each is
 // anchored and demands the punctuation the shape needs — `if` requires its
@@ -91,16 +109,49 @@ const opensUnderLeadIn = (lines, index) => {
   return false;
 };
 
-const walk = (dir) =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) return walk(path);
-    return /\.(ts|vue)$/.test(entry.name) ? [path] : [];
-  });
+// The gate's real defect was never a regex: it was the file list. Three `src`
+// roots were named by hand, and 76 banners collected where that list did not
+// reach — 66 in `packages/frontend/e2e`, 8 in `docs`, 2 in an
+// `eslint.config.js` at a package root. `git ls-files` needs no such list and
+// cannot grow a directory-shaped blind spot: nothing untracked (`dist`,
+// `node_modules`) is ever scanned, and no tracked directory is ever missed.
+// `existsSync` covers the one gap that leaves — a tracked file deleted in the
+// worktree but not yet staged.
+//
+// The blind spot that remains is the extension list, not the directories.
+// `.sh` and `.yml` comment with `#`, a lead neither rule accepts, and 95
+// banners live behind it: install.sh 60, scripts/build-release.sh 24,
+// .github/workflows/release.yml 8, scripts/release.sh 3. Closing that means a
+// `#` lead plus those extensions, and it is its own change, not a widening of
+// this one.
+//
+// Markdown is scanned for its fenced code blocks, not its prose, and the rules
+// do reach the prose. Both leads they accept — `*` and `//` — occur in prose as
+// themselves, and every false positive follows from that. `//` is the rarer
+// one: a line of Markdown that opens with it is read as a comment outright.
+// `*` is the common one, because it is the lead a block comment continuation
+// uses and Markdown spends it on bullets and emphasis alike. Neither lead cares
+// about indentation — the match starts at the first non-whitespace character,
+// so a nested list item is no safer than a flush one. That covers a bullet
+// whose item is a rule or a framed heading (`  * ------`, `  * --- Note ---`),
+// a bullet carrying a bold-italic run (`* ***Important***`), and emphasis with
+// no bullet at all (`*---text---*`, `**--------**`) — plus any asterisk run
+// long enough to survive the lead being eaten, so `******` flags where `*****`
+// does not. A `-` bullet, a bare `---`/`***`/`===`, and a `**bold**` run inside
+// a sentence never reach the rules. No flagging shape occurs in any tracked
+// `.md`, and each reads as a banner to a human too.
+export const trackedFiles = () =>
+  execSync("git ls-files -z", { cwd: REPO_ROOT, encoding: "utf-8" })
+    .split("\0")
+    .filter((file) => /\.(ts|vue|md|mjs|js|cjs)$/.test(file))
+    .map((file) => join(REPO_ROOT, file))
+    .filter(existsSync);
 
-// Rule 1 — a separator line. AGENTS.md lists banners under "Never" because
-// they are pure noise: every one of the 284 removed in 2026-08 sat above a
-// heading that either restated the next identifier or said "Helpers".
+// Rule 1 — a separator line. AGENTS.md lists banners under "Never" because they
+// are nearly always noise: of the 174 this commit removes, 168 framed a
+// heading, and those headings were section labels, step narration or a restated
+// identifier. The few that carried a fact kept the fact — rewritten as the
+// prose sentence it should have been.
 export const findBannerViolations = (file, content) => {
   const violations = [];
   content.split("\n").forEach((line, index) => {
@@ -143,7 +194,7 @@ const RULES = [
 ];
 
 const main = () => {
-  const files = SRC_DIRS.flatMap(walk);
+  const files = trackedFiles();
   const results = RULES.map((rule) => ({
     rule,
     violations: files.flatMap((file) =>

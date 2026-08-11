@@ -7,8 +7,6 @@
  * Exported so they can be tested independently of the UDP/HTTP shell logic.
  */
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 type JsonObject = Record<string, unknown>;
 
 type ServerStatusResult = {
@@ -36,8 +34,6 @@ export type NetworkInterfaceEntry = {
   readonly netmask: string;
   readonly family: string | number;
 };
-
-// ─── Pure parsers ────────────────────────────────────────────────────────────
 
 export const isJsonObject = (value: unknown): value is JsonObject =>
   typeof value === "object" && value !== null;

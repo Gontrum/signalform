@@ -40,7 +40,6 @@ describe('AlbumListRow', () => {
     setupTestEnv()
   })
 
-  // AC3 / AC6: renders album data
   it('renders album title, artist, and year', () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 
@@ -72,7 +71,6 @@ describe('AlbumListRow', () => {
     expect(wrapper.find('[data-testid="list-row-thumbnail"]').exists()).toBe(false)
   })
 
-  // AC6: click on row body → emit 'click:navigate'
   it('emits click:navigate with albumId when row is clicked', async () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 
@@ -101,7 +99,6 @@ describe('AlbumListRow', () => {
     expect(wrapper.emitted('click:navigate')?.[0]).toEqual(['42'])
   })
 
-  // AC7: click on play button → emit 'click:play', no 'click:navigate'
   it('emits click:play with albumId when play button is clicked', async () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 
@@ -143,7 +140,6 @@ describe('AlbumListRow', () => {
     expect(img.attributes('alt')).toBe('')
   })
 
-  // AC3 (Story 9.4): add-to-queue button alongside play button
   it('renders add-to-queue button', () => {
     const wrapper = mount(AlbumListRow, { props: { album: makeAlbum() } })
 

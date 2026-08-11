@@ -700,8 +700,6 @@ describe('SearchPanel', () => {
     expect(autocomplete.props('isLoading')).toBe(true)
   }
 
-  // Autocomplete Navigation Tests (Story 4.6)
-
   it('navigates to unified-artist when artist suggestion is selected', async (): Promise<void> => {
     const context = await whenSearchPanelIsMounted()
     const pushSpy = vi.spyOn(context.router, 'push')
@@ -735,7 +733,6 @@ describe('SearchPanel', () => {
     expect(pushSpy).toHaveBeenCalledWith({ name: 'album-detail', params: { albumId: '100' } })
   })
 
-  // Story 7.5 AC2c: navigate-album event from SearchResultsList → SearchPanel routes to album-detail
   it('AC2c: navigates to album-detail when navigate-album emitted from SearchResultsList', async (): Promise<void> => {
     vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
       ok({
@@ -1037,7 +1034,6 @@ describe('SearchPanel', () => {
 
       const resultsList = context.wrapper.findComponent({ name: 'SearchResultsList' })
 
-      // Issue #5: console.log removed - just verify handler doesn't crash
       // Album playback will be implemented in Epic 5 (Queue Management)
       expect(() => {
         resultsList.vm.$emit('play-album', 'album-123')
@@ -1276,7 +1272,7 @@ describe('SearchPanel', () => {
       expect(getArtistResultsProp(resultsList.props('artists')).length).toEqual(5)
     })
 
-    // Story 8.2 AC3: Back button must be INSIDE the scroll container (Round 2 fix)
+    // Back button must be INSIDE the scroll container
     // so hovering over the Back button routes scroll events to the results list
     it('back button is a descendant of the scrollable container (AC3 — scroll propagation)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
@@ -1321,7 +1317,6 @@ describe('SearchPanel', () => {
       expect(scrollHeader.classes()).toContain('rounded-xl')
     })
 
-    // Story 8.2 AC1–AC3: Scroll containment — results list must be scrollable, outer divs must not
     it('full results list has overflow-y-auto and min-h-0 for scroll containment (AC1)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
@@ -1375,7 +1370,6 @@ describe('SearchPanel', () => {
       expect(fullResultsList.classes()).toContain('min-h-0')
     })
 
-    // Story 8.8 AC2 → superseded by Story 9.13: navigate-artist always uses unified route
     it('AC2 (9.13 supersedes 8.8): navigate-artist with null artistId routes to unified-artist (no Tidal search)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
@@ -1405,7 +1399,6 @@ describe('SearchPanel', () => {
       })
     })
 
-    // Story 8.8 AC2 fallback → superseded by Story 9.13
     it('AC2 (9.13 supersedes 8.8): navigate-artist with null artistId routes to unified-artist (no fallback search)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
@@ -1435,7 +1428,6 @@ describe('SearchPanel', () => {
       })
     })
 
-    // Story 8.5 AC3 → superseded by Story 9.13: even local artistId goes to unified route
     it('AC1 (9.13 supersedes 8.5): navigate-artist with local artistId routes to unified-artist', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
         ok({
@@ -1465,7 +1457,6 @@ describe('SearchPanel', () => {
       })
     })
 
-    // Story 7.4 AC2: footer CTA click triggers full search
     it('footer search event from AutocompleteDropdown triggers full search (AC2)', async (): Promise<void> => {
       const context = await whenSearchPanelIsMounted()
       await whenUserTypesInSearchInput(context.wrapper, 'Pink Floyd')
@@ -1595,7 +1586,6 @@ describe('SearchPanel', () => {
     })
   })
 
-  // Story 9.13 AC1: navigate-artist ALWAYS uses unified route regardless of artistId
   describe('Story 9.13: Unified artist navigation', () => {
     it('AC1: navigate-artist with local artistId routes to unified-artist (not artist-detail)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(

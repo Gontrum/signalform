@@ -437,8 +437,6 @@ describe("transformToFullResults", () => {
     thenFullResultsHaveTotalCount(result, 1);
   });
 
-  // Story 7.4 Acceptance Tests (Task 0 — AC4a/b/c)
-
   it("AC4a: transformToFullResults returns artists array with unique artists from track results", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
@@ -504,8 +502,6 @@ describe("transformToFullResults", () => {
     }
     expect(result.value.artists).toHaveLength(1);
   });
-
-  // Story 8.3 Acceptance Tests (Task 0 — RED phase)
 
   it("AC1 (Story 8.3): streaming track with no albumId → included in albums with albumId undefined, lowercase compound id, source set", () => {
     const lmsResults = givenLmsResultsWithTracks([
@@ -712,7 +708,6 @@ describe("transformToFullResults", () => {
     expect(result.value.artists[0]!.name).toBe("Taylor Swift");
   });
 
-  // Story 9.5 — AC4: AlbumResult.trackUrls
   it("AC4 (Story 9.5): streaming album has trackUrls populated from track URLs", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
@@ -771,7 +766,6 @@ describe("transformToFullResults", () => {
     }
   });
 
-  // Story 9.8: coverArtUrl propagation
   it("AC1 (Story 9.8): local album result includes coverArtUrl from first track with coverArtUrl", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
@@ -878,7 +872,6 @@ describe("transformToFullResults", () => {
     }
   });
 
-  // Story 9.12: trackTitles propagation
   it("AC1 (Story 9.12): streaming album has trackTitles populated from track titles", () => {
     const lmsResults = givenLmsResultsWithTracks([
       {
@@ -1589,7 +1582,7 @@ describe("deduplicateTracks", () => {
     const tidalTrackEnriched: LmsSearchResult = {
       id: "tidal-creep",
       title: "Creep",
-      artist: "Radiohead", // populated by tidal_info enrichment (Story 7.9)
+      artist: "Radiohead", // populated by tidal_info enrichment
       album: "Pablo Honey", // populated by tidal_info enrichment
       url: "tidal://58990486.flc",
       source: "tidal",
@@ -1898,8 +1891,6 @@ describe("selectBestAvailableSource", () => {
     expect(selectBestAvailableSource([])).toBeUndefined();
   });
 });
-
-// Story 7.8: deduplicateTracks — Tidal enrichment integration (AC2, AC3, AC6)
 
 describe("deduplicateTracks — Story 7.8 Tidal enrichment (AC2, AC3, AC6)", () => {
   it("AC2: merges local and enriched Tidal track into one result when artist/album match", () => {

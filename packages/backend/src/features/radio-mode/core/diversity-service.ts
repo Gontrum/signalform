@@ -29,7 +29,7 @@ export const isArtistInWindow = (
  * Filters candidates by artist diversity.
  * Candidates whose artist appears in the recent window (sliced to config.windowSize) are excluded.
  *
- * Pure function — same input always yields same output (AC6).
+ * Pure function — same input always yields same output.
  */
 export const filterByDiversity = (
   candidates: readonly CandidateTrack[],

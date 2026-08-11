@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import LibraryView from './LibraryView.vue'
 import { setupTestEnv, createTestRouter } from '@/test-utils'
 
-// Regression coverage for a11y Befund #8 (docs/review/04-a11y.md): the
+// Regression coverage for the keyboard-a11y defect: the
 // Library-Source tablist needs a roving tabindex + Arrow-key navigation per
 // the ARIA APG "Tabs" pattern. Split into a sibling file per AGENTS.md
 // (LibraryView.test.ts already exceeds the ~20 KB threshold) — mocks below

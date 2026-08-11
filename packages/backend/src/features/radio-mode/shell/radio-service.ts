@@ -124,7 +124,7 @@ export const createRadioEngine = (
     }
     setRadioProcessing(true);
     // Top-level try/catch: guards against unexpected JS errors (TypeErrors, etc.).
-    // AC6: radio must not crash the server. handleQueueEnd is called with void() from
+    // Radio must not crash the server. handleQueueEnd is called with void() from
     // status-poller — unhandled promise rejections are fatal in Node.js 15+.
     // Result-type errors (last.fm / LMS failures) are handled inline below.
     return Promise.resolve()
@@ -191,9 +191,9 @@ export const createRadioEngine = (
         }
 
         // Step 2: Map SimilarTrack → CandidateTrack
-        // CandidateTrack.year + .genres enrichment was not implemented in Story 6.4 —
+        // CandidateTrack.year + .genres enrichment does not exist —
         // filterByContext with {} provides graceful degradation (passes all candidates)
-        // when seedYear and seedGenres are absent (AC5 of Story 6.2).
+        // when seedYear and seedGenres are absent.
         const candidates: readonly CandidateTrack[] = similarResult.value.map(
           (t) => ({
             name: t.name,
@@ -278,7 +278,6 @@ export const createRadioEngine = (
           DEFAULT_DIVERSITY_CONFIG,
         );
 
-        // Step 3.5: Exclude seed artist from candidates (AC5/AC6 Story 9.17).
         // Radio should recommend OTHER artists — the seed artist is already known to the user.
         // Uses existing artistMatches() for NFD-normalized bidirectional includes-check.
         const seedArtistFiltered = excludeSeedArtist(

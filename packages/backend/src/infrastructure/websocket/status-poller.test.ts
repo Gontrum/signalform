@@ -181,7 +181,6 @@ describe("reconcileSuppressedQueueEnd", () => {
   });
 });
 
-// --- startStatusPolling: player-connectivity + LMS-reachability events -----
 // Fix 0 (player.playerConnected transition detection) and Fix 2 (getStatus no
 // longer retries — poll loop is the retry mechanism) regression coverage.
 

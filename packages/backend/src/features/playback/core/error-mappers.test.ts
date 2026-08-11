@@ -11,8 +11,6 @@ import {
 } from "./error-mappers.js";
 import type { LmsError } from "../../../adapters/lms-client/index.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const networkError: LmsError = {
   type: "NetworkError",
   message: "ECONNREFUSED",
@@ -38,8 +36,6 @@ const emptyQueryError: LmsError = {
   type: "EmptyQueryError",
   message: "URL is empty",
 };
-
-// ─── mapLmsErrorToHttpStatus ──────────────────────────────────────────────────
 
 describe("mapLmsErrorToHttpStatus", () => {
   it("returns 503 for NetworkError", () => {
@@ -67,8 +63,6 @@ describe("mapLmsErrorToHttpStatus", () => {
   });
 });
 
-// ─── mapLmsErrorToErrorType ───────────────────────────────────────────────────
-
 describe("mapLmsErrorToErrorType", () => {
   it("returns LMS_UNREACHABLE for NetworkError", () => {
     expect(mapLmsErrorToErrorType(networkError)).toBe("LMS_UNREACHABLE");
@@ -90,8 +84,6 @@ describe("mapLmsErrorToErrorType", () => {
     expect(mapLmsErrorToErrorType(emptyQueryError)).toBe("PLAYBACK_FAILED");
   });
 });
-
-// ─── getUserFriendlyErrorMessage ──────────────────────────────────────────────
 
 describe("getUserFriendlyErrorMessage", () => {
   it("mentions LMS for NetworkError", () => {
@@ -123,8 +115,6 @@ describe("getUserFriendlyErrorMessage", () => {
   });
 });
 
-// ─── getUserFriendlySkipErrorMessage ─────────────────────────────────────────
-
 describe("getUserFriendlySkipErrorMessage", () => {
   it("mentions 'next' in the message when direction is next", () => {
     const msg = getUserFriendlySkipErrorMessage(apiError, "next");
@@ -152,8 +142,6 @@ describe("getUserFriendlySkipErrorMessage", () => {
     );
   });
 });
-
-// ─── getUserFriendlyVolumeErrorMessage ───────────────────────────────────────
 
 describe("getUserFriendlyVolumeErrorMessage", () => {
   it("returns the ValidationError message directly (so UI can show the validation detail)", () => {
@@ -187,8 +175,6 @@ describe("getUserFriendlyVolumeErrorMessage", () => {
   });
 });
 
-// ─── getUserFriendlySeekErrorMessage ─────────────────────────────────────────
-
 describe("getUserFriendlySeekErrorMessage", () => {
   it("returns the ValidationError message directly", () => {
     expect(getUserFriendlySeekErrorMessage(validationError)).toBe(
@@ -206,8 +192,6 @@ describe("getUserFriendlySeekErrorMessage", () => {
     );
   });
 });
-
-// ─── getUserFriendlyTimeErrorMessage ─────────────────────────────────────────
 
 describe("getUserFriendlyTimeErrorMessage", () => {
   it("mentions 'playback time' for LmsApiError", () => {
@@ -237,8 +221,6 @@ describe("getUserFriendlyTimeErrorMessage", () => {
     );
   });
 });
-
-// ─── getUserFriendlyAlbumErrorMessage ────────────────────────────────────────
 
 describe("getUserFriendlyAlbumErrorMessage", () => {
   it("mentions 'Album playback failed' for LmsApiError", () => {

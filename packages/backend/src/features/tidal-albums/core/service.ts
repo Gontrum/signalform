@@ -1,6 +1,4 @@
 /**
- * Tidal Albums Service — Story 8.1 (Functional Core)
- *
  * Pure mapping: TidalAlbumRaw (LMS) → TidalAlbum (domain).
  * Live probe 2026-03-15: name = "{title} - {artist}", image = relative LMS proxy path.
  */

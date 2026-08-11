@@ -10,8 +10,7 @@ type UseLmsHealthResult = {
 /**
  * Drives the global "LMS down" banner from the same `system.lmsDisconnected`/
  * `system.lmsReconnected` WebSocket events that `usePlaybackStore` already
- * consumes for `lmsError`/`isLmsDisconnected` (docs/review/06-resilience-lms.md
- * Fix 3).
+ * consumes for `lmsError`/`isLmsDisconnected`.
  *
  * Previously this composable ran an independent, self-rescheduling
  * `GET /health` poller (30s/15s/4s intervals depending on state, plus a

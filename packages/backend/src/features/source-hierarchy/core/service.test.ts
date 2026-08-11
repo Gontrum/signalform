@@ -508,7 +508,7 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Story 3.6: bitDepth is optional in AudioQuality — absence must not fail validation
+  // bitDepth is optional in AudioQuality — absence must not fail validation
   test("succeeds when bitDepth is undefined (optional field)", () => {
     const source = makeSource({
       quality: makeQuality({ bitDepth: undefined }),

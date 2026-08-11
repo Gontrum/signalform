@@ -301,8 +301,6 @@ describe('NowPlayingPanel', () => {
     expect(panel.classes()).toEqual(expect.arrayContaining([expect.stringMatching(/sticky/)]))
   }
 
-  // AlbumCover Integration (Story 4.2)
-
   it('passes coverArtUrl to AlbumCover when currentTrack has it', async () => {
     const context = await givenTrackIsPlayingWithCoverArtUrl(
       'http://localhost:9000/music/123/cover.jpg',
@@ -350,7 +348,6 @@ describe('NowPlayingPanel', () => {
       expect(badge.classes()).toContain('bg-warning/10')
     })
 
-    // Story 8.7 fix AC3: quality badge shows FLAC for Tidal browse-played tracks
     it('shows FLAC quality badge text for Tidal track with audioQuality (AC3 fix)', async () => {
       const context = await givenTidalTrackIsPlayingWithQuality()
 
@@ -359,8 +356,6 @@ describe('NowPlayingPanel', () => {
       expect(badge.text().trim()).toContain('FLAC')
     })
   })
-
-  // Integration Tests: Source Transparency (Story 3.4)
 
   describe('Source Transparency', () => {
     it('shows "Also available on" in now playing when multiple sources', async () => {
@@ -515,8 +510,6 @@ describe('NowPlayingPanel', () => {
     })
   }
 
-  // Navigation Links (Story 4.5)
-
   const givenTrackIsPlayingWithIds = async (
     artistId: string,
     albumId: string,
@@ -604,8 +597,6 @@ describe('NowPlayingPanel', () => {
       expect(albumEl.classes()).toContain('focus:underline')
     })
   })
-
-  // Queue Preview (Story 4.6)
 
   describe('Queue Preview', () => {
     it('shows queue preview items when queuePreview has tracks', async () => {
@@ -863,8 +854,6 @@ describe('NowPlayingPanel', () => {
       )
     })
   })
-
-  // Love Button (Story 5)
 
   describe('Love Button', () => {
     it('shows love button when Last.fm session is active and track is playing', async () => {

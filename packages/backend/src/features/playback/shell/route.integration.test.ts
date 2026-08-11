@@ -409,7 +409,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).toHaveBeenCalledWith("42");
     });
 
-    // Story 8.7: AC1 — Tidal LibraryView albumId "4.0" routes to playTidalAlbum
     it("AC1: returns 200 for Tidal LibraryView albumId '4.0' via playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, { albumId: "4.0" });
 
@@ -418,7 +417,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    // Story 8.7: AC2 — Tidal ArtistDetailView albumId "6.0.1.0" routes to playTidalAlbum
     it("AC2: returns 200 for Tidal artist-browse albumId '6.0.1.0' via playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "6.0.1.0",
@@ -429,7 +427,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    // Story 8.9 AC1/AC3: Search-artist album IDs (e.g. "7_sabrina carpenter.2.0.1.4") use playTidalAlbum
     it("AC1/AC3: search-artist album ID '7_query.2.0.1.4' routes to playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "7_sabrina carpenter.2.0.1.4",
@@ -442,7 +439,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    // Story 8.9 AC2: Featured album IDs (e.g. "1.0.1.0") use playTidalAlbum
     it("AC2: featured album ID '1.0.1.0' routes to playTidalAlbum", async () => {
       const response = await whenPostingToPlayAlbum(server, {
         albumId: "1.0.1.0",
@@ -453,7 +449,6 @@ describe("POST /api/playback/play-album - Integration Tests", () => {
       expect(mockLmsClient.playAlbum).not.toHaveBeenCalled();
     });
 
-    // Story 8.7: AC4 regression — local numeric albumId still uses playAlbum
     it("AC4: local numeric albumId uses playAlbum (not playTidalAlbum)", async () => {
       await whenPostingToPlayAlbum(server, { albumId: "42" });
 
@@ -802,7 +797,7 @@ describe("POST /api/playback/play-tidal-search-album - Integration Tests (Story 
       }),
     });
 
-    // AC4: browse error → fall back to trackUrls → 204 (not 503)
+    // Browse error falls back to trackUrls, so the route answers 204 and not 503
     expect(response.statusCode).toBe(204);
     expect(mockLmsClient.play).toHaveBeenCalledWith("tidal://1234.flc");
     expect(mockLmsClient.playTidalAlbum).not.toHaveBeenCalled();

@@ -1,11 +1,9 @@
 /**
  * Permanent axe-core regression spec.
  *
- * Replaces the temporary, uncommitted audit spec that was used to produce
- * docs/review/02-ui.md. Every route below runs a broad, unrestricted
- * `.analyze()` scan (all axe rules, not a per-route allowlist) — see
- * docs/review/05-a11y-coverage.md for why the previous per-route `withRules`
- * allowlists were replaced: they existed only to dodge noise from the Vue
+ * Every route below runs a broad, unrestricted `.analyze()` scan (all axe
+ * rules, not a per-route allowlist). The previous per-route `withRules`
+ * allowlists existed only to dodge noise from the Vue
  * DevTools browser-extension panel (`aria-prohibited-attr`/`region` on its
  * floating `.vue-devtools__anchor-btn`), which `AxeBuilder.exclude()` filters
  * directly. Narrowing the rule set to work around that noise had the side
@@ -54,8 +52,8 @@ const routes: readonly RouteCheck[] = [
   { path: '/settings', testid: 'settings-view' },
   { path: '/setup', testid: 'setup-wizard' },
   // Immersive route — bypasses AppLayout (see App.vue's isImmersiveRoute), so
-  // it was previously outside this scan loop entirely. docs/review/04-a11y.md
-  // finding #9 (missing <main>) sat undetected here for exactly that reason.
+  // it was previously outside this scan loop entirely — which is how a
+  // missing <main> sat undetected here.
   { path: '/now-playing', testid: 'page-header' },
 ]
 
@@ -131,7 +129,7 @@ for (const breakpoint of breakpoints) {
         expect(results.violations).toEqual([])
 
         // Exercise the empty-result autocomplete state — a state the scan
-        // above never reaches (docs/review/04-a11y.md finding #7 lived here).
+        // above never reaches.
         // Registering an override route handler mid-test takes over
         // subsequent requests without disturbing the populated-state scan
         // above, which already completed (Playwright dispatches to the
@@ -163,14 +161,14 @@ for (const breakpoint of breakpoints) {
   })
 }
 
-// Behavioral regression for the autocomplete footer's DOM-nesting fix
-// (docs/review/04-a11y.md, item 4). The axe `aria-required-parent` rule
-// added to the '/' route case above catches the static ARIA-structure
-// violation (the footer's role="option" now has a role="listbox" ancestor),
-// but axe cannot verify that moving the footer <li> inside the <ul> left
+// Behavioral regression for the autocomplete footer's DOM-nesting fix. The
+// axe `aria-required-parent` rule added to the '/' route case above catches
+// the static ARIA-structure violation (the footer's role="option" now has a
+// role="listbox" ancestor), but axe cannot verify that moving the footer <li>
+// inside the <ul> left
 // keyboard navigation (activeIndex math in useSearchPanel.ts) unaffected —
 // that requires a real, keyboard-driven Playwright test.
-test.describe('Autocomplete footer — keyboard navigation survives the DOM move into the listbox (docs/review/04-a11y.md, item 4)', () => {
+test.describe('Autocomplete footer — keyboard navigation survives the DOM move into the listbox', () => {
   test('ArrowDown reaches the footer, wraps around, and Enter on the footer opens full results', async ({
     page,
   }) => {
@@ -216,9 +214,9 @@ test.describe('Autocomplete footer — keyboard navigation survives the DOM move
   })
 })
 
-// Behavioral regression for Popover.vue's Escape-to-close + focus-return fix
-// (docs/review/04-a11y.md, item 2). This is not an axe scan — axe cannot
-// detect missing keyboard-close behavior or lost focus, so it's a separate,
+// Behavioral regression for Popover.vue's Escape-to-close + focus-return
+// fix. This is not an axe scan — axe cannot detect missing keyboard-close
+// behavior or lost focus, so it's a separate,
 // targeted test rather than a widened rule set on an existing route case
 // above. Driven through the queue overflow menu (Popover consumer in
 // QueueView.vue) since /queue is already an existing route case and
@@ -249,8 +247,7 @@ test.describe('Popover — Escape closes and returns focus', () => {
 
     // The keydown handler that closes the popover lives on the panel div
     // itself (role="menu"), so Escape only closes it while focus is inside
-    // the panel — the same real keyboard flow docs/review/04-a11y.md
-    // verified manually (Tab from the trigger lands on the first menu item).
+    // the panel — Tab from the trigger lands on the first menu item.
     await page.keyboard.press('Tab')
     await expect(page.getByTestId('playlists-toggle')).toBeFocused()
 
@@ -263,7 +260,7 @@ test.describe('Popover — Escape closes and returns focus', () => {
 })
 
 // Behavioral regression for the hover-overlay-buttons-invisible-on-keyboard-
-// focus fix (docs/review/04-a11y.md, item 3). axe cannot detect this bug
+// focus fix. axe cannot detect this bug
 // class — it checks computed contrast/attributes, not "is this focused
 // element visually hidden by opacity" — so this is a targeted Playwright
 // test reading `getComputedStyle(...).opacity` directly, matching how the
@@ -319,7 +316,7 @@ test.describe('Hover-revealed action buttons stay visible on keyboard focus', ()
 })
 
 // Behavioral regression for the missing `aria-valuetext` fix on the
-// progress-bar slider (docs/review/04-a11y.md, item 6). axe cannot detect
+// progress-bar slider. axe cannot detect
 // this bug class — generic ARIA rules only check that aria-valuenow/min/max
 // are present and valid, not that the announced text matches the formatted
 // time shown on screen — so this is a targeted Playwright test reading the
@@ -351,9 +348,9 @@ test.describe('Progress slider — aria-valuetext matches formatted time', () =>
   })
 })
 
-// Regression for the redundant volume live-region fix (docs/review/04-a11y.md,
-// item 10). The native <input type="range"> volume slider already announces
-// its numeric value on change — no extra ARIA needed. The adjacent
+// Regression for the redundant volume live-region fix. The native
+// <input type="range"> volume slider already announces its numeric value on
+// change — no extra ARIA needed. The adjacent
 // `.volume-display` span used to also carry `aria-live="polite"`, producing a
 // duplicate/competing announcement (WCAG 4.1.3, Status Messages). axe cannot
 // detect this bug class — it's a structural "two competing announcement
@@ -378,9 +375,9 @@ test.describe('Volume display — no redundant live region', () => {
   })
 })
 
-// Landmark regression for the missing `<main>` on /now-playing
-// (docs/review/04-a11y.md, item 9). /now-playing is an immersive route that
-// deliberately bypasses AppLayout (see App.vue's isImmersiveRoute check), so
+// Landmark regression for the missing `<main>` on /now-playing, an immersive
+// route that deliberately bypasses AppLayout (see App.vue's isImmersiveRoute
+// check), so
 // it isn't in the `routes` axe-scan loop above and never gets AppLayout's
 // main/navigation/complementary landmarks. NowPlayingView.vue now renders
 // its own <main> root (mirroring SetupWizardView.vue's existing fix), so
@@ -400,8 +397,7 @@ test.describe('Landmarks — /now-playing has a <main> landmark', () => {
 })
 
 // Behavioral regression for UserSelectDialog's missing focus trap / initial
-// focus / accessible name (docs/review/04-a11y.md, item 1 — the report's
-// most severe finding). axe cannot detect any of this: it validates ARIA
+// focus / accessible name. axe cannot detect any of this: it validates ARIA
 // attribute presence/validity, not that Tab is actually contained inside the
 // dialog or that focus lands somewhere sensible on open — so this is a
 // targeted, behavioral Playwright test rather than a rule addition to the

@@ -1,8 +1,3 @@
-/**
- * Circuit Breaker Client — Acceptance Tests (Story 6.8)
- * Written BEFORE implementation (red phase).
- */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { err, ok } from "@signalform/shared";
 import type { LastFmClient, LastFmError } from "./types.js";

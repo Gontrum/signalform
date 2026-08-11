@@ -192,7 +192,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
 
 <template>
   <div>
-    <!-- Artists Section (Story 7.4 — rendered first, above tracks) -->
     <section v-if="artists && artists.length > 0" data-testid="artist-results" class="mb-6">
       <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
         {{ t('home.artistsSection') }}
@@ -273,7 +272,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                   ><span v-else>{{ result.artist }}</span
                   >{{ result.album ? ` • ${result.album}` : '' }}
                 </p>
-                <!-- Source info: badge (Story 3.3) + tooltip + also-available (Story 3.4) -->
                 <div class="mt-1">
                   <span :title="sourceTooltip(result.source)">
                     <QualityBadge :source="result.source" :quality="result.audioQuality" />
@@ -355,7 +353,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 </svg>
               </button>
 
-              <!-- Play/Pause Button (AC4: Toggle based on playback state) -->
               <button
                 v-if="!isTrackPlaying(result)"
                 :data-testid="`play-button-${result.id}`"
@@ -365,7 +362,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
                 :disabled="playbackStore.isLoading"
                 @click.stop="handlePlay(result)"
               >
-                <!-- Loading Spinner (Issue #9: Loading state) -->
                 <LoadingSpinner v-if="playbackStore.isLoading" size="sm" color="current" />
                 <!-- Play Icon -->
                 <svg
@@ -432,7 +428,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
               : 'cursor-default',
           ]"
         >
-          <!-- Album Cover: actual image when available, ♪ placeholder when not (AC1-AC3) -->
           <!-- Falls back to Tidal artist image when LMS returns its generic placeholder -->
           <div
             data-testid="album-result-cover"
@@ -497,7 +492,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
             />
           </template>
 
-          <!-- Play + Queue buttons for streaming albums with trackUrls (Story 9.5/9.6) -->
           <template v-else-if="album.trackUrls?.length">
             <AlbumActionButtons
               :album-id="album.id"
@@ -549,7 +543,6 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
       </template>
     </section>
 
-    <!-- ARIA Live Region for Playback Status Announcements (Issue #20: Accessibility) -->
     <div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
       <!-- The track conditions stay: the core builders return '' for a missing track,
            but an empty first branch would still take the chain and silence the error. -->

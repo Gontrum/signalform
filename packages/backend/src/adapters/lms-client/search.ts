@@ -96,7 +96,7 @@ export const createSearchMethods = (
   const { executeCommand, config } = deps;
 
   // Enriches a single Tidal track with artist/album/audioQuality via LMS tidal_info command.
-  // Story 7.9: Replaces songinfo approach (Story 7.8) — tidal_info works for fresh (never-played)
+  // Replaces the earlier songinfo approach — tidal_info works for fresh (never-played)
   // tracks because the LMS Tidal plugin fetches from Tidal REST API internally using its own OAuth.
   // Live probe (2026-03-14): command returns loop_loop with Album (id:"2") and Artist (id:"3") items.
   // AudioQuality inferred from URL extension (.flc → FLAC/lossless, .m4a → AAC).
@@ -151,7 +151,7 @@ export const createSearchMethods = (
 
   // Enriches all Tidal tracks in parallel via Promise.allSettled.
   // Each track is enriched independently — per-track failures do not affect others.
-  // AC4: On per-track failure, original track (artist: "", album: "") is returned.
+  // On per-track failure, the original track (artist: "", album: "") is returned.
   const enrichTidalTracks = async (
     tracks: readonly SearchResult[],
   ): Promise<readonly SearchResult[]> => {
@@ -256,7 +256,7 @@ export const createSearchMethods = (
           }));
       };
 
-      // Tidal streaming search via LMS TIDAL plugin app navigation (Story 7.7, Story 9.11).
+      // Tidal streaming search via LMS TIDAL plugin app navigation.
       // item_id:7_{query}.4 → "Suchen → Titel" (Tracks).
       // Live probe (2026-03-20): each track result includes image? (relative LMS proxy URL,
       // e.g. "/imageproxy/...") — the album cover for that track, same format as TidalAlbumRaw.image.
@@ -341,9 +341,9 @@ export const createSearchMethods = (
           ? tidalSettled.value
           : { tracks: [], available: false };
 
-      // Enrich Tidal tracks with artist/album/audioQuality via tidal_info (parallel, AC5).
+      // Enrich Tidal tracks with artist/album/audioQuality via tidal_info (parallel).
       // Runs after tidalWithTimeout to avoid interference with the Tidal search cap.
-      // On per-track failure: original track returned with artist: "", album: "" (AC4).
+      // On per-track failure: original track returned with artist: "", album: "".
       // coverArtUrl set in searchTidal() is preserved via spread in enrichSingleTrack().
       const enrichedTracks = await enrichTidalTracks(tidalOutcome.tracks);
 

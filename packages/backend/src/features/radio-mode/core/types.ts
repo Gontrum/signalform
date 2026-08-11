@@ -14,8 +14,7 @@ export type RadioContext = {
 
 // A candidate track from last.fm with optional enrichment metadata.
 // NOTE: year and genres are NOT available from last.fm's getSimilarTracks response.
-//       They will be populated in Story 6.4 via LMS metadata or MusicBrainz lookups.
-//       When absent, the filter passes candidates through (graceful degradation — AC5).
+//       When absent, the filter passes candidates through (graceful degradation).
 export type CandidateTrack = {
   readonly name: string; // Track title (from last.fm SimilarTrack)
   readonly artist: string; // Artist name (from last.fm SimilarTrack)
@@ -23,8 +22,8 @@ export type CandidateTrack = {
   readonly match: number; // last.fm similarity score 0-1
   readonly duration?: number; // seconds (from last.fm, may be undefined)
   readonly url: string; // last.fm page URL
-  readonly year?: number; // Release year — enriched from LMS/MusicBrainz (deferred post-Story 6.4)
-  readonly genres?: readonly string[]; // Genre tags — enriched from LMS/MusicBrainz (deferred post-Story 6.4)
+  readonly year?: number;
+  readonly genres?: readonly string[];
 };
 
 // Configuration for the context-aware filtering algorithm

@@ -36,8 +36,6 @@ const fulfill200 = async (route: Route, body: JsonValue): Promise<void> => {
 const omitNullValues = (obj: JsonObject): JsonObject =>
   Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== null))
 
-// ── Mock setup types ─────────────────────────────────────────────────────────
-
 export interface ApiMocks {
   readonly search?: JsonObject
   readonly autocomplete?: JsonObject

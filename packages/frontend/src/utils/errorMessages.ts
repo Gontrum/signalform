@@ -1,10 +1,3 @@
-/**
- * Error Message Mapping Utilities
- *
- * Centralized error message mapping for better testability and reusability.
- * Extracted from playbackStore (Issue #20: Code organization)
- */
-
 import type { PlaybackApiError } from '@/platform/api/playbackApi'
 
 /**
@@ -51,7 +44,6 @@ export const mapPlaybackErrorMessage = (
     case 'NETWORK_ERROR':
       return `Could not ${operationText} - cannot connect to server`
     case 'SERVER_ERROR':
-      // AC5: Standardized error message
       if (error.message.includes('Cannot connect to music server')) {
         return `Could not ${operationText} - music server not reachable`
       }

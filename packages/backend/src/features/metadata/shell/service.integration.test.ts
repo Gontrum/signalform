@@ -179,7 +179,6 @@ describe("getAlbumDetail", () => {
     }
   });
 
-  // Story 8.4: albumartist tag (AC2)
   it("uses albumartist tag when present, ignoring per-track artist", async () => {
     const tracks = [
       makeTrack({
@@ -200,7 +199,6 @@ describe("getAlbumDetail", () => {
     }
   });
 
-  // Story 8.4: most-common fallback (AC3)
   it("returns empty string when all tracks have empty artist and no albumartist", async () => {
     const tracks = [
       makeTrack({ id: 1, artist: "", albumartist: undefined }),
@@ -232,7 +230,7 @@ describe("getAlbumDetail", () => {
     }
   });
 
-  // Story 9.1: regression — LMS titles command returns year as string (e.g. "2008")
+  // Regression: the LMS titles command returns year as a string (e.g. "2008")
   it("parses releaseYear as number when LMS returns year as string", async () => {
     const tracks = [makeTrack({ year: "2008" })];
     const client = makeMockClient(tracks);
@@ -279,8 +277,6 @@ describe("getAlbumDetail", () => {
     }
   });
 });
-
-// ─── getArtistTopTracksByName ───────────────────────────────────────────────
 
 type MockPopularityClient = {
   readonly getArtistTopTracks: ReturnType<

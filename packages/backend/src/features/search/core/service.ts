@@ -59,7 +59,7 @@ export const searchTracks = (
   }
 
   // For MVP: Return LMS results as-is
-  // Deduplication is handled in transformToFullResults (full search mode, Story 3.2)
+  // Deduplication is handled in transformToFullResults (full search mode)
   // No need to spread - lmsResults is already readonly and immutable
   return ok(lmsResults);
 };
@@ -209,7 +209,7 @@ export const normalizeDeduplicationKey = (
   // (e.g. two unrelated "Intro" tracks with no metadata would be falsely merged).
   // Fall back to URL — effectively disabling cross-source deduplication for that track.
   //
-  // Story 7.9: Tidal tracks are enriched with artist/album via LMS tidal_info command before
+  // Tidal tracks are enriched with artist/album via LMS tidal_info command before
   // reaching this function — cross-source deduplication works for fresh (never-played) tracks.
   // When enrichment fails (graceful degradation), tracks with empty artist+album still
   // use the URL fallback (no false merges, both tracks visible to the user).
@@ -320,7 +320,7 @@ export const selectBestAvailableSource = (
 export const deduplicateTracks = (
   tracks: readonly LmsSearchResult[],
 ): readonly DeduplicatedTrackResult[] => {
-  // Step 1: Filter to tracks only (skip artists/albums) — validate input type first (Story 3.1 H1 learning)
+  // Step 1: Filter to tracks only (skip artists/albums) — validate input type first
   const trackOnly = tracks.filter((t) => t.type === "track");
 
   // Step 2: Group tracks by normalized deduplication key (immutable reduce)
@@ -468,7 +468,7 @@ export const transformToFullResults = (
     });
   }
 
-  // Filter to tracks only, then deduplicate across sources (Story 3.2)
+  // Filter to tracks only, then deduplicate across sources
   const trackResults = lmsResults.filter(isTrack);
   const tracks = deduplicateTracks(trackResults);
 
@@ -484,8 +484,8 @@ export const transformToFullResults = (
     readonly albumArtist?: string; // LMS albumartist tag — used preferentially over most-common track artist
     readonly allArtists: readonly string[];
     readonly trackUrls: readonly string[]; // accumulated track URLs — used for streaming albums only
-    readonly trackTitles: readonly string[]; // parallel to trackUrls (Story 9.12)
-    readonly coverArtUrl?: string; // LMS HTTP cover art URL for local albums (Story 9.8)
+    readonly trackTitles: readonly string[]; // parallel to trackUrls
+    readonly coverArtUrl?: string; // LMS HTTP cover art URL for local albums
   };
   const albumMap = tracks.reduce((acc, track) => {
     // Determine the album grouping key.
@@ -517,7 +517,7 @@ export const transformToFullResults = (
       typeof track.url === "string" && track.url.length > 0
         ? [...existingUrls, track.url]
         : existingUrls;
-    // Accumulate track titles parallel to trackUrls (Story 9.12)
+    // Accumulate track titles parallel to trackUrls
     const existingTitles = existing?.trackTitles ?? [];
     const newTrackTitles =
       typeof track.url === "string" && track.url.length > 0

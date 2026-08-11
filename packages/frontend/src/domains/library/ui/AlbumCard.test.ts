@@ -24,7 +24,6 @@ describe('AlbumCard', () => {
     setupTestEnv()
   })
 
-  // AC3: hover shows overlay with play button
   it('renders hover overlay element in DOM', () => {
     const wrapper = mount(AlbumCard, {
       props: { album: makeAlbum() },
@@ -88,7 +87,6 @@ describe('AlbumCard', () => {
     )
   })
 
-  // AC4: click on cover image → emit 'click:navigate' with albumId
   // (nested-interactive fix: the cover image is inside the single
   // "navigate" region, so its click bubbles up to that region's handler)
   it('emits click:navigate with albumId when cover image is clicked', async () => {
@@ -102,7 +100,6 @@ describe('AlbumCard', () => {
     expect(wrapper.emitted('click:navigate')?.[0]).toEqual(['42'])
   })
 
-  // AC4: click on title/artist info block → emit 'click:navigate' with albumId
   // (bubbles up to the same single "navigate" region as the cover image above)
   it('emits click:navigate with albumId when info block is clicked', async () => {
     const wrapper = mount(AlbumCard, {
@@ -179,7 +176,6 @@ describe('AlbumCard', () => {
     expect(navigateRegion.find('[data-testid="album-hover-overlay"]').exists()).toBe(false)
   })
 
-  // AC5: click on play button → emit 'click:play', propagation stopped (no 'click:navigate')
   it('emits click:play with albumId when play button is clicked', async () => {
     const wrapper = mount(AlbumCard, {
       props: { album: makeAlbum() },
@@ -201,7 +197,6 @@ describe('AlbumCard', () => {
     expect(wrapper.emitted('click:navigate')).toBeFalsy()
   })
 
-  // Renders album title and artist (AC2 support)
   it('renders album title', () => {
     const wrapper = mount(AlbumCard, {
       props: { album: makeAlbum() },
@@ -242,7 +237,6 @@ describe('AlbumCard', () => {
     expect(coverImg.exists()).toBe(false)
   })
 
-  // AC3 (Story 9.4): add-to-queue button in hover overlay
   it('renders add-album-to-queue button inside overlay', () => {
     const wrapper = mount(AlbumCard, {
       props: { album: makeAlbum() },

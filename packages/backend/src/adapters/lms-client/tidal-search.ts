@@ -48,7 +48,7 @@ export const createTidalSearchMethods = (
     /**
      * Search Tidal artists by query string via LMS Tidal plugin.
      *
-     * Story 8.8 (AC2): item_id:7_{query}.2 navigates to "Suchen → Interpreten" in Tidal plugin.
+     * item_id:7_{query}.2 navigates to "Suchen → Interpreten" in Tidal plugin.
      * Pattern mirrors searchTidal tracks (item_id:7_{query}.4 = Titel, .2 = Interpreten).
      *
      * @param query - Search query (e.g. "Sabrina Carpenter")
@@ -78,7 +78,7 @@ export const createTidalSearchMethods = (
       }
 
       // item_id:7_{query}.2 navigates to "Suchen → Interpreten" (Artists) in Tidal plugin app.
-      // Pattern: item_id:7_{query}.4 = Titel (tracks, Story 7.7), .2 = Interpreten (artists).
+      // Pattern: item_id:7_{query}.4 = Titel (tracks), .2 = Interpreten (artists).
       const command: LmsCommand = [
         "tidal",
         "items",

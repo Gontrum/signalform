@@ -11,7 +11,6 @@ import {
 import { mapSearchErrorMessage, shouldShowTidalWarning } from '../core/service'
 
 export const useSearchStore = defineStore('search', () => {
-  // ── State ──────────────────────────────────────────────────
   const searchQuery = ref('')
   const searchResults = ref<readonly SearchResult[]>([])
   const isLoading = ref(false)
@@ -28,14 +27,12 @@ export const useSearchStore = defineStore('search', () => {
   const fullResultsError = ref<string | null>(null)
   const tidalAvailable = ref<boolean | undefined>(undefined)
 
-  // ── Getters (Functional Core) ─────────────────────────────
   const hasResults = computed(() => searchResults.value.length > 0)
   const resultCount = computed(() => searchResults.value.length)
   const hasSuggestions = computed(() => autocompleteSuggestions.value.length > 0)
   const suggestionCount = computed(() => autocompleteSuggestions.value.length)
   const showTidalWarning = computed(() => shouldShowTidalWarning(fullResults.value))
 
-  // ── Actions (Imperative Shell) ────────────────────────────
   const search = async (query: string): Promise<void> => {
     searchQuery.value = query
     isLoading.value = true

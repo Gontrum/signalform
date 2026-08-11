@@ -141,7 +141,6 @@ const addToQueueAriaLabel = computed(() =>
         </svg>
       </button>
 
-      <!-- AC3 (Story 9.4): Add to Queue button in hover overlay -->
       <button
         type="button"
         data-testid="add-album-to-queue-button"

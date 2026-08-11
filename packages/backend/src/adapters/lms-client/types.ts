@@ -201,7 +201,7 @@ export type TidalAlbumRaw = {
 /**
  * Raw album item from LMS Tidal artist albums browse — tidal items command with item_id:{artistId}.1.
  * item_id:{artistId}.1 = "Alben" (artist's album section — always position 1 in artist submenu).
- * Live probe 2026-03-15 (Story 8.6): name = album title ONLY — differs from TidalAlbumRaw.name
+ * Live probe 2026-03-15: name = album title ONLY — differs from TidalAlbumRaw.name
  * which uses "{title} - {artist}" format (that is from the user's flat album library, item_id:4).
  */
 export type TidalArtistAlbumRaw = {
@@ -216,7 +216,7 @@ export type TidalArtistAlbumRaw = {
 /**
  * Raw track item from LMS Tidal plugin — tidal items command with item_id:{albumId}.
  * Returned when browsing into a specific Tidal album (item_id:4.0, 4.1, etc.).
- * Story 8.1: used by getTidalAlbumTracks — exported for service layer.
+ * Used by getTidalAlbumTracks — exported for service layer.
  */
 export type TidalTrackRaw = {
   readonly id: string; // e.g. "4.0.0", "4.0.1" — positional index in album browse
@@ -230,7 +230,7 @@ export type TidalTrackRaw = {
 /**
  * Raw artist item from LMS Tidal plugin — tidal items command with item_id:7_{query}.2.
  * Returned when searching for Tidal artists by query string.
- * Story 8.8 (AC2): used by searchTidalArtists — exported for service layer.
+ * Used by searchTidalArtists — exported for service layer.
  */
 export type TidalSearchArtistRaw = {
   readonly id: string; // e.g. "7_sabrina carpenter.2.0" — positional index in search results

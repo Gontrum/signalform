@@ -54,7 +54,6 @@ const invokeGlobalPlaybackSync = (): void => {
 export const usePlaybackStore = defineStore('playback', () => {
   const i18nStore = useI18nStore()
 
-  // ── State ──────────────────────────────────────────────────
   const currentTrack = ref<TrackInfo | null>(null)
   const isPlaying = ref(false)
   const isPaused = ref(false)
@@ -73,7 +72,6 @@ export const usePlaybackStore = defineStore('playback', () => {
   const queuedSeekTarget = ref<number | null>(null)
   const isSeekRequestInFlight = ref(false)
 
-  // Queue preview state (Story 4.6)
   const queuePreview = ref<readonly QueuePreviewItem[]>([])
 
   // Shuffle/repeat state — 'off' until the first status arrives, so the
@@ -85,8 +83,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const isLmsDisconnected = ref(false)
   const isRetryingLms = ref(false)
   // Player connectivity state (physical/software player lost its own
-  // connection to LMS — distinct root cause from the LMS flag above, see
-  // docs/review/06-resilience-lms.md Fix 0).
+  // connection to LMS — distinct root cause from the LMS flag above).
   const isPlayerDisconnected = ref(false)
   // The status read itself failed while the server answered a separate probe:
   // the speaker is off. Deliberately not folded into playerError — that one
@@ -98,7 +95,6 @@ export const usePlaybackStore = defineStore('playback', () => {
   const progressClock = ref<ReturnType<typeof setInterval> | null>(null)
   const playbackSnapshotRevision = ref(0)
 
-  // ── Getters (Functional Core) ─────────────────────────────
   const hasCurrentTrack = computed(() => currentTrack.value !== null)
   const isCurrentlyPlaying = computed(() => isPlaying.value && !isPaused.value)
   const hasError = computed(() => error.value !== null)
@@ -332,7 +328,6 @@ export const usePlaybackStore = defineStore('playback', () => {
     }
   }
 
-  // ── WebSocket Integration (Imperative Shell) ──────────────
   // Subscribe and register handlers immediately at store initialization.
   // The store lives for the entire app lifetime (Pinia keeps it alive across navigation),
   // so handlers must be registered once here — not in component lifecycle hooks.
@@ -391,8 +386,6 @@ export const usePlaybackStore = defineStore('playback', () => {
     playerStatusUnavailable.value = false
     syncPlaybackState()
   })
-
-  // ── Actions (Imperative Shell) ────────────────────────────
 
   /**
    * Play a track
@@ -567,7 +560,7 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   /**
    * Set volume level optimistically (for immediate UI feedback)
-   * Fixed (Issue #1, #5): Separate optimistic update from API call
+   * Separates the optimistic update from the API call.
    */
   const setVolumeOptimistic = (level: number): void => {
     const validationError = validateVolumeLevel(level)
@@ -596,7 +589,6 @@ export const usePlaybackStore = defineStore('playback', () => {
     if (!result.ok) {
       error.value = mapPlaybackErrorMessage(result.error, 'volume')
       // Rollback on error - fetch current volume
-      // Fixed (Issue #15): Handle fetchCurrentVolume errors
       const rollbackResult = await fetchCurrentVolume()
       if (!rollbackResult) {
         // If rollback also fails, set to safe default
@@ -613,7 +605,7 @@ export const usePlaybackStore = defineStore('playback', () => {
 
   /**
    * Fetch current volume level
-   * Fixed (Issue #15): Return boolean to indicate success/failure
+   * Returns a boolean to indicate success or failure.
    */
   const fetchCurrentVolume = async (): Promise<boolean> => {
     const result = await apiGetVolume()

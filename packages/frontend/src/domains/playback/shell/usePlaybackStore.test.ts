@@ -12,15 +12,11 @@ import { setActivePinia, createPinia } from 'pinia'
 import { ok, err } from '@signalform/shared'
 import { flushPromises } from '@vue/test-utils'
 
-// ─── Hoisted mock factories ───────────────────────────────────────────────────
-
 const { mockSubscribe, websocketOnMock, mockOnReconnect } = vi.hoisted(() => ({
   mockSubscribe: vi.fn(),
   websocketOnMock: vi.fn<(event: string, handler: (payload: unknown) => void) => void>(),
   mockOnReconnect: vi.fn<(callback: () => void) => void>(),
 }))
-
-// ─── Module mocks ─────────────────────────────────────────────────────────────
 
 vi.mock('@/platform/api/playbackApi', () => ({
   playTrack: vi.fn(),
@@ -50,8 +46,6 @@ vi.mock('@/app/useWebSocket', () => ({
 vi.mock('@/utils/runtimeUrls', () => ({
   getApiUrl: (path: string): string => `http://localhost:3001${path}`,
 }))
-
-// ─── Imports (after mocks) ────────────────────────────────────────────────────
 
 import { usePlaybackStore } from './usePlaybackStore'
 import {
@@ -88,8 +82,6 @@ const createDeferred = <T>(): {
   return { promise, resolve }
 }
 
-// ─── Setup ───────────────────────────────────────────────────────────────────
-
 beforeEach(() => {
   setActivePinia(createPinia())
   vi.clearAllMocks()
@@ -99,8 +91,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
 })
-
-// ─── setVolume — rollback paths ───────────────────────────────────────────────
 
 describe('setVolume', () => {
   it('sets currentVolume to the new level on success', async () => {
@@ -142,8 +132,6 @@ describe('setVolume', () => {
   })
 })
 
-// ─── fetchCurrentVolume ───────────────────────────────────────────────────────
-
 describe('fetchCurrentVolume', () => {
   it('updates currentVolume and returns true on success', async () => {
     mockGetVolume.mockResolvedValue(ok(72))
@@ -175,8 +163,6 @@ describe('fetchCurrentVolume', () => {
     expect(store.isMuted).toBe(true)
   })
 })
-
-// ─── toggleMute ───────────────────────────────────────────────────────────────
 
 describe('toggleMute', () => {
   it('saves currentVolume and sets volume to 0 when unmuted', async () => {
@@ -221,8 +207,6 @@ describe('toggleMute', () => {
     expect(mockSetVolume).toHaveBeenCalledWith(50)
   })
 })
-
-// ─── stop ─────────────────────────────────────────────────────────────────────
 
 describe('stop', () => {
   it('resets isPlaying, isPaused, currentTrack, and error', () => {
@@ -551,8 +535,6 @@ describe('initial playback sync', () => {
   })
 })
 
-// ─── seekToPosition — rollback ────────────────────────────────────────────────
-
 describe('seekToPosition', () => {
   it('applies optimistic update, calls API, and reconciles current time', async () => {
     mockSeek.mockResolvedValue(ok(undefined))
@@ -679,8 +661,6 @@ describe('seekToPosition', () => {
     expect(store.currentTime).toBe(91)
   })
 })
-
-// ─── WebSocket: player.statusChanged ─────────────────────────────────────────
 
 describe('WebSocket player.statusChanged handler', () => {
   it('updates isPlaying=true and currentTrack when status is "playing"', () => {

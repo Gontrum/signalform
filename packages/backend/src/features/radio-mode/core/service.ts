@@ -13,8 +13,6 @@ import {
   DEFAULT_FILTER_CONFIG,
 } from "./types.js";
 
-// Genre Groups (AC2)
-
 // Genre relatedness groups — case-insensitive matching.
 // Two genres are "related" if they appear in the same group array.
 // Based on common musical genre taxonomy.
@@ -106,9 +104,9 @@ export const areGenresRelated = (genreA: string, genreB: string): boolean => {
 };
 
 /**
- * Returns true if candidate passes the era filter (AC1, AC5).
+ * Returns true if candidate passes the era filter.
  *
- * Graceful degradation rules (AC5):
+ * Graceful degradation rules:
  * - If seedYear is absent → no era filter → pass
  * - If candidate.year is absent → unknown era → pass
  *
@@ -129,9 +127,9 @@ export const passesEraFilter = (
 };
 
 /**
- * Returns true if candidate passes the genre filter (AC2, AC5).
+ * Returns true if candidate passes the genre filter.
  *
- * Graceful degradation rules (AC5):
+ * Graceful degradation rules:
  * - If seedGenres is absent or empty → no genre filter → pass
  * - If candidate.genres is absent or empty → unknown genre → pass
  *
@@ -152,17 +150,10 @@ export const passesGenreFilter = (
   );
 };
 
-// Main Filter Function (AC1–AC6)
-
 /**
- * Filters candidates by era and genre context (AC1+AC2).
- * Uses recursive era expansion when fewer than minResults survive (AC4).
- * No side effects, no IO, no mutable state — same input always yields same output (AC6).
- *
- * @param candidates - List of radio suggestion candidates
- * @param context - Seed track context (seedYear, seedGenres)
- * @param config - Filter configuration (defaults to DEFAULT_FILTER_CONFIG)
- * @returns Filtered list of candidates (readonly, never mutated)
+ * Filters candidates by era and genre context.
+ * Uses recursive era expansion when fewer than minResults survive.
+ * No side effects, no IO, no mutable state — same input always yields same output.
  */
 export const filterByContext = (
   candidates: readonly CandidateTrack[],
@@ -176,7 +167,7 @@ export const filterByContext = (
         passesGenreFilter(candidate, context.seedGenres),
     );
 
-  // Recursive expansion: no let, no mutation (AC4 + functional/no-let compliance)
+  // Recursive expansion: no let, no mutation
   // Guard: if eraExpansionStep <= 0, no expansion is possible → return immediately
   const expandIfNeeded = (eraWindow: number): readonly CandidateTrack[] => {
     const filtered = applyFilters(eraWindow);

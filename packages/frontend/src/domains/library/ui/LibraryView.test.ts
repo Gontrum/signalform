@@ -116,7 +116,6 @@ describe('LibraryView', () => {
     return { router, wrapper }
   }
 
-  // AC1: /library route renders view, loading state shown
   it('shows loading state initially', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
@@ -127,7 +126,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="loading-state"]').exists()).toBe(true)
   })
 
-  // AC2: 3-column grid renders, each card shows cover + title + artist
   it('renders album-grid with AlbumCard items after successful load', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -159,7 +157,6 @@ describe('LibraryView', () => {
     expect(grid.classes()).toContain('lg:gap-8')
   })
 
-  // AC7: 0 albums → empty state message
   it('shows empty-state when 0 albums returned', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -176,7 +173,6 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC8: API error → error state message
   it('shows error-state when API returns error', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -193,7 +189,6 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC4: click:navigate handler → router.push to album-detail
   it('navigates to album-detail when AlbumCard emits click:navigate', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -215,7 +210,6 @@ describe('LibraryView', () => {
     expect(context.router.currentRoute.value.params['albumId']).toBe('1')
   })
 
-  // AC5: click:play handler → playAlbum called
   it('calls playAlbum when AlbumCard emits click:play', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
@@ -234,7 +228,6 @@ describe('LibraryView', () => {
     expect(playAlbum).toHaveBeenCalledWith('1')
   })
 
-  // AC3 (Story 9.4): click:add-to-queue handler → addAlbumToQueue called
   it('calls addAlbumToQueue when AlbumCard emits click:add-to-queue (grid view)', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { addAlbumToQueue } = await import('@/platform/api/queueApi')
@@ -253,7 +246,6 @@ describe('LibraryView', () => {
     expect(addAlbumToQueue).toHaveBeenCalledWith('1')
   })
 
-  // AC3 (Story 9.4): click:add-to-queue from AlbumListRow → addAlbumToQueue called
   it('calls addAlbumToQueue when AlbumListRow emits click:add-to-queue (list view)', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { addAlbumToQueue } = await import('@/platform/api/queueApi')
@@ -273,9 +265,6 @@ describe('LibraryView', () => {
     expect(addAlbumToQueue).toHaveBeenCalledWith('1')
   })
 
-  // ── Story 7.2: Grid/List View Toggle ──────────────────────────────────────
-
-  // AC1: toggle visible in success state, hidden otherwise
   it('shows view-toggle when albums loaded successfully', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -291,7 +280,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="list-view-button"]').exists()).toBe(true)
   })
 
-  // AC8: toggle hidden during loading/error/empty states
   it('does NOT show view-toggle during loading state', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))
@@ -327,7 +315,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="view-toggle"]').exists()).toBe(false)
   })
 
-  // AC2: default view is grid (no localStorage key)
   it('shows album-grid by default (no localStorage key)', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -356,7 +343,6 @@ describe('LibraryView', () => {
     expect(gridBtn.classes()).toContain('bg-neutral-900')
   })
 
-  // AC3: clicking list-view-button → shows album-list
   it('switches to list view when list-view-button clicked', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -388,7 +374,6 @@ describe('LibraryView', () => {
     expect(listBtn.classes()).toContain('bg-neutral-900')
   })
 
-  // AC4: clicking grid-view-button → back to grid
   it('switches back to grid when grid-view-button clicked after list', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -405,7 +390,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="album-list"]').exists()).toBe(false)
   })
 
-  // AC5: localStorage persistence
   it('saves view mode to localStorage when toggled', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -450,7 +434,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="album-grid"]').exists()).toBe(false)
   })
 
-  // AC6 (list): click on row body → navigate to album-detail
   it('navigates to album-detail when AlbumListRow emits click:navigate in list mode', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -470,9 +453,6 @@ describe('LibraryView', () => {
     expect(context.router.currentRoute.value.params['albumId']).toBe('1')
   })
 
-  // ── Story 7.3: Sort & Filter ──────────────────────────────────────────────
-
-  // AC1: sort chips render with 4 options
   it('shows sort-select with 4 sort options when albums loaded', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -495,7 +475,7 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC4b: a filter that leaves 0 albums → no-filter-results, not the empty library state
+  // a filter that leaves 0 albums shows no-filter-results, not the empty library state
   it('shows no-filter-results when the active filter leaves 0 albums', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -511,7 +491,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
   })
 
-  // AC5: clear-filter-button visible when a filter is active; click clears it
   it('shows clear-filter-button when genre active and clicking clears the filter', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -533,7 +512,6 @@ describe('LibraryView', () => {
     expect(sessionStorage.getItem('library-genre-filter')).toBeNull()
   })
 
-  // AC5b: clear-filter-button absent when no filter active
   it('does NOT show clear-filter-button when no genre filter active', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -547,7 +525,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="clear-all-filters"]').exists()).toBe(false)
   })
 
-  // AC6a: sessionStorage updated when sort changes
   it('updates sessionStorage library-sort-by when sort changes', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -563,7 +540,6 @@ describe('LibraryView', () => {
     expect(sessionStorage.getItem('library-sort-by')).toBe('title-az')
   })
 
-  // AC6c: pre-set sessionStorage sort → sort sent with the first request
   it('uses stored sort from sessionStorage on mount', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -630,7 +606,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="empty-state"]').exists()).toBe(true)
   })
 
-  // AC6d: pre-set genre filter in sessionStorage → genre id sent with the first request
   it('uses stored genre filter from sessionStorage on mount', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -646,7 +621,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="clear-all-filters"]').exists()).toBe(true)
   })
 
-  // AC7 (list): click on play button in list row → playAlbum called, no navigation
   it('calls playAlbum when list-row-play-button clicked', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { playAlbum } = await import('@/platform/api/playbackApi')
@@ -668,9 +642,6 @@ describe('LibraryView', () => {
     expect(context.router.currentRoute.value.name).not.toBe('album-detail')
   })
 
-  // ── Story 8.1: Tidal Source Toggle ───────────────────────────────────────
-
-  // AC1: source selector visible with Local and Tidal buttons
   it('shows source selector with Local and Tidal buttons', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -686,7 +657,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="source-tidal"]').exists()).toBe(true)
   })
 
-  // AC1: default source is Local (aria-selected="true" on Local button)
   it('defaults to Local source with aria-selected on Local button', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockResolvedValue({
@@ -705,7 +675,6 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC1: clicking Tidal loads Tidal albums
   it('switches to Tidal source and shows Tidal albums when Tidal button clicked', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
@@ -731,7 +700,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.text()).toContain('Tidal Album 1')
   })
 
-  // AC6: loading state shown while Tidal albums are being fetched
   it('shows loading state while Tidal albums are being fetched', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
@@ -749,7 +717,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="loading-state"]').exists()).toBe(true)
   })
 
-  // AC5: Tidal error state shows specific message
   it('shows Tidal-specific error message when Tidal albums fail to load', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
@@ -774,7 +741,6 @@ describe('LibraryView', () => {
     )
   })
 
-  // AC4: grid/list toggle state persists across Local/Tidal source switch
   it('grid/list toggle mode persists when switching between Local and Tidal sources', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
@@ -803,7 +769,6 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('[data-testid="album-grid"]').exists()).toBe(false)
   })
 
-  // H1: Story 8.9 AC2 — when no Tidal favorites, show Featured Albums section (Neu bei Tidal)
   it('shows Featured Albums section when Tidal favorites list is empty', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums, getTidalFeaturedAlbums } = await import('@/platform/api/tidalAlbumsApi')

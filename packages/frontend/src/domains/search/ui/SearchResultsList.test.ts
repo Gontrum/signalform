@@ -319,7 +319,6 @@ describe('SearchResultsList', () => {
     expect(playAlbumButton.attributes('aria-label')).toBe('Play album The Wall')
   })
 
-  // Story 3.4: Source transparency tests
   it('shows "Also available on" when track has multiple sources', async () => {
     const wrapper = await whenTrackResultsListIsMounted(mockResults)
     const firstItem = wrapper.find('[data-testid="result-item-1"]')
@@ -342,7 +341,6 @@ describe('SearchResultsList', () => {
     expect(tooltipWrapper.attributes('title')).toBe('Playing from Local library')
   })
 
-  // Story 4.6 / 7.5: Album navigation — now uses emit pattern (Story 7.5 refactor)
   it('emits navigate-album when album result item is clicked', async () => {
     const mockAlbums: readonly AlbumResult[] = [
       { id: '99', albumId: '99', title: 'The Wall', artist: 'Pink Floyd', trackCount: 26 },
@@ -417,8 +415,6 @@ describe('SearchResultsList', () => {
     expect(wrapper.emitted('pause')).toBeTruthy()
   })
 
-  // Story 7.4 Acceptance Tests (Task 0 — AC4d/e, AC5)
-
   describe('Artists section (Story 7.4)', () => {
     const makeArtist = (name: string, artistId?: string): ArtistResult => ({
       name,
@@ -460,8 +456,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 7.5 Acceptance Tests (Task 0 — AC1/AC2/AC3/AC5)
-
   describe('Story 7.5 — Direct Navigation from Search', () => {
     it('AC1a: emits navigate-artist when artist name in track row is clicked', async () => {
       const track: TrackResult = {
@@ -490,7 +484,6 @@ describe('SearchResultsList', () => {
     })
 
     it('AC1b: does NOT render track-artist-link when track has empty artist name', async () => {
-      // Story 9.7: condition changed from v-if="result.artistId" to v-if="result.artist"
       // Link is hidden only when artist NAME is empty, not when artistId is absent
       const track: TrackResult = {
         id: 't2',
@@ -643,8 +636,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 8.3 Acceptance Tests (Task 0 — RED phase)
-
   describe('Story 8.3 — Show Streaming Albums in Search Results', () => {
     it('AC1/AC2/AC3: streaming album (no albumId) renders as non-clickable div with no Play Album button', async () => {
       // Note: data-testid uses the lowercase compound "artist::album" key from the backend.
@@ -667,15 +658,12 @@ describe('SearchResultsList', () => {
       const albumRow = w.find('[data-testid="album-result-item-die toten hosen::opel-gang"]')
       expect(albumRow.exists()).toBe(true)
 
-      // AC2: not a button — no role="button", no tabindex
       expect(albumRow.attributes('role')).not.toBe('button')
       expect(albumRow.attributes('tabindex')).toBeUndefined()
 
-      // AC3: no Play Album button for streaming albums
       const playAlbumBtn = w.find('[data-testid^="play-album-button-"]')
       expect(playAlbumBtn.exists()).toBe(false)
 
-      // AC2: clicking does NOT emit navigate-album
       await albumRow.trigger('click')
       await nextTick()
       expect(w.emitted('navigate-album')).toBeFalsy()
@@ -700,7 +688,6 @@ describe('SearchResultsList', () => {
       const albumRow = w.find('[data-testid="album-result-item-die toten hosen::opel-gang"]')
       expect(albumRow.exists()).toBe(true)
 
-      // AC4: streaming badge visible with source-specific text (M2: verify content, not just existence)
       const streamingBadge = albumRow.find('[data-testid="album-streaming-badge"]')
       expect(streamingBadge.exists()).toBe(true)
       expect(streamingBadge.text()).toBe('Tidal')
@@ -724,23 +711,18 @@ describe('SearchResultsList', () => {
       const albumRow = w.find('[data-testid="album-result-item-99"]')
       expect(albumRow.exists()).toBe(true)
 
-      // AC5: local album has role="button" and tabindex
       expect(albumRow.attributes('role')).toBe('button')
       expect(albumRow.attributes('tabindex')).toBe('0')
 
-      // AC5: Play Album button is visible
       const playAlbumBtn = w.find('[data-testid="play-album-button-99"]')
       expect(playAlbumBtn.exists()).toBe(true)
 
-      // AC5: clicking emits navigate-album
       await albumRow.trigger('click')
       await nextTick()
       expect(w.emitted('navigate-album')).toHaveLength(1)
       expect(w.emitted('navigate-album')?.[0]).toEqual([{ albumId: '99' }])
     })
   })
-
-  // Story 8.5 Acceptance Tests (Task 0 — RED phase)
 
   describe('Story 8.5 — Navigate Artists from Search Results', () => {
     it('AC1: streaming artist (artistId=null) renders as <button>, not <div>', async () => {
@@ -817,8 +799,6 @@ describe('SearchResultsList', () => {
       expect(localBtn.classes()).toContain('focus:outline-none')
     })
   })
-
-  // Story 9.12 Acceptance Tests — Tidal Album Card Navigation
 
   describe('Story 9.12 — Tidal Album Card Navigation (AC1, AC6)', () => {
     const tidalAlbum: AlbumResult = {
@@ -1020,7 +1000,6 @@ describe('SearchResultsList', () => {
     expect(listOptions.exists()).toBe(true)
   }
 
-  // AC4 (Story 9.4): Add to Queue button for local albums in SearchResultsList
   describe('Story 9.4 — Add Album to Queue from Search Results (AC4)', () => {
     it('AC4: local album (with albumId) shows an Add to Queue button', async () => {
       const localAlbum: AlbumResult = {
@@ -1062,7 +1041,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 9.5: Search result parity — streaming albums with trackUrls get Play + Queue buttons
   describe('Story 9.5 — Streaming album Play/Queue from Search Results', () => {
     it('AC1: streaming album WITH trackUrls shows a Play button', async () => {
       const streamingAlbum: AlbumResult = {
@@ -1147,7 +1125,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 9.6: Tidal album play from search → use play-tidal-search-album endpoint
   describe('Story 9.6 — Tidal Album Full Playback from Search', () => {
     const tidalAlbum: AlbumResult = {
       id: 'sabrina carpenter::short n sweet',
@@ -1228,8 +1205,6 @@ describe('SearchResultsList', () => {
       expect(mockPlayTrackList).toHaveBeenCalledWith(['qobuz://111', 'qobuz://222'])
     })
   })
-
-  // Story 9.7 Acceptance Tests (Task 0 — RED phase)
 
   describe('Story 9.7 — Tidal Artist Navigation from Search Results', () => {
     it('AC1: Tidal track with undefined artistId renders artist name as clickable link', async () => {
@@ -1468,8 +1443,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 9.8: Cover Art Unification in Search Results (AC1-AC3)
-
   describe('Story 9.8 — Cover Art Unification in Search Results', () => {
     it('AC1: local album with coverArtUrl renders <img> instead of ♪ placeholder', async () => {
       const localAlbumWithArt: AlbumResult = {
@@ -1557,9 +1530,6 @@ describe('SearchResultsList', () => {
     })
   })
 
-  // Story 9.15 Acceptance Tests — Mobile Responsive Album Card (AC4)
-
-  // Story 9.15 AC5: track list has overflow-x-hidden to prevent horizontal scroll on phone
   describe('Story 9.15 — Track list overflow fix on phone (AC5)', () => {
     it('AC5: results-list container has overflow-x-hidden to prevent horizontal scroll', async () => {
       const track: TrackResult = {

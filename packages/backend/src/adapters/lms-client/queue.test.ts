@@ -15,8 +15,6 @@ import { createQueueMethods, SAVED_PLAYLISTS_PAGE_LIMIT } from "./queue.js";
 import type { ExecuteDeps } from "./execute.js";
 import type { LmsError } from "./types.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const makeExecuteDeps = (
   executeCommand: ExecuteDeps["executeCommand"],
 ): ExecuteDeps => ({
@@ -60,8 +58,6 @@ const makeTidalTracksPayload = (
   }),
   count: tracks.length,
 });
-
-// ─── addTidalAlbumToQueue ─────────────────────────────────────────────────────
 
 describe("addTidalAlbumToQueue", () => {
   it("returns EmptyQueryError when albumId is empty string", async () => {
@@ -270,8 +266,6 @@ describe("addTidalAlbumToQueue", () => {
   });
 });
 
-// ─── addToQueue validation ────────────────────────────────────────────────────
-
 describe("addToQueue", () => {
   it("returns EmptyQueryError for empty string", async () => {
     const executeCommand = vi.fn();
@@ -362,8 +356,6 @@ describe("addToQueue", () => {
   });
 });
 
-// ─── savePlaylist ─────────────────────────────────────────────────────────────
-
 describe("savePlaylist", () => {
   it("sends the playlist save command with the given name", async () => {
     const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
@@ -391,8 +383,6 @@ describe("savePlaylist", () => {
     }
   });
 });
-
-// ─── listSavedPlaylists ───────────────────────────────────────────────────────
 
 describe("listSavedPlaylists", () => {
   it("sends the playlists list command", async () => {
@@ -464,8 +454,6 @@ describe("listSavedPlaylists", () => {
   });
 });
 
-// ─── loadSavedPlaylist ────────────────────────────────────────────────────────
-
 describe("loadSavedPlaylist", () => {
   it("sends the playlistcontrol load command with the playlist_id", async () => {
     const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
@@ -498,8 +486,6 @@ describe("loadSavedPlaylist", () => {
   });
 });
 
-// ─── deleteSavedPlaylist ──────────────────────────────────────────────────────
-
 describe("deleteSavedPlaylist", () => {
   it("sends the playlists delete command with the playlist_id", async () => {
     const executeCommand = vi.fn().mockResolvedValue(ok(undefined));
@@ -531,8 +517,6 @@ describe("deleteSavedPlaylist", () => {
     }
   });
 });
-
-// ─── getQueue index parsing ───────────────────────────────────────────────────
 
 describe("getQueue", () => {
   it("marks the track at playlist_cur_index as isCurrent", async () => {

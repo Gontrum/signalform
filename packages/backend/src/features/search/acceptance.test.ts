@@ -1,6 +1,4 @@
 /**
- * Search Deduplication Acceptance Tests (Story 3.2)
- *
  * BDD-style tests covering user-facing scenarios for deduplication.
  * Fluent Given/When/Then API.
  */

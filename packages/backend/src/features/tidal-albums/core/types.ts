@@ -1,6 +1,4 @@
 /**
- * Tidal Albums Domain Types — Story 8.1
- *
  * Domain types for Tidal album browsing (user's Tidal library albums).
  * Live probe 2026-03-15: albums fetched via item_id:4 ("Alben") from Tidal LMS plugin.
  */

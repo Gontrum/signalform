@@ -279,7 +279,6 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         data-testid="library-controls-row"
         class="mb-3 flex flex-wrap items-center gap-2 sm:mb-6 sm:gap-3"
       >
-        <!-- Source selector (AC1 — Story 8.1) -->
         <div
           data-testid="source-selector"
           role="tablist"
@@ -597,7 +596,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
         </EmptyState>
       </div>
 
-      <!-- Story 8.9 AC2: No Tidal favorites → show Featured Albums (Neu bei Tidal) -->
+      <!-- No Tidal favorites → show Featured Albums (Neu bei Tidal) -->
       <div v-else-if="showsTidalFeatured" data-testid="tidal-featured-section">
         <!-- Featured loading -->
         <div

@@ -1,6 +1,4 @@
 /**
- * Reproduction tests for docs/review/06-resilience-lms.md.
- *
  * Demonstrates the gap between two distinct failure modes that both look
  * like "the connection to LMS is broken" from the user's chair, but are
  * handled completely differently by the store:
@@ -180,7 +178,7 @@ const emitSystemPlayerStatusRestored = (): void => {
 const PLAYER_NOT_ANSWERING =
   'Speaker is not answering — the music server is reachable, so check the speaker'
 
-describe('resilience: transport disconnect vs LMS-down (docs/review/06-resilience-lms.md)', () => {
+describe('resilience: transport disconnect vs LMS-down', () => {
   it('REPRO: a Socket.IO transport drop leaves store state and error flags completely unchanged', () => {
     const store = usePlaybackStore()
     emitStatusChanged()

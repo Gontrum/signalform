@@ -11,7 +11,7 @@ import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 
 /**
  * Result type for selectBestTrackUrl — carries the selected URL and any SelectionError
- * that occurred (so the caller can log it per AC6 while keeping the helper pure).
+ * that occurred (so the caller can log it while keeping the helper pure).
  */
 export type SelectBestTrackResult = {
   readonly url: string | undefined;
@@ -47,7 +47,7 @@ export const computeFallbackUrl = (
 /**
  * Selects the best track URL from LMS search results using source hierarchy.
  * Falls back to simple lossless→bitrate comparison if no quality data is available.
- * Returns selectionError when selectBestSource fails so caller can log it (AC6).
+ * Returns selectionError when selectBestSource fails so caller can log it.
  * Pure function — no side effects.
  */
 export const selectBestTrackUrl = (
@@ -78,7 +78,7 @@ export const selectBestTrackUrl = (
       return { url: selectionResult.value.url };
     }
     // selectBestSource failed — fall back to simple lossless/bitrate comparison.
-    // Return error so caller can log it (AC6: "logs a warn with the SelectionError details").
+    // Return error so caller can log it.
     return {
       url: computeFallbackUrl(results),
       selectionError: selectionResult.error,

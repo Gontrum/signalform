@@ -143,8 +143,7 @@ const createPlaybackMethodsImplementation = (
      * @returns Result with void or error
      */
     play: async (trackUrl: string): Promise<Result<void, LmsError>> => {
-      // Validate track URL (fail fast). Issue #15: also validates protocol
-      // (security - prevent malformed URLs).
+      // Also validates protocol: a malformed URL must not reach LMS.
       const validation = validateTrackUrl(trackUrl, "NetworkError");
       if (!validation.ok) {
         return validation;

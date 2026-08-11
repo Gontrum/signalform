@@ -1,10 +1,3 @@
-/**
- * Error Messages Utilities Tests
- *
- * Tests for centralized error message mapping.
- * Extracted from playbackStore tests (Issue #20: Better testability)
- */
-
 import { describe, it, expect } from 'vitest'
 import { mapPlaybackErrorMessage } from './errorMessages'
 import type { PlaybackApiError } from '@/platform/api/playbackApi'
@@ -132,7 +125,7 @@ describe('errorMessages', () => {
 
       errorTypes.forEach((error) => {
         const result = mapPlaybackErrorMessage(error)
-        // AC5 requires playback errors to indicate "Could not start playback"
+        // playback errors must indicate "Could not start playback"
         // All error types now include this prefix (updated implementation)
         expect(result).toMatch(/Could not start playback/i)
       })

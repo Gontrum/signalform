@@ -1,6 +1,6 @@
 /**
- * useLmsHealth (docs/review/06-resilience-lms.md Fix 3): now driven directly
- * by the `system.lmsDisconnected`/`system.lmsReconnected` WebSocket events —
+ * useLmsHealth is driven directly by the
+ * `system.lmsDisconnected`/`system.lmsReconnected` WebSocket events —
  * see the composable's own doc comment for the rationale for dropping the
  * previous independent `GET /health` poller.
  */

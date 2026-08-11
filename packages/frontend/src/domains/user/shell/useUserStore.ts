@@ -20,19 +20,15 @@ import {
  * on every API request.
  */
 export const useUserStore = defineStore('user', () => {
-  // ── State ──────────────────────────────────────────────────
   const users = ref<readonly ApiUser[]>([])
   const activeListenerId = ref<string | undefined>(undefined)
   const selectedUserId = ref<string | undefined>(undefined)
 
-  // ── Getters (Functional Core) ─────────────────────────────
   const selectedUser = computed<ApiUser | undefined>(() =>
     users.value.find((user) => user.id === selectedUserId.value),
   )
   const hasLastFmSession = computed(() => selectedUser.value?.hasLastFmSession ?? false)
   const needsSelection = computed(() => resolveNeedsSelection(users.value, selectedUserId.value))
-
-  // ── Actions (Imperative Shell) ────────────────────────────
 
   /**
    * Load users and resolve the device selection.

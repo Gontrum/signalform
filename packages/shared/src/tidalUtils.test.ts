@@ -1,11 +1,6 @@
 /**
  * Tests for isTidalAlbumId — shared Tidal album ID detection utility.
  *
- * Story 9.2 (AC6): Single authoritative implementation in packages/shared.
- * Replaces duplicated logic from:
- *   - packages/frontend/src/views/AlbumDetailView.vue
- *   - packages/backend/src/features/playback/route.ts
- *
  * Live probe 2026-03-17: All verified Tidal album ID formats documented below.
  */
 
@@ -13,8 +8,6 @@ import { describe, it, expect } from "vitest";
 import { isTidalAlbumId } from "./tidalUtils.js";
 
 describe("isTidalAlbumId", () => {
-  // ── TRUE cases: Tidal browse album IDs ──────────────────────────────────
-
   describe("dot-separated numeric IDs (regex /^\\d+(\\.\\d+)+$/)", () => {
     it('returns true for Tidal favorites album "4.0"', () => {
       expect(isTidalAlbumId("4.0")).toBe(true);
@@ -74,8 +67,6 @@ describe("isTidalAlbumId", () => {
       expect(isTidalAlbumId("7_")).toBe(false);
     });
   });
-
-  // ── FALSE cases: Local and other non-Tidal IDs ──────────────────────────
 
   describe("local album IDs (LMS numeric integers)", () => {
     it('returns false for local album "92" (pure integer)', () => {

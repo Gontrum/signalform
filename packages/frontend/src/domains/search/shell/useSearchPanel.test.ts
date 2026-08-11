@@ -8,8 +8,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ok } from '@signalform/shared'
 
-// ─── Hoisted mocks ────────────────────────────────────────────────────────────
-
 const { mockStartLovedRadio, mockStartPersonalRadio, mockStartGenreRadio, mockGetConfig } =
   vi.hoisted(() => ({
     mockStartLovedRadio: vi.fn(),
@@ -67,18 +65,12 @@ vi.mock('@/domains/playback/shell/usePlaybackStore', () => ({
   }),
 }))
 
-// ─── Import after mocks ───────────────────────────────────────────────────────
-
 import { useSearchPanel } from './useSearchPanel'
-
-// ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
   vi.clearAllMocks()
   mockGetConfig.mockResolvedValue(ok({ personalRadioEnabled: true }))
 })
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('useSearchPanel — startLovedRadioMode', () => {
   it('calls the loved-radio API and clears loading on success', async () => {

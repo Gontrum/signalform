@@ -1,6 +1,4 @@
 /**
- * Tidal Artists Service — Story 8.6 (Functional Core)
- *
  * Pure mapping: TidalArtistAlbumRaw (LMS) → TidalArtistAlbum (domain).
  *
  * Live probe 2026-03-15:

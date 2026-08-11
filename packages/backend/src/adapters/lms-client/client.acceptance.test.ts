@@ -15,7 +15,7 @@
  * 5. Player ID Configuration
  * 6. Response Parsing & Validation
  * 7. Source Detection from URL
- * 8. Parallel Tidal Search (Story 7.7)
+ * 8. Parallel Tidal Search
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -113,7 +113,7 @@ describe("LMS Client - Acceptance Tests", () => {
       await whenWaitingForTimeout(5000);
       const result = await resultPromise;
 
-      // Story 7.7: LMS timeout in local search → graceful degradation → ok([])
+      // LMS timeout in local search → graceful degradation → ok([])
       // (Tidal timeout fires at 250ms, local AbortController at 5s — both return [])
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
@@ -136,7 +136,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       const result = await whenSearchingForTracks("test");
 
-      // Story 7.7: search() no longer propagates network errors — graceful degradation
+      // search() does not propagate network errors — graceful degradation
       // both local and Tidal fetches fail → combined result is ok([])
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
@@ -147,7 +147,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       const result = await whenSearchingForTracks("test");
 
-      // Story 7.7: parse errors in local/Tidal search → graceful degradation, return []
+      // parse errors in local/Tidal search → graceful degradation, return []
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     });
@@ -157,7 +157,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       const result = await whenSearchingForTracks("test");
 
-      // Story 7.7: LMS API errors in local/Tidal search → graceful degradation, return []
+      // LMS API errors in local/Tidal search → graceful degradation, return []
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     });
@@ -209,7 +209,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       const result = await whenSearchingForTracks("test");
 
-      // Story 7.7: malformed titles_loop → searchLocal returns [] → graceful degradation
+      // malformed titles_loop → searchLocal returns [] → graceful degradation
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     });
@@ -232,7 +232,7 @@ describe("LMS Client - Acceptance Tests", () => {
         "invalid-mac-address",
       );
 
-      // Story 7.7: LMS API error → graceful degradation → ok([])
+      // LMS API error → graceful degradation → ok([])
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     });
@@ -259,7 +259,7 @@ describe("LMS Client - Acceptance Tests", () => {
 
       const result = await whenSearchingForTracks("test");
 
-      // Story 7.7: LMS error response → searchLocal returns [] → graceful degradation
+      // LMS error response → searchLocal returns [] → graceful degradation
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     });
@@ -540,7 +540,7 @@ describe("LMS Client - Acceptance Tests", () => {
       await thenErrorTypeIs(result, "LmsApiError");
     });
 
-    // Story 8.7 fix AC3: audioQuality inferred from Tidal URL extension in status polling
+    // audioQuality inferred from Tidal URL extension in status polling
     it("returns audioQuality FLAC for current Tidal track with .flc URL", async () => {
       await givenLmsPlayerIsPlaying({
         mode: "play",
@@ -872,7 +872,7 @@ describe("LMS Client - Acceptance Tests", () => {
       );
     };
 
-    // Story 7.9: tidal_info enrichment fires after Tidal search (3rd fetch call).
+    // tidal_info enrichment fires after Tidal search (3rd fetch call).
     // Tests that return Tidal tracks must set up this mock to avoid silent mock starvation.
     const givenTidalInfoReturns = (info: {
       readonly artist: string;
@@ -985,7 +985,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
 
     it("AC5: returns empty artist/album and no audioQuality when tidal_info enrichment fails (graceful degradation)", async () => {
-      // Story 7.9: tidal_info enrichment normally populates artist/album/audioQuality.
+      // tidal_info enrichment normally populates artist/album/audioQuality.
       // When tidal_info fails, track is returned unchanged (empty artist/album, no audioQuality).
       givenLocalReturnsEmpty();
       givenTidalReturnsTrack({
@@ -1070,7 +1070,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
 
     it("AC3/graceful-degradation: Tidal track not deduplicated with local when tidal_info enrichment fails", async () => {
-      // Story 7.9: enrichTidalTracks() is always called via tidal_info. When tidal_info fails for a
+      // enrichTidalTracks() is always called via tidal_info. When tidal_info fails for a
       // Tidal track, that track keeps empty artist/album. normalizeDeduplicationKey() falls
       // back to URL for empty artist+album — so a local "Creep" (key: "radiohead::pablo honey::creep")
       // and an unenriched Tidal "Creep" (key: "tidal://58990486.flc") are not merged.
@@ -1083,7 +1083,7 @@ describe("LMS Client - Acceptance Tests", () => {
         url: "file:///music/creep.flac",
       });
       givenTidalReturnsTrack({ name: "Creep", url: "tidal://58990486.flc" });
-      // Explicitly fail songinfo enrichment — Tidal track keeps empty artist/album (AC6)
+      // Explicitly fail songinfo enrichment — Tidal track keeps empty artist/album
       fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
       const result = await whenSearchingForTracks("creep");
@@ -1100,8 +1100,6 @@ describe("LMS Client - Acceptance Tests", () => {
   });
 
   describe("Rule 12: Tidal Metadata Enrichment (Story 7.8 → updated Story 7.9)", () => {
-    // Story 7.9: Enrichment approach changed from songinfo to tidal_info.
-    // These tests are updated to reflect the tidal_info response format.
     const givenLocalEmpty = (): void => {
       fetchMock.mockResolvedValueOnce({
         ok: true,
@@ -1548,7 +1546,7 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Story 9.8: Cover Art URL from track id (item.id)
+  // Cover Art URL from track id (item.id)
   // Root cause (2026-03-18 live probe): /music/{album_id}/cover.jpg is WRONG — LMS always
   // interprets the path segment as a TRACK ID, not album ID. /music/177/cover.jpg returns
   // cover of track 177 (random song), not album 177.
@@ -1714,7 +1712,7 @@ describe("LMS Client - Acceptance Tests", () => {
       id: 1,
       error: null,
     };
-    // Story 7.7: search() makes 2 fetch calls (titles + tidal) in parallel.
+    // search() makes 2 fetch calls (titles + tidal) in parallel.
     // mockResolvedValue (not Once) covers both calls with the same response:
     //   - titles call: titles_loop=[] → searchLocal returns []
     //   - tidal call: loop_loop missing → searchTidal returns []
@@ -2252,7 +2250,6 @@ describe("LMS Client - Acceptance Tests", () => {
     expect(body.params[1]).toEqual(["playlist", "index", "-1"]);
   };
 
-  // New helpers for Volume Control (Story 2.8)
   const givenLmsWillAcceptVolumeChange = async (
     newVolume: number,
   ): Promise<void> => {
@@ -2318,7 +2315,6 @@ describe("LMS Client - Acceptance Tests", () => {
     }
   };
 
-  // Seek and Time helpers (Story 2.9)
   const givenLmsWillAcceptSeekCommand = async (
     _position: number,
   ): Promise<void> => {
@@ -2448,7 +2444,6 @@ describe("LMS Client - Acceptance Tests", () => {
     }
   };
 
-  // Seek and Time Tests (Story 2.9)
   describe("Seek and Current Time", () => {
     describe("seek", () => {
       it("seeks to specific position in seconds", async () => {
@@ -2558,7 +2553,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Volume Control Tests (Story 2.8)
   describe("Volume Control", () => {
     describe("setVolume", () => {
       it("sets volume to specific level (0-100)", async () => {
@@ -2771,7 +2765,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 8: Album Playback (Gapless) — Story 3.5
   describe("Rule 8: Album Playback (Gapless)", () => {
     describe("playAlbum()", () => {
       it("sends playlistcontrol cmd:load with album_id", async () => {
@@ -2818,7 +2811,6 @@ describe("LMS Client - Acceptance Tests", () => {
       });
     });
 
-    // Story 8.7: playTidalAlbum — fetch tracks, clear, play, add
     describe("playTidalAlbum()", () => {
       it("fetches tracks via tidal items, clears queue, plays first track, adds rest", async () => {
         givenTidalAlbumTracksReturn([
@@ -2974,7 +2966,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 9: Album Track Listing — Story 4.3
   describe("Rule 9: Album Track Listing", () => {
     describe("getAlbumTracks()", () => {
       it("returns tracks sorted by track_num for valid album ID", async () => {
@@ -3131,7 +3122,6 @@ describe("LMS Client - Acceptance Tests", () => {
     expect(body.params[1][2]).toBe(`album_id:${albumId}`);
   };
 
-  // GIVEN/WHEN/THEN helpers for playTidalAlbum (Rule 8 — Story 8.7)
   const givenTidalAlbumTracksReturn = (
     tracks: ReadonlyArray<{
       readonly id: string;
@@ -3342,8 +3332,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 10: getQueue() Quality Tags (AC4 — Story 6.6)
-
   describe("Rule 10: getQueue() returns audioQuality and source when LMS provides quality tags", () => {
     it("parses FLAC quality tags from playlist_loop and populates audioQuality on QueueTrack", async () => {
       await givenLmsQueueHasTracks([
@@ -3421,7 +3409,7 @@ describe("LMS Client - Acceptance Tests", () => {
         format: "FLAC",
         lossless: true,
       });
-      // samplesize: 24 → bitDepth: 24 (enables "FLAC 24/96" badge format per AC4)
+      // samplesize: 24 → bitDepth: 24 (enables "FLAC 24/96" badge format)
       if (result.ok) {
         expect(result.value[0]?.audioQuality?.bitDepth).toBe(24);
       }
@@ -3528,7 +3516,6 @@ describe("LMS Client - Acceptance Tests", () => {
     };
   });
 
-  // Rule 11: Library Albums — Story 7.1
   describe("Rule 11: Library Albums", () => {
     describe("getLibraryAlbums()", () => {
       it("returns albums list and total count", async () => {
@@ -3720,7 +3707,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 14: getTidalAlbums — Story 8.1
   // Live-probe 2026-03-15: item_id:4 = "Alben" (user's Tidal library albums)
   // name = "{title} - {artist}", image = relative LMS proxy path, no separate artist/artwork_url fields
   describe("Rule 14: getTidalAlbums — Tidal Album Browse (Story 8.1)", () => {
@@ -3836,7 +3822,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Story 8.6: Tidal Artist Album Browse
   describe("Rule 15: getTidalArtistAlbums — Tidal Artist Album Browse (Story 8.6)", () => {
     const givenArtistAlbumsReturns = (
       albums: ReadonlyArray<{
@@ -4068,7 +4053,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 17: addAlbumToQueue — local album (Story 9.4)
   describe("Rule 17: addAlbumToQueue — local album queue (Story 9.4)", () => {
     it("sends playlistcontrol cmd:add album_id:X to LMS", async () => {
       fetchMock.mockResolvedValueOnce({
@@ -4111,7 +4095,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 18: addTidalAlbumToQueue — Tidal album sequential add (Story 9.4)
   describe("Rule 18: addTidalAlbumToQueue — Tidal album queue (Story 9.4)", () => {
     it("fetches tracks and adds each sequentially without clearing or playing", async () => {
       // Mock: tidal items fetch
@@ -4201,7 +4184,6 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
-  // Rule 20: Tidal Track Cover Art from .4 browse — Story 9.11
   // Live probe (2026-03-20): item_id:7_{query}.4 (Tracks) already returns `image` field per track.
   // Each image is the album cover for that track (relative LMS proxy URL, e.g. "/imageproxy/...").
   // coverArtUrl is constructed in searchTidal() and preserved through enrichTidalTracks() via spread.

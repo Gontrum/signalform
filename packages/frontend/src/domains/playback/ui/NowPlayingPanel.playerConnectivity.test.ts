@@ -1,9 +1,9 @@
 /**
- * Player connectivity banner tests (docs/review/06-resilience-lms.md Fix 0).
+ * Player connectivity banner tests.
  *
  * Split from NowPlayingPanel.test.ts (already over the repo's 20KB
  * single-file threshold — see AGENTS.md "Testing") and kept separate from
- * Fix 1's NowPlayingPanel.transport.test.ts since this is a semantically
+ * NowPlayingPanel.transport.test.ts since this is a semantically
  * distinct banner: this one is for the physical/software audio player (e.g.
  * a UPnPBridge-connected speaker) losing its own connection to LMS, not the
  * browser<->backend Socket.IO transport, and not the "LMS server itself

@@ -15,8 +15,6 @@
 
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
 
-// ── Track fixtures ────────────────────────────────────────────────────────────
-
 export const localTrack = {
   id: 'track-local-1',
   title: 'Local Test Track',
@@ -35,8 +33,6 @@ export const tidalTrack = {
   source: 'tidal' as const,
 }
 
-// ── Search results responses ───────────────────────────────────────────────────
-
 export const localTrackSearchResponse = {
   tracks: [localTrack],
   albums: [],
@@ -52,8 +48,6 @@ export const tidalTrackSearchResponse = {
   query: 'tidal test',
   totalResults: 1,
 }
-
-// ── Album fixtures ────────────────────────────────────────────────────────────
 
 /** Local album — has albumId → navigable in SearchResultsList */
 export const localAlbumSearchResult = {
@@ -91,8 +85,6 @@ export const tidalAlbumSearchResponse = {
   totalResults: 1,
 }
 
-// ── Album detail response ─────────────────────────────────────────────────────
-
 /** Matches AlbumDetailResponse from albumApi (Zod-validated schema) */
 export const albumDetailResponse = {
   id: '42',
@@ -119,8 +111,6 @@ export const albumDetailResponse = {
     },
   ],
 }
-
-// ── Library albums response ───────────────────────────────────────────────────
 
 /** Matches LibraryAlbumsResponse from libraryApi */
 export const libraryAlbumsResponse = {
@@ -177,8 +167,6 @@ export const libraryGenresResponse = {
     { id: 127, name: 'Neoclassical' },
   ],
 }
-
-// ── Queue fixtures ────────────────────────────────────────────────────────────
 
 /**
  * 1-track queue for Journey 5 (add to queue + jump).
@@ -244,8 +232,6 @@ export const radioQueueResponse = {
   radioBoundaryIndex: null,
 }
 
-// ── Config response ───────────────────────────────────────────────────────────
-
 /**
  * Minimal valid GET /api/config response.
  * Must satisfy MaskedConfigSchema (Zod-validated) in configApi.ts.
@@ -262,8 +248,6 @@ export const defaultConfigResponse = {
   language: 'en' as const,
 }
 
-// ── Users response ────────────────────────────────────────────────────────────
-
 /**
  * Two-user fixture — matches UsersResponseSchema in usersApi.ts. Two users
  * (and no stored/resolved selection) is what triggers useUserStore's
@@ -279,8 +263,6 @@ export const twoUsersResponse = {
   ],
 }
 
-// ── Autocomplete response ─────────────────────────────────────────────────────
-
 export const emptyAutocompleteResponse = {
   suggestions: [],
   query: 'test',
@@ -294,8 +276,6 @@ export const populatedAutocompleteResponse = {
   ],
   query: 'nov',
 }
-
-// ── Live queue-editing helpers ────────────────────────────────────────────────
 
 export type LiveQueueTrackSnapshot = {
   readonly id: string
@@ -645,8 +625,6 @@ const clearBrowserOfflineState = async (page: Page): Promise<void> => {
   await expect(page.getByTestId('offline-page')).toHaveCount(0, { timeout: 15_000 })
 }
 
-// ── Live queue state builders ─────────────────────────────────────────────────
-//
 // Everything below *builds* the precondition a live journey needs instead of
 // searching the running queue for one that happens to fit. A test that skips
 // (or explodes) because the household queue held the wrong kind of track

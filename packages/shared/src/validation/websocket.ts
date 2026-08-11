@@ -116,9 +116,6 @@ export const RadioStartedPayloadSchema = z.object({
   timestamp: z.number().positive(),
 });
 
-/**
- * Radio Unavailable Payload Validation (Story 6.8 — Circuit Breaker)
- */
 export const RadioUnavailablePayloadSchema = z.object({
   playerId: z.string().min(1),
   message: z.string().min(1),

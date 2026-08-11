@@ -16,8 +16,6 @@ import {
   extractBroadcastAddresses,
 } from "./discovery-parsers.js";
 
-// ─── isJsonObject ─────────────────────────────────────────────────────────────
-
 describe("isJsonObject", () => {
   it("returns true for a plain object", () => {
     expect(isJsonObject({ key: "value" })).toBe(true);
@@ -41,8 +39,6 @@ describe("isJsonObject", () => {
     expect(isJsonObject(42)).toBe(false);
   });
 });
-
-// ─── parseServerStatusResult ─────────────────────────────────────────────────
 
 describe("parseServerStatusResult", () => {
   it("returns server_name and version when both present", () => {
@@ -86,8 +82,6 @@ describe("parseServerStatusResult", () => {
     expect(result.result?.version).toBeUndefined();
   });
 });
-
-// ─── toParsedPlayer ──────────────────────────────────────────────────────────
 
 describe("toParsedPlayer", () => {
   it("returns a ParsedPlayer when playerid and name are present", () => {
@@ -139,8 +133,6 @@ describe("toParsedPlayer", () => {
   });
 });
 
-// ─── parsePlayersResult ──────────────────────────────────────────────────────
-
 describe("parsePlayersResult", () => {
   it("returns players_loop with valid players", () => {
     const result = parsePlayersResult({
@@ -183,8 +175,6 @@ describe("parsePlayersResult", () => {
   });
 });
 
-// ─── appendUnique ────────────────────────────────────────────────────────────
-
 describe("appendUnique", () => {
   it("appends a new value", () => {
     expect(appendUnique(["a", "b"], "c")).toEqual(["a", "b", "c"]);
@@ -206,8 +196,6 @@ describe("appendUnique", () => {
     expect(result).toBe(original);
   });
 });
-
-// ─── computeDirectedBroadcast ─────────────────────────────────────────────────
 
 describe("computeDirectedBroadcast", () => {
   it("computes broadcast for /24 network (255.255.255.0)", () => {
@@ -241,8 +229,6 @@ describe("computeDirectedBroadcast", () => {
     );
   });
 });
-
-// ─── extractBroadcastAddresses ───────────────────────────────────────────────
 
 describe("extractBroadcastAddresses", () => {
   it("always includes 255.255.255.255 as global broadcast", () => {

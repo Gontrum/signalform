@@ -328,7 +328,6 @@ describe('AlbumDetailView', () => {
     expect(playTrack).toHaveBeenCalledWith('file:///music/1.flac')
   })
 
-  // Story 4.6: Color scheme and track number tests
   it('root div has bg-white class (not bg-background-primary)', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockReturnValue(new Promise(() => {}))
@@ -397,7 +396,6 @@ describe('AlbumDetailView', () => {
     expect(wrapper.find('[data-testid="album-year"]').exists()).toBe(false)
   })
 
-  // Story 8.4: album-level artist displayed correctly in header
   it('shows album-level artist (not track composer) in album-artist element', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
@@ -413,7 +411,6 @@ describe('AlbumDetailView', () => {
     expect(wrapper.find('[data-testid="artist-link-button"]').text()).toBe('Die Toten Hosen')
   })
 
-  // Story 4.7: album title from track album field
   it('renders album title in header from track album field', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockResolvedValue({
@@ -429,7 +426,7 @@ describe('AlbumDetailView', () => {
     expect(wrapper.find('[data-testid="album-title"]').text()).toBe('Dark Side of the Moon')
   })
 
-  // Story 4.7: scroll fix — root div must use internal scrolling within the app layout
+  // root div must use internal scrolling within the app layout
   it('root div has overflow-y-auto class for internal scrolling', async () => {
     const { getAlbumDetail } = await import('@/platform/api/albumApi')
     vi.mocked(getAlbumDetail).mockReturnValue(new Promise(() => {}))
@@ -493,7 +490,6 @@ describe('AlbumDetailView', () => {
   })
 })
 
-// Story 9.1: AC6 — regression: local numeric album IDs must route to getAlbumDetail
 describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -562,7 +558,6 @@ describe('AlbumDetailView — AC6 regression: local numeric album IDs', () => {
   })
 })
 
-// Story 8.7: AC1 — Tidal album from LibraryView path (albumId "4.0")
 describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -661,7 +656,6 @@ describe('AlbumDetailView — Tidal album play from LibraryView (AC1)', () => {
   })
 })
 
-// Story 8.7: AC2 — Tidal album from ArtistDetailView path (albumId "6.0.1.0")
 describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -761,7 +755,6 @@ describe('AlbumDetailView — Tidal album play from ArtistDetailView (AC2)', () 
   })
 })
 
-// Story 9.2: AC2 — Tidal album with "7_" prefix (search-artist albums, Story 8.9)
 describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -816,7 +809,6 @@ describe('AlbumDetailView — Tidal album with "7_" prefix ID (Story 9.2 AC2)', 
   })
 })
 
-// Story 8.6: AC4 — artist link in Tidal AlbumDetailView
 describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -853,7 +845,6 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     return { wrapper, router }
   }
 
-  // AC4: artist name rendered as <button> when tidalArtistId is in history.state
   it('AC4: renders artist name as button when tidalArtistId is in history.state', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
@@ -878,7 +869,6 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
     expect(artistButton.text()).toBe('Bill Evans')
   })
 
-  // AC4: clicking artist button navigates to unified-artist?name=artist
   it('AC4: clicking artist button navigates to unified-artist?name=artist', async () => {
     const { getTidalAlbumDetail } = await import('@/platform/api/tidalAlbumsApi')
     vi.mocked(getTidalAlbumDetail).mockResolvedValue({
@@ -911,7 +901,6 @@ describe('AlbumDetailView — Tidal mode with artist navigation (AC4)', () => {
   })
 })
 
-// Story 9.4: AC1 (per-track queue button) + AC2 (full-album queue button) in AlbumDetailView
 describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
@@ -991,7 +980,6 @@ describe('AlbumDetailView — Story 9.4 queue buttons (AC1 & AC2)', () => {
   })
 })
 
-// Story 9.14: Tidal Search Album path — AlbumDetailView handles /album/tidal-search
 describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
   const tidalSearchHistoryState = {
     coverArtUrl: 'http://example.com/cover.jpg',
@@ -1020,14 +1008,12 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     return { wrapper, router }
   }
 
-  // AC5: route /album/tidal-search maps to tidal-search-album route
   it('AC5: route /album/tidal-search uses tidal-search-album route name', async () => {
     const { router } = await mountView()
     expect(router.currentRoute.value.name).toBe('tidal-search-album')
     expect(router.currentRoute.value.path).toBe('/album/tidal-search')
   })
 
-  // AC2+AC4: renders album title, artist, track count from query params and history.state
   it('AC2+AC4: renders album metadata from query params and history.state', async () => {
     const { wrapper } = await mountView()
     await nextTick()
@@ -1039,7 +1025,6 @@ describe('AlbumDetailView — Tidal Search Album path (Story 9.14)', () => {
     expect(wrapper.find('[data-testid="album-track-count"]').text()).toBe('2 tracks')
   })
 
-  // AC4: fallback renders track titles from history.state
   it('AC4: renders track titles from history.state', async () => {
     const { wrapper } = await mountView()
     await nextTick()

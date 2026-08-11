@@ -165,7 +165,6 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
               {{ trackCountLabel(album.tracks.length) }}
             </p>
 
-            <!-- AC2 (Story 9.4): Play Album + Add Album to Queue buttons -->
             <AlbumActionButtons
               size="large"
               :album-id="album.id"
@@ -231,7 +230,6 @@ const albumQueueButtonState = computed<'idle' | 'success' | 'error'>(() =>
               </svg>
             </button>
 
-            <!-- AC1 (Story 9.4): per-track Add to Queue button -->
             <button
               type="button"
               data-testid="track-add-to-queue-button"

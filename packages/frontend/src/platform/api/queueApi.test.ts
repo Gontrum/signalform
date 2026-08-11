@@ -585,7 +585,6 @@ describe('queueApi', () => {
     })
   })
 
-  // Story 9.6: addTidalSearchAlbumToQueue
   describe('addTidalSearchAlbumToQueue', () => {
     it('calls /api/queue/add-tidal-search-album with albumTitle, artist, and trackUrls', async () => {
       fetchMock.mockResolvedValue({

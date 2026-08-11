@@ -1,11 +1,6 @@
 /**
  * Tidal album ID detection utility.
  *
- * Story 9.2 (TD-1): Single authoritative implementation, shared across frontend and backend.
- * Replaces duplicated logic that previously existed in:
- *   - packages/frontend/src/views/AlbumDetailView.vue
- *   - packages/backend/src/features/playback/route.ts
- *
  * ## Known Tidal browse album ID formats (verified via live probe 2026-03-17):
  *
  * | Format           | Example                          | Source                        |
@@ -18,7 +13,7 @@
  * | Search-artist    | "7_sabrina carpenter.2.0.1.4"  | item_id:7_{query}.2.x.1      |
  *
  * All dot-separated numeric IDs match the regex /^\d+(\.\d+)+$/.
- * Search-artist IDs start with "7_" (Story 8.9 AC1).
+ * Search-artist IDs start with "7_".
  */
 
 /**

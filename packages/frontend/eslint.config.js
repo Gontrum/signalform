@@ -85,13 +85,8 @@ export default [
     },
   },
 
-  // ---------------------------------------------------------------------------
-  // FCIS Architecture Boundary Rules
-  //
-  // Enforces the Functional Core / Imperative Shell separation.
-  // Single generic block covers all domains automatically — no manual updates
-  // needed when a new domain is added.
-  // ---------------------------------------------------------------------------
+  // Enforces the Functional Core / Imperative Shell separation. One generic
+  // block covers every domain, so adding a domain needs no edit here.
   {
     name: 'domain-boundaries',
     files: ['src/domains/**/*.{vue,ts,tsx}'],

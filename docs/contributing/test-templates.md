@@ -35,7 +35,8 @@ helper functions for readability, but standard Arrange-Act-Assert is equally val
 import { describe, it, expect } from "vitest";
 import { myFunction, anotherFunction } from "./service.js";
 
-// ─── Optional BDD helpers (use when they improve readability) ────────────────
+// These helpers are optional — keep them only where they read better than the
+// assertion they wrap.
 
 const givenInput = (value: string) => value;
 
@@ -60,8 +61,6 @@ const thenResultIsError = (
     expect(result.error.type).toBe(errorType);
   }
 };
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("myFunction", () => {
   it("returns ok when input is valid", () => {
@@ -128,16 +127,12 @@ import {
   type LmsConfig,
 } from "../../../adapters/lms-client/index.js";
 
-// ─── Config ──────────────────────────────────────────────────────────────────
-
 const defaultConfig: LmsConfig = {
   host: "localhost",
   port: 9000,
   playerId: "00:00:00:00:00:00",
   timeout: 5000,
 };
-
-// ─── Mock types ──────────────────────────────────────────────────────────────
 
 type MockLmsClient = LmsClient & {
   readonly getSomething: ReturnType<typeof vi.fn<LmsClient["getSomething"]>>;
@@ -149,8 +144,6 @@ const createMockLmsClient = (): MockLmsClient => ({
     .fn<LmsClient["getSomething"]>()
     .mockResolvedValue(ok({ items: [], count: 0 })),
 });
-
-// ─── Response parsers (type-safe, no casting) ────────────────────────────────
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -181,8 +174,6 @@ const parseItemsBody = (
   expect(totalCount).not.toBeNull();
   return { items: items ?? [], totalCount: totalCount ?? 0 };
 };
-
-// ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("GET /api/{feature}", () => {
   let server: FastifyInstance;
@@ -291,8 +282,6 @@ import { describe, test, expect } from "vitest";
 import type { SomeType } from "../../adapters/some-client/index.js";
 import { featureFunction } from "./core/service.js";
 
-// ─── BDD helpers ─────────────────────────────────────────────────────────────
-
 const givenItemsFromSources = (
   name: string,
   sources: ReadonlyArray<"local" | "tidal">,
@@ -320,8 +309,6 @@ const thenResultHasSource = (
 ): void => {
   expect(results[index]?.source).toBe(expected);
 };
-
-// ─── Acceptance scenarios ────────────────────────────────────────────────────
 
 describe("Story X.Y: {Feature Description}", () => {
   test("User sees deduplicated results when same item exists in multiple sources", () => {

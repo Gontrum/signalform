@@ -99,7 +99,6 @@ const addToQueueAriaLabel = computed(() =>
       </svg>
     </button>
 
-    <!-- AC3 (Story 9.4): Add to Queue button (hover-revealed) -->
     <button
       type="button"
       data-testid="list-row-add-to-queue-button"

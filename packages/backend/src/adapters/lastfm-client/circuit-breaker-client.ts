@@ -1,6 +1,4 @@
 /**
- * Circuit Breaker Decorator for LastFmClient (Story 6.8)
- *
  * Wraps a LastFmClient with circuit breaker logic.
  * State machine: CLOSED → OPEN (after failureThreshold qualifying failures)
  *                OPEN → HALF_OPEN (after resetTimeoutMs)

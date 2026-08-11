@@ -71,9 +71,6 @@ export type AvailableSource = {
  * Deduplicated track result — same track from multiple sources merged into one.
  * The url and source fields refer to the best (quality- or priority-selected) source.
  * The availableSources field lists all sources (including the selected one).
- *
- * Story 3.3 uses selectedSource badge display.
- * Story 3.4 uses availableSources for "Also available on:" UI.
  */
 export type DeduplicatedTrackResult = {
   readonly id: string; // Best source URL (stable ID for deduplicated result)
@@ -88,7 +85,7 @@ export type DeduplicatedTrackResult = {
   readonly audioQuality?: AudioQuality; // Quality of best source; undefined if priority-fallback was used
   readonly albumId?: string; // Real LMS album ID from first track in group; undefined for streaming
   readonly artistId?: string; // Real LMS artist ID from first track in group; undefined for streaming
-  readonly coverArtUrl?: string; // LMS HTTP cover art URL from best source track (Story 9.8)
+  readonly coverArtUrl?: string; // LMS HTTP cover art URL from best source track
 };
 
 /**
@@ -98,7 +95,7 @@ export type DeduplicatedTrackResult = {
  * source: originating source — used to display source-specific badge for streaming albums.
  * trackUrls: track URLs for streaming albums (populated when albumId is undefined) — enables
  *   play/queue actions in SearchResultsList without a LMS album ID. undefined for local albums.
- * trackTitles: track titles parallel to trackUrls — enables track list display (Story 9.12).
+ * trackTitles: track titles parallel to trackUrls — enables track list display.
  */
 type AlbumResult = {
   readonly id: string;
@@ -108,13 +105,13 @@ type AlbumResult = {
   readonly artist: string;
   readonly trackCount: number;
   readonly trackUrls?: ReadonlyArray<string>; // populated for streaming albums; undefined for local
-  readonly trackTitles?: ReadonlyArray<string>; // parallel to trackUrls (Story 9.12); undefined for local
-  readonly coverArtUrl?: string; // LMS HTTP cover art URL for local albums (Story 9.8); undefined for streaming
+  readonly trackTitles?: ReadonlyArray<string>; // parallel to trackUrls; undefined for local
+  readonly coverArtUrl?: string; // LMS HTTP cover art URL for local albums; undefined for streaming
 };
 
 /**
  * Artist result for navigation to artist detail page.
- * Extracted from deduplicated track results (Story 7.4).
+ * Extracted from deduplicated track results.
  */
 export type ArtistResult = {
   readonly name: string;
@@ -125,8 +122,8 @@ export type ArtistResult = {
 
 /**
  * Full search results response with tracks, albums, and artists.
- * Tracks are deduplicated across sources (Story 3.2).
- * Artists are extracted from deduplicated tracks (Story 7.4).
+ * Tracks are deduplicated across sources.
+ * Artists are extracted from deduplicated tracks.
  */
 export type SearchResultsResponse = {
   readonly tracks: readonly DeduplicatedTrackResult[];

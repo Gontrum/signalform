@@ -3,8 +3,6 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
 
-// ── Test Environment Helpers ──────────────────────────────────────
-
 /**
  * Initialize Pinia + i18n for a test.  Call in `beforeEach`.
  *

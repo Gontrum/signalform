@@ -3,8 +3,6 @@
  *
  * Uses page.evaluate() to access the Vue app's Pinia instance
  * and directly set store state — bypassing the need for real WebSocket events.
- *
- * This is the recommended approach per Story 9.10 Dev Notes.
  */
 import type { Page } from '@playwright/test'
 
@@ -30,8 +28,8 @@ export const setRadioBoundaryIndex = async (page: Page, index: number): Promise<
     }
     // Queue store is registered as 'queue' in defineStore('queue', ...)
     // NOTE: _s is Pinia's internal store registry (Map<id, store>) — not a public API.
-    // Tested with Pinia ^2.x. If this breaks after a Pinia upgrade, use the
-    // fallback approach documented in Story 9.10 Dev Notes (window.__TEST_RADIO_BOUNDARY__).
+    // Tested with Pinia ^2.x. If this breaks after a Pinia upgrade, expose the
+    // boundary on window instead (window.__TEST_RADIO_BOUNDARY__).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const queueStore = pinia._s.get('queue') as any
     if (!queueStore) {

@@ -13,7 +13,6 @@ import { createLmsResultParser, type ExecuteCommand } from "./execute.js";
 import { validateNonEmptyId } from "./helpers.js";
 import type { LmsCommand, LmsError, TidalTrackRaw } from "./types.js";
 
-// ── Shared Track Field Fragments ──────────────────────────────────
 // Common groups of LMS response fields, spread into the per-command track
 // schemas below to avoid repeating the same field list in every module.
 
@@ -54,8 +53,6 @@ export const audioQualityFieldsSchema = {
   samplesize: z.number().optional(),
 };
 
-// ── Tidal Item Schemas ────────────────────────────────────────────
-
 /**
  * Schema for a single Tidal track in an LMS browse response.
  * Used by library, queue, and tidal-albums modules.
@@ -82,8 +79,6 @@ export const tidalItemSchema = z.object({
   isaudio: z.number().optional(),
   hasitems: z.number().optional(),
 });
-
-// ── Paginated Payload Parsers ─────────────────────────────────────
 
 /**
  * Parses an LMS `loop_loop` response containing Tidal tracks.
@@ -118,8 +113,6 @@ export const tidalArtistAlbumsPayloadParser = createLmsResultParser(
     count: z.number().optional(),
   }),
 );
-
-// ── Shared Tidal `items` Command Execution ────────────────────────
 
 /**
  * Executes an LMS `["tidal", "items", offset, limit, "item_id:{itemId}",
@@ -163,8 +156,6 @@ export const executeTidalItems = async <T>(
     count: result.value.count ?? 0,
   });
 };
-
-// ── Shared Tidal Album Track Loading + Queueing ───────────────────
 
 /**
  * Fetches the playable (audio, non-empty-url) tracks of a Tidal browse album

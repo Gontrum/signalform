@@ -15,8 +15,6 @@ import { createTidalAlbumsMethods } from "./tidal-albums.js";
 import type { ExecuteDeps } from "./execute.js";
 import type { LmsError } from "./types.js";
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 const makeExecuteDeps = (
   executeCommand: ExecuteDeps["executeCommand"],
 ): ExecuteDeps => ({
@@ -62,8 +60,6 @@ const rawTrack = {
   type: "audio",
   isaudio: 1,
 };
-
-// ─── getTidalAlbums ───────────────────────────────────────────────────────────
 
 describe("getTidalAlbums", () => {
   it("returns albums and count on happy path", async () => {
@@ -130,8 +126,6 @@ describe("getTidalAlbums", () => {
   });
 });
 
-// ─── getTidalAlbumTracks ──────────────────────────────────────────────────────
-
 describe("getTidalAlbumTracks", () => {
   it("returns tracks and count on happy path", async () => {
     const executeCommand = vi
@@ -197,8 +191,6 @@ describe("getTidalAlbumTracks", () => {
   });
 });
 
-// ─── getTidalArtistAlbums ─────────────────────────────────────────────────────
-
 describe("getTidalArtistAlbums", () => {
   it("returns albums and count on happy path", async () => {
     const executeCommand = vi
@@ -263,8 +255,6 @@ describe("getTidalArtistAlbums", () => {
   });
 });
 
-// ─── getTidalFeaturedAlbums ───────────────────────────────────────────────────
-
 describe("getTidalFeaturedAlbums", () => {
   it("returns albums and count on happy path", async () => {
     const executeCommand = vi
@@ -326,8 +316,6 @@ describe("getTidalFeaturedAlbums", () => {
     expect(calledCommand).toContain("item_id:1.0.1");
   });
 });
-
-// ─── getTidalAlbumParentItems ─────────────────────────────────────────────────
 
 describe("getTidalAlbumParentItems", () => {
   it("returns items and count on happy path", async () => {
