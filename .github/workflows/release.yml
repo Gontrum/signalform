@@ -13,9 +13,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # ---------------------------------------------------------------------------
   # Job 1: Full CI suite + shellcheck — gates the build
-  # ---------------------------------------------------------------------------
   quality-check:
     runs-on: ubuntu-latest
 
@@ -58,10 +56,8 @@ jobs:
       - name: Shellcheck installer scripts
         run: shellcheck install.sh scripts/build-release.sh
 
-  # ---------------------------------------------------------------------------
   # Job 1b: E2E tests (mocked, no LMS required) — releases must not build
   # from a commit whose E2E suite is red.
-  # ---------------------------------------------------------------------------
   e2e:
     runs-on: ubuntu-latest
 
@@ -103,9 +99,7 @@ jobs:
           path: packages/frontend/playwright-report/
           retention-days: 7
 
-  # ---------------------------------------------------------------------------
   # Job 2: Build per-platform release tarballs
-  # ---------------------------------------------------------------------------
   build-assets:
     needs: [quality-check, e2e]
 
@@ -159,9 +153,7 @@ jobs:
           path: dist-release/*.tar.gz
           if-no-files-found: error
 
-  # ---------------------------------------------------------------------------
   # Job 3: Create GitHub Release and attach all platform tarballs
-  # ---------------------------------------------------------------------------
   create-release:
     needs: build-assets
     runs-on: ubuntu-latest

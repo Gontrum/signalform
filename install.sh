@@ -23,9 +23,6 @@
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 readonly SCRIPT_VERSION="0.1.0"
 readonly APP_NAME="signalform"
 readonly GITHUB_ORG="Gontrum"
@@ -36,10 +33,6 @@ readonly SERVICE_NAME="signalform"
 readonly LAUNCHD_LABEL="com.signalform.app"
 readonly CONFIG_FILENAME="config.json"
 readonly BINARY_NAME="signalform"
-
-# ---------------------------------------------------------------------------
-# Helper functions
-# ---------------------------------------------------------------------------
 
 # Print an info message to stdout (blue prefix).
 info() {
@@ -62,9 +55,6 @@ step() {
   printf '  %s\n' "$*"
 }
 
-# ---------------------------------------------------------------------------
-# show_help
-# ---------------------------------------------------------------------------
 show_help() {
   cat <<EOF
 Signalform Installer v${SCRIPT_VERSION}
@@ -151,9 +141,6 @@ EOF
   exit 0
 }
 
-# ---------------------------------------------------------------------------
-# detect_platform
-# ---------------------------------------------------------------------------
 # Sets PLATFORM to one of: linux-x64, linux-arm64, darwin-x64, darwin-arm64
 detect_platform() {
   local os_raw arch_raw os arch
@@ -176,9 +163,6 @@ detect_platform() {
   PLATFORM="${os}-${arch}"
 }
 
-# ---------------------------------------------------------------------------
-# check_embedded_node
-# ---------------------------------------------------------------------------
 # Verifies the embedded node binary in INSTALL_DIR/bin/node is executable.
 # Called after extraction. Sets NODE_VERSION.
 check_embedded_node() {
@@ -189,9 +173,6 @@ check_embedded_node() {
   NODE_VERSION="$("${node_bin}" --version)"
 }
 
-# ---------------------------------------------------------------------------
-# resolve_install_dir
-# ---------------------------------------------------------------------------
 # Sets INSTALL_DIR (uses --install-dir override if provided, then checks
 # SIGNALFORM_INSTALL_DIR env var, then falls back to default paths).
 resolve_install_dir() {
@@ -216,9 +197,6 @@ resolve_install_dir() {
   fi
 }
 
-# ---------------------------------------------------------------------------
-# resolve_download_url
-# ---------------------------------------------------------------------------
 # Sets DOWNLOAD_URL. Uses --url override if provided; otherwise constructs
 # the canonical GitHub Releases URL.
 # When no --version is given (or version=latest), the GitHub Releases API is
@@ -255,9 +233,7 @@ resolve_download_url() {
   DOWNLOAD_URL="https://github.com/${GITHUB_ORG}/${GITHUB_REPO}/releases/download/v${version}/${tarball_name}"
 }
 
-# ---------------------------------------------------------------------------
 # Service path helpers (pure — no side effects; reused by S03 uninstaller)
-# ---------------------------------------------------------------------------
 
 # Returns the systemd unit file path for the current user context.
 get_systemd_unit_path() {
@@ -281,9 +257,6 @@ get_launchd_plist_path() {
   fi
 }
 
-# ---------------------------------------------------------------------------
-# write_service_systemd
-# ---------------------------------------------------------------------------
 # Writes the systemd unit file to disk.
 write_service_systemd() {
   local unit_path
@@ -319,9 +292,6 @@ WantedBy=${wanted_by}
 SYSTEMD_UNIT
 }
 
-# ---------------------------------------------------------------------------
-# write_service_launchd
-# ---------------------------------------------------------------------------
 # Writes the launchd plist file to disk and creates the logs directory.
 write_service_launchd() {
   local plist_path
@@ -365,9 +335,6 @@ write_service_launchd() {
 LAUNCHD_PLIST
 }
 
-# ---------------------------------------------------------------------------
-# register_service_systemd
-# ---------------------------------------------------------------------------
 register_service_systemd() {
   write_service_systemd
 
@@ -390,9 +357,6 @@ register_service_systemd() {
   fi
 }
 
-# ---------------------------------------------------------------------------
-# register_service_launchd
-# ---------------------------------------------------------------------------
 register_service_launchd() {
   write_service_launchd
 
@@ -403,9 +367,6 @@ register_service_launchd() {
   launchctl load -w "${plist_path}"
 }
 
-# ---------------------------------------------------------------------------
-# register_service  (dispatcher)
-# ---------------------------------------------------------------------------
 register_service() {
   if [ -n "${ARG_NO_SERVICE}" ]; then
     info "Skipping service registration (--no-service)"
@@ -432,10 +393,6 @@ register_service() {
       ;;
   esac
 }
-
-# ---------------------------------------------------------------------------
-# stop_service / disable_service / start_service
-# ---------------------------------------------------------------------------
 
 stop_service() {
   case "${PLATFORM}" in
@@ -544,9 +501,6 @@ start_service() {
   esac
 }
 
-# ---------------------------------------------------------------------------
-# print_dry_run
-# ---------------------------------------------------------------------------
 print_dry_run() {
   local config_path="${INSTALL_DIR}/${CONFIG_FILENAME}"
   local bin_dir bin_symlink
@@ -625,9 +579,6 @@ print_dry_run() {
   exit 0
 }
 
-# ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
 ARG_SUBCOMMAND="install"
 ARG_DRY_RUN=""
 ARG_VERSION=""
@@ -713,9 +664,6 @@ parse_args() {
   done
 }
 
-# ---------------------------------------------------------------------------
-# confirm_install
-# ---------------------------------------------------------------------------
 # Prints the install summary and prompts for confirmation (unless --yes).
 confirm_install() {
   local uid
@@ -752,16 +700,13 @@ confirm_install() {
   esac
 }
 
-# ---------------------------------------------------------------------------
-# do_install
-# ---------------------------------------------------------------------------
 do_install() {
   local tarball_path
   tarball_path="$(mktemp /tmp/signalform-install-XXXXXX.tar.gz)"
   # shellcheck disable=SC2064
   trap "rm -f '${tarball_path}'" EXIT
 
-  # ---- Step 1: Download or copy tarball -----------------------------------
+  # Step 1: Download or copy tarball
   info "Fetching tarball..."
   case "${DOWNLOAD_URL}" in
     file://*)
@@ -784,14 +729,14 @@ do_install() {
       ;;
   esac
 
-  # ---- Step 2: Create install directory and extract -----------------------
+  # Step 2: Create install directory and extract
   info "Creating install directory: ${INSTALL_DIR}"
   mkdir -p "${INSTALL_DIR}"
 
   info "Extracting tarball into: ${INSTALL_DIR}"
   tar -xzf "${tarball_path}" -C "${INSTALL_DIR}"
 
-  # ---- Step 3: Verify embedded Node.js and make wrapper executable --------
+  # Step 3: Verify embedded Node.js and make wrapper executable
   check_embedded_node
   info "Embedded Node.js: ${NODE_VERSION}"
   chmod +x "${INSTALL_DIR}/bin/${BINARY_NAME}"
@@ -817,7 +762,7 @@ esac
 WRAPPER
   chmod +x "${wrapper_path}"
 
-  # ---- Step 4: Write config.json skeleton (preserve if already exists) ----
+  # Step 4: Write config.json skeleton (preserve if already exists)
   local config_path="${INSTALL_DIR}/${CONFIG_FILENAME}"
 
   if [ -f "${config_path}" ]; then
@@ -835,7 +780,7 @@ WRAPPER
 CONFIG
   fi
 
-  # ---- Step 5: Create CLI symlink -----------------------------------------
+  # Step 5: Create CLI symlink
   local uid
   uid="${EUID:-$(id -u)}"
   local bin_dir
@@ -850,15 +795,15 @@ CONFIG
   mkdir -p "${bin_dir}"
   ln -sf "${wrapper_path}" "${bin_symlink}"
 
-  # ---- Step 6: Register system service ------------------------------------
+  # Step 6: Register system service
   register_service
 
-  # ---- Step 7: Copy installer script for future update/uninstall ----------
+  # Step 7: Copy installer script for future update/uninstall
   info "Copying installer script: ${INSTALL_DIR}/installer.sh"
   cp "${BASH_SOURCE[0]}" "${INSTALL_DIR}/installer.sh"
   chmod +x "${INSTALL_DIR}/installer.sh"
 
-  # ---- Completion banner --------------------------------------------------
+  # Completion banner
   local service_note
   if [ -n "${ARG_NO_SERVICE}" ]; then
     service_note="(service registration skipped — use --no-service was set)"
@@ -896,9 +841,6 @@ CONFIG
   printf '\n'
 }
 
-# ---------------------------------------------------------------------------
-# confirm_uninstall
-# ---------------------------------------------------------------------------
 confirm_uninstall() {
   printf '\n'
   printf '\033[1;33m══════════════════════════════════════════════════\033[0m\n'
@@ -925,9 +867,6 @@ confirm_uninstall() {
   esac
 }
 
-# ---------------------------------------------------------------------------
-# do_update
-# ---------------------------------------------------------------------------
 do_update() {
   info "Stopping service before update..."
   stop_service
@@ -937,7 +876,7 @@ do_update() {
   # shellcheck disable=SC2064
   trap "rm -f '${tarball_path}'" EXIT
 
-  # ---- Download or copy tarball -------------------------------------------
+  # Download or copy tarball
   info "Fetching tarball for update..."
   case "${DOWNLOAD_URL}" in
     file://*)
@@ -959,12 +898,12 @@ do_update() {
       ;;
   esac
 
-  # ---- Extract into install dir (config.json is not in tarball) -----------
+  # Extract into install dir (config.json is not in tarball)
   info "Extracting tarball into: ${INSTALL_DIR}"
   mkdir -p "${INSTALL_DIR}"
   tar -xzf "${tarball_path}" -C "${INSTALL_DIR}"
 
-  # ---- Rewrite start wrapper with updated version -------------------------
+  # Rewrite start wrapper with updated version
   local wrapper_dir="${INSTALL_DIR}/bin"
   local wrapper_path="${wrapper_dir}/${BINARY_NAME}"
 
@@ -992,12 +931,12 @@ WRAPPER
 
   chmod +x "${wrapper_path}"
 
-  # ---- Copy updated installer script --------------------------------------
+  # Copy updated installer script
   info "Updating installer script: ${INSTALL_DIR}/installer.sh"
   cp "${BASH_SOURCE[0]}" "${INSTALL_DIR}/installer.sh"
   chmod +x "${INSTALL_DIR}/installer.sh"
 
-  # ---- Restart service -----------------------------------------------------
+  # Restart service
   info "Restarting service after update..."
   start_service
 
@@ -1010,23 +949,20 @@ WRAPPER
   printf '\n'
 }
 
-# ---------------------------------------------------------------------------
-# do_uninstall
-# ---------------------------------------------------------------------------
 do_uninstall() {
   if [ ! -d "${INSTALL_DIR}" ]; then
     warn "Installation directory not found: ${INSTALL_DIR} — nothing to uninstall."
     exit 0
   fi
 
-  # ---- Stop and disable the service ---------------------------------------
+  # Stop and disable the service
   info "Stopping service..."
   stop_service
 
   info "Disabling service..."
   disable_service
 
-  # ---- Remove CLI symlink --------------------------------------------------
+  # Remove CLI symlink
   local uid
   uid="${EUID:-$(id -u)}"
   local bin_dir
@@ -1044,7 +980,7 @@ do_uninstall() {
     warn "CLI symlink not found at ${bin_symlink} — skipping."
   fi
 
-  # ---- Remove installation directory --------------------------------------
+  # Remove installation directory
   info "Removing installation directory: ${INSTALL_DIR}"
   rm -rf "${INSTALL_DIR}"
 
@@ -1058,9 +994,6 @@ do_uninstall() {
   printf '\n'
 }
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 main() {
   parse_args "$@"
 

@@ -13,10 +13,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHANGELOG="$ROOT/CHANGELOG.md"
 LAST_TAG="$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null || echo "")"
 
-# ── 1. Bump version in all package.json files + README ────────────────────────
+# 1. Bump version in all package.json files + README
 node "$ROOT/scripts/bump-version.mjs" "$VERSION"
 
-# ── 2. Generate CHANGELOG section from conventional commits ───────────────────
+# 2. Generate CHANGELOG section from conventional commits
 RANGE="${LAST_TAG:+${LAST_TAG}..HEAD}"
 RANGE="${RANGE:-HEAD}"
 
@@ -74,7 +74,7 @@ echo ""
 echo "Press Enter to commit + tag, or Ctrl-C to abort and edit manually."
 read -r
 
-# ── 3. Commit and tag ─────────────────────────────────────────────────────────
+# 3. Commit and tag
 git -C "$ROOT" add \
   package.json \
   packages/backend/package.json \

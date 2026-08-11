@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Structural guard for two entries of the "Never" list in AGENTS.md, section
 // "Comments": banner separators and commented-out code. Both were prose-only
-// rules until now, and the banners proved what that is worth — 174 separator
-// lines across 36 files survived lint, review and every agent delegation,
+// rules until now, and the banners proved what that is worth — 269 separator
+// lines across 40 files survived lint, review and every agent delegation,
 // because nothing ever failed on them.
 //
 // Deliberately *not* checked: "JSDoc that repeats the signature", the third
@@ -17,13 +17,12 @@
 // comment line that is nothing but repeats of -, =, *, _ or box-drawing, or a
 // heading framed by two such runs; a "commented-out code" line is matched
 // against an explicit list of statement shapes. Known blind spots, in the order
-// worth fixing: `#`-comment files (see the extension list below), a
-// commented-out block whose lines are all fragments too short to match a shape
-// (`//   title,`), and the same defects inside `/* … */` blocks, which are only
-// seen through their ` * ` continuation lines. Upgrade path: feed each
-// comment's text to a real parser (`@babel/parser` in errorRecovery mode) and
-// flag it when it yields statements rather than an error — then the shape list
-// disappears.
+// worth fixing: a commented-out block whose lines are all fragments too short
+// to match a shape (`//   title,`), and the same defects inside `/* … */`
+// blocks, which are only seen through their ` * ` continuation lines. Upgrade
+// path: feed each comment's text to a real parser (`@babel/parser` in
+// errorRecovery mode) and flag it when it yields statements rather than an
+// error — then the shape list disappears.
 //
 // The shape list replaces the obvious "ends with ; { }" heuristic on purpose.
 // Seven comments in packages/*/src end a *wrapped English sentence* with a
@@ -44,11 +43,16 @@ const ASCII_RULE = String.raw`-=*_`;
 const BOX_RULE = String.raw`─━═`;
 const ANY_RULE = ASCII_RULE + BOX_RULE;
 
+// The three comment leads this repo writes. `#` covers shell and YAML, and it
+// costs nothing in the other file types: `#` opens a private field in JS and an
+// ATX heading in Markdown, and neither is followed by a run of rule characters.
+const LEAD = String.raw`(?:\/\/|\*|#)`;
+
 // Nothing but repeats. A URL keeps its `--`/`==` only in the middle of a line,
 // never as the whole comment, so it never matches; the same holds for an ASCII
 // table, whose rows carry column text.
 const BANNER = new RegExp(
-  `^\\s*(?:\\/\\/|\\*)\\s*[${ANY_RULE}]{5,}\\s*[${ANY_RULE}]*\\s*$`,
+  `^\\s*${LEAD}\\s*[${ANY_RULE}]{5,}\\s*[${ANY_RULE}]*\\s*$`,
 );
 
 // The same separator with a heading wedged into it (`// ----- Helpers -----`).
@@ -64,7 +68,7 @@ const BANNER = new RegExp(
 const titledBanner = (rule, repeats) =>
   `[${rule}]{${repeats},}(?!\\+)[^|]*\\w[^|]*(?<!\\+)[${rule}]{${repeats},}`;
 const TITLED_BANNER = new RegExp(
-  `^\\s*(?:\\/\\/|\\*)\\s*(?:${titledBanner(ASCII_RULE, 3)}|${titledBanner(BOX_RULE, 2)})\\s*$`,
+  `^\\s*${LEAD}\\s*(?:${titledBanner(ASCII_RULE, 3)}|${titledBanner(BOX_RULE, 2)})\\s*$`,
 );
 
 // One entry per statement shape that a commented-out line can take. Each is
@@ -118,12 +122,11 @@ const opensUnderLeadIn = (lines, index) => {
 // `existsSync` covers the one gap that leaves — a tracked file deleted in the
 // worktree but not yet staged.
 //
-// The blind spot that remains is the extension list, not the directories.
-// `.sh` and `.yml` comment with `#`, a lead neither rule accepts, and 95
-// banners live behind it: install.sh 60, scripts/build-release.sh 24,
-// .github/workflows/release.yml 8, scripts/release.sh 3. Closing that means a
-// `#` lead plus those extensions, and it is its own change, not a widening of
-// this one.
+// The extension list is the other half of the same lesson. It first covered
+// only what JS and TS are written in, and 95 further banners sat in the four
+// `#`-commented files that left out — install.sh alone held 60. `.sh`, `.yml`
+// and the `#` lead were added rather than the files named, so the next shell
+// script is covered on the day it is written.
 //
 // Markdown is scanned for its fenced code blocks, not its prose, and the rules
 // do reach the prose. Both leads they accept — `*` and `//` — occur in prose as
@@ -143,15 +146,15 @@ const opensUnderLeadIn = (lines, index) => {
 export const trackedFiles = () =>
   execSync("git ls-files -z", { cwd: REPO_ROOT, encoding: "utf-8" })
     .split("\0")
-    .filter((file) => /\.(ts|vue|md|mjs|js|cjs)$/.test(file))
+    .filter((file) => /\.(ts|vue|md|mjs|js|cjs|sh|yml|yaml)$/.test(file))
     .map((file) => join(REPO_ROOT, file))
     .filter(existsSync);
 
 // Rule 1 — a separator line. AGENTS.md lists banners under "Never" because they
-// are nearly always noise: of the 174 this commit removes, 168 framed a
-// heading, and those headings were section labels, step narration or a restated
-// identifier. The few that carried a fact kept the fact — rewritten as the
-// prose sentence it should have been.
+// are nearly always noise: of the 174 removed when this gate landed, 168 framed
+// a heading, and those headings were section labels, step narration or a
+// restated identifier. The few that carried a fact kept the fact — rewritten as
+// the prose sentence it should have been.
 export const findBannerViolations = (file, content) => {
   const violations = [];
   content.split("\n").forEach((line, index) => {

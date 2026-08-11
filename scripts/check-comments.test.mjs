@@ -253,6 +253,43 @@ test("rule 1 flags a framed heading that contains a plus", () => {
   );
 });
 
+// The third lead, for shell and YAML. It was left out at first, and 95 banners
+// were sitting behind it — 60 in install.sh alone, drawn in exactly the shape
+// the ASCII rule already caught everywhere else.
+test("rule 1 flags a hash-led separator and heading", () => {
+  const content = lines(
+    "# ---------------------------------------------",
+    "# ---- Step 4: Write config.json skeleton ----",
+    "  # ── 1. Bump version ──",
+    "#!/usr/bin/env bash",
+    "# Sets PLATFORM to one of: linux-x64, darwin-arm64",
+  );
+
+  const violations = findBannerViolations("install.sh", content);
+
+  assert.deepEqual(
+    violations.map(({ line }) => line),
+    [1, 2, 3],
+  );
+});
+
+// `#` costs nothing in the file types that had the gate first: it opens a
+// private field in JS and an ATX heading in Markdown, and neither is followed
+// by a run of rule characters. Pinned because widening a lead is exactly where
+// a gate starts crying wolf, and one false alarm is what switches it off.
+test("the hash lead stays quiet on private fields and markdown headings", () => {
+  const content = lines(
+    "# Heading",
+    "## Another heading",
+    "#count = 0",
+    "#private_method()",
+    "# Step 4: write the config skeleton",
+  );
+
+  assert.deepEqual(findBannerViolations("Counter.ts", content), []);
+  assert.deepEqual(findBannerViolations("guide.md", content), []);
+});
+
 test("rule 2 flags a declaration that was commented out instead of deleted", () => {
   const content = lines("const limit = 50", "// const old = 2", "return limit");
 
@@ -394,11 +431,12 @@ test("rule 2 leaves an empty file and a file without comments alone", () => {
 });
 
 // The gate's real defect was never a regex: it was the file list. Three `src`
-// roots were named by hand, and 76 banners collected where that list did not
+// roots were named by hand, and 171 banners collected where that list did not
 // reach. A rule that only runs on part of the repo reads as green over the part
 // it cannot see, so each shape that broke it is pinned: a directory that is a
-// sibling of `src`, one that is not under `packages` at all, and a config file
-// at a package root, in an extension the old walk never opened.
+// sibling of `src`, one that is not under `packages` at all, a config file at a
+// package root, and the two the extension list missed even once the directories
+// were right — a shell script and a workflow, both commented with `#`.
 test("the file list reaches past the src trees", () => {
   const scanned = trackedFiles().map((path) => relativePath(REPO_ROOT, path));
 
@@ -406,6 +444,8 @@ test("the file list reaches past the src trees", () => {
     "packages/frontend/e2e/journeys/a11y.spec.ts",
     "docs/contributing/test-templates.md",
     "packages/frontend/eslint.config.js",
+    "install.sh",
+    ".github/workflows/release.yml",
   ].filter((file) => !scanned.includes(file));
 
   assert.deepEqual(missing, []);

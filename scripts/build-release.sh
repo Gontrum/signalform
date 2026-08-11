@@ -11,9 +11,6 @@
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 readonly SCRIPT_NAME="build-release.sh"
 readonly APP_NAME="signalform"
 
@@ -22,9 +19,6 @@ readonly APP_NAME="signalform"
 readonly NODE_VERSION_EMBED="22.22.2"
 readonly NODE_BASE_URL="https://nodejs.org/dist/v${NODE_VERSION_EMBED}"
 
-# ---------------------------------------------------------------------------
-# Helper functions
-# ---------------------------------------------------------------------------
 log() {
   printf '\033[1;34m[build]\033[0m %s\n' "$*"
 }
@@ -54,9 +48,6 @@ EOF
   exit 0
 }
 
-# ---------------------------------------------------------------------------
-# detect_platform
-# ---------------------------------------------------------------------------
 detect_platform() {
   local os_raw arch_raw os arch
 
@@ -78,9 +69,6 @@ detect_platform() {
   PLATFORM="${os}-${arch}"
 }
 
-# ---------------------------------------------------------------------------
-# Argument parsing
-# ---------------------------------------------------------------------------
 ARG_VERSION=""
 ARG_OUTPUT_DIR="./dist-release/"
 
@@ -112,9 +100,7 @@ parse_args() {
   [ -n "${ARG_VERSION}" ] || die "--version is required (e.g. --version 1.2.3)"
 }
 
-# ---------------------------------------------------------------------------
 # embed_node — Download and embed the Node.js binary for the target platform
-# ---------------------------------------------------------------------------
 embed_node() {
   local staging_dir="$1"
   local platform="$2"
@@ -158,9 +144,6 @@ embed_node() {
   rm -rf "${node_tmp}"
 }
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 main() {
   parse_args "$@"
   detect_platform
@@ -179,15 +162,11 @@ main() {
   log "Staging directory: ${staging_dir}"
   log "Output directory:  ${output_dir}"
 
-  # -------------------------------------------------------------------------
   # Step 1: Build all packages
-  # -------------------------------------------------------------------------
   log "Step 1/6: Running pnpm build..."
   pnpm run build
 
-  # -------------------------------------------------------------------------
   # Step 2: Deploy backend with production deps to staging dir
-  # -------------------------------------------------------------------------
   log "Step 2/6: Deploying backend with production deps..."
   # pnpm deploy uses the lockfile and creates relative symlinks inside the
   # staging dir. Relative symlinks survive tar/extract on the target machine
@@ -197,9 +176,7 @@ main() {
 
 
 
-  # -------------------------------------------------------------------------
   # Step 3: Embed Node.js binary for the target platform
-  # -------------------------------------------------------------------------
   log "Step 3/6: Embedding Node.js v${NODE_VERSION_EMBED}..."
   embed_node "${staging_dir}" "${PLATFORM}"
 
@@ -216,16 +193,12 @@ exec "${INSTALL_DIR}/bin/node" "${INSTALL_DIR}/dist/index.js" "$@"
 WRAPPER
   chmod +x "${staging_dir}/bin/signalform"
 
-  # -------------------------------------------------------------------------
   # Step 4: Copy frontend dist into staging dir
-  # -------------------------------------------------------------------------
   log "Step 4/6: Copying frontend dist..."
   mkdir -p "${staging_dir}/frontend"
   cp -r packages/frontend/dist "${staging_dir}/frontend/dist"
 
-  # -------------------------------------------------------------------------
   # Step 5: Strip dev-only artifacts from staging dir
-  # -------------------------------------------------------------------------
   log "Step 5/6: Stripping dev artifacts..."
   # Only strip src/ from the app dist, NOT from node_modules packages
   # (some packages like 'debug' ship their source in src/ as the main entry).
@@ -239,9 +212,7 @@ WRAPPER
   find "${staging_dir}" -name ".env.*" -delete 2>/dev/null || true
   find "${staging_dir}" -name "coverage" -type d -exec rm -rf {} + 2>/dev/null || true
 
-  # -------------------------------------------------------------------------
   # Step 6: Create tarball
-  # -------------------------------------------------------------------------
   log "Step 6/6: Creating tarball..."
   mkdir -p "${output_dir}"
   local output_path
