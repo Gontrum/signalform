@@ -1,9 +1,11 @@
-import { ok, err, type Result } from "@signalform/shared";
+import { ok, err, type AudioQuality, type Result } from "@signalform/shared";
 import type {
+  AlbumTrackRaw,
   LmsClient,
   LmsConfig,
   SearchResult,
 } from "../../../adapters/lms-client/index.js";
+import { parseAudioQuality } from "../../../adapters/lms-client/helpers.js";
 import type {
   ArtistTopAlbum as LastFmArtistTopAlbum,
   ArtistTopTrack as LastFmArtistTopTrack,
@@ -40,6 +42,13 @@ const mapLastFmPopularityError = (
     ? { type: "NotFound", message: error.message }
     : { type: "Unavailable", message: error.message };
 
+const withAudioQuality = (
+  raw: AlbumTrackRaw,
+): AlbumTrackRaw & { readonly audioQuality?: AudioQuality } => ({
+  ...raw,
+  audioQuality: parseAudioQuality(raw),
+});
+
 export const getAlbumDetail = async (
   albumId: string,
   lmsClient: LmsClient,
@@ -62,7 +71,7 @@ export const getAlbumDetail = async (
 
   const baseUrl = `http://${config.host}:${config.port}`;
 
-  return ok(buildAlbumDetail(albumId, tracks, baseUrl));
+  return ok(buildAlbumDetail(albumId, tracks.map(withAudioQuality), baseUrl));
 };
 
 const searchLocalCandidates = async (

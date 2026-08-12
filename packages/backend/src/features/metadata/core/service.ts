@@ -1,4 +1,4 @@
-import { parseAudioQuality } from "../../../adapters/lms-client/helpers.js";
+import type { AudioQuality } from "@signalform/shared";
 import type {
   AlbumDetail,
   AlbumTrack,
@@ -16,10 +16,7 @@ type AlbumTrackInput = {
   readonly url?: string;
   readonly duration?: number;
   readonly year?: number | string | null;
-  readonly type?: string;
-  readonly bitrate?: string;
-  readonly samplerate?: string;
-  readonly samplesize?: number;
+  readonly audioQuality?: AudioQuality;
 };
 
 type ArtistTopTrackCandidate = {
@@ -75,7 +72,7 @@ const mapAlbumTrack = (raw: AlbumTrackInput, position: number): AlbumTrack => ({
   artist: raw.artist ?? "",
   duration: raw.duration ?? 0,
   url: raw.url ?? "",
-  audioQuality: parseAudioQuality(raw),
+  audioQuality: raw.audioQuality,
 });
 
 const buildAlbumCoverArtUrl = (

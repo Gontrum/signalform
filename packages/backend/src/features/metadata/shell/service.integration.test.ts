@@ -276,6 +276,41 @@ describe("getAlbumDetail", () => {
       expect(result.value.tracks[0]?.audioQuality?.lossless).toBe(true);
     }
   });
+
+  it("leaves audioQuality undefined for a codec the parser does not know", async () => {
+    const tracks = [
+      makeTrack({
+        id: 1,
+        title: "Unknown codec",
+        type: "wma",
+        bitrate: "192kb/s CBR",
+        samplerate: "44100",
+        samplesize: 16,
+      }),
+      makeTrack({
+        id: 2,
+        title: "Known codec",
+        type: "mp3",
+        bitrate: "320kb/s CBR",
+        samplerate: "48000",
+      }),
+    ];
+    const client = makeMockClient(tracks);
+
+    const result = await getAlbumDetail("42", client, defaultConfig);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.tracks[0]?.audioQuality).toBeUndefined();
+      expect(result.value.tracks[1]?.audioQuality).toEqual({
+        format: "MP3",
+        bitrate: 320000,
+        sampleRate: 48000,
+        lossless: false,
+        bitDepth: undefined,
+      });
+    }
+  });
 });
 
 type MockPopularityClient = {

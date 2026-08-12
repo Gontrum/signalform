@@ -1,5 +1,6 @@
 import { describe, test, expect } from "vitest";
-import { resolveArtistTopTracks } from "./service.js";
+import type { AudioQuality } from "@signalform/shared";
+import { buildAlbumDetail, resolveArtistTopTracks } from "./service.js";
 import type { ArtistTopTrack } from "./types.js";
 
 type ArtistTopTrackCandidate = {
@@ -310,5 +311,101 @@ describe("resolveArtistTopTracks", () => {
       );
       expect(result).toHaveLength(0);
     });
+  });
+});
+
+describe("buildAlbumDetail", () => {
+  const hiRes: AudioQuality = {
+    format: "FLAC",
+    bitrate: 4608000,
+    sampleRate: 96000,
+    lossless: true,
+    bitDepth: 24,
+  };
+  const lossy: AudioQuality = {
+    format: "MP3",
+    bitrate: 320000,
+    sampleRate: 44100,
+    lossless: false,
+  };
+
+  type AlbumTrackFixture = {
+    readonly id: number | string;
+    readonly title: string;
+    readonly artist: string;
+    readonly album: string;
+    readonly url: string;
+    readonly duration: number;
+    readonly year: number;
+    readonly audioQuality?: AudioQuality;
+  };
+
+  const makeAlbumTrack = (
+    overrides: Partial<AlbumTrackFixture> = {},
+  ): AlbumTrackFixture => ({
+    id: 10,
+    title: "Like a Prayer",
+    artist: "Madonna",
+    album: "Like a Prayer",
+    url: "file:///music/like-a-prayer.flac",
+    duration: 341,
+    year: 1989,
+    ...overrides,
+  });
+
+  test("passes a supplied audioQuality through to the mapped track", () => {
+    const detail = buildAlbumDetail(
+      "album-1",
+      [makeAlbumTrack({ audioQuality: hiRes })],
+      "http://lms:9000",
+    );
+
+    expect(detail.tracks[0]?.audioQuality).toEqual({
+      format: "FLAC",
+      bitrate: 4608000,
+      sampleRate: 96000,
+      lossless: true,
+      bitDepth: 24,
+    });
+  });
+
+  test("leaves audioQuality undefined when the track carries none", () => {
+    const detail = buildAlbumDetail(
+      "album-1",
+      [makeAlbumTrack()],
+      "http://lms:9000",
+    );
+
+    expect(detail.tracks[0]?.audioQuality).toBeUndefined();
+  });
+
+  test("keeps each track's own audioQuality when they differ", () => {
+    const detail = buildAlbumDetail(
+      "album-1",
+      [
+        makeAlbumTrack({ id: 10, title: "Lossy", audioQuality: lossy }),
+        makeAlbumTrack({ id: 11, title: "Silent" }),
+        makeAlbumTrack({ id: 12, title: "HiRes", audioQuality: hiRes }),
+      ],
+      "http://lms:9000",
+    );
+
+    expect(detail.tracks.map((track) => track.audioQuality)).toEqual([
+      {
+        format: "MP3",
+        bitrate: 320000,
+        sampleRate: 44100,
+        lossless: false,
+      },
+      undefined,
+      {
+        format: "FLAC",
+        bitrate: 4608000,
+        sampleRate: 96000,
+        lossless: true,
+        bitDepth: 24,
+      },
+    ]);
+    expect(detail.tracks.map((track) => track.trackNumber)).toEqual([1, 2, 3]);
   });
 });
