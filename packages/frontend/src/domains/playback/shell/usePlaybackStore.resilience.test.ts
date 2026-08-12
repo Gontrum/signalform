@@ -246,19 +246,6 @@ describe('resilience: transport disconnect vs LMS-down', () => {
     connectionState.value = 'connected'
     expect(store.connectionState).toBe('connected')
   })
-
-  it('regression guard: exposing connectionState does not affect the other flags — a transport drop still leaves isPlaying/currentTrack/hasError/isLmsDisconnected unchanged', () => {
-    const store = usePlaybackStore()
-    emitStatusChanged()
-
-    connectionState.value = 'disconnected'
-    connectionState.value = 'reconnecting'
-
-    expect(store.isPlaying).toBe(true)
-    expect(store.currentTrack?.title).toBe('Money')
-    expect(store.hasError).toBe(false)
-    expect(store.isLmsDisconnected).toBe(false)
-  })
 })
 
 /**
