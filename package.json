@@ -57,6 +57,7 @@
     "@vue/language-server": "^3.3.9",
     "dependency-cruiser": "^18.2.0",
     "eslint": "^10.8.1",
+    "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
     "eslint-plugin-functional": "^10.0.0",
     "eslint-plugin-vuejs-accessibility": "^2.6.0",

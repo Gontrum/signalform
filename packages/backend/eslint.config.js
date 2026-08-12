@@ -4,48 +4,36 @@ export default [
 
   // Glob pattern covers all features automatically — new features need no config change.
   {
-    files: ["src/features/**/*.ts"],
+    files: ["src/**/*.ts"],
     settings: {
+      // Without a TypeScript-aware resolver the plugin falls back to node
+      // resolution, which cannot follow the `.js` specifier that ESM requires
+      // for a `.ts` source. Every dependency then reads as "unknown" and no
+      // policy matches, so the rules below pass on everything — silently.
+      "import/resolver": {
+        typescript: { alwaysTryTypes: true, project: import.meta.dirname },
+      },
       "boundaries/elements": [
+        { type: "adapter", pattern: "src/adapters/*" },
+        { type: "feature-core", pattern: "src/features/*/core" },
+        { type: "feature-shell", pattern: "src/features/*/shell" },
+      ],
+      // Elements are folders in v7, so the runtime pieces of `infrastructure`
+      // that are single files cannot be element types — they are file
+      // categories instead, and the policies below select them as such.
+      // `infrastructure/config` and the pure helpers beside it stay
+      // unclassified on purpose: no policy ever named them, because core is
+      // allowed to import them.
+      "boundaries/files": [
+        { pattern: "src/server.ts", category: "app-shell" },
         {
-          type: "adapter",
-          pattern: "src/adapters/*/**",
-          mode: "file",
-        },
-        {
-          type: "shared-technical",
-          pattern: [
-            "src/infrastructure/config/**",
-            "src/infrastructure/logger.ts",
-            "src/infrastructure/normalizeArtist.ts",
-            "src/infrastructure/http-errors.ts",
-          ],
-          mode: "file",
-        },
-        {
-          type: "shared-shell",
           pattern: [
             "src/infrastructure/frontend-delivery.ts",
             "src/infrastructure/lms-registry.ts",
             "src/infrastructure/transport-commands.ts",
             "src/infrastructure/websocket/**",
           ],
-          mode: "file",
-        },
-        {
-          type: "app-shell",
-          pattern: "src/server.ts",
-          mode: "file",
-        },
-        {
-          type: "feature-core",
-          pattern: "src/features/*/core/**",
-          mode: "file",
-        },
-        {
-          type: "feature-shell",
-          pattern: "src/features/*/shell/**",
-          mode: "file",
+          category: "shared-shell",
         },
       ],
     },
@@ -56,26 +44,33 @@ export default [
           default: "allow",
           message:
             "Backend architecture violation: {{from.type}} must not depend on {{to.type}}.",
-          rules: [
+          policies: [
             {
-              from: { type: "feature-core" },
+              from: { element: { type: "feature-core" } },
+              disallow: { to: { element: { type: "feature-shell" } } },
+            },
+            {
+              from: { element: { type: "feature-core" } },
               disallow: {
-                to: {
-                  type: [
-                    "adapter",
-                    "shared-shell",
-                    "app-shell",
-                    "feature-shell",
-                  ],
-                },
+                to: { file: { categories: ["shared-shell", "app-shell"] } },
+              },
+              message:
+                "Backend architecture violation: feature-core must not depend on shell runtime ({{dependency.source}}).",
+            },
+            {
+              // docs/architecture.md grants core the adapter *types* and nothing
+              // else from that layer, so the ban is on the value import alone —
+              // `import type { SearchResult }` carries no runtime coupling.
+              from: { element: { type: "feature-core" } },
+              disallow: {
+                to: { element: { type: "adapter" } },
+                dependency: { kind: "value" },
               },
             },
             {
-              from: { type: "adapter" },
+              from: { element: { type: "adapter" } },
               disallow: {
-                to: {
-                  type: ["feature-shell"],
-                },
+                to: { element: { type: ["feature-shell"] } },
               },
             },
           ],

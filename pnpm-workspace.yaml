@@ -13,6 +13,7 @@ syncInjectedDepsAfterScripts:
 # postinstall to fetch the platform binary (required by vite).
 allowBuilds:
   esbuild: true
+  unrs-resolver: true
 
 minimumReleaseAgeExclude:
   - "@typescript-eslint/eslint-plugin@8.65.0"

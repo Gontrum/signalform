@@ -91,13 +91,20 @@ export default [
     name: 'domain-boundaries',
     files: ['src/domains/**/*.{vue,ts,tsx}'],
     settings: {
+      // Without a TypeScript-aware resolver the plugin falls back to node
+      // resolution, which cannot follow an extensionless import or the `@/`
+      // alias. Every dependency then reads as "unknown" and no policy matches,
+      // so the rules below pass on everything — silently.
+      'import/resolver': {
+        typescript: { alwaysTryTypes: true, project: import.meta.dirname },
+      },
       'boundaries/elements': [
-        { type: 'app', pattern: 'src/app/**', mode: 'file' },
-        { type: 'platform-api', pattern: 'src/platform/api/**', mode: 'file' },
-        { type: 'ui', pattern: 'src/ui/**', mode: 'file' },
-        { type: 'domain-core', pattern: 'src/domains/*/core/**', mode: 'file' },
-        { type: 'domain-shell', pattern: 'src/domains/*/shell/**', mode: 'file' },
-        { type: 'domain-ui', pattern: 'src/domains/*/ui/**', mode: 'file' },
+        { type: 'app', pattern: 'src/app' },
+        { type: 'platform-api', pattern: 'src/platform/api' },
+        { type: 'ui', pattern: 'src/ui' },
+        { type: 'domain-core', pattern: 'src/domains/*/core' },
+        { type: 'domain-shell', pattern: 'src/domains/*/shell' },
+        { type: 'domain-ui', pattern: 'src/domains/*/ui' },
       ],
     },
     rules: {
@@ -106,18 +113,22 @@ export default [
         {
           default: 'allow',
           message: 'FCIS violation: {{from.type}} must not depend on {{to.type}}.',
-          rules: [
+          policies: [
             {
               // Core must not import Shell, UI, or platform APIs
-              from: { type: 'domain-core' },
+              from: { element: { type: 'domain-core' } },
               disallow: {
-                to: { type: ['app', 'platform-api', 'ui', 'domain-shell', 'domain-ui'] },
+                to: {
+                  element: {
+                    type: ['app', 'platform-api', 'ui', 'domain-shell', 'domain-ui'],
+                  },
+                },
               },
             },
             {
               // Domain UI must not directly call platform APIs
-              from: { type: 'domain-ui' },
-              disallow: { to: { type: ['platform-api'] } },
+              from: { element: { type: 'domain-ui' } },
+              disallow: { to: { element: { type: ['platform-api'] } } },
             },
           ],
         },
