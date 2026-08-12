@@ -5,7 +5,7 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-08-12
 
 ### Added
 
@@ -36,11 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - polling backs off while LMS is unreachable instead of retrying every six
   seconds around the clock — roughly 10,000 failed requests a day against a
   server that is deliberately asleep
-
-### Planned
-
-- Mobile app improvements
-- Additional streaming service integrations
 
 ---
 
@@ -912,14 +907,42 @@ This is a beta release (`0.x.x`). We're working towards a stable `1.0.0` release
 
 ---
 
-[Unreleased]: https://github.com/Gontrum/signalform/compare/v0.10.1...HEAD
+[1.0.0]: https://github.com/Gontrum/signalform/compare/v0.20.0...v1.0.0
+[0.20.0]: https://github.com/Gontrum/signalform/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/Gontrum/signalform/compare/v0.18.0...v0.19.0
+[0.18.0]: https://github.com/Gontrum/signalform/compare/v0.17.1...v0.18.0
+[0.17.1]: https://github.com/Gontrum/signalform/compare/v0.17.0...v0.17.1
+[0.17.0]: https://github.com/Gontrum/signalform/compare/v0.16.13...v0.17.0
+[0.16.13]: https://github.com/Gontrum/signalform/compare/v0.16.12...v0.16.13
+[0.16.12]: https://github.com/Gontrum/signalform/compare/v0.16.11...v0.16.12
+[0.16.11]: https://github.com/Gontrum/signalform/compare/v0.16.10...v0.16.11
+[0.16.10]: https://github.com/Gontrum/signalform/compare/v0.16.9...v0.16.10
+[0.16.9]: https://github.com/Gontrum/signalform/compare/v0.16.8...v0.16.9
+[0.16.8]: https://github.com/Gontrum/signalform/compare/v0.16.7...v0.16.8
+[0.16.7]: https://github.com/Gontrum/signalform/compare/v0.16.6...v0.16.7
+[0.16.6]: https://github.com/Gontrum/signalform/compare/v0.16.5...v0.16.6
+[0.16.5]: https://github.com/Gontrum/signalform/compare/v0.16.4...v0.16.5
+[0.16.4]: https://github.com/Gontrum/signalform/compare/v0.16.3...v0.16.4
+[0.16.3]: https://github.com/Gontrum/signalform/compare/v0.16.2...v0.16.3
+[0.16.2]: https://github.com/Gontrum/signalform/compare/v0.16.1...v0.16.2
+[0.16.1]: https://github.com/Gontrum/signalform/compare/v0.16.0...v0.16.1
+[0.16.0]: https://github.com/Gontrum/signalform/compare/v0.15.1...v0.16.0
+[0.15.1]: https://github.com/Gontrum/signalform/compare/v0.15.0...v0.15.1
+[0.15.0]: https://github.com/Gontrum/signalform/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/Gontrum/signalform/compare/v0.13.1...v0.14.0
+[0.13.1]: https://github.com/Gontrum/signalform/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/Gontrum/signalform/compare/v0.12.1...v0.13.0
+[0.12.1]: https://github.com/Gontrum/signalform/compare/v0.12.0...v0.12.1
+[0.12.0]: https://github.com/Gontrum/signalform/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/Gontrum/signalform/compare/v0.10.1...v0.11.0
 [0.10.1]: https://github.com/Gontrum/signalform/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/Gontrum/signalform/compare/v0.9.10...v0.10.0
-[0.9.10]: https://github.com/Gontrum/signalform/compare/v0.9.8...v0.9.10
+[0.9.10]: https://github.com/Gontrum/signalform/compare/v0.9.9...v0.9.10
+[0.9.9]: https://github.com/Gontrum/signalform/compare/v0.9.8...v0.9.9
 [0.9.8]: https://github.com/Gontrum/signalform/compare/v0.9.7...v0.9.8
-[0.9.7]: https://github.com/Gontrum/signalform/releases/tag/v0.9.7
-[0.9.6]: https://github.com/Gontrum/signalform/releases/tag/v0.9.6
-[0.9.5]: https://github.com/Gontrum/signalform/releases/tag/v0.9.5
-[0.9.4]: https://github.com/Gontrum/signalform/releases/tag/v0.9.4
-[0.9.3]: https://github.com/Gontrum/signalform/releases/tag/v0.9.3
+[0.9.7]: https://github.com/Gontrum/signalform/compare/v0.9.6...v0.9.7
+[0.9.6]: https://github.com/Gontrum/signalform/compare/v0.9.5...v0.9.6
+[0.9.5]: https://github.com/Gontrum/signalform/compare/v0.9.4...v0.9.5
+[0.9.4]: https://github.com/Gontrum/signalform/compare/v0.9.3...v0.9.4
+[0.9.3]: https://github.com/Gontrum/signalform/compare/v0.9.0...v0.9.3
 [0.9.0]: https://github.com/Gontrum/signalform/releases/tag/v0.9.0
