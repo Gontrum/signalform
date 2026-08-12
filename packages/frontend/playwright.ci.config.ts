@@ -17,7 +17,6 @@ export default defineConfig({
   testIgnore: [
     '**/recovery-live-smoke.spec.ts', // requires real LMS — manual only
     '**/queue-editing-live.spec.ts', // requires real LMS — skips automatically but excluded for speed
-    '**/m017-i18n-enrichment.spec.ts', // requires real LMS + Last.fm — test.skip after await doesn't work in Playwright
   ],
   fullyParallel: false, // sequential for stability with mocked APIs
   forbidOnly: true,

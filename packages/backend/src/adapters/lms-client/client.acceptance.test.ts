@@ -1053,7 +1053,7 @@ describe("LMS Client - Acceptance Tests", () => {
       expect(command[6]).toBe("want_url:1");
     });
 
-    it("M2: multi-word queries send spaces as-is in item_id (live LMS behavior unverified for multi-word)", async () => {
+    it("multi-word queries send spaces as-is in item_id (live LMS behavior unverified for multi-word)", async () => {
       // Tidal item_id uses the raw trimmedQuery including spaces.
       // e.g. query "pink floyd" → item_id:7_pink floyd.4
       // LMS JSON-RPC delivers the full string element; whether the Tidal plugin

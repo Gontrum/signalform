@@ -1,18 +1,11 @@
 /**
- * Demonstrates the gap between two distinct failure modes that both look
- * like "the connection to LMS is broken" from the user's chair, but are
- * handled completely differently by the store:
- *
- *  - LMS-down (backend -> LMS unreachable): surfaced via the
- *    'system.lmsDisconnected' WS event -> lmsError is set -> banner shows.
- *  - Transport-down (browser -> backend Socket.IO disconnects, e.g. a
- *    client-side WiFi drop): the composable's `connectionState` flips to
- *    'disconnected'/'reconnecting', but the store never reads
- *    `connectionState` (it only destructures `on`, `subscribe`,
- *    `onReconnect` — see usePlaybackStore.ts:272). No state changes, so
- *    nothing in the UI reflects it: playback looks exactly as it did the
- *    instant before the drop, frozen and unannounced, for as long as the
- *    WiFi is down.
+ * Two failure modes look identical from the user's chair but must not share a
+ * flag: the backend losing LMS arrives as 'system.lmsDisconnected' and sets
+ * lmsError, while the browser losing its Socket.IO transport moves only
+ * `connectionState`. The transport drop must leave every playback and error
+ * flag untouched — the store passes `connectionState` through for
+ * NowPlayingPanel to render as its own banner, so folding it into lmsError
+ * would blame the music server for a local WiFi outage.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -67,7 +60,7 @@ vi.mock('@/platform/api/playbackApi', () => ({
 }))
 
 // Mirrors the real useWebSocket() shape, including `connectionState`, so the
-// test can flip transport state independently of anything the store reads.
+// test can drive transport state directly.
 vi.mock('@/app/useWebSocket', async () => {
   const { ref } = await import('vue')
   connectionStateBox.value = ref<ConnectionState>('connected')
@@ -179,7 +172,7 @@ const PLAYER_NOT_ANSWERING =
   'Speaker is not answering — the music server is reachable, so check the speaker'
 
 describe('resilience: transport disconnect vs LMS-down', () => {
-  it('REPRO: a Socket.IO transport drop leaves store state and error flags completely unchanged', () => {
+  it('a Socket.IO transport drop changes no playback state and raises no error flag', () => {
     const store = usePlaybackStore()
     emitStatusChanged()
 
@@ -188,18 +181,12 @@ describe('resilience: transport disconnect vs LMS-down', () => {
     expect(store.hasError).toBe(false)
     expect(store.isLmsDisconnected).toBe(false)
 
-    // Simulate what useWebSocket.ts does internally on the socket's
-    // 'disconnect' event (see app/useWebSocket.ts:48-50) and on
-    // 'reconnect_attempt' (line 55-57). Nothing in usePlaybackStore.ts
-    // reads `connectionState`, so this must be a no-op for every flag
-    // the UI actually renders.
+    // The only thing useWebSocket's createSharedConnection does on the socket's
+    // 'disconnect' and the manager's 'reconnect_attempt' is assign
+    // `connectionState` — nothing else may move as a result.
     connectionState.value = 'disconnected'
     connectionState.value = 'reconnecting'
 
-    // Store looks exactly as it did the instant before the drop: still
-    // "playing Money", no error, no lmsError. A user staring at
-    // NowPlayingPanel during a WiFi outage sees a confident, frozen UI
-    // with zero indication anything is wrong.
     expect(store.isPlaying).toBe(true)
     expect(store.currentTrack?.title).toBe('Money')
     expect(store.hasError).toBe(false)
@@ -245,7 +232,7 @@ describe('resilience: transport disconnect vs LMS-down', () => {
     expect(store.playerError).toBeNull()
   })
 
-  it('FIX: store.connectionState reflects the WebSocket composable connectionState, so a transport drop is now visible', () => {
+  it('store.connectionState reflects the WebSocket composable connectionState, so a transport drop is visible to the UI', () => {
     const store = usePlaybackStore()
 
     expect(store.connectionState).toBe('connected')
@@ -260,7 +247,7 @@ describe('resilience: transport disconnect vs LMS-down', () => {
     expect(store.connectionState).toBe('connected')
   })
 
-  it('FIX regression guard: exposing connectionState does not affect the other flags — a transport drop still leaves isPlaying/currentTrack/hasError/isLmsDisconnected unchanged', () => {
+  it('regression guard: exposing connectionState does not affect the other flags — a transport drop still leaves isPlaying/currentTrack/hasError/isLmsDisconnected unchanged', () => {
     const store = usePlaybackStore()
     emitStatusChanged()
 

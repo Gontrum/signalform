@@ -2,7 +2,7 @@
  * Radio Mode — Imperative Shell
  *
  * Orchestrates radio mode: detects queue-end trigger, fetches similar tracks from last.fm,
- * applies functional filters (Stories 6.2 + 6.3), searches LMS, adds to queue.
+ * applies functional filters, searches LMS, adds to queue.
  *
  * Imperative shell: has IO, state, and side effects.
  * Per-mode candidate sourcing lives in replenish-personal.ts and

@@ -9,7 +9,6 @@ describe('QualityBadge', () => {
     setupTestEnv()
   })
 
-  // 5.1 — renders source badge "Local" when source=local and no quality
   it('renders source badge "Local" when source=local and no quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'local' },
@@ -17,7 +16,6 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text()).toBe('Local')
   })
 
-  // 5.2 — renders source badge "Qobuz" when source=qobuz and no quality
   it('renders source badge "Qobuz" when source=qobuz and no quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'qobuz' },
@@ -25,7 +23,6 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text()).toBe('Qobuz')
   })
 
-  // 5.3 — renders source badge "Tidal" when source=tidal and no quality
   it('renders source badge "Tidal" when source=tidal and no quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'tidal' },
@@ -33,7 +30,6 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text()).toBe('Tidal')
   })
 
-  // 5.4 — hides badge when source=unknown and no quality
   it('does not render badge when source=unknown and no quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'unknown' },
@@ -41,7 +37,7 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').exists()).toBe(false)
   })
 
-  // 5.5 — renders "FLAC 24/96" for FLAC 24-bit lossless 96kHz (AC format: bitDepth/sampleRate)
+  // Lossless with a known bitDepth renders bitDepth/sampleRate, not bitrate/sampleRate.
   it('renders quality text "FLAC 24/96" when quality is FLAC 24-bit lossless 96kHz', () => {
     const quality: AudioQuality = {
       format: 'FLAC',
@@ -56,7 +52,7 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text().trim()).toBe('FLAC 24/96')
   })
 
-  // 5.5b — fallback: shows "FLAC 1411/96" (bitrate/sampleRate) when bitDepth not available
+  // Fallback shows bitrate/sampleRate.
   it('renders "FLAC 1411/96" fallback when lossless but bitDepth not provided', () => {
     const quality: AudioQuality = {
       format: 'FLAC',
@@ -70,7 +66,6 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text().trim()).toBe('FLAC 1411/96')
   })
 
-  // 5.5c — sample rate 44.1kHz displays as "44.1" not "44" (H2: rounding fix)
   it('displays 44.1kHz sample rate as "44.1" not "44"', () => {
     const quality: AudioQuality = {
       format: 'FLAC',
@@ -85,7 +80,7 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text().trim()).toBe('FLAC 16/44.1')
   })
 
-  // 5.5d — lossy format shows only bitrate, no sample rate (per AC: "AAC 320" not "AAC 320/44")
+  // Lossy format shows only bitrate, no sample rate: "AAC 320", not "AAC 320/44".
   it('renders lossy quality as "AAC 320" without sample rate', () => {
     const quality: AudioQuality = {
       format: 'AAC',
@@ -99,7 +94,6 @@ describe('QualityBadge', () => {
     expect(wrapper.find('[data-testid="quality-badge"]').text().trim()).toBe('AAC 320')
   })
 
-  // 5.6 — green class applied for lossless quality
   it('applies emerald (green) classes for lossless quality', () => {
     const quality: AudioQuality = {
       format: 'FLAC',
@@ -115,7 +109,6 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-success-content')
   })
 
-  // 5.7 — green class applied for source=local (no quality data)
   it('applies emerald (green) classes for source=local without quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'local' },
@@ -125,7 +118,7 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-success-content')
   })
 
-  // 5.8 — amber class applied for high-bitrate lossy quality (bitrate ≥ 256000)
+  // The amber tier starts at bitrate ≥ 256000.
   it('applies amber classes for high-bitrate lossy quality (bitrate ≥ 256kbps)', () => {
     const quality: AudioQuality = {
       format: 'AAC',
@@ -141,7 +134,6 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-warning-content')
   })
 
-  // 5.9 — amber class applied for source=qobuz (no quality data)
   it('applies amber classes for source=qobuz without quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'qobuz' },
@@ -151,7 +143,7 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-warning-content')
   })
 
-  // 5.10 — gray class applied for standard quality (bitrate < 256kbps, non-lossless)
+  // Standard is anything non-lossless below 256kbps.
   it('applies gray (neutral) classes for standard quality', () => {
     const quality: AudioQuality = {
       format: 'MP3',
@@ -167,7 +159,7 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-neutral-600')
   })
 
-  // 5.11 — gray class applied for source=tidal (no quality data maps to standard tier)
+  // Tidal without quality data maps to the standard tier.
   it('applies gray (neutral) classes for source=tidal without quality', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'tidal' },
@@ -177,7 +169,6 @@ describe('QualityBadge', () => {
     expect(badge.classes()).toContain('text-neutral-600')
   })
 
-  // 5.12 — has role="img" and aria-label attribute
   it('has role="img" and aria-label for accessibility', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'qobuz' },
@@ -187,7 +178,6 @@ describe('QualityBadge', () => {
     expect(badge.attributes('aria-label')).toContain('Qobuz')
   })
 
-  // 5.13 — data-testid="quality-badge" present
   it('has data-testid="quality-badge" attribute', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'local' },
@@ -210,8 +200,7 @@ describe('QualityBadge', () => {
     expect(badge.attributes('aria-label')).toContain('lossless')
   })
 
-  // NFR39: badge contains a dot icon additionally to color (non-color accessibility indicator)
-  it('renders a dot icon inside the badge for non-color accessibility (NFR39)', () => {
+  it('renders a decorative dot inside the badge that is hidden from assistive tech', () => {
     const wrapper = mount(QualityBadge, {
       props: { source: 'local' },
     })

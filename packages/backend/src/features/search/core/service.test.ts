@@ -523,8 +523,8 @@ describe("transformToFullResults", () => {
     if (result.ok) {
       expect(result.value.albums).toHaveLength(1);
       expect(result.value.albums[0]?.albumId).toBeUndefined();
-      expect(result.value.albums[0]?.id).toBe("die toten hosen::opel-gang"); // M3: compound key is lowercase
-      expect(result.value.albums[0]?.source).toBe("tidal"); // L1: source tracked for badge display
+      expect(result.value.albums[0]?.id).toBe("die toten hosen::opel-gang"); // compound key is lowercase
+      expect(result.value.albums[0]?.source).toBe("tidal"); // source tracked for badge display
       expect(result.value.albums[0]?.title).toBe("Opel-Gang");
       expect(result.value.albums[0]?.artist).toBe("Die Toten Hosen");
     }
@@ -551,7 +551,7 @@ describe("transformToFullResults", () => {
       expect(result.value.albums).toHaveLength(1);
       expect(result.value.albums[0]?.albumId).toBe("99");
       expect(result.value.albums[0]?.id).toBe("99");
-      expect(result.value.albums[0]?.source).toBe("local"); // L1: source tracked
+      expect(result.value.albums[0]?.source).toBe("local");
     }
   });
 
@@ -1232,8 +1232,6 @@ const thenFullResultsTrackHasAvailableSources = (
   }
 };
 
-// Task 6: Unit tests for normalizeDeduplicationKey
-
 describe("normalizeDeduplicationKey", () => {
   it("lowercases all fields", () => {
     const key = normalizeDeduplicationKey(
@@ -1370,8 +1368,6 @@ describe("normalizeDeduplicationKey", () => {
   });
 });
 
-// Task 7: Unit tests for selectSourceByPriority
-
 describe("selectSourceByPriority", () => {
   const makeSource = (
     source: AvailableSource["source"],
@@ -1446,8 +1442,6 @@ describe("selectSourceByPriority", () => {
     expect(best2?.url).toBe("unknown://a-track");
   });
 });
-
-// Task 8: Unit tests for deduplicateTracks
 
 describe("deduplicateTracks", () => {
   const makeTrack = (
@@ -1711,7 +1705,7 @@ describe("deduplicateTracks", () => {
     expect(result[0]?.source).toBe("local");
   });
 
-  it("deduplicates 100 tracks (10 titles × 10 artists) in < 10ms (NFR1)", () => {
+  it("deduplicates 100 tracks (10 titles × 10 artists) in < 10ms", () => {
     const manyTracks = Array.from({ length: 100 }, (_, i) => ({
       id: `id-${i}`,
       title: `Track ${i % 10}`,

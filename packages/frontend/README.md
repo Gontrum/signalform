@@ -37,7 +37,7 @@ A search-centric music player interface for Lyrion Music Server with multi-sourc
 
 ## Architecture Compliance
 
-This package follows the **Epic 1 Architecture** requirements:
+This package follows the architecture requirements:
 
 ### Functional Programming (Mandatory)
 
@@ -49,7 +49,7 @@ This package follows the **Epic 1 Architecture** requirements:
 
 ### Code Organization
 
-- **Feature-based structure** (to be introduced in Epic 2+)
+- **Feature-based structure**: `src/domains/{domain}/`
 - Co-located tests: `Component.vue` + `Component.test.ts`
 - Composition API with `<script setup lang="ts">`
 

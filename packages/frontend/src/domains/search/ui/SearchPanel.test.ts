@@ -1034,7 +1034,6 @@ describe('SearchPanel', () => {
 
       const resultsList = context.wrapper.findComponent({ name: 'SearchResultsList' })
 
-      // Album playback will be implemented in Epic 5 (Queue Management)
       expect(() => {
         resultsList.vm.$emit('play-album', 'album-123')
       }).not.toThrow()
@@ -1476,7 +1475,6 @@ describe('SearchPanel', () => {
   // src/App.test.ts. SearchPanel itself no longer renders it (avoids the
   // nav shifting position depending on which route renders it).
 
-  // Step B1: PageHeader renders as the top-level tab's title on phone
   it('renders PageHeader with the search title on phone', async (): Promise<void> => {
     isPhone.value = true
     const context = await whenSearchPanelIsMounted()

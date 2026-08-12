@@ -156,7 +156,7 @@ export const createSearchRoute = (
         "Search request received",
       );
 
-      // 2. Check cache (NFR4: < 300ms performance)
+      // 2. Check cache
       const cacheKey = `${query}:${full ? "full" : "basic"}`;
       const cached = getCachedResults(cacheKey, isCachedSearchResponse);
 

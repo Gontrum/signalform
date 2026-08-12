@@ -75,13 +75,11 @@ const Q_16_44: AudioQuality = {
   lossless: true,
 };
 
-// Acceptance Scenarios (FR10, FR11)
-
 describe("Source Hierarchy Service - Acceptance Tests", () => {
-  test("Scenario 1: All 3 sources at 24/96 → selects local (FR11 tie-breaking)", () => {
-    // AC: Given track with [{local: 24/96}, {qobuz: 24/96}, {tidal: 24/96}]
+  test("Scenario 1: All 3 sources at 24/96 → selects local (tie-breaking)", () => {
+    // Given track with [{local: 24/96}, {qobuz: 24/96}, {tidal: 24/96}]
     // When  Service receives track with sources
-    // Then  Returns local source (quality tie → local preference - FR11)
+    // Then  Returns local source (quality tie → local preference)
     const sources = givenTrackWithSources([
       { source: "local", quality: Q_24_96 },
       { source: "qobuz", quality: Q_24_96 },
@@ -93,8 +91,8 @@ describe("Source Hierarchy Service - Acceptance Tests", () => {
     thenSelectedSourceIs(result, "local");
   });
 
-  test("Scenario 2: Qobuz 24/96, Tidal 16/44 → selects Qobuz (FR10 quality ranking)", () => {
-    // AC: If qualities differ, highest bitrate/sample rate wins (24/192 > 24/96 > 16/44.1 - FR10)
+  test("Scenario 2: Qobuz 24/96, Tidal 16/44 → selects Qobuz (quality ranking)", () => {
+    // If qualities differ, highest bitrate/sample rate wins (24/192 > 24/96 > 16/44.1)
     const sources = givenTrackWithSources([
       { source: "qobuz", quality: Q_24_96 },
       { source: "tidal", quality: Q_16_44 },
@@ -116,8 +114,7 @@ describe("Source Hierarchy Service - Acceptance Tests", () => {
     thenSelectedSourceIs(result, "tidal");
   });
 
-  test("Scenario 4: Local 24/96, Qobuz 24/96, Tidal 16/44 → selects local (story AC exact match)", () => {
-    // Story AC exact: {local: 24/96}, {qobuz: 24/96}, {tidal: 16/44.1} → local
+  test("Scenario 4: Local 24/96, Qobuz 24/96, Tidal 16/44 → selects local", () => {
     const sources = givenTrackWithSources([
       { source: "local", quality: Q_24_96 },
       { source: "qobuz", quality: Q_24_96 },

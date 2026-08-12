@@ -302,7 +302,7 @@ describe("POST /api/playback/play - Integration Tests", () => {
     });
   });
 
-  describe("Performance requirements (NFR1: < 200ms)", () => {
+  describe("Performance requirements (< 200ms)", () => {
     it("responds within 200ms for successful play command", async () => {
       await givenLmsAcceptsPlayCommand();
 

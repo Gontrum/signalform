@@ -272,7 +272,7 @@ BDD-style helpers to make scenarios read like specifications.
 
 ```typescript
 /**
- * {Feature} Acceptance Tests (Story X.Y)
+ * {Feature} Acceptance Tests
  *
  * BDD-style tests covering user-facing scenarios.
  * Fluent Given/When/Then API.
@@ -310,7 +310,7 @@ const thenResultHasSource = (
   expect(results[index]?.source).toBe(expected);
 };
 
-describe("Story X.Y: {Feature Description}", () => {
+describe("{Feature Description}", () => {
   test("User sees deduplicated results when same item exists in multiple sources", () => {
     const items = givenItemsFromSources("Nevermind", ["local", "tidal"]);
 

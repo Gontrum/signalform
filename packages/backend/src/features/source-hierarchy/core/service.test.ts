@@ -78,8 +78,6 @@ const lossy128: AudioQuality = makeQuality({
   lossless: false,
 });
 
-// Task 5: Unit tests for calculateQualityScore
-
 describe("calculateQualityScore", () => {
   test("lossless FLAC 24/192 has highest score", () => {
     const score = calculateQualityScore(hires192);
@@ -188,8 +186,8 @@ describe("calculateQualityScore", () => {
 
   test("unknown format key falls back to 0 bonus (?? 0 branch)", () => {
     // Uses a custom config whose formatBonuses record does not contain the
-    // format key, exercising the `?? 0` null-coalescing fallback in
-    // calculateQualityScore (service.ts:111).
+    // format key, exercising the `formatBonuses[format] ?? 0` fallback in
+    // calculateQualityScore.
     const customConfig: QualityHierarchyConfig = {
       ...DEFAULT_QUALITY_CONFIG,
       formatBonuses: { FLAC: 1000 }, // "MP3" is intentionally absent
@@ -258,7 +256,7 @@ describe("applySourceTieBreaker", () => {
     expect(qobuzVsTidal).toBeLessThan(0);
   });
 
-  test("unknown source type gets lowest priority (index -1 branch, service.ts:151-152)", () => {
+  test("unknown source type gets lowest priority (indexOf -1 falls back to sourcePriority.length)", () => {
     // A source omitted from custom sourcePriority falls back to
     // `config.sourcePriority.length`, exercising the same index -1 branch.
     const customConfig: QualityHierarchyConfig = {
@@ -277,8 +275,6 @@ describe("applySourceTieBreaker", () => {
     expect(applySourceTieBreaker("tidal", "tidal", customConfig)).toBe(0);
   });
 });
-
-// Task 5/6: rankSources tests
 
 describe("rankSources", () => {
   test("returns empty array for empty input", () => {
@@ -342,10 +338,7 @@ describe("rankSources", () => {
   });
 });
 
-// Task 6: Unit tests for selectBestSource (edge cases)
-
 describe("selectBestSource", () => {
-  // Case 1: Single source
   test("returns single source when only one source provided", () => {
     const source = makeSource({ source: "tidal", quality: cd44 });
     const result = selectBestSource([source]);
@@ -356,7 +349,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case 2: Multiple sources different quality
   test("returns highest quality source when qualities differ", () => {
     const sources = [
       makeSource({ source: "tidal", quality: cd44 }),
@@ -373,8 +365,7 @@ describe("selectBestSource", () => {
     }
   });
 
-  // FR11 acceptance: All sources same quality → local wins
-  test("selects local source when all sources have equal quality (tie-breaking FR11)", () => {
+  test("selects local source when all sources have equal quality (tie-breaking)", () => {
     const sources = [
       makeSource({ source: "tidal", quality: hires96 }),
       makeSource({ source: "qobuz", quality: hires96 }),
@@ -389,8 +380,7 @@ describe("selectBestSource", () => {
     }
   });
 
-  // AC from story: {local: 24/96}, {qobuz: 24/96}, {tidal: 16/44.1} → local
-  test("selects local over qobuz when both 24/96, tidal 16/44 (AC from story)", () => {
+  test("selects local over qobuz when both 24/96, tidal 16/44", () => {
     const sources = [
       makeSource({ source: "local", quality: hires96 }),
       makeSource({ source: "qobuz", quality: hires96 }),
@@ -405,7 +395,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case 4: No sources provided
   test("returns NO_SOURCES error for empty array", () => {
     const result = selectBestSource([]);
 
@@ -415,7 +404,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case 5: No available sources
   test("returns NO_SOURCES_AVAILABLE error when all sources unavailable", () => {
     const sources = [
       makeSource({ source: "local", available: false }),
@@ -430,7 +418,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case: Only unavailable sources filtered out, available one selected
   test("ignores unavailable sources and selects best available", () => {
     const sources = [
       makeSource({ source: "local", quality: hires192, available: false }),
@@ -446,7 +433,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case 3: Missing quality information
   test("returns MISSING_QUALITY_DATA error for sources with missing quality fields", () => {
     const badSource = {
       source: "local",
@@ -468,7 +454,6 @@ describe("selectBestSource", () => {
     }
   });
 
-  // Case 6: Invalid quality data
   test("returns INVALID_QUALITY_DATA error for negative bitrate", () => {
     const source = makeSource({
       quality: makeQuality({ bitrate: -320 }),
@@ -614,7 +599,7 @@ describe("selectBestSource", () => {
     expect(result1).toEqual(result2);
   });
 
-  // H1 regression: unavailable source with invalid quality must not block valid available source
+  // regression: unavailable source with invalid quality must not block valid available source
   test("ignores invalid quality on unavailable source, selects valid available source", () => {
     const sources = [
       makeSource({
@@ -633,7 +618,7 @@ describe("selectBestSource", () => {
     }
   });
 
-  // H1 regression: unavailable source with missing quality must not block valid available source
+  // regression: unavailable source with missing quality must not block valid available source
   test("ignores missing quality data on unavailable source, selects valid available source", () => {
     const badSource = {
       source: "tidal" as const,

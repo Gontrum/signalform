@@ -42,11 +42,11 @@ export const setupWebSocket = (app: FastifyInstance): TypedSocketIOServer => {
       credentials: true,
     },
     connectionStateRecovery: {
-      maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes (NFR21)
+      maxDisconnectionDuration: 2 * 60 * 1000,
       skipMiddlewares: true,
     },
-    pingTimeout: 5000, // 5s connection timeout (NFR26)
-    pingInterval: 25000, // 25s heartbeat
+    pingTimeout: 5000,
+    pingInterval: 25000,
     transports: ["websocket", "polling"], // WebSocket preferred, polling fallback
   });
 

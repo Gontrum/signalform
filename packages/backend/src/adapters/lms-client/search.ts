@@ -170,7 +170,7 @@ export const createSearchMethods = (
      * Local: LMS titles command (full library, all indexed tracks).
      * Tidal: LMS TIDAL plugin app navigation (probe 2026-03-14: item_id:7_{q}.4, ~323ms latency).
      * Both searches run concurrently via Promise.allSettled.
-     * Tidal is capped at 250ms timeout for NFR27 ≤300ms combined response.
+     * Tidal is capped at 250ms timeout to keep the combined response ≤300ms.
      * Any error in either search → graceful degradation (returns [] for that source).
      * Only EmptyQueryError is propagated as an error result.
      *
@@ -311,7 +311,7 @@ export const createSearchMethods = (
         };
       };
 
-      // Tidal with 450ms timeout (probe latency ~323ms → cap for NFR27 ≤300ms combined).
+      // Tidal with 450ms timeout (probe latency ~323ms → cap to keep the combined response ≤300ms).
       // Timeout returns unavailable so the frontend can warn the user.
       const tidalWithTimeout = (): Promise<TidalSearchOutcome> => {
         const timeoutPromise = delay(TIDAL_SEARCH_TIMEOUT_MS).then(

@@ -329,7 +329,6 @@ describe('NowPlayingPanel', () => {
     it('does not show quality badge wrapper when track source is unknown', async () => {
       const context = await givenTrackIsPlayingWithSource('unknown')
 
-      // The wrapper div should not render for 'unknown' source (M1 fix)
       expect(context.wrapper.find('[data-testid="quality-badge"]').exists()).toBe(false)
     })
 

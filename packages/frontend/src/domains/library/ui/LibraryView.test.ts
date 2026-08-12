@@ -874,7 +874,6 @@ describe('LibraryView', () => {
     )
   })
 
-  // H2: Retry on Tidal error — switching away and back to Tidal re-fetches
   it('retries Tidal album fetch when switching back to Tidal after error', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     const { getTidalAlbums } = await import('@/platform/api/tidalAlbumsApi')
@@ -930,8 +929,7 @@ describe('LibraryView', () => {
     expect(context.wrapper.find('div[data-testid="library-view"]').exists()).toBe(true)
   })
 
-  // Step B1: PageHeader renders as the top-level tab's title, no back button
-  // (phone-only — on desktop MainNavBar's tab highlighting already conveys the current page)
+  // Phone-only — on desktop MainNavBar's tab highlighting already conveys the current page
   it('renders PageHeader with the library title and no back button', async () => {
     const { getLibraryAlbums } = await import('@/platform/api/libraryApi')
     vi.mocked(getLibraryAlbums).mockReturnValue(new Promise(() => {}))

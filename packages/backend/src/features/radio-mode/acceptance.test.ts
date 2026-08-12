@@ -1,8 +1,8 @@
 /**
  * Context-Aware Filter — Acceptance Tests (BDD)
  *
- * Written FIRST (Task 0) so they fail RED before implementation.
- * Covers ACs 1–6 via real user scenarios.
+ * Written FIRST so they fail RED before implementation.
+ * Covers the filter's behaviour via real user scenarios.
  *
  * BDD helper pattern: givenCandidates → whenFilteringWithContext → assertions
  */
@@ -16,8 +16,6 @@ const whenFilteringWithContext = (
   context: RadioContext,
   config?: Parameters<typeof filterByContext>[2],
 ): readonly CandidateTrack[] => filterByContext(candidates, context, config);
-
-// Acceptance Scenarios (AC 1–6)
 
 describe("Context-Aware Filter — Acceptance Tests", () => {
   test("Scenario 1: 50s Jazz seed — keeps Jazz 1939-1979, removes 2020 Pop", () => {

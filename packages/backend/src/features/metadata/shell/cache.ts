@@ -2,7 +2,7 @@
  * Metadata Cache
  *
  * In-memory cache for album/artist metadata from LMS.
- * TTL: 1 hour (metadata changes rarely — NFR architecture requirement)
+ * TTL: 1 hour (metadata changes rarely)
  *
  * State is encapsulated in a closure — no module-level mutable variables.
  */

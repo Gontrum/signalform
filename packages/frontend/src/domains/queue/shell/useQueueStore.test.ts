@@ -1005,12 +1005,12 @@ describe('useQueueStore', () => {
     expect(store.tracks[0]?.id).toBe('server-track')
   })
 
-  it('6.8: radioUnavailableMessage starts as null', () => {
+  it('radioUnavailableMessage starts as null', () => {
     const store = useQueueStore()
     expect(store.radioUnavailableMessage).toBeNull()
   })
 
-  it('6.8: player.radio.unavailable sets radioUnavailableMessage to payload.message', () => {
+  it('player.radio.unavailable sets radioUnavailableMessage to payload.message', () => {
     vi.useFakeTimers()
     const store = useQueueStore()
 
@@ -1026,7 +1026,7 @@ describe('useQueueStore', () => {
     expect(store.radioUnavailableMessage).toBe('Radio mode temporarily unavailable')
   })
 
-  it('6.8: radioUnavailableMessage auto-clears after 10 seconds', () => {
+  it('radioUnavailableMessage auto-clears after 10 seconds', () => {
     vi.useFakeTimers()
     const store = useQueueStore()
 
@@ -1043,7 +1043,7 @@ describe('useQueueStore', () => {
     expect(store.radioUnavailableMessage).toBeNull()
   })
 
-  it('6.8: player.radio.started clears radioUnavailableMessage immediately', () => {
+  it('player.radio.started clears radioUnavailableMessage immediately', () => {
     vi.useFakeTimers()
     const store = useQueueStore()
 

@@ -209,7 +209,7 @@ describe('PlaybackControls', () => {
     })
   })
 
-  describe('Performance (NFR2: < 50ms response)', () => {
+  describe('Performance (< 50ms response)', () => {
     it('skip action completes within 50ms', async () => {
       await whenPlaybackControlsIsMounted()
 

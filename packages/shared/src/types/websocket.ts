@@ -1,6 +1,6 @@
 /**
  * WebSocket Event Payloads
- * All payloads must include playerId and timestamp for latency tracking (NFR2)
+ * All payloads must include playerId and timestamp for latency tracking
  */
 
 import type { Track } from "./track.js";

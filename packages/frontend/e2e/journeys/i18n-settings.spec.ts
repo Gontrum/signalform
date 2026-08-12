@@ -30,7 +30,7 @@ async function openSetupWizard(page: import('@playwright/test').Page) {
   await expect(page.getByTestId('setup-wizard')).toBeVisible()
 }
 
-test.describe('M017 i18n settings', () => {
+test.describe('i18n settings', () => {
   test('language selection in Settings persists and updates navbar label', async ({ page }) => {
     await setupApiMocks(page, {})
 

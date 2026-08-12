@@ -193,7 +193,7 @@ export const makeExecuteCommand = (config: LmsConfig): ExecuteCommand => {
     const timeoutId = setTimeout(() => controller.abort(), config.timeout);
 
     // Chain external signal: when caller aborts (e.g. enrichment 200ms cap fires),
-    // propagate immediately to cancel the underlying fetch (M1 fix — no dangling requests).
+    // propagate immediately to cancel the underlying fetch, leaving no dangling request.
     if (abortSignal !== undefined) {
       abortSignal.addEventListener("abort", () => {
         clearTimeout(timeoutId);

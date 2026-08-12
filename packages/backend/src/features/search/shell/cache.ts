@@ -1,7 +1,7 @@
 /**
  * Search Results Cache
  *
- * In-memory cache for search results to achieve NFR4 (< 300ms response).
+ * In-memory cache for search results to achieve < 300ms response.
  * TTL: 5 minutes
  *
  * State is encapsulated in a closure — no module-level mutable variables.

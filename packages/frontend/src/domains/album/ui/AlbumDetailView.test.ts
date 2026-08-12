@@ -1102,7 +1102,6 @@ describe('AlbumDetailView — Tidal Search Album path', () => {
   })
 })
 
-// M004/S03: AlbumDetailView enrichment block
 describe('AlbumDetailView — enrichment', () => {
   const makeEnrichment = (): AlbumEnrichment => ({
     name: 'Dark Side of the Moon',
@@ -1389,7 +1388,6 @@ describe('AlbumDetailView — enrichment', () => {
   })
 })
 
-// M004-S06: AlbumDetailView loading skeletons
 describe('AlbumDetailView — loading skeletons', () => {
   beforeEach(async () => {
     vi.clearAllMocks()

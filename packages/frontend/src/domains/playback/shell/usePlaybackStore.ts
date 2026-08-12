@@ -79,7 +79,7 @@ export const usePlaybackStore = defineStore('playback', () => {
   const shuffleMode = ref<ShuffleMode>('off')
   const repeatMode = ref<RepeatMode>('off')
 
-  // LMS connectivity state (S02: actionable error with retry)
+  // LMS connectivity state
   const isLmsDisconnected = ref(false)
   const isRetryingLms = ref(false)
   // Player connectivity state (physical/software player lost its own

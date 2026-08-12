@@ -32,7 +32,7 @@ const FORMAT_BONUSES: Readonly<Record<AudioQuality["format"], number>> = {
 } as const;
 
 /**
- * Default source priority order: Local → Qobuz → Tidal (FR11).
+ * Default source priority order: Local → Qobuz → Tidal.
  */
 const DEFAULT_SOURCE_PRIORITY: readonly SourceType[] = [
   "local",
@@ -78,8 +78,6 @@ const hasCompleteQualityData = (source: TrackSource): boolean => {
     typeof q.format === "string"
   );
 };
-
-// Pure Ranking Functions (Task 2)
 
 /**
  * Calculates a numeric quality score for an AudioQuality object.
@@ -157,7 +155,7 @@ export const applySourceTieBreaker = (
  * Ranks an array of TrackSources from best to worst quality.
  *
  * Primary sort: Quality score (descending).
- * Secondary sort: Source preference tie-breaker (FR11).
+ * Secondary sort: Source preference tie-breaker.
  *
  * Pure function - returns a new sorted array, original is not mutated.
  */
@@ -173,8 +171,6 @@ export const rankSources = (
     return applySourceTieBreaker(a.source, b.source, config);
   });
 };
-
-// Main Selection Function (Task 3)
 
 /**
  * Selects the best available source from a list of track sources.
@@ -248,8 +244,6 @@ export const selectBestSource = (
   const ranked = rankSources(availableSources, config);
   return ok(ranked[0]!);
 };
-
-// Service Factory (Task 4)
 
 /**
  * Factory function that creates a SourceHierarchyService with given config.

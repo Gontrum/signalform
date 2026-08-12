@@ -1,7 +1,7 @@
 /**
  * Radio Mode — Acceptance Tests
  *
- * BDD-style acceptance tests — one scenario per AC.
+ * BDD-style acceptance tests — one scenario per user-visible behaviour.
  * Written BEFORE implementation (red-green-refactor).
  * All tests MUST fail RED before any implementation code is written.
  */
@@ -22,8 +22,6 @@ import type {
   ServerToClientEvents,
 } from "@signalform/shared";
 
-// Radio engine will be created in Task 4
-// Import path is correct — module does not exist yet (RED phase)
 import { createRadioEngine } from "./shell/radio-service.js";
 import {
   clearRadioQueueRuntimeState,
@@ -2074,7 +2072,7 @@ describe("radioBoundaryIndex equals pre-radio queue length after Tidal-triggered
   });
 });
 
-describe("9.9 Bug Fix: Artist-match validation — spurious LMS results rejected", () => {
+describe("Artist-match validation — spurious LMS results rejected", () => {
   test("track NOT added when LMS returns a result with a different artist (e.g. Various Artists)", async () => {
     // Reproduces: search("Lisa Dream") → "Holiday / Various Artists"
     // Without fix: Holiday gets added. With fix: skipped — artist mismatch.
@@ -2114,7 +2112,7 @@ describe("9.9 Bug Fix: Artist-match validation — spurious LMS results rejected
   });
 });
 
-describe("9.9 Bug Fix: URL deduplication — same track not added twice", () => {
+describe("URL deduplication — same track not added twice", () => {
   test("second candidate mapping to already-added URL is skipped", async () => {
     // Reproduces: "Lisa Dream" AND "Adele When We Were Young" both resolve to Holiday.flac
     // Without fix: Holiday.flac added twice. With fix: second add skipped.
@@ -2357,8 +2355,6 @@ describe("Tidal URL added to queue when local search returns 0 but Tidal has tra
 
 describe("Server wiring — lastFmClient properly integrated", () => {
   test("createRadioEngine is exported from radio-mode feature", async () => {
-    // This test verifies the public API of the radio-mode module
-    // Import from index.ts — will fail RED until Task 7 exports are added
     const radioMode = await import("./index.js");
     expect(typeof radioMode.createRadioEngine).toBe("function");
   });

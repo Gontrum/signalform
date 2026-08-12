@@ -2,7 +2,7 @@
  * Search Cache Tests
  *
  * Tests for in-memory search results caching.
- * NFR4: Cache helps achieve < 300ms perceived response time.
+ * Cache helps achieve < 300ms perceived response time.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";

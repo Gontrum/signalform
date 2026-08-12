@@ -272,7 +272,7 @@ beforeEach(() => {
   resetRadioRuntimeState();
 });
 
-describe("5.1: handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)", () => {
+describe("handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)", () => {
   test("calls getSimilarTracks with exact arguments", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -306,7 +306,7 @@ describe("5.1: handleQueueEnd calls getSimilarTracks(seedArtist, seedTitle, 50)"
   });
 });
 
-describe("5.2: last.fm failure → logs warning, no crash, no queue modification", () => {
+describe("last.fm failure → logs warning, no crash, no queue modification", () => {
   test("network error: logs warn and returns early", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: false,
@@ -353,7 +353,7 @@ describe("5.2: last.fm failure → logs warning, no crash, no queue modification
   });
 });
 
-describe("5.3: no candidates found in LMS → logs warning, no event emitted", () => {
+describe("no candidates found in LMS → logs warning, no event emitted", () => {
   test("all LMS searches return empty → no radio.started event", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -427,7 +427,7 @@ describe("5.3: no candidates found in LMS → logs warning, no event emitted", (
   });
 });
 
-describe("5.4: tracks added → player.radio.started emitted with correct payload", () => {
+describe("tracks added → player.radio.started emitted with correct payload", () => {
   test("emits player.radio.started with playerId, seedTrack, tracksAdded, timestamp", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -471,7 +471,7 @@ describe("5.4: tracks added → player.radio.started emitted with correct payloa
   });
 });
 
-describe("5.5: tracks added → player.queue.updated emitted", () => {
+describe("tracks added → player.queue.updated emitted", () => {
   test("emits player.queue.updated after adding tracks", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -525,7 +525,7 @@ describe("5.5: tracks added → player.queue.updated emitted", () => {
   });
 });
 
-describe("5.6: best-quality track selected (lossless preferred over MP3)", () => {
+describe("best-quality track selected (lossless preferred over MP3)", () => {
   test("selects FLAC over MP3 when both are returned by LMS search", async () => {
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
       ok: true,
@@ -644,11 +644,9 @@ describe("5.6: best-quality track selected (lossless preferred over MP3)", () =>
   });
 });
 
-// NFR3: tracks added within 2 seconds (M2 code review)
-
-describe("NFR3: handleQueueEnd completes within 2000ms", () => {
+describe("handleQueueEnd completes within 2000ms", () => {
   test("executes with 50 candidates and 5 adds within 2000ms (unit — mocks resolve instantly)", async () => {
-    // NFR3: up to 5 tracks must be added within 2 seconds.
+    // Up to 5 tracks must be added within 2 seconds.
     // With instant mocks this validates no algorithmic bottleneck (O(n) sequential reduce).
     // Real network-bound timing must be verified via integration tests against live LMS.
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -693,8 +691,6 @@ describe("NFR3: handleQueueEnd completes within 2000ms", () => {
     expect(fixtures.mockLmsClient.addToQueue).toHaveBeenCalledTimes(5); // RADIO_BATCH_SIZE
   });
 });
-
-// artistMatches edge cases (M2/L3 fix: module-level, NFD Unicode normalization)
 
 describe("artistMatches edge cases (via handleQueueEnd)", () => {
   test("Unicode diacritics: 'Björk' candidate matches 'bjork' LMS result (NFD normalization)", async () => {
@@ -756,7 +752,7 @@ describe("artistMatches edge cases (via handleQueueEnd)", () => {
   });
 });
 
-describe("C3: Unexpected JS exception in handleQueueEnd does not propagate", () => {
+describe("Unexpected JS exception in handleQueueEnd does not propagate", () => {
   test("getSimilarTracks throws (not Result error) → logs error, resolves cleanly", async () => {
     // Validates top-level try/catch: handleQueueEnd is called with void() from status-poller.
     // An unhandled rejection would be fatal in Node.js 15+.
@@ -981,7 +977,7 @@ describe("duplicate artist prevention — same artist skipped within one batch",
   });
 });
 
-describe("5.7: diversity filter prevents same artist from appearing twice", () => {
+describe("diversity filter prevents same artist from appearing twice", () => {
   test("across two handleQueueEnd calls, same artist not added twice", async () => {
     // First call: add "Artist A"
     fixtures.mockLastFmClient.getSimilarTracks.mockResolvedValue({
@@ -1882,7 +1878,7 @@ describe("recent queue repeat protection", () => {
   });
 });
 
-describe("M3 concurrency guard: second handleQueueEnd call dropped while first is in progress", () => {
+describe("concurrency guard: second handleQueueEnd call dropped while first is in progress", () => {
   test("concurrent trigger logs info and returns without calling getSimilarTracks again", async () => {
     // isProcessing=true is set synchronously before the first await in handleQueueEnd.
     // JS await always suspends (even for already-resolved promises), so calling

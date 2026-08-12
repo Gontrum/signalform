@@ -277,7 +277,6 @@ describe('SearchResultsList', () => {
     expect(playButton.attributes('aria-label')).toBe('Play Comfortably Numb by Pink Floyd')
   })
 
-  // 6.2 — QualityBadge renders within each search result row
   it('renders QualityBadge for each search result', async () => {
     const wrapper = await whenTrackResultsListIsMounted(mockResults)
 
@@ -1325,9 +1324,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ artistId: '42', name: 'Local Artist' }])
     })
 
-    // Code review additions (M1 source guard, M2 edge case, M3 local album, L1 empty artist)
-
-    it('M1 (source guard): non-Tidal streaming album with trackUrls does NOT show "Go to Artist" button', async () => {
+    it('source guard: non-Tidal streaming album with trackUrls does NOT show "Go to Artist" button', async () => {
       // Go to Artist is Tidal-specific — other streaming sources must not get the button
       // because the navigate-artist null-path calls searchTidalArtists (wrong for other sources)
       const qobuzAlbum: AlbumResult = {
@@ -1347,7 +1344,7 @@ describe('SearchResultsList', () => {
       expect(w.find('[data-testid="go-to-artist-button-qobuz-album-1"]').exists()).toBe(false)
     })
 
-    it('L1 (boundary): Tidal album with empty artist does NOT show "Go to Artist" button', async () => {
+    it('boundary: Tidal album with empty artist does NOT show "Go to Artist" button', async () => {
       // v-if="album.source === 'tidal' && album.artist" — empty string is falsy → no button
       const tidalAlbumNoArtist: AlbumResult = {
         id: 'tidal-album-noartist',
@@ -1368,7 +1365,7 @@ describe('SearchResultsList', () => {
       )
     })
 
-    it('M3: local album with albumId shows "Go to Artist" button (parity with Tidal)', async () => {
+    it('local album with albumId shows "Go to Artist" button (parity with Tidal)', async () => {
       const localAlbum: AlbumResult = {
         id: 'local-album-1',
         albumId: 'local-album-1',
@@ -1387,7 +1384,7 @@ describe('SearchResultsList', () => {
       expect(w.find('[data-testid="go-to-artist-button-local-album-1"]').exists()).toBe(true)
     })
 
-    it('M3: clicking "Go to Artist" on local album emits navigate-artist with string artistId', async () => {
+    it('clicking "Go to Artist" on local album emits navigate-artist with string artistId', async () => {
       const localAlbum: AlbumResult = {
         id: 'local-album-1',
         albumId: 'local-album-1',
@@ -1411,7 +1408,7 @@ describe('SearchResultsList', () => {
       expect(emitted?.[0]).toEqual([{ artistId: '42', name: 'Pink Floyd' }])
     })
 
-    it('M2 (edge case): local track with artist name but no artistId emits navigate-artist with null artistId', async () => {
+    it('edge case: local track with artist name but no artistId emits navigate-artist with null artistId', async () => {
       // Edge case: a local track missing artistId would trigger Tidal lookup via null path.
       // This documents the behavior so any future change to this path is caught.
       const localTrackNoArtistId: TrackResult = {

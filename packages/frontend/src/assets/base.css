@@ -53,8 +53,8 @@
 /* ⚠️  DEAD CODE WARNING: this file is NOT imported anywhere in the project.
    The actual CSS entry point is main.css (imported in main.ts).
    All overflow/scroll rules must be placed in main.css.
-   Overflow-hidden rules added here during Story 8.2 Round 1 debugging were
-   never active in any browser (removed from here, applied correctly in main.css). */
+   Overflow-hidden rules added here were never active in any browser;
+   they are applied correctly in main.css. */
 
 *,
 *::before,

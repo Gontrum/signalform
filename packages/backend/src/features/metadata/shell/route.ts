@@ -286,7 +286,6 @@ export const createMetadataRoute = (
 
       const { albumId } = validation.data;
 
-      // Cache check (AC: cache hit)
       const cached = getCachedAlbum(albumId);
       if (isAlbumDetail(cached)) {
         return reply.code(200).send(cached);
@@ -306,7 +305,6 @@ export const createMetadataRoute = (
           .send({ message: "LMS not reachable", code: "LMS_UNREACHABLE" });
       }
 
-      // Store in cache BEFORE sending response (AC: cache successful results only)
       setCachedAlbum(albumId, result.value);
       return reply.code(200).send(result.value);
     },

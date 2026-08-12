@@ -37,7 +37,7 @@ const createSharedConnection = (): SharedConnection => {
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000, // Start at 1s
     reconnectionDelayMax: 5000, // Max 5s between attempts
-    timeout: 5000, // Connection timeout (NFR26)
+    timeout: 5000,
   })
 
   // Connection event handlers

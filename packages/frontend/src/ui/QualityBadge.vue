@@ -23,8 +23,8 @@ const formatSampleRate = (hz: number): string => {
   return Number.isInteger(khz) ? String(khz) : khz.toFixed(1)
 }
 
-// Display text per AC: lossless → "FORMAT bitDepth/sampleRateKhz" (e.g. "FLAC 24/96")
-//                      lossy    → "FORMAT bitrateKbps" (e.g. "AAC 320", "MP3 128")
+// Display text: lossless → "FORMAT bitDepth/sampleRateKhz" (e.g. "FLAC 24/96")
+//               lossy    → "FORMAT bitrateKbps" (e.g. "AAC 320", "MP3 128")
 const badgeText = computed((): string => {
   if (props.quality) {
     if (props.quality.lossless) {
@@ -36,7 +36,7 @@ const badgeText = computed((): string => {
       // Fallback when bitDepth not available from LMS search API
       return `${props.quality.format} ${Math.round(props.quality.bitrate / 1000)}/${sampleRateStr}`
     }
-    // Lossy: format + bitrate kbps only (no sample rate — per AC: "AAC 320", "MP3 128")
+    // Lossy: format + bitrate kbps only (no sample rate — "AAC 320", "MP3 128")
     return `${props.quality.format} ${Math.round(props.quality.bitrate / 1000)}`
   }
   return getSourceLabel(t, props.source)
@@ -97,7 +97,6 @@ const ariaLabel = computed((): string => {
       badgeClasses,
     ]"
   >
-    <!-- Quality tier dot — NFR39: icon additionally to color for non-color accessibility -->
     <span class="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
     {{ badgeText }}
   </span>

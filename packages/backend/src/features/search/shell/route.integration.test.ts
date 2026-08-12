@@ -307,7 +307,7 @@ describe("POST /api/search", () => {
     expect(lmsCallCountAfter).toBe(lmsCallCountBefore); // No additional LMS call
   });
 
-  it("returns cached results in < 50ms (NFR4: < 300ms)", async () => {
+  it("returns cached results in < 50ms", async () => {
     await givenLmsReturnsResults(mockLmsClient, [
       {
         id: "1",
@@ -343,7 +343,7 @@ describe("POST /api/search", () => {
   it("response time is under 200ms for mocked LMS (smoke test for no obvious performance regressions)", async () => {
     // NOTE: This is a smoke test that verifies no obvious performance regressions
     // in the request pipeline (Fastify routing, Zod validation, service logic).
-    // Real NFR1 validation (< 200ms with actual LMS) requires E2E testing with live LMS.
+    // Real validation (< 200ms with actual LMS) requires E2E testing with live LMS.
     await givenLmsReturnsResults(mockLmsClient, []);
 
     const startTime = Date.now();
@@ -723,7 +723,7 @@ describe("Full Results Mode - Performance & Caching", () => {
     void server.close();
   });
 
-  it("full results response time is under 300ms (NFR4)", async () => {
+  it("full results response time is under 300ms", async () => {
     // Mock LMS with minimal delay
     await givenLmsReturnsResults(mockLmsClient, [
       {
@@ -805,7 +805,7 @@ describe("Full Results Mode - Performance & Caching", () => {
     await thenResponseIs200(response);
     const body = parseFullSearchBody(response.body);
     expect(body.albums.length).toBe(50); // 50 unique albums
-    expect(duration).toBeLessThan(300); // Still meets NFR4
+    expect(duration).toBeLessThan(300);
   });
 
   it("transformation handles empty album/artist gracefully", async () => {
