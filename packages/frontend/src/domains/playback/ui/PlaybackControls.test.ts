@@ -133,6 +133,7 @@ describe('PlaybackControls', () => {
       await whenPlayPauseButtonIsClicked(context.wrapper)
 
       await thenPauseWasCalled(context)
+      await thenResumeWasNotCalled(context)
     })
 
     it('calls resume when paused', async () => {
@@ -155,6 +156,27 @@ describe('PlaybackControls', () => {
       await whenPlayPauseButtonIsClicked(context.wrapper)
 
       await thenResumeWasCalled(context)
+      await thenPauseWasNotCalled(context)
+    })
+
+    it('calls resume when stopped with a current track', async () => {
+      await givenPlaybackIsStoppedWithCurrentTrack()
+      const context = await whenPlaybackControlsIsMounted()
+
+      await whenPlayPauseButtonIsClicked(context.wrapper)
+
+      await thenResumeWasCalled(context)
+      await thenPauseWasNotCalled(context)
+    })
+
+    it('calls neither resume nor pause when stopped without a current track', async () => {
+      await givenPlaybackIsStoppedWithoutCurrentTrack()
+      const context = await whenPlaybackControlsIsMounted()
+
+      await whenPlayPauseButtonIsClicked(context.wrapper)
+
+      await thenResumeWasNotCalled(context)
+      await thenPauseWasNotCalled(context)
     })
 
     it('meets minimum touch target size (44x44px)', async () => {
@@ -254,6 +276,47 @@ describe('PlaybackControls', () => {
         duration: 180,
       },
     })
+    await nextTick()
+  }
+
+  const givenPlaybackIsStoppedWithCurrentTrack = async (): Promise<void> => {
+    vi.mocked(getPlaybackStatus).mockResolvedValueOnce(
+      ok({
+        status: 'stopped',
+        currentTime: 0,
+        queuePreview: [],
+        currentTrack: {
+          id: '1',
+          title: 'Test Track',
+          artist: 'Test Artist',
+          album: 'Test Album',
+          url: 'file:///test.flac',
+          source: 'local',
+          duration: 180,
+        },
+      }),
+    )
+
+    const store = usePlaybackStore()
+    store.$patch({
+      isPlaying: false,
+      isPaused: false,
+      currentTrack: {
+        id: '1',
+        title: 'Test Track',
+        artist: 'Test Artist',
+        album: 'Test Album',
+        url: 'file:///test.flac',
+        source: 'local',
+        duration: 180,
+      },
+    })
+    await nextTick()
+  }
+
+  const givenPlaybackIsStoppedWithoutCurrentTrack = async (): Promise<void> => {
+    const store = usePlaybackStore()
+    store.$patch({ isPlaying: false, isPaused: false, currentTrack: null })
     await nextTick()
   }
 
@@ -377,12 +440,21 @@ describe('PlaybackControls', () => {
   }
 
   const thenPauseWasCalled = async (context: TestContext): Promise<void> => {
-    expect(context.pauseSpy).toHaveBeenCalled()
+    expect(context.pauseSpy).toHaveBeenCalledTimes(1)
+  }
+
+  const thenPauseWasNotCalled = async (context: TestContext): Promise<void> => {
+    expect(context.pauseSpy).not.toHaveBeenCalled()
   }
 
   const thenResumeWasCalled = async (context: TestContext): Promise<void> => {
+    expect(context.resumeSpy).toHaveBeenCalledTimes(1)
     expect(context.store.isPaused).toBe(false)
     expect(context.store.isPlaying).toBe(true)
+  }
+
+  const thenResumeWasNotCalled = async (context: TestContext): Promise<void> => {
+    expect(context.resumeSpy).not.toHaveBeenCalled()
   }
 
   const thenPlayIconIsVisible = async (wrapper: VueWrapper): Promise<void> => {

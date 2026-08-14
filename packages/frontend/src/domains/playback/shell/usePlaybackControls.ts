@@ -40,6 +40,11 @@ export const usePlaybackControls = (): UsePlaybackControlsResult => {
 
     if (playbackStore.isPlaying) {
       await playbackStore.pause()
+      return
+    }
+
+    if (playbackStore.hasCurrentTrack) {
+      await playbackStore.resume()
     }
   }
 
