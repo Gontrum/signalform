@@ -5,6 +5,15 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2026-08-14
+
+### Fixed
+
+- the play button starts playback again when the player is stopped. It could
+  only toggle between playing and paused, so after a stop it looked perfectly
+  clickable and did nothing at all — no request, and reloading did not help
+  because the stopped state came from the player itself
+
 ## [1.0.0] - 2026-08-12
 
 ### Added
