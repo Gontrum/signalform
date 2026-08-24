@@ -13,8 +13,26 @@ import {
 import { mapTidalArtistSearch } from "../../tidal-artists/core/service.js";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 
+// The album ID is passed to LMS as `item_id:<value>`, which LMS splits at
+// dots into a menu navigation path — an over-deep path is what OOM-killed the
+// server in the 2026-08-18 incident. Real IDs are permissive in their
+// characters ("7_sabrina carpenter.2.0.1.4") but shallow: five components at
+// most. Depth, not the character set, is the limit worth enforcing.
+const MAX_ALBUM_ID_PATH_COMPONENTS = 8;
+// Mirrors Fastify's own maxParamLength default, which already answers 414 for
+// anything longer over HTTP — this keeps the same ceiling on the value itself.
+const MAX_ALBUM_ID_LENGTH = 100;
+
 const TidalAlbumTracksParamsSchema = z.object({
-  albumId: z.string().trim().min(1, "Album ID is required"),
+  albumId: z
+    .string()
+    .trim()
+    .min(1, "Album ID is required")
+    .max(MAX_ALBUM_ID_LENGTH, "Album ID is too long")
+    .refine(
+      (value) => value.split(".").length <= MAX_ALBUM_ID_PATH_COMPONENTS,
+      { error: "Album ID has too many path components" },
+    ),
 });
 
 const TidalAlbumsQuerySchema = z.object({
