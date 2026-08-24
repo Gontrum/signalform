@@ -2,10 +2,9 @@
  * searchApi — `tags` on the full-results response.
  *
  * Sibling of searchApi.test.ts (see AGENTS.md "Testing", 20 KB rule) —
- * covers only the new `tags` field on `fetchFullResults`. `tags` is
- * non-optional like `tracks`/`albums`/`artists`: an older backend that omits
- * it fails parsing rather than degrading silently, the same way a backend
- * missing `albums` already does.
+ * covers only the `tags` field on `fetchFullResults`. `tags` is a secondary
+ * field: a backend that omits it must not take tracks, albums and artists
+ * down with it.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
@@ -71,24 +70,65 @@ describe('fetchFullResults — tags', () => {
     }
   })
 
-  it('returns PARSE_ERROR when an older backend response omits tags entirely', async () => {
+  it('degrades to an empty tags list when the response omits tags, keeping all other results', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        tracks: [],
-        albums: [],
-        artists: [],
+        tracks: [
+          {
+            id: 'track-1',
+            title: 'Cloudbusting',
+            artist: 'Kate Bush',
+            album: 'Hounds of Love',
+            duration: 341,
+            url: 'file:///music/cloudbusting.flac',
+            source: 'local',
+          },
+        ],
+        albums: [
+          {
+            id: 'album-1',
+            albumId: '4711',
+            title: 'Hounds of Love',
+            artist: 'Kate Bush',
+            trackCount: 12,
+          },
+        ],
+        artists: [{ name: 'Kate Bush', artistId: 'artist-1' }],
         // tags intentionally omitted — pre-upgrade backend shape
-        query: 'test',
-        totalResults: 0,
+        query: 'kate bush',
+        totalResults: 3,
       }),
     })
 
-    const result = await fetchFullResults('test')
+    const result = await fetchFullResults('kate bush')
 
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error.type).toBe('PARSE_ERROR')
+    expect(result.ok).toBe(true)
+    if (result.ok) {
+      expect(result.value.tags).toEqual([])
+      expect(result.value.tracks).toEqual([
+        {
+          id: 'track-1',
+          title: 'Cloudbusting',
+          artist: 'Kate Bush',
+          album: 'Hounds of Love',
+          duration: 341,
+          url: 'file:///music/cloudbusting.flac',
+          source: 'local',
+        },
+      ])
+      expect(result.value.albums).toEqual([
+        {
+          id: 'album-1',
+          albumId: '4711',
+          title: 'Hounds of Love',
+          artist: 'Kate Bush',
+          trackCount: 12,
+        },
+      ])
+      expect(result.value.artists).toEqual([{ name: 'Kate Bush', artistId: 'artist-1' }])
+      expect(result.value.query).toBe('kate bush')
+      expect(result.value.totalResults).toBe(3)
     }
   })
 })

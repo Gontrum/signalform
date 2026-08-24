@@ -93,7 +93,10 @@ const SearchResultsResponseSchema = z.object({
   tracks: z.array(TrackResultSchema),
   albums: z.array(AlbumResultSchema),
   artists: z.array(ArtistResultSchema),
-  tags: z.array(TagSearchMatchSchema),
+  // Tolerate a backend that predates this field (rollback + cached frontend
+  // bundle): a missing list degrades to no tag matches instead of failing the
+  // parse and discarding tracks, albums and artists along with it.
+  tags: z.array(TagSearchMatchSchema).optional().default([]),
   query: z.string(),
   totalResults: z.number(),
   tidalAvailable: z.boolean().optional(),
