@@ -13,6 +13,9 @@ const MaskedConfigSchema = z.object({
   // bundle): a missing flag degrades to `false` instead of failing the parse.
   hasLastFmSharedSecret: z.boolean().optional().default(false),
   hasFanartKey: z.boolean(),
+  // Tolerate a backend that predates this field (rollback + cached frontend
+  // bundle): a missing flag degrades to `false` instead of failing the parse.
+  hasDiscogsToken: z.boolean().optional().default(false),
   isConfigured: z.boolean(),
   configuredAt: z.string().optional(),
   language: z.enum(['en', 'de']),

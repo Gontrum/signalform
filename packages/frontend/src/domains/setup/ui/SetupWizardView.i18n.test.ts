@@ -87,6 +87,7 @@ describe('SetupWizardView — player and completion text in both languages', () 
         hasLastFmKey: false,
         hasLastFmSharedSecret: false,
         hasFanartKey: false,
+        hasDiscogsToken: false,
         isConfigured: true,
         language: 'en',
       },

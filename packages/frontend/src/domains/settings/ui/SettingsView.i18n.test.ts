@@ -1,7 +1,7 @@
 /**
- * Settings — the API key section heading and its three field labels.
- * "Last.fm", "Fanart.tv" and "API" are names and stay put; only the German
- * compound around them changes.
+ * Settings — the API key section heading and its four field labels.
+ * "Last.fm", "Fanart.tv", "Discogs" and "API" are names and stay put; only
+ * the German compound around them changes.
  *
  * Own file because SettingsView.test.ts is already 38 KB. Mirrors
  * SettingsView.userNameLayout.test.ts's mocking approach.
@@ -37,6 +37,7 @@ vi.mock('@/platform/api/configApi', async () => {
     hasLastFmKey: false,
     hasLastFmSharedSecret: false,
     hasFanartKey: false,
+    hasDiscogsToken: false,
     isConfigured: true,
     configuredAt: '2024-01-01T00:00:00Z',
     personalRadioEnabled: false,
@@ -85,6 +86,8 @@ const apiKeyTexts = (
   readonly lastFmKey: string
   readonly lastFmSecret: string
   readonly fanartKey: string
+  readonly discogsToken: string
+  readonly discogsHint: string
 } => ({
   heading: wrapper
     .findAll('h2')
@@ -93,6 +96,8 @@ const apiKeyTexts = (
   lastFmKey: wrapper.find('label[for="lastfm-key"]').text(),
   lastFmSecret: wrapper.find('label[for="lastfm-secret"]').text(),
   fanartKey: wrapper.find('label[for="fanart-key"]').text(),
+  discogsToken: wrapper.find('label[for="discogs-token"]').text(),
+  discogsHint: wrapper.find('label[for="discogs-token"] ~ p').text(),
 })
 
 describe('SettingsView — API key section labels', () => {
@@ -107,6 +112,8 @@ describe('SettingsView — API key section labels', () => {
       lastFmKey: 'Last.fm API Key',
       lastFmSecret: 'Last.fm Shared Secret',
       fanartKey: 'Fanart.tv API Key',
+      discogsToken: 'Discogs Token',
+      discogsHint: 'Optional. Increases the rate limit for tag imports.',
     })
   })
 
@@ -116,6 +123,8 @@ describe('SettingsView — API key section labels', () => {
       lastFmKey: 'Last.fm-API-Schlüssel',
       lastFmSecret: 'Last.fm-Shared-Secret',
       fanartKey: 'Fanart.tv-API-Schlüssel',
+      discogsToken: 'Discogs-Token',
+      discogsHint: 'Optional. Erhöht das Rate-Limit beim Tag-Import.',
     })
   })
 })
@@ -126,10 +135,12 @@ const placeholders = (
   readonly lastFmKey: string | undefined
   readonly lastFmSecret: string | undefined
   readonly fanartKey: string | undefined
+  readonly discogsToken: string | undefined
 } => ({
   lastFmKey: wrapper.find('[data-testid="lastfm-key-input"]').attributes('placeholder'),
   lastFmSecret: wrapper.find('[data-testid="lastfm-secret-input"]').attributes('placeholder'),
   fanartKey: wrapper.find('[data-testid="fanart-key-input"]').attributes('placeholder'),
+  discogsToken: wrapper.find('[data-testid="discogs-token-input"]').attributes('placeholder'),
 })
 
 // The empty-field placeholder is the only text in this section that no label
@@ -146,6 +157,7 @@ describe('SettingsView — the placeholder of an API key field', () => {
       lastFmKey: 'Optional — enables artist enrichment',
       lastFmSecret: 'Optional — enables artist enrichment',
       fanartKey: 'Optional — enables artist hero images',
+      discogsToken: 'Optional — raises the rate limit for tag imports',
     })
   })
 
@@ -154,6 +166,7 @@ describe('SettingsView — the placeholder of an API key field', () => {
       lastFmKey: 'Optional – aktiviert Künstlerinfos',
       lastFmSecret: 'Optional – aktiviert Künstlerinfos',
       fanartKey: 'Optional – aktiviert Künstlerbilder',
+      discogsToken: 'Optional – erhöht das Rate-Limit beim Tag-Import',
     })
   })
 })
@@ -162,6 +175,7 @@ const configuredBadges = (wrapper: VueWrapper): readonly string[] => [
   wrapper.find('[data-testid="lastfm-key-configured"]').text(),
   wrapper.find('[data-testid="lastfm-secret-configured"]').text(),
   wrapper.find('[data-testid="fanart-key-configured"]').text(),
+  wrapper.find('[data-testid="discogs-token-configured"]').text(),
 ]
 
 const switchTo = async (language: Language): Promise<void> => {
@@ -186,6 +200,7 @@ describe('SettingsView — the badge marking a stored API key', () => {
         hasLastFmKey: true,
         hasLastFmSharedSecret: true,
         hasFanartKey: true,
+        hasDiscogsToken: true,
         isConfigured: true,
         configuredAt: '2024-01-01T00:00:00Z',
         language: 'en',
@@ -197,13 +212,23 @@ describe('SettingsView — the badge marking a stored API key', () => {
   })
 
   // The check mark is a glyph, not a word: it survives the switch untouched.
-  it('marks all three fields in English and follows a later switch to German', async () => {
+  it('marks all four fields in English and follows a later switch to German', async () => {
     const wrapper = await mountView('en')
-    expect(configuredBadges(wrapper)).toEqual(['✓ configured', '✓ configured', '✓ configured'])
+    expect(configuredBadges(wrapper)).toEqual([
+      '✓ configured',
+      '✓ configured',
+      '✓ configured',
+      '✓ configured',
+    ])
 
     await switchTo('de')
 
-    expect(configuredBadges(wrapper)).toEqual(['✓ hinterlegt', '✓ hinterlegt', '✓ hinterlegt'])
+    expect(configuredBadges(wrapper)).toEqual([
+      '✓ hinterlegt',
+      '✓ hinterlegt',
+      '✓ hinterlegt',
+      '✓ hinterlegt',
+    ])
   })
 
   it('swaps the placeholder for the replace hint in both languages', async () => {
@@ -212,6 +237,7 @@ describe('SettingsView — the badge marking a stored API key', () => {
       lastFmKey: 'Enter new key to replace',
       lastFmSecret: 'Enter new key to replace',
       fanartKey: 'Enter new key to replace',
+      discogsToken: 'Enter new token to replace',
     })
 
     await switchTo('de')
@@ -220,6 +246,7 @@ describe('SettingsView — the badge marking a stored API key', () => {
       lastFmKey: 'Neuen Schlüssel eingeben, um zu ersetzen',
       lastFmSecret: 'Neuen Schlüssel eingeben, um zu ersetzen',
       fanartKey: 'Neuen Schlüssel eingeben, um zu ersetzen',
+      discogsToken: 'Neues Token eingeben, um zu ersetzen',
     })
   })
 })

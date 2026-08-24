@@ -27,6 +27,7 @@ export const createSettingsConfigUpdate = (input: {
   readonly lastFmApiKey: string
   readonly lastFmSharedSecret: string
   readonly fanartApiKey: string
+  readonly discogsToken: string
 }): ConfigUpdate => {
   // An empty (or whitespace-only) MAC input clears the stored value via `null`.
   const trimmedMacAddress = input.lmsMacAddress.trim()
@@ -40,5 +41,6 @@ export const createSettingsConfigUpdate = (input: {
     ...(input.lastFmApiKey ? { lastFmApiKey: input.lastFmApiKey } : {}),
     ...(input.lastFmSharedSecret ? { lastFmSharedSecret: input.lastFmSharedSecret } : {}),
     ...(input.fanartApiKey ? { fanartApiKey: input.fanartApiKey } : {}),
+    ...(input.discogsToken ? { discogsToken: input.discogsToken } : {}),
   }
 }

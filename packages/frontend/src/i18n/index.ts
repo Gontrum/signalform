@@ -23,6 +23,8 @@ export type MessageKey =
   | 'settings.apiKeyConfigured'
   | 'settings.fanartPlaceholderConfigured'
   | 'settings.fanartPlaceholderEmpty'
+  | 'settings.discogsPlaceholderConfigured'
+  | 'settings.discogsPlaceholderEmpty'
   | 'settings.hostLabel'
   | 'settings.portLabel'
   | 'settings.playerIdLabel'
@@ -197,6 +199,17 @@ export type MessageKey =
   | 'search.genreRadioPlaceholder'
   | 'search.genreRadioStart'
   | 'search.genreRadioSearching'
+  | 'search.tagsSection'
+  | 'search.tagAlbumCountOne'
+  | 'search.tagAlbumCountOther'
+  | 'tags.title'
+  | 'tags.loadMore'
+  | 'tags.emptyTitle'
+  | 'tags.emptyDescription'
+  | 'tags.errorDiscogs'
+  | 'tags.errorGeneric'
+  | 'tags.badgeLocal'
+  | 'tags.badgeTidal'
   | 'settings.lastFm'
   | 'settings.lastFmConnect'
   | 'settings.lastFmConnected'
@@ -278,6 +291,8 @@ export type MessageKey =
   | 'settings.lastfmKeyLabel'
   | 'settings.lastfmSecretLabel'
   | 'settings.fanartKeyLabel'
+  | 'settings.discogsTokenLabel'
+  | 'settings.discogsTokenHint'
   | 'setup.lastfmKeyLabel'
   | 'setup.lastfmKeyPlaceholder'
   | 'setup.fanartKeyLabel'
@@ -352,6 +367,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.apiKeyConfigured': 'configured',
     'settings.fanartPlaceholderConfigured': 'Enter new key to replace',
     'settings.fanartPlaceholderEmpty': 'Optional — enables artist hero images',
+    'settings.discogsPlaceholderConfigured': 'Enter new token to replace',
+    'settings.discogsPlaceholderEmpty': 'Optional — raises the rate limit for tag imports',
     'settings.hostLabel': 'LMS Host',
     'settings.portLabel': 'Port',
     'settings.playerIdLabel': 'Player ID',
@@ -529,6 +546,17 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.genreRadioPlaceholder': 'Type a genre (e.g. Jazz, Punk)…',
     'search.genreRadioStart': 'Start Radio',
     'search.genreRadioSearching': 'Searching…',
+    'search.tagsSection': 'Tags',
+    'search.tagAlbumCountOne': '{count} album',
+    'search.tagAlbumCountOther': '{count} albums',
+    'tags.title': 'Tag: {query}',
+    'tags.loadMore': 'Load more',
+    'tags.emptyTitle': 'No albums found',
+    'tags.emptyDescription': 'Discogs has no candidates for this tag.',
+    'tags.errorDiscogs': 'Discogs is unreachable — please try again.',
+    'tags.errorGeneric': 'This could not be loaded — please try again.',
+    'tags.badgeLocal': 'Local',
+    'tags.badgeTidal': 'Tidal',
     'settings.lastFm': 'Last.fm',
     'settings.lastFmConnect': 'Connect with Last.fm',
     'settings.lastFmConnected': 'Connected as {username}',
@@ -612,6 +640,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastfmKeyLabel': 'Last.fm API Key',
     'settings.lastfmSecretLabel': 'Last.fm Shared Secret',
     'settings.fanartKeyLabel': 'Fanart.tv API Key',
+    'settings.discogsTokenLabel': 'Discogs Token',
+    'settings.discogsTokenHint': 'Optional. Increases the rate limit for tag imports.',
     'setup.lastfmKeyLabel': 'Last.fm API key',
     'setup.lastfmKeyPlaceholder': 'Optional — enables artist enrichment',
     'setup.fanartKeyLabel': 'Fanart.tv API key',
@@ -685,6 +715,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.apiKeyConfigured': 'hinterlegt',
     'settings.fanartPlaceholderConfigured': 'Neuen Schlüssel eingeben, um zu ersetzen',
     'settings.fanartPlaceholderEmpty': 'Optional – aktiviert Künstlerbilder',
+    'settings.discogsPlaceholderConfigured': 'Neues Token eingeben, um zu ersetzen',
+    'settings.discogsPlaceholderEmpty': 'Optional – erhöht das Rate-Limit beim Tag-Import',
     'settings.hostLabel': 'LMS Host',
     'settings.portLabel': 'Port',
     'settings.playerIdLabel': 'Player ID',
@@ -865,6 +897,17 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.genreRadioPlaceholder': 'Genre eingeben (z. B. Jazz, Punk)…',
     'search.genreRadioStart': 'Radio starten',
     'search.genreRadioSearching': 'Suche läuft…',
+    'search.tagsSection': 'Tags',
+    'search.tagAlbumCountOne': '{count} Album',
+    'search.tagAlbumCountOther': '{count} Alben',
+    'tags.title': 'Tag: {query}',
+    'tags.loadMore': 'Mehr laden',
+    'tags.emptyTitle': 'Keine Alben gefunden',
+    'tags.emptyDescription': 'Discogs hat keine Kandidaten für diesen Tag.',
+    'tags.errorDiscogs': 'Discogs nicht erreichbar — bitte erneut versuchen.',
+    'tags.errorGeneric': 'Das konnte nicht geladen werden — bitte erneut versuchen.',
+    'tags.badgeLocal': 'Lokal',
+    'tags.badgeTidal': 'Tidal',
     'settings.lastFm': 'Last.fm',
     'settings.lastFmConnect': 'Mit Last.fm verbinden',
     'settings.lastFmConnected': 'Verbunden als {username}',
@@ -951,6 +994,8 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'settings.lastfmKeyLabel': 'Last.fm-API-Schlüssel',
     'settings.lastfmSecretLabel': 'Last.fm-Shared-Secret',
     'settings.fanartKeyLabel': 'Fanart.tv-API-Schlüssel',
+    'settings.discogsTokenLabel': 'Discogs-Token',
+    'settings.discogsTokenHint': 'Optional. Erhöht das Rate-Limit beim Tag-Import.',
     'setup.lastfmKeyLabel': 'Last.fm-API-Schlüssel',
     'setup.lastfmKeyPlaceholder': 'Optional — aktiviert Künstlerinfos',
     'setup.fanartKeyLabel': 'Fanart.tv-API-Schlüssel',

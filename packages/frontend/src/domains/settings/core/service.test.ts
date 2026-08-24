@@ -12,6 +12,7 @@ const makeInput = (
   lastFmApiKey: '',
   lastFmSharedSecret: '',
   fanartApiKey: '',
+  discogsToken: '',
   ...overrides,
 })
 
@@ -38,5 +39,17 @@ describe('createSettingsConfigUpdate', () => {
     const result = createSettingsConfigUpdate(makeInput({ lmsMacAddress: '  00:11:22:33:44:55  ' }))
 
     expect(result.lmsMacAddress).toBe('00:11:22:33:44:55')
+  })
+
+  it('sets discogsToken from the input when non-empty', () => {
+    const result = createSettingsConfigUpdate(makeInput({ discogsToken: 'abc123token' }))
+
+    expect(result.discogsToken).toBe('abc123token')
+  })
+
+  it('omits discogsToken from the result for an empty input', () => {
+    const result = createSettingsConfigUpdate(makeInput({ discogsToken: '' }))
+
+    expect('discogsToken' in result).toBe(false)
   })
 })

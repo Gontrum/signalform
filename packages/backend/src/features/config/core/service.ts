@@ -11,6 +11,7 @@ type ConfigUpdate = {
   readonly fanartApiKey?: string;
   readonly language?: AppConfig["language"];
   readonly lastFmSharedSecret?: string;
+  readonly discogsToken?: string;
   readonly personalRadioEnabled?: boolean;
   readonly scrobblingEnabled?: boolean;
   readonly personalRadioDiscovery?: number;
@@ -24,6 +25,7 @@ type PublicConfig = {
   readonly hasLastFmKey: boolean;
   readonly hasFanartKey: boolean;
   readonly hasLastFmSharedSecret: boolean;
+  readonly hasDiscogsToken: boolean;
   readonly isConfigured: boolean;
   readonly configuredAt: AppConfig["configuredAt"];
   readonly language: AppConfig["language"];
@@ -45,6 +47,8 @@ export const maskConfig = (config: AppConfig): PublicConfig => ({
   hasLastFmSharedSecret:
     config.lastFmSharedSecret !== undefined &&
     config.lastFmSharedSecret.trim().length > 0,
+  hasDiscogsToken:
+    config.discogsToken !== undefined && config.discogsToken.trim().length > 0,
   isConfigured: isConfigured(config),
   configuredAt: config.configuredAt,
   language: config.language,
@@ -89,6 +93,10 @@ export const mergeConfigUpdate = (
     updates.lastFmSharedSecret !== undefined
       ? updates.lastFmSharedSecret
       : existingConfig.lastFmSharedSecret,
+  discogsToken:
+    updates.discogsToken !== undefined
+      ? updates.discogsToken
+      : existingConfig.discogsToken,
   users: existingConfig.users,
   personalRadioEnabled:
     updates.personalRadioEnabled ?? existingConfig.personalRadioEnabled,

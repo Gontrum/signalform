@@ -37,10 +37,12 @@ type UseSettingsViewResult = {
   readonly lastFmApiKey: Ref<string>
   readonly lastFmSharedSecret: Ref<string>
   readonly fanartApiKey: Ref<string>
+  readonly discogsToken: Ref<string>
   readonly language: Ref<Language>
   readonly hasLastFmKey: Ref<boolean>
   readonly hasLastFmSharedSecret: Ref<boolean>
   readonly hasFanartKey: Ref<boolean>
+  readonly hasDiscogsToken: Ref<boolean>
   readonly discovering: Ref<boolean>
   readonly discoveredServers: Ref<readonly DiscoveredServer[]>
   readonly discoverError: Ref<string>
@@ -113,6 +115,7 @@ const applyLoadedConfig = (
     readonly hasLastFmKey: Ref<boolean>
     readonly hasLastFmSharedSecret: Ref<boolean>
     readonly hasFanartKey: Ref<boolean>
+    readonly hasDiscogsToken: Ref<boolean>
     readonly language: Ref<Language>
     readonly personalRadioEnabled: Ref<boolean>
     readonly scrobblingEnabled: Ref<boolean>
@@ -127,6 +130,7 @@ const applyLoadedConfig = (
   state.hasLastFmKey.value = config.hasLastFmKey
   state.hasLastFmSharedSecret.value = config.hasLastFmSharedSecret
   state.hasFanartKey.value = config.hasFanartKey
+  state.hasDiscogsToken.value = config.hasDiscogsToken
   state.language.value = resolvedLanguage
   state.personalRadioEnabled.value = config.personalRadioEnabled ?? false
   state.scrobblingEnabled.value = config.scrobblingEnabled ?? false
@@ -148,11 +152,13 @@ export const useSettingsView = (): UseSettingsViewResult => {
   const lastFmApiKey = ref('')
   const lastFmSharedSecret = ref('')
   const fanartApiKey = ref('')
+  const discogsToken = ref('')
   const language = ref<Language>('en')
 
   const hasLastFmKey = ref(false)
   const hasLastFmSharedSecret = ref(false)
   const hasFanartKey = ref(false)
+  const hasDiscogsToken = ref(false)
 
   const discovering = ref(false)
   const discoveredServers = ref<readonly DiscoveredServer[]>([])
@@ -220,6 +226,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
       hasLastFmKey,
       hasLastFmSharedSecret,
       hasFanartKey,
+      hasDiscogsToken,
       language,
       personalRadioEnabled,
       scrobblingEnabled,
@@ -309,6 +316,7 @@ export const useSettingsView = (): UseSettingsViewResult => {
         lastFmApiKey: lastFmApiKey.value,
         lastFmSharedSecret: lastFmSharedSecret.value,
         fanartApiKey: fanartApiKey.value,
+        discogsToken: discogsToken.value,
       }),
     )
 
@@ -323,10 +331,12 @@ export const useSettingsView = (): UseSettingsViewResult => {
     hasLastFmKey.value = result.value.hasLastFmKey
     hasLastFmSharedSecret.value = result.value.hasLastFmSharedSecret
     hasFanartKey.value = result.value.hasFanartKey
+    hasDiscogsToken.value = result.value.hasDiscogsToken
     i18nStore.setLanguage(language.value)
     lastFmApiKey.value = ''
     lastFmSharedSecret.value = ''
     fanartApiKey.value = ''
+    discogsToken.value = ''
   }
 
   const runSetupWizard = (): void => {
@@ -457,10 +467,12 @@ export const useSettingsView = (): UseSettingsViewResult => {
     lastFmApiKey,
     lastFmSharedSecret,
     fanartApiKey,
+    discogsToken,
     language,
     hasLastFmKey,
     hasLastFmSharedSecret,
     hasFanartKey,
+    hasDiscogsToken,
     discovering,
     discoveredServers,
     discoverError,

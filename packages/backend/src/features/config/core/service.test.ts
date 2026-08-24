@@ -92,6 +92,32 @@ describe("maskConfig", () => {
     expect(result.hasLastFmSharedSecret).toBe(false);
   });
 
+  it("reports hasDiscogsToken true without leaking the token value", () => {
+    const result = maskConfig({
+      ...makeConfig(),
+      discogsToken: "discogs-token-value",
+    });
+
+    expect(result.hasDiscogsToken).toBe(true);
+    expect("discogsToken" in result).toBe(false);
+    expect(JSON.stringify(result)).not.toContain("discogs-token-value");
+  });
+
+  it("reports hasDiscogsToken false when the token is unset", () => {
+    const result = maskConfig(makeConfig());
+
+    expect(result.hasDiscogsToken).toBe(false);
+  });
+
+  it("reports hasDiscogsToken false when the token is whitespace-only", () => {
+    const result = maskConfig({
+      ...makeConfig(),
+      discogsToken: "   ",
+    });
+
+    expect(result.hasDiscogsToken).toBe(false);
+  });
+
   it("does NOT expose lastFmSharedSecret or per-user fields", () => {
     const result = maskConfig({
       ...makeConfig(),
@@ -195,6 +221,47 @@ describe("mergeConfigUpdate", () => {
     const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
 
     expect(result.lastFmSharedSecret).toBe("existing-secret");
+  });
+
+  it("sets discogsToken", () => {
+    const result = mergeConfigUpdate(makeConfig(), {
+      discogsToken: "new-token",
+    });
+
+    expect(result.discogsToken).toBe("new-token");
+  });
+
+  it("overwrites an existing discogsToken", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      discogsToken: "old-token",
+    };
+
+    const result = mergeConfigUpdate(existing, { discogsToken: "new-token" });
+
+    expect(result.discogsToken).toBe("new-token");
+  });
+
+  it("clears discogsToken with an empty string", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      discogsToken: "old-token",
+    };
+
+    const result = mergeConfigUpdate(existing, { discogsToken: "" });
+
+    expect(result.discogsToken).toBe("");
+  });
+
+  it("preserves existing discogsToken when not in update", () => {
+    const existing: AppConfig = {
+      ...makeConfig(),
+      discogsToken: "existing-token",
+    };
+
+    const result = mergeConfigUpdate(existing, { lmsHost: "10.0.0.1" });
+
+    expect(result.discogsToken).toBe("existing-token");
   });
 
   it("sets lmsMacAddress", () => {

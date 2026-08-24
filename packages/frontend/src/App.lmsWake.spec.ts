@@ -55,6 +55,7 @@ vi.mock('@/platform/api/configApi', () => ({
       playerId: 'aa:bb:cc:dd:ee:ff',
       hasLastFmKey: true,
       hasFanartKey: false,
+      hasDiscogsToken: false,
       isConfigured: true,
       configuredAt: '2026-04-03T00:00:00.000Z',
     }),

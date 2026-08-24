@@ -13,10 +13,12 @@ const {
   lastFmApiKey,
   lastFmSharedSecret,
   fanartApiKey,
+  discogsToken,
   language,
   hasLastFmKey,
   hasLastFmSharedSecret,
   hasFanartKey,
+  hasDiscogsToken,
   discovering,
   discoveredServers,
   discoverError,
@@ -389,6 +391,31 @@ const handleDisconnectLastFm = (userId: string): void => {
                 "
                 class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               />
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-xs font-medium text-neutral-700" for="discogs-token">
+                {{ t('settings.discogsTokenLabel') }}
+                <span
+                  v-if="hasDiscogsToken"
+                  data-testid="discogs-token-configured"
+                  class="ml-1 text-success"
+                  >✓ {{ t('settings.apiKeyConfigured') }}</span
+                >
+              </label>
+              <input
+                id="discogs-token"
+                v-model="discogsToken"
+                type="password"
+                data-testid="discogs-token-input"
+                :placeholder="
+                  hasDiscogsToken
+                    ? t('settings.discogsPlaceholderConfigured')
+                    : t('settings.discogsPlaceholderEmpty')
+                "
+                class="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+              />
+              <p class="mt-1 text-xs text-neutral-500">{{ t('settings.discogsTokenHint') }}</p>
             </div>
           </div>
         </section>

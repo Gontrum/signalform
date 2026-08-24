@@ -358,6 +358,130 @@ describe("PUT /api/config", () => {
   });
 });
 
+describe("PUT /api/config discogsToken", () => {
+  const withPersistedConfig = async (
+    initial: AppConfig,
+  ): Promise<MockedConfigModule> => {
+    const configModule = await getConfigModule();
+    let stored: AppConfig = initial;
+
+    configModule.loadConfig.mockImplementation(() => ({
+      ok: true,
+      value: stored,
+    }));
+    configModule.saveConfig.mockImplementation((config: AppConfig) => {
+      stored = config;
+      return { ok: true, value: undefined };
+    });
+
+    return configModule;
+  };
+
+  beforeEach((): void => {
+    vi.clearAllMocks();
+  });
+
+  afterEach((): void => {
+    vi.restoreAllMocks();
+  });
+
+  it("stores a discogsToken and reports it as present without echoing its value", async () => {
+    const configModule = await withPersistedConfig(makeConfig());
+
+    const server = makeServer();
+    const putResponse = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { discogsToken: "super-secret-discogs-token" },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+    expect(putResponse.body).not.toContain("super-secret-discogs-token");
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({ discogsToken: "super-secret-discogs-token" }),
+    );
+
+    const getResponse = await server.inject({
+      method: "GET",
+      url: "/api/config",
+    });
+
+    expect(getResponse.statusCode).toBe(200);
+    expect(readJsonRecord(getResponse.body)["hasDiscogsToken"]).toBe(true);
+    expect(getResponse.body).not.toContain("super-secret-discogs-token");
+  });
+
+  it("clears the discogsToken when an empty string is sent", async () => {
+    await withPersistedConfig({
+      ...makeConfig(),
+      discogsToken: "super-secret-discogs-token",
+    });
+
+    const server = makeServer();
+    const putResponse = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { discogsToken: "" },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+
+    const getResponse = await server.inject({
+      method: "GET",
+      url: "/api/config",
+    });
+
+    expect(readJsonRecord(getResponse.body)["hasDiscogsToken"]).toBe(false);
+  });
+
+  it("keeps an existing discogsToken when the field is absent from the update", async () => {
+    const configModule = await withPersistedConfig({
+      ...makeConfig(),
+      discogsToken: "super-secret-discogs-token",
+    });
+
+    const server = makeServer();
+    const putResponse = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { language: "de" },
+    });
+
+    expect(putResponse.statusCode).toBe(200);
+    expect(configModule.saveConfig).toHaveBeenCalledWith(
+      expect.objectContaining({
+        discogsToken: "super-secret-discogs-token",
+        language: "de",
+      }),
+    );
+
+    const getResponse = await server.inject({
+      method: "GET",
+      url: "/api/config",
+    });
+
+    expect(readJsonRecord(getResponse.body)["hasDiscogsToken"]).toBe(true);
+  });
+
+  it("rejects a non-string discogsToken", async () => {
+    const configModule = await withPersistedConfig({
+      ...makeConfig(),
+      discogsToken: "super-secret-discogs-token",
+    });
+
+    const server = makeServer();
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/config",
+      payload: { discogsToken: 12345 },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(readJsonRecord(response.body)["code"]).toBe("VALIDATION_ERROR");
+    expect(configModule.saveConfig).not.toHaveBeenCalled();
+  });
+});
+
 describe("config core helpers", () => {
   it("masks secrets and preserves status fields", () => {
     const masked = maskConfig(makeConfig());

@@ -5,6 +5,7 @@ export type ConfigUpdate = {
   readonly playerId?: string
   readonly lastFmApiKey?: string
   readonly fanartApiKey?: string
+  readonly discogsToken?: string
   readonly language?: 'en' | 'de'
   readonly lastFmSharedSecret?: string
   readonly personalRadioEnabled?: boolean
