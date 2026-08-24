@@ -5,6 +5,35 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-24
+
+### Added
+
+- find albums by how they were made, not just by who made them. Typing
+  `tag:qsound` into the search asks Discogs which albums carry that tag and
+  offers it as its own result category; opening it lists those albums together
+  with where each one can actually be played. Only albums you can play are
+  listed — a tag page full of records you own nowhere is a catalogue, not a
+  music player — and every card opens its album page, local or Tidal
+- an optional Discogs token in the settings. Anonymous callers get a lower rate
+  limit and no cover images, so tag pages are noticeably better with one
+
+### Fixed
+
+- Tidal results no longer come and go at random. The search gave up after 450 ms
+  against a real median of 536 ms, so roughly six of every ten multi-word
+  searches quietly decided Tidal was unavailable and showed local hits only
+- searching for an album whose title contains a full stop — "Vol. 1",
+  "Good Night E.P." — no longer takes the music server down with it. The title
+  was pasted into a menu path where a dot separates levels, so the search walked
+  off into an unrelated corner of the Tidal catalogue and pulled thousands of
+  entries until the server ran out of memory and was killed
+- a broad Tidal search no longer fires one metadata request per hit all at once,
+  up to several hundred against a server that handles one at a time
+- a search answer that arrives without the new tag field no longer wipes out the
+  whole result list. A secondary field could take down tracks, albums and
+  artists with it, which is what happens to a cached page after a rollback
+
 ## [1.0.1] - 2026-08-14
 
 ### Fixed
