@@ -8,6 +8,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import { err, fromThrowable, ok, type Result } from "@signalform/shared";
+import {
+  isJsonRecord,
+  parseJsonObject,
+  readNonEmptyString,
+  readPositiveNumber,
+  writeFileAtomic,
+  type JsonRecord,
+} from "../jsonFileStore.js";
 
 export type Language = "en" | "de";
 
@@ -28,6 +36,7 @@ export type AppConfig = {
   readonly language: Language;
   readonly configuredAt?: string;
   readonly lastFmSharedSecret?: string;
+  readonly discogsToken?: string;
   readonly users: readonly UserProfile[];
   readonly personalRadioEnabled: boolean;
   readonly scrobblingEnabled: boolean;
@@ -41,11 +50,6 @@ export type ConfigError =
   | { readonly type: "VALIDATION_ERROR"; readonly message: string };
 
 const DEFAULT_CONFIG_PATH = path.join(process.cwd(), "config.json");
-
-type JsonRecord = { readonly [key: string]: unknown };
-
-const isJsonRecord = (value: unknown): value is JsonRecord =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const getEnvLanguage = (): Language => {
   const env = process.env["APP_LANGUAGE"]?.toLowerCase();
@@ -66,45 +70,12 @@ const getEnvDefaults = (): AppConfig => ({
 });
 
 const parseJsonRecord = (raw: string): Result<JsonRecord, ConfigError> => {
-  const parsedResult = fromThrowable(
-    () => JSON.parse(raw) as unknown,
-    () =>
-      ({
-        type: "PARSE_ERROR",
-        message: "config.json contains invalid JSON",
-      }) satisfies ConfigError,
-  );
-
+  const parsedResult = parseJsonObject(raw, "config.json");
   if (!parsedResult.ok) {
-    return parsedResult;
-  }
-
-  if (!isJsonRecord(parsedResult.value)) {
-    return err({
-      type: "PARSE_ERROR",
-      message: "config.json must be a JSON object",
-    });
+    return err({ type: "PARSE_ERROR", message: parsedResult.error });
   }
 
   return ok(parsedResult.value);
-};
-
-const readNonEmptyString = (
-  record: JsonRecord,
-  key: string,
-): string | undefined => {
-  const value = record[key];
-  return typeof value === "string" && value.trim().length > 0
-    ? value
-    : undefined;
-};
-
-const readPositiveNumber = (
-  record: JsonRecord,
-  key: string,
-): number | undefined => {
-  const value = record[key];
-  return typeof value === "number" && value > 0 ? value : undefined;
 };
 
 const readOptionalString = (
@@ -204,6 +175,7 @@ const toConfig = (record: JsonRecord, envDefaults: AppConfig): AppConfig => ({
   language: readLanguage(record) ?? envDefaults.language,
   configuredAt: readOptionalString(record, "configuredAt"),
   lastFmSharedSecret: readNonEmptyString(record, "lastFmSharedSecret"),
+  discogsToken: readNonEmptyString(record, "discogsToken"),
   users: readUsers(record),
   personalRadioEnabled: readBoolean(record, "personalRadioEnabled", false),
   scrobblingEnabled: readBoolean(record, "scrobblingEnabled", false),
@@ -286,36 +258,9 @@ export const saveConfig = (
     configuredAt: new Date().toISOString(),
   };
   const json = JSON.stringify(configWithTimestamp, null, 2);
-  const dir = path.dirname(configPath);
-  const tmpPath = path.join(
-    dir,
-    `.signalform-config-${Date.now()}-${process.pid}.json`,
-  );
-
-  const writeResult = fromThrowable(
-    () => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      fs.writeFileSync(tmpPath, json, "utf-8");
-      fs.renameSync(tmpPath, configPath);
-    },
-    (error): ConfigError => ({
-      type: "WRITE_ERROR",
-      message: error instanceof Error ? error.message : String(error),
-    }),
-  );
-
+  const writeResult = writeFileAtomic(configPath, json, ".signalform-config");
   if (!writeResult.ok) {
-    if (fs.existsSync(tmpPath)) {
-      void fromThrowable(
-        () => fs.unlinkSync(tmpPath),
-        () => undefined,
-      );
-    }
-
-    return writeResult;
+    return err({ type: "WRITE_ERROR", message: writeResult.error });
   }
 
   return ok(undefined);
