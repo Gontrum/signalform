@@ -13,6 +13,7 @@ import type {
   LmsGenreRaw,
   RescanProgress,
 } from "../../../adapters/lms-client/index.js";
+import { clearLocalAlbumsCache } from "../../album-tags/shell/local-albums.js";
 import {
   buildLibraryAlbumsResponse,
   mapLibraryLmsError,
@@ -118,11 +119,14 @@ const GENRE_WARMUP_CACHE_KEY = "genre-counts";
 
 /**
  * Clears every cached library entry — albums, artists, years, per-year counts,
- * genres and genre counts.
+ * genres and genre counts — plus the album-tags feature's full album list,
+ * which is derived from the same library data and would otherwise keep
+ * reporting pre-scan availability for its own TTL.
  * @internal Exposed for test isolation; production code invalidates through
  * the rescan functions below.
  */
 export const clearLibraryCache = (): void => {
+  clearLocalAlbumsCache();
   albumCache.clear();
   artistCache.clear();
   yearsCache.clear();

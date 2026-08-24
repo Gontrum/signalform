@@ -121,7 +121,17 @@ export type ArtistResult = {
 };
 
 /**
- * Full search results response with tracks, albums, and artists.
+ * Tag result for search — matches album tag names (e.g. "QSound") against the query.
+ * query is the raw tag search text, passed on to the album-listing route.
+ */
+export type TagSearchMatch = {
+  readonly query: string;
+  readonly displayName: string;
+  readonly albumCount: number;
+};
+
+/**
+ * Full search results response with tracks, albums, artists, and tags.
  * Tracks are deduplicated across sources.
  * Artists are extracted from deduplicated tracks.
  */
@@ -129,6 +139,7 @@ export type SearchResultsResponse = {
   readonly tracks: readonly DeduplicatedTrackResult[];
   readonly albums: readonly AlbumResult[];
   readonly artists: readonly ArtistResult[];
+  readonly tags: readonly TagSearchMatch[];
   readonly query: string;
   readonly totalResults: number;
 };

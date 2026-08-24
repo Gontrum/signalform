@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18nStore } from '@/app/i18nStore'
+import type { MessageKey } from '@/i18n'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import PageHeader from '@/ui/PageHeader.vue'
@@ -10,7 +11,7 @@ import { useAlbumDetailView } from '../shell/useAlbumDetailView'
 
 const i18n = useI18nStore()
 
-const t = (key: import('@/i18n').MessageKey): string => i18n.t(key)
+const t = (key: MessageKey): string => i18n.t(key)
 
 // Read per call like `t`: the language lands after setup, and the host default
 // would otherwise group 1,234,567 into an otherwise German page.

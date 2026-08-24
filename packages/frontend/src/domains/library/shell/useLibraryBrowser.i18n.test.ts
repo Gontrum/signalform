@@ -39,6 +39,7 @@ vi.mock('@/platform/api/tidalAlbumsApi', () => ({
 }))
 
 vi.mock('vue-router', () => ({
+  useRoute: (): { readonly query: Record<string, string> } => ({ query: {} }),
   useRouter: (): { readonly push: ReturnType<typeof vi.fn> } => ({ push: vi.fn() }),
 }))
 

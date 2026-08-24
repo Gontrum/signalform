@@ -15,6 +15,7 @@ import type {
   SearchResponse,
   SearchResult,
   SearchResultsResponse,
+  TagSearchMatch,
   TrackResult,
 } from '@/domains/search/core/types'
 
@@ -82,10 +83,17 @@ const ArtistResultSchema = z.object({
   coverArtUrl: z.string().optional(),
 })
 
+const TagSearchMatchSchema = z.object({
+  query: z.string(),
+  displayName: z.string(),
+  albumCount: z.number(),
+})
+
 const SearchResultsResponseSchema = z.object({
   tracks: z.array(TrackResultSchema),
   albums: z.array(AlbumResultSchema),
   artists: z.array(ArtistResultSchema),
+  tags: z.array(TagSearchMatchSchema),
   query: z.string(),
   totalResults: z.number(),
   tidalAvailable: z.boolean().optional(),
@@ -234,5 +242,6 @@ export type {
   SearchResponse,
   SearchResult,
   SearchResultsResponse,
+  TagSearchMatch,
   TrackResult,
 }

@@ -13,6 +13,7 @@ import { setupTestEnv, createTestRouter } from '@/test-utils'
 import type { Router } from 'vue-router'
 import type { Language } from '@/types/i18n'
 import type { AlbumResult, ArtistResult, TrackResult } from '../core/types'
+import type { TagSearchMatch } from '@/platform/api/searchApi'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { useI18nStore } from '@/app/i18nStore'
 
@@ -79,13 +80,19 @@ const mountResults = async (
     readonly results?: readonly TrackResult[]
     readonly albums?: readonly AlbumResult[]
     readonly artists?: readonly ArtistResult[]
+    readonly tags?: readonly TagSearchMatch[]
   } = {},
 ): Promise<VueWrapper> => {
   const i18nStore = setupTestEnv()
   i18nStore.setLanguage(language)
 
   const wrapper = mount(SearchResultsList, {
-    props: { results: props.results ?? [], albums: props.albums, artists: props.artists },
+    props: {
+      results: props.results ?? [],
+      albums: props.albums,
+      artists: props.artists,
+      tags: props.tags,
+    },
     global: { plugins: [await createRouter()] },
   })
   await nextTick()
@@ -420,5 +427,40 @@ describe('SearchResultsList — the spoken playback announcement', () => {
     })
 
     expect(announcementOf(wrapper)).toBe('Error: Could not start playback')
+  })
+})
+
+const tags: readonly TagSearchMatch[] = [
+  { query: 'qsound', displayName: 'QSound', albumCount: 1 },
+  { query: 'hi-res-audio', displayName: 'Hi-Res Audio', albumCount: 3 },
+]
+
+describe('SearchResultsList — translated Tags section', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('names the Tags section heading in both languages', async () => {
+    const english = await mountResults('en', { tags })
+    expect(english.find('[data-testid="tag-results"] h2').text()).toBe('Tags')
+
+    const german = await mountResults('de', { tags })
+    expect(german.find('[data-testid="tag-results"] h2').text()).toBe('Tags')
+  })
+
+  it('shows the singular album count in English and German', async () => {
+    const english = await mountResults('en', { tags })
+    expect(english.findAll('[data-testid="tag-result-count"]')[0]?.text()).toBe('1 album')
+
+    const german = await mountResults('de', { tags })
+    expect(german.findAll('[data-testid="tag-result-count"]')[0]?.text()).toBe('1 Album')
+  })
+
+  it('shows the plural album count in English and German', async () => {
+    const english = await mountResults('en', { tags })
+    expect(english.findAll('[data-testid="tag-result-count"]')[1]?.text()).toBe('3 albums')
+
+    const german = await mountResults('de', { tags })
+    expect(german.findAll('[data-testid="tag-result-count"]')[1]?.text()).toBe('3 Alben')
   })
 })

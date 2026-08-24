@@ -69,6 +69,13 @@ const router = createRouter({
       meta: { depth: 1 },
     },
     {
+      path: '/tags',
+      name: 'tag-albums',
+      component: (): Promise<typeof import('../domains/tags/ui/TagAlbumsView.vue')> =>
+        import('../domains/tags/ui/TagAlbumsView.vue'),
+      meta: { depth: 2 },
+    },
+    {
       path: '/now-playing',
       name: 'now-playing',
       component: (): Promise<typeof import('../domains/playback/ui/NowPlayingView.vue')> =>

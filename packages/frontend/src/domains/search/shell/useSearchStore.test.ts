@@ -246,6 +246,7 @@ describe('searchStore', () => {
         albums: [],
         artists: [],
         query: 'test',
+        tags: [],
         totalResults: 0,
         tidalAvailable,
       }),

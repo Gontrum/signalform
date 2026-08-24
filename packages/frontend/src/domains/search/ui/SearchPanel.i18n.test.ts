@@ -108,6 +108,7 @@ const config: MaskedConfig = {
   hasLastFmKey: false,
   hasLastFmSharedSecret: false,
   hasFanartKey: false,
+  hasDiscogsToken: false,
   isConfigured: true,
   language: 'en',
   personalRadioEnabled: false,

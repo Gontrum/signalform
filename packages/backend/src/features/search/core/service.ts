@@ -585,6 +585,8 @@ export const transformToFullResults = (
     tracks,
     albums,
     artists: extractUniqueArtists(tracks),
+    // Tag matching needs Discogs (I/O) — wired in the shell, not here.
+    tags: [],
     query: trimmedQuery,
     totalResults: tracks.length,
   });

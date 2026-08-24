@@ -39,6 +39,7 @@ describe('shouldShowTidalWarning', () => {
     tracks: [],
     albums: [],
     artists: [],
+    tags: [],
     query: 'test',
     totalResults: 0,
     tidalAvailable,

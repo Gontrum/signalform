@@ -53,9 +53,17 @@ const LibraryAlbumSchema = z.object({
   coverArtUrl: z.string(),
 })
 
-const LibraryAlbumsResponseSchema = z.object({
+export const LibraryAlbumsResponseSchema = z.object({
   albums: z.array(LibraryAlbumSchema),
   hasMore: z.boolean(),
+})
+
+export const proxyAlbumsCoverArt = (value: LibraryAlbumsResponse): LibraryAlbumsResponse => ({
+  ...value,
+  albums: value.albums.map((album) => ({
+    ...album,
+    coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
+  })),
 })
 
 const LibraryArtistSchema = z.object({
@@ -124,13 +132,7 @@ export const getLibraryAlbums = async (
     },
     {
       schema: LibraryAlbumsResponseSchema,
-      mapValue: (value: LibraryAlbumsResponse): LibraryAlbumsResponse => ({
-        ...value,
-        albums: value.albums.map((album) => ({
-          ...album,
-          coverArtUrl: proxyCoverArtUrl(album.coverArtUrl),
-        })),
-      }),
+      mapValue: proxyAlbumsCoverArt,
       mapHttpError: async (response) => ({
         type: 'SERVER_ERROR',
         status: response.status,

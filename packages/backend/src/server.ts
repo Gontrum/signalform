@@ -16,6 +16,7 @@ import { createGenreRadioRoute } from "./features/genre-radio/index.js";
 import { createPersonalRadioRoute } from "./features/personal-radio/index.js";
 import { createLovedRadioRoute } from "./features/loved-radio/index.js";
 import { createTagSearchRoute } from "./features/tag-search/index.js";
+import { createAlbumTagsRoute } from "./features/album-tags/index.js";
 import { createQueueRoute } from "./features/queue/index.js";
 import {
   setupWebSocket,
@@ -24,6 +25,7 @@ import {
 import { createRadioEngine } from "./features/radio-mode/index.js";
 import { createEnrichmentRoute } from "./features/enrichment/index.js";
 import { createFanartClient } from "./adapters/fanart-client/index.js";
+import { createDiscogsClient } from "./adapters/discogs-client/index.js";
 import { createSetupRoute } from "./features/setup/index.js";
 import { createConfigRoute } from "./features/config/index.js";
 import { createLastFmAuthRoute } from "./features/lastfm-auth/index.js";
@@ -96,6 +98,7 @@ const createLmsProxy = (): LmsClient => {
       (client) => client.getTidalArtistAlbums,
     ),
     searchTidalArtists: forwardLmsCall((client) => client.searchTidalArtists),
+    searchTidalAlbums: forwardLmsCall((client) => client.searchTidalAlbums),
     getTidalFeaturedAlbums: forwardLmsCall(
       (client) => client.getTidalFeaturedAlbums,
     ),
@@ -265,6 +268,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
     },
   );
   const fanartClient = createFanartClient(appConfig.fanartApiKey);
+  const discogsClient = createDiscogsClient(appConfig.discogsToken);
   warnForMissingOptionalApiKeys(logger, appConfig);
 
   const lmsProxy = createLmsProxy();
@@ -304,7 +308,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
   );
 
   createHealthRoute(server, lmsProxy, lastFmClient);
-  createSearchRoute(server, lmsProxy);
+  createSearchRoute(server, lmsProxy, discogsClient);
   createMetadataRoute(server, lmsProxy, lmsConfigProxy, lastFmClient);
   createEnrichmentRoute(
     server,
@@ -321,6 +325,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createPersonalRadioRoute(server, lmsProxy, lastFmClient);
   createLovedRadioRoute(server, lmsProxy, lastFmClient);
   createTagSearchRoute(server, lastFmClient);
+  createAlbumTagsRoute(server, lmsProxy, discogsClient, lmsConfigProxy);
   createPlaybackRoute(server, lmsProxy, lmsConfigProxy, io, appConfig.playerId);
   createQueueRoute(server, lmsProxy, io, appConfig.playerId, {
     handleRemoval: async ({ removedTrack }) =>

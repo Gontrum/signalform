@@ -79,10 +79,17 @@ export type ArtistResult = {
   readonly coverArtUrl?: string
 }
 
+export type TagSearchMatch = {
+  readonly query: string
+  readonly displayName: string
+  readonly albumCount: number
+}
+
 export type SearchResultsResponse = {
   readonly tracks: readonly TrackResult[]
   readonly albums: readonly AlbumResult[]
   readonly artists: readonly ArtistResult[]
+  readonly tags: readonly TagSearchMatch[]
   readonly query: string
   readonly totalResults: number
   readonly tidalAvailable?: boolean

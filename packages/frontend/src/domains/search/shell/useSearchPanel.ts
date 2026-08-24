@@ -15,6 +15,7 @@ import {
   getDisplayedTrackResults,
 } from '../core/service'
 import type { AutocompleteSuggestion, SearchResultsResponse, TrackResult } from '../core/types'
+import type { TagSearchMatch } from '@/platform/api/searchApi'
 
 type UseSearchPanelResult = {
   readonly searchStore: ReturnType<typeof useSearchStore>
@@ -27,6 +28,7 @@ type UseSearchPanelResult = {
   readonly displayedTracks: ComputedRef<readonly TrackResult[]>
   readonly displayedAlbums: ComputedRef<SearchResultsResponse['albums']>
   readonly displayedArtists: ComputedRef<SearchResultsResponse['artists']>
+  readonly displayedTags: ComputedRef<readonly TagSearchMatch[]>
   readonly handleQueryChange: (event: Event) => void
   readonly handleArrowDown: () => void
   readonly handleArrowUp: () => void
@@ -94,6 +96,12 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   )
   const displayedArtists = computed(() =>
     getDisplayedArtistResults(searchQuery.value, searchStore.fullResults),
+  )
+  // No core ranking here on purpose: the backend already returns `tags` sorted
+  // by displayName and matched against the query — unlike tracks/albums/artists,
+  // there is no client-side re-ranking or cap to apply.
+  const displayedTags = computed(
+    (): readonly TagSearchMatch[] => searchStore.fullResults?.tags ?? [],
   )
 
   const debouncedAutocomplete = useDebounceFn(async (): Promise<void> => {
@@ -370,6 +378,7 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     displayedTracks,
     displayedAlbums,
     displayedArtists,
+    displayedTags,
     handleQueryChange,
     handleArrowDown,
     handleArrowUp,

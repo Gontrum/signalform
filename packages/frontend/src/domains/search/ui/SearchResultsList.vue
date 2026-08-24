@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { Listbox, ListboxOptions, ListboxOption } from '@headlessui/vue'
 import { formatSeconds } from '@signalform/shared'
 import type { TrackResult, AlbumResult, ArtistResult } from '../core/types'
+import type { TagSearchMatch } from '@/platform/api/searchApi'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import AlbumActionButtons from './AlbumActionButtons.vue'
 import { getSourceLabel, getSourceTooltip } from '@/utils/sourceInfo'
 import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/playback/core/service'
+import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useI18nStore } from '@/app/i18nStore'
 import { useSearchResultsActions } from '../shell/useSearchResultsActions'
 
@@ -15,6 +18,7 @@ interface Props {
   results: readonly TrackResult[]
   albums?: readonly AlbumResult[]
   artists?: readonly ArtistResult[]
+  tags?: readonly TagSearchMatch[]
 }
 
 interface Emits {
@@ -137,6 +141,21 @@ const handleArtistClick = (artist: ArtistResult) => {
   emit('navigate-artist', { artistId: artist.artistId, name: artist.name })
 }
 
+const router = useRouter()
+
+// Unlike artist/album navigation, a tag match has no in-app detail view of
+// its own — it opens the global Discogs-backed album list for that tag, so
+// this pushes directly rather than emitting for a parent handler to route.
+const handleTagClick = (tag: TagSearchMatch): void => {
+  void router.push({ name: 'tag-albums', query: { q: tag.query } })
+}
+
+const tagAlbumCountLabel = (tag: TagSearchMatch): string => {
+  const albumCountOne = t('search.tagAlbumCountOne')
+  const albumCountOther = t('search.tagAlbumCountOther')
+  return buildCountLabel(tag.albumCount, albumCountOne, albumCountOther, i18nStore.currentLanguage)
+}
+
 const handleSelect = (track: TrackResult): void => {
   selectTrack(track, (nextTrack) => emit('play', nextTrack))
 }
@@ -218,6 +237,28 @@ const durationLabels = computed((): Readonly<Record<string, string>> =>
             </div>
             <span data-testid="artist-result-name" class="text-base font-medium text-neutral-900">
               {{ artist.name }}
+            </span>
+          </button>
+        </li>
+      </ul>
+    </section>
+
+    <section v-if="tags && tags.length > 0" data-testid="tag-results" class="mb-6">
+      <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-500">
+        {{ t('search.tagsSection') }}
+      </h2>
+      <ul class="space-y-1">
+        <li v-for="tag in tags" :key="tag.query" data-testid="tag-result-item">
+          <button
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 text-left transition-all duration-200 hover:border-accent-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-accent-500"
+            @click="handleTagClick(tag)"
+          >
+            <span data-testid="tag-result-name" class="text-base font-medium text-neutral-900">
+              {{ tag.displayName }}
+            </span>
+            <span data-testid="tag-result-count" class="text-sm text-neutral-500">
+              {{ tagAlbumCountLabel(tag) }}
             </span>
           </button>
         </li>

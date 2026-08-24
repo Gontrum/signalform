@@ -183,6 +183,7 @@ const createMockLmsClient = (label: string): LmsClient => ({
   getTidalAlbumTracks: vi.fn(async () => ok({ tracks: [], count: 0 })),
   getTidalArtistAlbums: vi.fn(async () => ok({ albums: [], count: 0 })),
   searchTidalArtists: vi.fn(async () => ok({ artists: [], count: 0 })),
+  searchTidalAlbums: vi.fn(async () => ok([])),
   getTidalFeaturedAlbums: vi.fn(async () => ok({ albums: [], count: 0 })),
   getTidalAlbumParentItems: vi.fn(async () => ok({ items: [], count: 0 })),
   rescanLibrary: vi.fn(async () => ok(undefined)),

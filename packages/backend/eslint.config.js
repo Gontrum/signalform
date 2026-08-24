@@ -160,6 +160,8 @@ export default [
   {
     files: [
       "src/adapters/lastfm-client/circuit-breaker-client.ts",
+      "src/features/album-tags/shell/local-albums.ts",
+      "src/features/album-tags/shell/tag-lookup.ts",
       "src/features/enrichment/shell/cache.ts",
       "src/features/library/shell/service.ts",
       "src/features/metadata/shell/cache.ts",

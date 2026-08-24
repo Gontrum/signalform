@@ -12,6 +12,7 @@ import {
   createLmsClient,
   type LmsClient,
 } from "../../../adapters/lms-client/index.js";
+import { createDiscogsClient } from "../../../adapters/discogs-client/index.js";
 import { ok, err } from "@signalform/shared";
 
 type MockLmsClient = LmsClient & {
@@ -281,7 +282,7 @@ describe("GET /api/search/autocomplete", () => {
   beforeEach(async () => {
     app = Fastify({ logger: false });
     mockLmsClient = createMockLmsClient();
-    createSearchRoute(app, mockLmsClient);
+    createSearchRoute(app, mockLmsClient, createDiscogsClient());
     await app.ready();
   });
 

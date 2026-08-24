@@ -26,6 +26,7 @@ const {
   displayedTracks,
   displayedAlbums,
   displayedArtists,
+  displayedTags,
   handleQueryChange,
   handleArrowDown,
   handleArrowUp,
@@ -254,7 +255,8 @@ const suggestionCountLabel = computed(() => {
           searchStore.fullResults &&
           searchStore.fullResults.tracks.length === 0 &&
           searchStore.fullResults.albums.length === 0 &&
-          searchStore.fullResults.artists.length === 0
+          searchStore.fullResults.artists.length === 0 &&
+          searchStore.fullResults.tags.length === 0
         "
         class="flex min-h-64 items-center justify-center"
         data-testid="empty-state"
@@ -288,6 +290,7 @@ const suggestionCountLabel = computed(() => {
         :results="displayedTracks"
         :albums="displayedAlbums"
         :artists="displayedArtists"
+        :tags="displayedTags"
         @play="handlePlayTrack"
         @pause="handlePause"
         @play-album="handlePlayAlbum"

@@ -2,7 +2,7 @@
  * LMS Tidal Search Domain Methods
  *
  * Factory function for Tidal search/discovery LMS client methods:
- * searchTidalArtists.
+ * searchTidalArtists, searchTidalAlbums.
  *
  * All methods are injected with ExecuteDeps (executeCommand, executeCommandWithRetry, config).
  */
@@ -12,6 +12,12 @@ import { z } from "zod";
 import type { LmsCommand, LmsError, TidalSearchArtistRaw } from "./types.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
 import { tidalItemSchema } from "./schemas.js";
+import { sanitizeForItemIdPath } from "./helpers.js";
+
+export type TidalAlbumMatch = {
+  readonly name: string;
+  readonly coverArtUrl?: string;
+};
 
 export type TidalSearchMethods = {
   readonly searchTidalArtists: (
@@ -27,9 +33,20 @@ export type TidalSearchMethods = {
       LmsError
     >
   >;
+  readonly searchTidalAlbums: (
+    query: string,
+    limit: number,
+  ) => Promise<Result<readonly TidalAlbumMatch[], LmsError>>;
 };
 
 const tidalSearchArtistsPayloadParser = createLmsResultParser(
+  z.object({
+    loop_loop: z.array(tidalItemSchema).optional(),
+    count: z.number().optional(),
+  }),
+);
+
+const tidalSearchAlbumsPayloadParser = createLmsResultParser(
   z.object({
     loop_loop: z.array(tidalItemSchema).optional(),
     count: z.number().optional(),
@@ -42,7 +59,7 @@ const tidalSearchArtistsPayloadParser = createLmsResultParser(
 export const createTidalSearchMethods = (
   deps: ExecuteDeps,
 ): TidalSearchMethods => {
-  const { executeCommand } = deps;
+  const { executeCommand, config } = deps;
 
   return {
     /**
@@ -84,7 +101,7 @@ export const createTidalSearchMethods = (
         "items",
         offset,
         limit,
-        `item_id:7_${trimmedQuery}.2`,
+        `item_id:7_${sanitizeForItemIdPath(trimmedQuery)}.2`,
         `search:${trimmedQuery}`,
         "want_url:1",
       ];
@@ -102,6 +119,68 @@ export const createTidalSearchMethods = (
       const count = result.value.count ?? 0;
 
       return ok({ artists, count });
+    },
+
+    /**
+     * Search Tidal albums by query via LMS Tidal plugin.
+     *
+     * Lightweight, targeted alternative to the full interactive `search()`:
+     * no per-track enrichment fan-out, just album name plus cover art. Callers
+     * that need artist precision fold the artist into `query` themselves —
+     * the response carries no artist field to filter on client-side.
+     *
+     * item_id:7_{query}.3 navigates to "Suchen → Alben" in Tidal plugin.
+     * Pattern mirrors searchTidalArtists (item_id:7_{query}.2 = Interpreten, .3 = Alben).
+     *
+     * @param query - Search query (e.g. "Madonna The Immaculate Collection")
+     * @param limit - Maximum albums to return
+     * @returns Result with album matches or error
+     */
+    searchTidalAlbums: async (
+      query: string,
+      limit: number,
+    ): Promise<Result<readonly TidalAlbumMatch[], LmsError>> => {
+      const trimmedQuery = query.trim();
+      if (trimmedQuery === "") {
+        return err({
+          type: "EmptyQueryError",
+          message: "Search query cannot be empty",
+        });
+      }
+
+      const command: LmsCommand = [
+        "tidal",
+        "items",
+        0,
+        limit,
+        `item_id:7_${sanitizeForItemIdPath(trimmedQuery)}.3`,
+        `search:${trimmedQuery}`,
+        "want_url:1",
+      ];
+
+      const result = await executeCommand(
+        command,
+        tidalSearchAlbumsPayloadParser,
+      );
+
+      if (!result.ok) {
+        return result;
+      }
+
+      // item.image is a relative LMS proxy path ("/imageproxy/…"), same shape
+      // as the Tidal track results in search.ts — absolutized identically.
+      return ok(
+        (result.value.loop_loop ?? [])
+          .filter((item) => item.name.trim() !== "")
+          .map((item) => ({
+            name: item.name,
+            ...(item.image
+              ? {
+                  coverArtUrl: `http://${config.host}:${config.port}${item.image}`,
+                }
+              : {}),
+          })),
+      );
     },
   };
 };

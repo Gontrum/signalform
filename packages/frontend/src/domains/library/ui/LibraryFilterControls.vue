@@ -81,7 +81,7 @@ const CHIP_ROW_CLASS =
   '-mx-4 flex gap-2 overflow-x-auto px-4 py-1 sm:mx-0 sm:flex-wrap sm:overflow-x-visible sm:px-0 sm:py-0'
 
 const CHIP_CLASS =
-  'min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2'
+  'min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
 
 const CHIP_ACTIVE_CLASS = 'border-neutral-900 bg-neutral-900 text-white'
 
@@ -208,7 +208,7 @@ watch(genreRow, revealActiveChip, { flush: 'post' })
         :placeholder="t('library.genrePlaceholder')"
         :aria-label="t('library.genreFilterLabel')"
         autocomplete="off"
-        class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+        class="min-h-11 w-full max-w-xs rounded-lg border border-neutral-300 bg-white px-4 text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         @input="handleGenreInput"
       />
       <datalist id="library-genre-options">

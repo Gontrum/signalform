@@ -15,6 +15,7 @@ import {
   createLmsClient,
   type LmsClient,
 } from "../../../adapters/lms-client/index.js";
+import { createDiscogsClient } from "../../../adapters/discogs-client/index.js";
 import { ok, err } from "@signalform/shared";
 import { clearCache } from "./cache.js";
 
@@ -82,6 +83,7 @@ const createFullMockLmsClient = (): MockLmsClient => ({
   getTidalAlbumTracks: vi.fn(),
   getTidalArtistAlbums: vi.fn(),
   searchTidalArtists: vi.fn(),
+  searchTidalAlbums: vi.fn(),
   getTidalFeaturedAlbums: vi.fn(),
   addAlbumToQueue: vi.fn(),
   addTidalAlbumToQueue: vi.fn(),
@@ -178,7 +180,7 @@ describe("POST /api/search", () => {
     clearCache();
     mockLmsClient = createMockLmsClient();
     server = Fastify({ logger: false });
-    createSearchRoute(server, mockLmsClient);
+    createSearchRoute(server, mockLmsClient, createDiscogsClient());
     await server.ready();
   });
 
@@ -485,7 +487,7 @@ describe("POST /api/search with full results mode", () => {
     clearCache();
     mockLmsClient = createMockLmsClient();
     server = Fastify({ logger: false });
-    createSearchRoute(server, mockLmsClient);
+    createSearchRoute(server, mockLmsClient, createDiscogsClient());
     await server.ready();
   });
 
@@ -715,7 +717,7 @@ describe("Full Results Mode - Performance & Caching", () => {
     clearCache();
     mockLmsClient = createFullMockLmsClient();
     server = Fastify({ logger: false });
-    createSearchRoute(server, mockLmsClient);
+    createSearchRoute(server, mockLmsClient, createDiscogsClient());
     await server.ready();
   });
 

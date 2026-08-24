@@ -7,6 +7,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
+import { err, ok, type Result } from "@signalform/shared";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { isRecord } from "../../../adapters/lms-client/execute.js";
 import {
@@ -15,8 +16,13 @@ import {
   transformToFullResults,
 } from "../core/service.js";
 import { getCachedResults, setCachedResults } from "./cache.js";
-import type { SearchResultsResponse } from "../core/types.js";
+import type { SearchResultsResponse, TagSearchMatch } from "../core/types.js";
 import type { SearchResult as LmsSearchResult } from "../../../adapters/lms-client/index.js";
+import type { DiscogsClient } from "../../../adapters/discogs-client/index.js";
+import {
+  getTagCandidates,
+  type TagLookupError,
+} from "../../album-tags/shell/tag-lookup.js";
 
 const SearchRequestSchema = z.object({
   query: z
@@ -68,6 +74,7 @@ const isSearchResultsResponse = (
     Array.isArray(value["tracks"]) &&
     Array.isArray(value["albums"]) &&
     Array.isArray(value["artists"]) &&
+    Array.isArray(value["tags"]) &&
     typeof value["query"] === "string" &&
     typeof value["totalResults"] === "number"
   );
@@ -116,15 +123,74 @@ const isCachedSearchResponse = (
   return isSearchResultsResponse(value) || isBasicSearchResponse(value);
 };
 
+const TAG_PREFIX = "tag:";
+
+/**
+ * `tag:<text>` routes a full search to a global Discogs tag lookup instead
+ * of the normal local/Tidal search. Returns undefined when the query carries
+ * no `tag:` prefix so callers can fall through to the normal search path
+ * with zero extra work.
+ */
+const parseTagQuery = (query: string): string | undefined => {
+  const trimmed = query.trim();
+  return trimmed.toLowerCase().startsWith(TAG_PREFIX)
+    ? trimmed.slice(TAG_PREFIX.length).trim()
+    : undefined;
+};
+
+/**
+ * Resolves a `tag:` search against the shared, cached Discogs candidate list.
+ * Tags are a secondary feature — a Discogs failure must never break the
+ * primary search feature, so the caller still answers 200 with an empty tag
+ * list. The failure stays visible in the Result so that degraded answer is
+ * not written to the search cache: caching it would keep showing "no
+ * results" for the full TTL after Discogs recovered.
+ */
+const resolveTagSearch = async (
+  discogsClient: DiscogsClient,
+  tagQuery: string,
+  request: FastifyRequest,
+): Promise<Result<readonly TagSearchMatch[], TagLookupError>> => {
+  if (tagQuery === "") {
+    return ok([]);
+  }
+
+  const candidatesResult = await getTagCandidates(discogsClient, tagQuery);
+  if (!candidatesResult.ok) {
+    request.log.warn(
+      {
+        error: candidatesResult.error.type,
+        message: candidatesResult.error.message,
+      },
+      "Discogs unavailable during tag search — continuing with an empty tag list",
+    );
+    return err(candidatesResult.error);
+  }
+
+  return ok(
+    candidatesResult.value.length > 0
+      ? [
+          {
+            query: tagQuery,
+            displayName: tagQuery,
+            albumCount: candidatesResult.value.length,
+          },
+        ]
+      : [],
+  );
+};
+
 /**
  * Factory function to create search route.
  *
  * @param fastify - Fastify server instance
  * @param lmsClient - LMS client dependency
+ * @param discogsClient - Discogs client dependency, used for `tag:` searches
  */
 export const createSearchRoute = (
   fastify: FastifyInstance,
   lmsClient: LmsClient,
+  discogsClient: DiscogsClient,
 ): void => {
   // POST /api/search - Full search endpoint
   fastify.post<{ readonly Body: unknown }>(
@@ -173,10 +239,46 @@ export const createSearchRoute = (
         return reply.code(200).send(cached);
       }
 
-      // 3. Call LMS adapter (Imperative Shell) - only if not cached
+      // 3. `tag:` search short-circuits to a Discogs tag lookup, skipping the
+      // LMS/Tidal search entirely — only relevant for full-results requests.
+      if (full) {
+        const tagQuery = parseTagQuery(query);
+        if (tagQuery !== undefined) {
+          const tagsResult = await resolveTagSearch(
+            discogsClient,
+            tagQuery,
+            request,
+          );
+          const tags = tagsResult.ok ? tagsResult.value : [];
+          const responseData: SearchResultsResponse = {
+            tracks: [],
+            albums: [],
+            artists: [],
+            tags,
+            query,
+            totalResults: 0,
+          };
+          if (tagsResult.ok) {
+            setCachedResults(cacheKey, responseData);
+          }
+
+          request.log.info(
+            {
+              query,
+              tagCount: tags.length,
+              duration: Date.now() - startTime,
+            },
+            "Tag search completed successfully",
+          );
+
+          return reply.code(200).send(responseData);
+        }
+      }
+
+      // 4. Call LMS adapter (Imperative Shell) - only if not cached
       const lmsResult = await lmsClient.search(query);
 
-      // 4. Handle LMS errors
+      // 5. Handle LMS errors
       if (!lmsResult.ok) {
         return sendLmsSearchUnavailable(request, reply, {
           query,
@@ -186,7 +288,7 @@ export const createSearchRoute = (
         });
       }
 
-      // 5. Process with business logic (Functional Core)
+      // 6. Process with business logic (Functional Core)
       // Choose between full results or basic search based on 'full' flag
       if (full) {
         const fullResultsResult = transformToFullResults(
@@ -214,9 +316,11 @@ export const createSearchRoute = (
           });
         }
 
-        // 7a. Cache and return full results
+        // 7a. Cache and return full results — a plain (non-`tag:`) query
+        // never carries tag matches.
         const responseData = {
           ...fullResultsResult.value,
+          tags: [] as const,
           tidalAvailable: lmsResult.value.tidalAvailable,
         };
         setCachedResults(cacheKey, responseData);

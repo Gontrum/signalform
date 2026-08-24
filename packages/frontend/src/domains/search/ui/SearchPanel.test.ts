@@ -61,6 +61,7 @@ vi.mock('@/platform/api/searchApi', async () => {
         albums: [],
         artists: [],
         query: '',
+        tags: [],
         totalResults: 0,
       }),
     ),
@@ -442,6 +443,7 @@ describe('SearchPanel', () => {
         albums: [],
         artists: [],
         query: 'The Peacocks',
+        tags: [],
         totalResults: 0,
       }),
     )
@@ -471,6 +473,7 @@ describe('SearchPanel', () => {
         albums: [],
         artists: [],
         query: 'Pink Floyd',
+        tags: [],
         totalResults: 0,
       }),
     )
@@ -740,6 +743,7 @@ describe('SearchPanel', () => {
         albums: [{ id: 'a1', title: 'DSOTM', artist: 'Pink Floyd', trackCount: 10 }],
         artists: [],
         query: 'Pink Floyd',
+        tags: [],
         totalResults: 0,
       }),
     )
@@ -796,6 +800,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'Pink Floyd',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -828,6 +833,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -850,7 +856,9 @@ describe('SearchPanel', () => {
           new Promise((resolve) =>
             setTimeout(
               () =>
-                resolve(ok({ tracks: [], albums: [], artists: [], query: '', totalResults: 0 })),
+                resolve(
+                  ok({ tracks: [], albums: [], artists: [], query: '', tags: [], totalResults: 0 }),
+                ),
               200,
             ),
           ),
@@ -875,6 +883,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'nonexistent',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -950,6 +959,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -991,6 +1001,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1020,6 +1031,7 @@ describe('SearchPanel', () => {
           albums: [{ id: 'album-123', title: 'Album 1', artist: 'Artist 1', trackCount: 10 }],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -1056,6 +1068,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1096,6 +1109,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1149,6 +1163,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'Pink Floyd',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1166,6 +1181,7 @@ describe('SearchPanel', () => {
         albums: [],
         artists: [],
         query: 'Pink Floyd',
+        tags: [],
         totalResults: 0,
       })
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(mockResults)
@@ -1183,7 +1199,7 @@ describe('SearchPanel', () => {
 
     it('Enter key pushes ?q and ?full=true to URL', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
-        ok({ tracks: [], albums: [], artists: [], query: 'opel gang', totalResults: 0 }),
+        ok({ tracks: [], albums: [], artists: [], query: 'opel gang', tags: [], totalResults: 0 }),
       )
 
       const context = await whenSearchPanelIsMounted()
@@ -1213,6 +1229,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1254,7 +1271,7 @@ describe('SearchPanel', () => {
       }))
 
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
-        ok({ tracks, albums, artists, query: 'test', totalResults: 45 }),
+        ok({ tracks, albums, artists, query: 'test', tags: [], totalResults: 45 }),
       )
 
       const context = await whenSearchPanelIsMounted()
@@ -1275,7 +1292,7 @@ describe('SearchPanel', () => {
     // so hovering over the Back button routes scroll events to the results list
     it('back button is a descendant of the scrollable container (scroll propagation)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
-        ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
+        ok({ tracks: [], albums: [], artists: [], query: 'test', tags: [], totalResults: 0 }),
       )
 
       const context = await whenSearchPanelIsMounted()
@@ -1294,7 +1311,7 @@ describe('SearchPanel', () => {
 
     it('scroll header inside container has sticky, top-0, and z-raised classes', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
-        ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
+        ok({ tracks: [], albums: [], artists: [], query: 'test', tags: [], totalResults: 0 }),
       )
 
       const context = await whenSearchPanelIsMounted()
@@ -1332,6 +1349,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1351,7 +1369,7 @@ describe('SearchPanel', () => {
 
     it('full results mode container is bounded with flex-1 and min-h-0 (no ancestor scrolls)', async (): Promise<void> => {
       vi.mocked(searchApi.fetchFullResults).mockResolvedValue(
-        ok({ tracks: [], albums: [], artists: [], query: 'test', totalResults: 0 }),
+        ok({ tracks: [], albums: [], artists: [], query: 'test', tags: [], totalResults: 0 }),
       )
 
       const context = await whenSearchPanelIsMounted()
@@ -1376,6 +1394,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [{ name: 'Sabrina Carpenter', artistId: null }],
           query: 'sabrina carpenter',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -1405,6 +1424,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [{ name: 'Die Toten Hosen', artistId: null }],
           query: 'opel gang',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -1434,6 +1454,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [{ name: 'Pink Floyd', artistId: '42' }],
           query: 'pink floyd',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -1512,6 +1533,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
           tidalAvailable: false,
         }),
@@ -1545,6 +1567,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 1,
           tidalAvailable: true,
         }),
@@ -1568,6 +1591,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'test',
+          tags: [],
           totalResults: 0,
         }),
       )
@@ -1601,6 +1625,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [{ name: 'Pink Floyd', artistId: '42' }],
           query: 'pink floyd',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1636,6 +1661,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [{ name: 'Sabrina Carpenter', artistId: null }],
           query: 'sabrina carpenter',
+          tags: [],
           totalResults: 1,
         }),
       )
@@ -1671,6 +1697,7 @@ describe('SearchPanel', () => {
           albums: [],
           artists: [],
           query: 'radiohead',
+          tags: [],
           totalResults: 1,
         }),
       )

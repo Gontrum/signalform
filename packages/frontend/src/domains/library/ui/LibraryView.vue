@@ -444,7 +444,7 @@ const handleSourceTabKeydown = (event: KeyboardEvent): void => {
           :placeholder="searchPlaceholder"
           :aria-label="t('library.searchLabel')"
           autocomplete="off"
-          class="min-h-11 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-4 text-base text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+          class="min-h-11 w-full max-w-md rounded-lg border border-neutral-300 bg-white px-4 text-base text-neutral-900 placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           @input="handleSearchInput"
         />
       </div>
