@@ -58,7 +58,7 @@ const givenLocalSearchReturns = (payload: unknown): LocalSearchProbe => {
 
   return {
     sentCommand: () => sentCommand,
-    // tidalEnabled: false keeps the Tidal branch (and its 450 ms race) out of these cases.
+    // tidalEnabled: false keeps the Tidal branch (and its 2500 ms race) out of these cases.
     runSearch: async (): Promise<readonly SearchResult[]> => {
       const result = await search("breathe", { tidalEnabled: false });
       expect(result.ok).toBe(true);

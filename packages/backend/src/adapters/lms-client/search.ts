@@ -20,12 +20,15 @@ import {
   MAX_SEARCH_RESULTS,
   TIDAL_SEARCH_TIMEOUT_MS,
   TIDAL_ENRICH_TIMEOUT_MS,
+  TIDAL_ENRICH_CONCURRENCY,
   extractTidalTrackId,
   parseTidalAudioQuality,
   parseTidalInfo,
   detectSource,
   parseAudioQuality,
   parseDurationSeconds,
+  toChunks,
+  sanitizeForItemIdPath,
 } from "./helpers.js";
 import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
 import {
@@ -149,17 +152,30 @@ export const createSearchMethods = (
     return Promise.race([enrichPromise, timeoutPromise]);
   };
 
-  // Enriches all Tidal tracks in parallel via Promise.allSettled.
-  // Each track is enriched independently — per-track failures do not affect others.
-  // On per-track failure, the original track (artist: "", album: "") is returned.
+  // Enriches all Tidal tracks via tidal_info, capped at TIDAL_ENRICH_CONCURRENCY
+  // simultaneous calls: chunks of tracks are processed sequentially (one chunk's
+  // Promise.allSettled awaited before the next chunk starts), same
+  // reduce-over-a-promise-chain shape as resolveCandidatesSequentially in
+  // album-tags/shell/route.ts. Unbounded Promise.allSettled(tracks.map(...)) over
+  // the full result set OOM-killed LMS's single-threaded Perl process on a
+  // broad-matching search (2026-08-18): 13 concurrent tidal_info calls for one
+  // candidate pushed memory from 160MB to 1.2GB in under 15s.
+  // Order and length of the input are preserved; a per-track failure still falls
+  // back to the original track (artist: "", album: "") exactly as before.
   const enrichTidalTracks = async (
     tracks: readonly SearchResult[],
   ): Promise<readonly SearchResult[]> => {
-    const enrichResults = await Promise.allSettled(
-      tracks.map(enrichSingleTrack),
-    );
-    return enrichResults.map((settled, idx) =>
-      settled.status === "fulfilled" ? settled.value : tracks[idx]!,
+    const chunks = toChunks(tracks, TIDAL_ENRICH_CONCURRENCY);
+    return chunks.reduce<Promise<readonly SearchResult[]>>(
+      async (accPromise, chunk) => {
+        const acc = await accPromise;
+        const settled = await Promise.allSettled(chunk.map(enrichSingleTrack));
+        const enrichedChunk = settled.map((result, idx) =>
+          result.status === "fulfilled" ? result.value : chunk[idx]!,
+        );
+        return [...acc, ...enrichedChunk];
+      },
+      Promise.resolve([]),
     );
   };
 
@@ -168,9 +184,9 @@ export const createSearchMethods = (
      * Search for tracks across local library and Tidal streaming in parallel.
      *
      * Local: LMS titles command (full library, all indexed tracks).
-     * Tidal: LMS TIDAL plugin app navigation (probe 2026-03-14: item_id:7_{q}.4, ~323ms latency).
+     * Tidal: LMS TIDAL plugin app navigation (probe 2026-03-14: item_id:7_{q}.4).
      * Both searches run concurrently via Promise.allSettled.
-     * Tidal is capped at 250ms timeout to keep the combined response ≤300ms.
+     * Tidal is capped at TIDAL_SEARCH_TIMEOUT_MS so a hung request cannot block the response.
      * Any error in either search → graceful degradation (returns [] for that source).
      * Only EmptyQueryError is propagated as an error result.
      *
@@ -274,7 +290,7 @@ export const createSearchMethods = (
           "items",
           0,
           MAX_SEARCH_RESULTS,
-          `item_id:7_${trimmedQuery}.4`,
+          `item_id:7_${sanitizeForItemIdPath(trimmedQuery)}.4`,
           `search:${trimmedQuery}`,
           "want_url:1",
         ];
@@ -311,7 +327,6 @@ export const createSearchMethods = (
         };
       };
 
-      // Tidal with 450ms timeout (probe latency ~323ms → cap to keep the combined response ≤300ms).
       // Timeout returns unavailable so the frontend can warn the user.
       const tidalWithTimeout = (): Promise<TidalSearchOutcome> => {
         const timeoutPromise = delay(TIDAL_SEARCH_TIMEOUT_MS).then(

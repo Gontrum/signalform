@@ -19,8 +19,9 @@ import type { LmsError } from "./types.js";
 export const MAX_SEARCH_RESULTS = 999; // LMS protocol limit for search results per query
 const MAX_TRACK_URL_LENGTH = 2048; // Reasonable URL length limit to prevent DoS — only used by validateTrackUrl below
 export const PAUSE_ENABLED = "1"; // LMS pause command: "1" = pause, "0" = resume
-export const TIDAL_SEARCH_TIMEOUT_MS = 450; // Tidal search latency ~300-400ms observed; radio mode needs results to prevent queue starvation
+export const TIDAL_SEARCH_TIMEOUT_MS = 2500; // Measured against live LMS 2026-08-18: median 536ms, max 786ms — headroom for cold token refresh; the cap only guards a hung request
 export const TIDAL_ENRICH_TIMEOUT_MS = 500; // Per-track tidal_info enrichment budget (tidal_info calls Tidal REST API ~200-400ms)
+export const TIDAL_ENRICH_CONCURRENCY = 5; // Caps simultaneous tidal_info calls — an OOM-Kill on 2026-08-18 traced to 13+ concurrent enrichment calls for a single broad-matching search spiking LMS Perl-process memory from 160MB to 1.2GB in under 15s.
 
 // Tidal REST quality map: URL extension → AudioQuality with default values.
 // Tidal does not return exact bitrate in track API — use per-tier defaults.
@@ -46,6 +47,17 @@ const LMS_FORMAT_MAP: Readonly<
   aac: { format: "AAC", lossless: false },
   ogg: { format: "OGG", lossless: false },
 } as const;
+
+/**
+ * LMS zerlegt item_id an Punkten zu einem Menü-Navigationspfad
+ * (Slim::Control::XMLBrowser: `split /\./, $item_id`). Ein Punkt im
+ * Suchtext erzeugt zusätzliche, ungewollte Pfadebenen und lässt LMS in
+ * einen falschen — potenziell riesigen — Katalogknoten navigieren statt
+ * in die Suchergebnisse. Nur der item_id-Anteil braucht das, `search:`
+ * bleibt unverändert, weil der Suchtext dort nicht als Pfad geparst wird.
+ */
+export const sanitizeForItemIdPath = (query: string): string =>
+  query.replace(/\./g, " ");
 
 /**
  * Validates that an id (album id, artist id, ...) is non-empty after
@@ -128,6 +140,23 @@ export const parseDurationSeconds = (
   const seconds = Number(raw);
   return Number.isFinite(seconds) ? seconds : undefined;
 };
+
+/**
+ * Splits `items` into consecutive groups of at most `size` elements,
+ * preserving order. Used to bound enrichment concurrency (search.ts's
+ * enrichTidalTracks) without dropping or reordering any item.
+ */
+export const toChunks = <T>(
+  items: readonly T[],
+  size: number,
+): readonly (readonly T[])[] =>
+  items.reduce<readonly (readonly T[])[]>((chunks, item, idx) => {
+    if (idx % size === 0) {
+      return [...chunks, [item]];
+    }
+    const lastChunk = chunks[chunks.length - 1]!;
+    return [...chunks.slice(0, -1), [...lastChunk, item]];
+  }, []);
 
 // Extracts numeric Tidal track ID from URL: "tidal://58990486.flc" → "58990486"
 export const extractTidalTrackId = (url: string): string | undefined => {

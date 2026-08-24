@@ -114,7 +114,7 @@ describe("LMS Client - Acceptance Tests", () => {
       const result = await resultPromise;
 
       // LMS timeout in local search → graceful degradation → ok([])
-      // (Tidal timeout fires at 250ms, local AbortController at 5s — both return [])
+      // (Tidal timeout fires at TIDAL_SEARCH_TIMEOUT_MS, local AbortController at 5s — both return [])
       await thenResultIsSuccess(result);
       await thenSearchResultsAreEmpty(result);
     }, 10000);
@@ -1004,7 +1004,7 @@ describe("LMS Client - Acceptance Tests", () => {
       }
     });
 
-    it("returns only local results when Tidal exceeds 250ms timeout", async () => {
+    it("returns only local results when Tidal exceeds the search timeout", async () => {
       givenLocalReturnsTrack({
         id: 10,
         title: "Paranoid Android",
@@ -1014,18 +1014,16 @@ describe("LMS Client - Acceptance Tests", () => {
       });
       givenTidalNeverResponds();
 
-      const resultPromise = whenSearchingForTracks("radiohead");
-      // Advance fake timers past the 250ms Tidal timeout
-      vi.advanceTimersByTime(250);
-      await Promise.resolve(); // flush microtask queue
-      const result = await resultPromise;
+      // node:timers/promises is not covered by the fake timers installed here,
+      // so this case waits out TIDAL_SEARCH_TIMEOUT_MS in real time.
+      const result = await whenSearchingForTracks("radiohead");
 
       await thenResultIsSuccess(result);
       if (result.ok) {
         expect(result.value.tracks).toHaveLength(1);
         expect(result.value.tracks[0]?.source).toBe("local");
       }
-    });
+    }, 10000);
 
     it("parallel: makes exactly 2 fetch calls — titles (local) and tidal .4 tracks", async () => {
       givenLocalReturnsEmpty();
