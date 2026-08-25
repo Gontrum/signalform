@@ -71,3 +71,8 @@ export { RECENTLY_ADDED_ALBUM_LIMIT } from "./libraryLimits.js";
 
 // Playback mode cycles
 export { nextShuffleMode, nextRepeatMode } from "./playbackModes.js";
+
+// Tag vocabulary
+export type { TagQueryMode, TagDescriptor } from "./tags.js";
+
+export { TAG_VOCABULARY, findTag } from "./tags.js";

@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRedirectOption } from 'vue-router'
+import { findTag } from '@signalform/shared'
 import SearchPanel from '../domains/search/ui/SearchPanel.vue'
 
 // Module augmentation: routes carry a `depth` used to derive push/pop page
@@ -8,6 +10,12 @@ declare module 'vue-router' {
   interface RouteMeta {
     readonly depth?: number
   }
+}
+
+const legacyTagRedirect: RouteRecordRedirectOption = (to) => {
+  const raw = to.query['q']
+  const tag = typeof raw === 'string' ? findTag(raw) : undefined
+  return tag === undefined ? { path: '/', query: {} } : { path: '/', query: { tag: tag.id } }
 }
 
 const router = createRouter({
@@ -70,10 +78,7 @@ const router = createRouter({
     },
     {
       path: '/tags',
-      name: 'tag-albums',
-      component: (): Promise<typeof import('../domains/tags/ui/TagAlbumsView.vue')> =>
-        import('../domains/tags/ui/TagAlbumsView.vue'),
-      meta: { depth: 2 },
+      redirect: legacyTagRedirect,
     },
     {
       path: '/now-playing',

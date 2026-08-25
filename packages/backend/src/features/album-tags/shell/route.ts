@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { err, ok, type Result } from "@signalform/shared";
+import { err, findTag, ok, type Result } from "@signalform/shared";
 import { z } from "zod";
 import type {
   LibraryAlbumRaw,
@@ -23,7 +23,8 @@ import { getAllLocalAlbums } from "./local-albums.js";
 import { getTagCandidates } from "./tag-lookup.js";
 
 const TagPageQuerySchema = z.object({
-  q: z.string().trim().min(1).max(100),
+  tag: z.string().trim().min(1).max(100),
+  q: z.string().trim().max(100).default(""),
   offset: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(15).default(12),
 });
@@ -54,13 +55,18 @@ const loadTagPage = async (
     return err("INVALID_INPUT");
   }
 
-  const { q, offset, limit } = query.data;
-  const candidatesResult = await getTagCandidates(discogsClient, q);
-  if (!candidatesResult.ok) {
+  const { tag, q, offset, limit } = query.data;
+  const descriptor = findTag(tag);
+  if (descriptor === undefined) {
+    return err("INVALID_INPUT");
+  }
+
+  const lookupResult = await getTagCandidates(discogsClient, descriptor, q);
+  if (!lookupResult.ok) {
     return err("DISCOGS_UNREACHABLE");
   }
 
-  return ok(sliceCandidatePage(candidatesResult.value, offset, limit));
+  return ok(sliceCandidatePage(lookupResult.value.candidates, offset, limit));
 };
 
 // A single LMS failure must not take down the rest of the page — an empty

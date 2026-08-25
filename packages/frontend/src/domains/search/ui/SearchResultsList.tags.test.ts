@@ -39,7 +39,6 @@ const createRouter = async (): Promise<Router> => {
   return createTestRouter([
     { path: '/', component: { template: '<div />' } },
     { path: '/library', name: 'library', component: { template: '<div />' } },
-    { path: '/tags', name: 'tag-albums', component: { template: '<div />' } },
   ])
 }
 
@@ -95,7 +94,7 @@ describe('SearchResultsList — Tags section', () => {
     expect(wrapper.find('[data-testid="tag-results"]').exists()).toBe(false)
   })
 
-  it('navigates to the tag albums view with the raw tag query on click', async () => {
+  it('navigates to the home route with the tag filter applied on click', async () => {
     const router = await createRouter()
     const pushSpy = vi.spyOn(router, 'push')
     const wrapper = mount(SearchResultsList, {
@@ -103,7 +102,7 @@ describe('SearchResultsList — Tags section', () => {
         results: [],
         albums: [],
         artists: [],
-        tags: [{ query: 'jazz classics', displayName: 'Jazz Classics', albumCount: 7 }],
+        tags: [{ query: 'qsound', displayName: 'QSound', albumCount: 7 }],
       },
       global: { plugins: [router] },
     })
@@ -114,8 +113,8 @@ describe('SearchResultsList — Tags section', () => {
     await nextTick()
 
     expect(pushSpy).toHaveBeenCalledWith({
-      name: 'tag-albums',
-      query: { q: 'jazz classics' },
+      path: '/',
+      query: { tag: 'qsound', full: 'true' },
     })
   })
 })

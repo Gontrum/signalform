@@ -2,6 +2,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { useDebounceFn } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
+import { findTag } from '@signalform/shared'
 import { getConfig } from '@/platform/api/configApi'
 import { usePlaybackStore } from '@/domains/playback/shell/usePlaybackStore'
 import { playAlbum } from '@/platform/api/playbackApi'
@@ -14,6 +15,7 @@ import {
   getDisplayedArtistResults,
   getDisplayedTrackResults,
 } from '../core/service'
+import { buildSearchRouteQuery } from '../core/route-query'
 import type { AutocompleteSuggestion, SearchResultsResponse, TrackResult } from '../core/types'
 import type { TagSearchMatch } from '@/platform/api/searchApi'
 
@@ -23,8 +25,11 @@ type UseSearchPanelResult = {
   readonly searchInputEl: Ref<HTMLInputElement | null>
   readonly showMinLengthHint: Ref<boolean>
   readonly showLoadingIndicator: Ref<boolean>
+  readonly showAutocomplete: ComputedRef<boolean>
   readonly activeIndex: Ref<number>
   readonly showFullResults: ComputedRef<boolean>
+  readonly activeTagId: ComputedRef<string | undefined>
+  readonly selectTag: (tagId: string | undefined) => void
   readonly displayedTracks: ComputedRef<readonly TrackResult[]>
   readonly displayedAlbums: ComputedRef<SearchResultsResponse['albums']>
   readonly displayedArtists: ComputedRef<SearchResultsResponse['artists']>
@@ -74,6 +79,7 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const abortControllerRef = ref<AbortController | null>(null)
   const showMinLengthHint = ref(false)
   const showLoadingIndicator = ref(false)
+  const isAutocompleteOpen = ref(false)
   const loadingTimer = ref<ReturnType<typeof setTimeout> | null>(null)
   const activeIndex = ref(-1)
   const genreRadioLoading = ref(false)
@@ -84,9 +90,36 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const lovedRadioLoading = ref(false)
   const lovedRadioError = ref(false)
 
-  const showFullResults = computed(
-    () => route.query.full === 'true' && typeof route.query.q === 'string' && route.query.q !== '',
+  const activeTagId = computed(() =>
+    typeof route.query.tag === 'string' ? findTag(route.query.tag)?.id : undefined,
   )
+
+  const routeQuery = computed(() =>
+    buildSearchRouteQuery({
+      text: typeof route.query.q === 'string' ? route.query.q : '',
+      tagId: activeTagId.value,
+    }),
+  )
+
+  const showFullResults = computed(() => routeQuery.value.full === 'true')
+
+  const showAutocomplete = computed(() => !showFullResults.value || isAutocompleteOpen.value)
+
+  const loadFullResults = (text: string): void => {
+    if (!searchStore.fullResults || searchStore.searchQuery !== text) {
+      void searchStore.searchFullResults(text)
+    }
+  }
+
+  const selectTag = (tagId: string | undefined): void => {
+    isAutocompleteOpen.value = false
+    const nextQuery = buildSearchRouteQuery({ text: searchQuery.value, tagId })
+    void router.push({ query: nextQuery })
+
+    if (tagId === undefined && nextQuery.q !== undefined) {
+      loadFullResults(nextQuery.q)
+    }
+  }
 
   const displayedTracks = computed(() =>
     getDisplayedTrackResults(searchQuery.value, searchStore.fullResults),
@@ -154,6 +187,7 @@ export const useSearchPanel = (): UseSearchPanelResult => {
 
     searchQuery.value = event.target.value
     activeIndex.value = -1
+    isAutocompleteOpen.value = true
     void debouncedAutocomplete()
   }
 
@@ -176,6 +210,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   }
 
   const handleEscapeKey = (): void => {
+    isAutocompleteOpen.value = false
+
     if (searchStore.hasSuggestions) {
       searchStore.clearAutocompleteSuggestions()
       activeIndex.value = -1
@@ -191,6 +227,7 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   const handleSelect = (suggestion: AutocompleteSuggestion): void => {
     searchStore.clearAutocompleteSuggestions()
     activeIndex.value = -1
+    isAutocompleteOpen.value = false
 
     const nextQuery = `${suggestion.artist}${suggestion.album ? ` - ${suggestion.album}` : ''}`
     searchQuery.value = nextQuery
@@ -226,9 +263,18 @@ export const useSearchPanel = (): UseSearchPanelResult => {
 
     searchStore.clearAutocompleteSuggestions()
     activeIndex.value = -1
+    isAutocompleteOpen.value = false
+
+    const tagId = activeTagId.value
+    const nextQuery = buildSearchRouteQuery({ text: query, tagId })
+
+    if (tagId !== undefined) {
+      await router.push({ query: nextQuery })
+      return
+    }
 
     const fetchPromise = searchStore.searchFullResults(query)
-    await router.push({ query: { q: query, full: 'true' } })
+    await router.push({ query: nextQuery })
     await fetchPromise
   }
 
@@ -289,6 +335,8 @@ export const useSearchPanel = (): UseSearchPanelResult => {
   }
 
   const backToSearch = async (): Promise<void> => {
+    isAutocompleteOpen.value = false
+
     try {
       await router.replace({ query: {} })
     } finally {
@@ -358,12 +406,11 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     }
   })
 
-  const restoreQuery =
-    route.query.full === 'true' && typeof route.query.q === 'string' ? route.query.q : null
-  if (restoreQuery) {
-    searchQuery.value = restoreQuery
-    if (!searchStore.fullResults || searchStore.searchQuery !== restoreQuery) {
-      void searchStore.searchFullResults(restoreQuery)
+  const restoredText = routeQuery.value.q
+  if (restoredText !== undefined) {
+    searchQuery.value = restoredText
+    if (activeTagId.value === undefined) {
+      loadFullResults(restoredText)
     }
   }
 
@@ -373,8 +420,11 @@ export const useSearchPanel = (): UseSearchPanelResult => {
     searchInputEl,
     showMinLengthHint,
     showLoadingIndicator,
+    showAutocomplete,
     activeIndex,
     showFullResults,
+    activeTagId,
+    selectTag,
     displayedTracks,
     displayedAlbums,
     displayedArtists,

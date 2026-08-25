@@ -7,7 +7,7 @@
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
-import { err, ok, type Result } from "@signalform/shared";
+import { err, findTag, ok, type Result } from "@signalform/shared";
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { isRecord } from "../../../adapters/lms-client/execute.js";
 import {
@@ -151,29 +151,30 @@ const resolveTagSearch = async (
   tagQuery: string,
   request: FastifyRequest,
 ): Promise<Result<readonly TagSearchMatch[], TagLookupError>> => {
-  if (tagQuery === "") {
+  const descriptor = findTag(tagQuery);
+  if (descriptor === undefined) {
     return ok([]);
   }
 
-  const candidatesResult = await getTagCandidates(discogsClient, tagQuery);
-  if (!candidatesResult.ok) {
+  const lookupResult = await getTagCandidates(discogsClient, descriptor, "");
+  if (!lookupResult.ok) {
     request.log.warn(
       {
-        error: candidatesResult.error.type,
-        message: candidatesResult.error.message,
+        error: lookupResult.error.type,
+        message: lookupResult.error.message,
       },
       "Discogs unavailable during tag search — continuing with an empty tag list",
     );
-    return err(candidatesResult.error);
+    return err(lookupResult.error);
   }
 
   return ok(
-    candidatesResult.value.length > 0
+    lookupResult.value.candidates.length > 0
       ? [
           {
-            query: tagQuery,
-            displayName: tagQuery,
-            albumCount: candidatesResult.value.length,
+            query: descriptor.id,
+            displayName: descriptor.label,
+            albumCount: lookupResult.value.totalItems,
           },
         ]
       : [],

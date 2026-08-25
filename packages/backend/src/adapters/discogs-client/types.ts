@@ -1,9 +1,21 @@
-import type { Result } from "@signalform/shared";
+import type { Result, TagDescriptor } from "@signalform/shared";
 
 export type DiscogsSearchResult = {
   readonly title: string;
   readonly year?: number;
   readonly coverImageUrl?: string;
+};
+
+export type DiscogsQuery = {
+  readonly tag: TagDescriptor;
+  readonly text?: string;
+};
+
+// totalItems is Discogs' own corpus total, not the length of results —
+// results stays capped by the client's page limit.
+export type DiscogsSearchPage = {
+  readonly results: readonly DiscogsSearchResult[];
+  readonly totalItems: number;
 };
 
 export type DiscogsError =
@@ -18,6 +30,6 @@ export type DiscogsError =
 
 export type DiscogsClient = {
   readonly searchReleases: (
-    query: string,
-  ) => Promise<Result<readonly DiscogsSearchResult[], DiscogsError>>;
+    query: DiscogsQuery,
+  ) => Promise<Result<DiscogsSearchPage, DiscogsError>>;
 };

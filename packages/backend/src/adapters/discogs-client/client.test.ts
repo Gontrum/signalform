@@ -1,9 +1,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import type { TagDescriptor } from "@signalform/shared";
 import { createDiscogsClient } from "./client.js";
+import type { DiscogsQuery } from "./types.js";
 
 const fetchMock = vi.fn();
 
-const TEST_QUERY = "Sting Soul Cages";
+const TEXT_TAG: TagDescriptor = {
+  id: "qsound",
+  label: "QSound",
+  mode: "text",
+  term: "qsound",
+};
+
+const FORMAT_TAG: TagDescriptor = {
+  id: "sacd",
+  label: "SACD",
+  mode: "format",
+  term: "SACD",
+};
+
+const TEST_QUERY: DiscogsQuery = { tag: TEXT_TAG };
 const TEST_TOKEN = "test-discogs-token";
 // Four inter-page waits of 1100ms plus headroom.
 const ALL_PAGE_DELAYS_MS = 10_000;
@@ -16,15 +32,23 @@ const makeResponse = (
   text: async () => JSON.stringify(body),
 });
 
+const makePageWithItems = (
+  page: number,
+  pages: number,
+  items: number,
+  results: readonly unknown[],
+): { readonly status: number; readonly text: () => Promise<string> } =>
+  makeResponse(200, {
+    pagination: { page, pages, items },
+    results,
+  });
+
 const makePage = (
   page: number,
   pages: number,
   results: readonly unknown[],
 ): { readonly status: number; readonly text: () => Promise<string> } =>
-  makeResponse(200, {
-    pagination: { page, pages, items: pages * 100 },
-    results,
-  });
+  makePageWithItems(page, pages, pages * 100, results);
 
 const requestUrl = (index: number): URL =>
   new URL(String(fetchMock.mock.calls[index]?.[0]));
@@ -80,7 +104,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toStrictEqual([
+      expect(result.value.results).toStrictEqual([
         { title: "Sting - The Soul Cages", year: 1991 },
         { title: "Sting - Ten Summoner's Tales", year: 1993 },
       ]);
@@ -97,10 +121,141 @@ describe("createDiscogsClient", () => {
     expect(url.origin + url.pathname).toBe(
       "https://api.discogs.com/database/search",
     );
-    expect(url.searchParams.get("q")).toBe(TEST_QUERY);
+    expect(url.searchParams.get("q")).toBe("qsound");
     expect(url.searchParams.get("type")).toBe("release");
     expect(url.searchParams.get("per_page")).toBe("100");
     expect(url.searchParams.get("page")).toBe("1");
+  });
+
+  it("sends format without q for a format tag and no text", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: FORMAT_TAG });
+
+    const url = requestUrl(0);
+    expect(url.searchParams.get("format")).toBe("SACD");
+    expect(url.searchParams.has("q")).toBe(false);
+  });
+
+  it("sends format and q as two separate parameters for a format tag with text", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: FORMAT_TAG, text: "sting" });
+
+    const url = requestUrl(0);
+    expect(url.searchParams.get("format")).toBe("SACD");
+    expect(url.searchParams.get("q")).toBe("sting");
+  });
+
+  it("sends the term as q without a format parameter for a text tag and no text", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: TEXT_TAG });
+
+    const url = requestUrl(0);
+    expect(url.searchParams.get("q")).toBe("qsound");
+    expect(url.searchParams.has("format")).toBe(false);
+  });
+
+  it("joins a text tag and the text into a single q parameter", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: TEXT_TAG, text: "sting" });
+
+    const url = requestUrl(0);
+    expect(url.searchParams.get("q")).toBe("qsound sting");
+    expect(url.searchParams.has("format")).toBe(false);
+  });
+
+  it("collapses surrounding and repeated whitespace in the joined q parameter", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: TEXT_TAG, text: "  sting  " });
+
+    expect(requestUrl(0).searchParams.get("q")).toBe("qsound sting");
+  });
+
+  it("collapses whitespace inside the text of a format tag query", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({
+      tag: FORMAT_TAG,
+      text: "  sting   nothing  ",
+    });
+
+    const url = requestUrl(0);
+    expect(url.searchParams.get("format")).toBe("SACD");
+    expect(url.searchParams.get("q")).toBe("sting nothing");
+  });
+
+  it("omits q for a format tag whose text is whitespace only", async () => {
+    fetchMock.mockResolvedValue(makePage(1, 1, []));
+
+    const client = createDiscogsClient();
+    await client.searchReleases({ tag: FORMAT_TAG, text: "   " });
+
+    expect(requestUrl(0).searchParams.has("q")).toBe(false);
+  });
+
+  it("reports pagination.items as totalItems, not the number of returned results", async () => {
+    fetchMock.mockResolvedValue(
+      makePageWithItems(1, 1, 16005, [
+        { id: 1, title: "Sting - The Soul Cages", year: "1991" },
+        { id: 2, title: "Sting - Ten Summoner's Tales", year: "1993" },
+      ]),
+    );
+
+    const client = createDiscogsClient();
+    const result = await client.searchReleases(TEST_QUERY);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.totalItems).toBe(16005);
+      expect(result.value.results).toHaveLength(2);
+    }
+  });
+
+  it("takes totalItems from the first page even when later pages report a different count", async () => {
+    vi.useFakeTimers();
+    fetchMock.mockImplementation(async (url: unknown) => {
+      const page = Number(new URL(String(url)).searchParams.get("page"));
+      return makePageWithItems(page, 2, page === 1 ? 249 : 7, [
+        { id: page, title: `Artist ${page} - Album ${page}` },
+      ]);
+    });
+
+    const client = createDiscogsClient();
+    const result = await drainPageDelays(client.searchReleases(TEST_QUERY));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.totalItems).toBe(249);
+      expect(result.value.results).toHaveLength(2);
+    }
+  });
+
+  it("reports totalItems 0 when pagination carries no items field", async () => {
+    fetchMock.mockResolvedValue(
+      makeResponse(200, {
+        pagination: { page: 1, pages: 1 },
+        results: [{ id: 1, title: "Sting - The Soul Cages" }],
+      }),
+    );
+
+    const client = createDiscogsClient();
+    const result = await client.searchReleases(TEST_QUERY);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.totalItems).toBe(0);
+      expect(result.value.results).toHaveLength(1);
+    }
   });
 
   it("does not wait before the first page request", async () => {
@@ -141,7 +296,7 @@ describe("createDiscogsClient", () => {
     expect(requestedPages()).toStrictEqual(["1", "2", "3"]);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toStrictEqual([
+      expect(result.value.results).toStrictEqual([
         { title: "Artist 1 - Album 1", year: 1991 },
         { title: "Artist 2 - Album 2", year: 1992 },
         { title: "Artist 3 - Album 3", year: 1993 },
@@ -160,7 +315,7 @@ describe("createDiscogsClient", () => {
     expect(requestedPages()).toStrictEqual(["1", "2", "3", "4", "5"]);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.map((entry) => entry.year)).toStrictEqual([
+      expect(result.value.results.map((entry) => entry.year)).toStrictEqual([
         1991, 1992, 1993, 1994, 1995,
       ]);
     }
@@ -181,7 +336,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toStrictEqual([
+      expect(result.value.results).toStrictEqual([
         { title: "A - Parsable", year: 1991 },
         { title: "B - Empty" },
         { title: "C - Words" },
@@ -206,7 +361,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toStrictEqual([
+      expect(result.value.results).toStrictEqual([
         { title: "Kept - Release", year: 2001 },
       ]);
     }
@@ -258,7 +413,7 @@ describe("createDiscogsClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value).toStrictEqual([
+      expect(result.value.results).toStrictEqual([
         { title: "Kept - From Page One", year: 1988 },
       ]);
     }
@@ -347,7 +502,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value[0]?.coverImageUrl).toBe(
+      expect(result.value.results[0]?.coverImageUrl).toBe(
         "https://example.com/cover.jpg",
       );
     }
@@ -370,7 +525,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value[0]?.coverImageUrl).toBe(
+      expect(result.value.results[0]?.coverImageUrl).toBe(
         "https://example.com/thumb.jpg",
       );
     }
@@ -393,7 +548,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect("coverImageUrl" in (result.value[0] ?? {})).toBe(false);
+      expect("coverImageUrl" in (result.value.results[0] ?? {})).toBe(false);
     }
   });
 
@@ -407,7 +562,7 @@ describe("createDiscogsClient", () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect("coverImageUrl" in (result.value[0] ?? {})).toBe(false);
+      expect("coverImageUrl" in (result.value.results[0] ?? {})).toBe(false);
     }
   });
 });

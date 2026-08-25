@@ -1,19 +1,17 @@
 import { computed, ref, watch } from 'vue'
-import type { ComputedRef, Ref } from 'vue'
+import type { Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { findTag } from '@signalform/shared'
 import { getTagAlbumsPage } from '@/platform/api/tagsApi'
 import type { TagAlbum } from '@/platform/api/tagsApi'
 import { resolveAlbum } from '@/platform/api/tidalAlbumsApi'
 import { classifyError, type TagAlbumsErrorKind } from '../core/error'
-
-export type { TagAlbumsErrorKind }
 
 const PAGE_SIZE = 12
 
 type TagAlbumsStatus = 'loading' | 'success' | 'error'
 
 type UseTagAlbumsResult = {
-  readonly query: ComputedRef<string>
   readonly status: Ref<TagAlbumsStatus>
   readonly errorKind: Ref<TagAlbumsErrorKind | null>
   readonly albums: Ref<readonly TagAlbum[]>
@@ -28,7 +26,12 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
   const route = useRoute()
   const router = useRouter()
 
-  const query = computed(() => (typeof route.query['q'] === 'string' ? route.query['q'] : ''))
+  const tagId = computed(() => {
+    const raw = route.query['tag']
+    return typeof raw === 'string' ? findTag(raw)?.id : undefined
+  })
+
+  const text = computed(() => (typeof route.query['q'] === 'string' ? route.query['q'] : ''))
 
   const status = ref<TagAlbumsStatus>('loading')
   const errorKind = ref<TagAlbumsErrorKind | null>(null)
@@ -44,7 +47,7 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
   const loadFirstPage = async (): Promise<void> => {
     requestRef.current += 1
     const token = requestRef.current
-    const tagQuery = query.value
+    const tag = tagId.value
 
     albums.value = []
     hasMore.value = false
@@ -52,16 +55,16 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
     resolvingKey.value = null
     errorKind.value = null
 
-    // No `q`: nothing to ask Discogs — an empty result is the correct answer,
+    // No tag: nothing to ask Discogs — an empty result is the correct answer,
     // not a network error.
-    if (tagQuery === '') {
+    if (tag === undefined) {
       status.value = 'success'
       return
     }
 
     status.value = 'loading'
 
-    const result = await getTagAlbumsPage(tagQuery, 0, PAGE_SIZE)
+    const result = await getTagAlbumsPage(tag, text.value, 0, PAGE_SIZE)
     if (token !== requestRef.current) {
       return
     }
@@ -83,16 +86,16 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
   const candidateOffsetRef = { current: 0 }
 
   const loadMore = async (): Promise<void> => {
-    if (isLoadingMore.value || !hasMore.value || status.value !== 'success') {
+    const tag = tagId.value
+    if (tag === undefined || isLoadingMore.value || !hasMore.value || status.value !== 'success') {
       return
     }
 
     const token = requestRef.current
-    const tagQuery = query.value
     const offset = candidateOffsetRef.current + PAGE_SIZE
 
     isLoadingMore.value = true
-    const result = await getTagAlbumsPage(tagQuery, offset, PAGE_SIZE)
+    const result = await getTagAlbumsPage(tag, text.value, offset, PAGE_SIZE)
     if (token !== requestRef.current) {
       return
     }
@@ -152,7 +155,7 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
   }
 
   watch(
-    query,
+    [tagId, text],
     () => {
       candidateOffsetRef.current = 0
       void loadFirstPage()
@@ -161,7 +164,6 @@ export const useTagAlbums = (): UseTagAlbumsResult => {
   )
 
   return {
-    query,
     status,
     errorKind,
     albums,

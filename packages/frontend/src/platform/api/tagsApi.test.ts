@@ -45,7 +45,7 @@ describe('tagsApi', () => {
     it('returns a local album with its albumId and the cover sent through the proxy', async () => {
       fetchMock.mockResolvedValue(okResponse(makePage()))
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -81,7 +81,7 @@ describe('tagsApi', () => {
         }),
       )
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -109,7 +109,7 @@ describe('tagsApi', () => {
         }),
       )
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(true)
       if (result.ok) {
@@ -127,7 +127,7 @@ describe('tagsApi', () => {
         }),
       )
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -151,7 +151,7 @@ describe('tagsApi', () => {
         }),
       )
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -159,15 +159,24 @@ describe('tagsApi', () => {
       }
     })
 
-    it('builds the query string from q/offset/limit', async () => {
+    it('builds a tag-only query string, without an empty q', async () => {
       fetchMock.mockResolvedValue(okResponse(makePage()))
 
-      await getTagAlbumsPage('qsound', 24, 12)
+      await getTagAlbumsPage('qsound', '', 24, 12)
 
-      expect(requestedUrl()).toContain('/api/tags/discogs/albums?')
-      expect(requestedUrl()).toContain('q=qsound')
-      expect(requestedUrl()).toContain('offset=24')
-      expect(requestedUrl()).toContain('limit=12')
+      const [path, search] = requestedUrl().split('?')
+      expect(path).toContain('/api/tags/discogs/albums')
+      expect(search).toBe('tag=qsound&offset=24&limit=12')
+      expect(search).not.toContain('q=')
+    })
+
+    it('adds the free text as q when there is any', async () => {
+      fetchMock.mockResolvedValue(okResponse(makePage()))
+
+      await getTagAlbumsPage('sacd', 'miles davis', 0, 12)
+
+      const [, search] = requestedUrl().split('?')
+      expect(search).toBe('tag=sacd&q=miles+davis&offset=0&limit=12')
     })
 
     it('maps a 503 with DISCOGS_UNREACHABLE code onto SERVER_ERROR with that code', async () => {
@@ -177,7 +186,7 @@ describe('tagsApi', () => {
         json: async () => ({ message: 'Discogs is down', code: 'DISCOGS_UNREACHABLE' }),
       })
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -193,7 +202,7 @@ describe('tagsApi', () => {
         json: async () => ({ message: 'q is required' }),
       })
 
-      const result = await getTagAlbumsPage('', 0, 12)
+      const result = await getTagAlbumsPage('sacd', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -207,7 +216,7 @@ describe('tagsApi', () => {
     it('rejects a response missing hasMore instead of defaulting it', async () => {
       fetchMock.mockResolvedValue(okResponse({ albums: [], totalCandidates: 0 }))
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {
@@ -218,7 +227,7 @@ describe('tagsApi', () => {
     it('maps a thrown network error', async () => {
       fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 
-      const result = await getTagAlbumsPage('qsound', 0, 12)
+      const result = await getTagAlbumsPage('qsound', '', 0, 12)
 
       expect(result.ok).toBe(false)
       if (!result.ok) {

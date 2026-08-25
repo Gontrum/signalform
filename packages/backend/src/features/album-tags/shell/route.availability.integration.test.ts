@@ -14,6 +14,7 @@ import {
 import {
   createDiscogsClient,
   type DiscogsClient,
+  type DiscogsSearchResult,
 } from "../../../adapters/discogs-client/index.js";
 
 const defaultLmsConfig: LmsConfig = {
@@ -52,8 +53,16 @@ const createMockDiscogsClient = (): MockDiscogsClient => ({
   ...createDiscogsClient(),
   searchReleases: vi
     .fn<DiscogsClient["searchReleases"]>()
-    .mockResolvedValue(ok([])),
+    .mockResolvedValue(ok({ results: [], totalItems: 0 })),
 });
+
+const givenDiscogsReturns = (
+  client: MockDiscogsClient,
+  results: readonly DiscogsSearchResult[],
+  totalItems: number = results.length,
+): void => {
+  client.searchReleases.mockResolvedValue(ok({ results, totalItems }));
+};
 
 const startServer = async (
   mockLmsClient: MockLmsClient,
@@ -126,9 +135,9 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("returns a local-only candidate with the artwork_track_id cover and its albumId", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([{ title: "Madonna - The Immaculate Collection", year: 1990 }]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Madonna - The Immaculate Collection", year: 1990 },
+    ]);
     mockLmsClient.getLibraryAlbums.mockResolvedValue(
       ok({
         albums: [
@@ -144,7 +153,7 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=local-only&limit=1");
+    const response = await getAlbums(server, "tag=qsound&q=local-only&limit=1");
 
     expect(response.statusCode).toBe(200);
     expect(parseAlbumsBody(response.body).albums).toEqual([
@@ -160,9 +169,9 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("returns a Tidal-only candidate with the Tidal cover and without an albumId", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([{ title: "Sting - The Soul Cages", year: 1991 }]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Sting - The Soul Cages", year: 1991 },
+    ]);
     mockLmsClient.searchTidalAlbums.mockResolvedValue(
       ok([
         {
@@ -173,7 +182,7 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=tidal-only&limit=1");
+    const response = await getAlbums(server, "tag=qsound&q=tidal-only&limit=1");
 
     expect(response.statusCode).toBe(200);
     const album = parseAlbumsBody(response.body).albums[0] ?? {};
@@ -188,9 +197,9 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("prefers the local source when a candidate is available both locally and on Tidal", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([{ title: "Steely Dan - Aja", year: 1977 }]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Steely Dan - Aja", year: 1977 },
+    ]);
     mockLmsClient.getLibraryAlbums.mockResolvedValue(
       ok({
         albums: [
@@ -209,7 +218,7 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=local-wins&limit=1");
+    const response = await getAlbums(server, "tag=qsound&q=local-wins&limit=1");
 
     expect(response.statusCode).toBe(200);
     expect(parseAlbumsBody(response.body).albums).toEqual([
@@ -225,9 +234,9 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("falls back to the album_id cover URL when the local match has no artwork_track_id", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([{ title: "Madonna - The Immaculate Collection", year: 1990 }]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Madonna - The Immaculate Collection", year: 1990 },
+    ]);
     mockLmsClient.getLibraryAlbums.mockResolvedValue(
       ok({
         albums: [
@@ -238,7 +247,10 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=no-artwork-track-id&limit=1");
+    const response = await getAlbums(
+      server,
+      "tag=qsound&q=no-artwork-track-id&limit=1",
+    );
 
     expect(response.statusCode).toBe(200);
     const album = parseAlbumsBody(response.body).albums[0] ?? {};
@@ -249,13 +261,11 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("drops candidates that are available neither locally nor on Tidal", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([
-        { title: "Test Artist - Nowhere Album", year: 2000 },
-        { title: "Kraftwerk - Autobahn", year: 1974 },
-        { title: "Other Artist - Also Nowhere", year: 2005 },
-      ]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Test Artist - Nowhere Album", year: 2000 },
+      { title: "Kraftwerk - Autobahn", year: 1974 },
+      { title: "Other Artist - Also Nowhere", year: 2005 },
+    ]);
     mockLmsClient.searchTidalAlbums.mockImplementation(async (query) =>
       query === "Kraftwerk Autobahn"
         ? ok([
@@ -268,7 +278,10 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=unavailable&limit=10");
+    const response = await getAlbums(
+      server,
+      "tag=qsound&q=unavailable&limit=10",
+    );
 
     expect(response.statusCode).toBe(200);
     expect(parseAlbumsBody(response.body).albums).toEqual([
@@ -283,35 +296,34 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
   });
 
   it("drops a Tidal match that carries no cover art", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([
-        {
-          title: "Sting - The Soul Cages",
-          year: 1991,
-          coverImageUrl: "https://discogs.test/soul-cages.jpg",
-        },
-      ]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      {
+        title: "Sting - The Soul Cages",
+        year: 1991,
+        coverImageUrl: "https://discogs.test/soul-cages.jpg",
+      },
+    ]);
     mockLmsClient.searchTidalAlbums.mockResolvedValue(
       ok([{ name: "The Soul Cages" }]),
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=tidal-no-cover&limit=1");
+    const response = await getAlbums(
+      server,
+      "tag=qsound&q=tidal-no-cover&limit=1",
+    );
 
     expect(response.statusCode).toBe(200);
     expect(parseAlbumsBody(response.body).albums).toEqual([]);
   });
 
   it("keeps hasMore and totalCandidates on the candidate list when most of a page is filtered out", async () => {
-    mockDiscogsClient.searchReleases.mockResolvedValue(
-      ok([
-        { title: "Artist One - Album One", year: 2001 },
-        { title: "Artist Two - Album Two", year: 2002 },
-        { title: "Artist Three - Album Three", year: 2003 },
-        { title: "Artist Four - Album Four", year: 2004 },
-      ]),
-    );
+    givenDiscogsReturns(mockDiscogsClient, [
+      { title: "Artist One - Album One", year: 2001 },
+      { title: "Artist Two - Album Two", year: 2002 },
+      { title: "Artist Three - Album Three", year: 2003 },
+      { title: "Artist Four - Album Four", year: 2004 },
+    ]);
     mockLmsClient.searchTidalAlbums.mockImplementation(async (query) =>
       query === "Artist Two Album Two"
         ? ok([{ name: "Album Two", coverArtUrl: "https://tidal.test/two.jpg" }])
@@ -319,7 +331,10 @@ describe("GET /api/tags/discogs/albums — availability and cover source", () =>
     );
     server = await startServer(mockLmsClient, mockDiscogsClient);
 
-    const response = await getAlbums(server, "q=mostly-filtered&limit=3");
+    const response = await getAlbums(
+      server,
+      "tag=qsound&q=mostly-filtered&limit=3",
+    );
 
     expect(response.statusCode).toBe(200);
     const body = parseAlbumsBody(response.body);

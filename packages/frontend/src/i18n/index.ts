@@ -202,7 +202,7 @@ export type MessageKey =
   | 'search.tagsSection'
   | 'search.tagAlbumCountOne'
   | 'search.tagAlbumCountOther'
-  | 'tags.title'
+  | 'search.tagFilterLabel'
   | 'tags.loadMore'
   | 'tags.emptyTitle'
   | 'tags.emptyDescription'
@@ -549,7 +549,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.tagsSection': 'Tags',
     'search.tagAlbumCountOne': '{count} album',
     'search.tagAlbumCountOther': '{count} albums',
-    'tags.title': 'Tag: {query}',
+    'search.tagFilterLabel': 'Filter by tag',
     'tags.loadMore': 'Load more',
     'tags.emptyTitle': 'No albums found',
     'tags.emptyDescription': 'Discogs has no candidates for this tag.',
@@ -900,7 +900,7 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'search.tagsSection': 'Tags',
     'search.tagAlbumCountOne': '{count} Album',
     'search.tagAlbumCountOther': '{count} Alben',
-    'tags.title': 'Tag: {query}',
+    'search.tagFilterLabel': 'Nach Tag filtern',
     'tags.loadMore': 'Mehr laden',
     'tags.emptyTitle': 'Keine Alben gefunden',
     'tags.emptyDescription': 'Discogs hat keine Kandidaten für diesen Tag.',

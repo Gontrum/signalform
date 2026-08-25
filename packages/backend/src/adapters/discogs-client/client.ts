@@ -3,6 +3,8 @@ import { isRecord } from "../lms-client/execute.js";
 import type {
   DiscogsClient,
   DiscogsError,
+  DiscogsQuery,
+  DiscogsSearchPage,
   DiscogsSearchResult,
 } from "./types.js";
 
@@ -16,6 +18,7 @@ const USER_AGENT = "Signalform/1.0";
 
 type DiscogsPage = {
   readonly pages: number;
+  readonly items: number;
   readonly results: readonly DiscogsSearchResult[];
 };
 
@@ -70,19 +73,24 @@ const parseResults = (value: unknown): readonly DiscogsSearchResult[] => {
   });
 };
 
-const parseTotalPages = (value: unknown): number => {
+const parsePaginationNumber = (
+  value: unknown,
+  field: string,
+  fallback: number,
+): number => {
   if (!isRecord(value)) {
-    return 1;
+    return fallback;
   }
   const pagination = value["pagination"];
-  if (!isRecord(pagination) || typeof pagination["pages"] !== "number") {
-    return 1;
+  if (!isRecord(pagination) || typeof pagination[field] !== "number") {
+    return fallback;
   }
-  return pagination["pages"];
+  return pagination[field];
 };
 
 const parsePage = (value: unknown): DiscogsPage => ({
-  pages: parseTotalPages(value),
+  pages: parsePaginationNumber(value, "pages", 1),
+  items: parsePaginationNumber(value, "items", 0),
   results: parseResults(isRecord(value) ? value["results"] : undefined),
 });
 
@@ -96,9 +104,27 @@ const parseJson = (text: string): Result<unknown, DiscogsError> => {
   );
 };
 
-const buildUrl = (query: string, page: number): string => {
+const collapseWhitespace = (value: string): string =>
+  value.trim().replace(/\s+/g, " ");
+
+export const buildQueryParams = (
+  query: DiscogsQuery,
+): Readonly<Record<string, string>> => {
+  const text = collapseWhitespace(query.text ?? "");
+  if (query.tag.mode === "format") {
+    return {
+      format: query.tag.term,
+      ...(text !== "" ? { q: text } : {}),
+    };
+  }
+  return { q: collapseWhitespace(`${query.tag.term} ${text}`) };
+};
+
+const buildUrl = (query: DiscogsQuery, page: number): string => {
   const url = new URL(DISCOGS_SEARCH_URL);
-  url.searchParams.set("q", query);
+  Object.entries(buildQueryParams(query)).forEach(([name, value]) => {
+    url.searchParams.set(name, value);
+  });
   url.searchParams.set("type", "release");
   url.searchParams.set("per_page", String(RESULTS_PER_PAGE));
   url.searchParams.set("page", String(page));
@@ -113,7 +139,7 @@ const buildHeaders = (token?: string): Readonly<Record<string, string>> => ({
 });
 
 const requestPage = async (
-  query: string,
+  query: DiscogsQuery,
   page: number,
   headers: Readonly<Record<string, string>>,
 ): Promise<Result<DiscogsPage, DiscogsError>> => {
@@ -185,8 +211,8 @@ export const createDiscogsClient = (token?: string): DiscogsClient => {
 
   return {
     searchReleases: async (
-      query: string,
-    ): Promise<Result<readonly DiscogsSearchResult[], DiscogsError>> => {
+      query: DiscogsQuery,
+    ): Promise<Result<DiscogsSearchPage, DiscogsError>> => {
       const fetchPage: FetchPage = (page) => requestPage(query, page, headers);
 
       const firstPage = await fetchPage(1);
@@ -202,7 +228,7 @@ export const createDiscogsClient = (token?: string): DiscogsClient => {
         totalPages,
       );
 
-      return ok(results);
+      return ok({ results, totalItems: firstPage.value.items });
     },
   };
 };

@@ -39,4 +39,28 @@ describe('Router', () => {
       expect(loaded).toBeDefined()
     }
   })
+
+  it('redirects the legacy tag route onto the home route as a tag filter', async () => {
+    await router.push('/tags?q=qsound')
+    await router.isReady()
+
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(router.currentRoute.value.query).toEqual({ tag: 'qsound' })
+  })
+
+  it('maps a legacy tag value the vocabulary does not know onto the plain home route', async () => {
+    await router.push('/tags?q=chiptune')
+    await router.isReady()
+
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(router.currentRoute.value.query).toEqual({})
+  })
+
+  it('redirects the legacy tag route without a query onto the plain home route', async () => {
+    await router.push('/tags')
+    await router.isReady()
+
+    expect(router.currentRoute.value.path).toBe('/')
+    expect(router.currentRoute.value.query).toEqual({})
+  })
 })

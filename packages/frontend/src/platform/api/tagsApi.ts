@@ -89,19 +89,22 @@ const proxyTagAlbumsCoverArt = (page: TagAlbumsPage): TagAlbumsPage => ({
 })
 
 /**
- * One page of the Discogs-backed, cross-source album list for a `tag:` search.
- * `offset`/`limit` page a candidate list the server already resolved and
- * cached for `query` — see the `tag:` search trigger in `searchApi.ts`. The
- * server drops candidates it cannot play, so one page of candidates may yield
- * fewer albums than `limit` while `hasMore` still holds.
+ * One page of the Discogs-backed, cross-source album list for a vocabulary
+ * tag, optionally narrowed by free text. `offset`/`limit` page a candidate
+ * list the server already resolved and cached for `tagId` — see the tag
+ * vocabulary in `@signalform/shared`. The server drops candidates it cannot
+ * play, so one page of candidates may yield fewer albums than `limit` while
+ * `hasMore` still holds.
  */
 export const getTagAlbumsPage = async (
-  query: string,
+  tagId: string,
+  text: string,
   offset: number,
   limit: number,
 ): Promise<Result<TagAlbumsPage, TagsApiError>> => {
   const params = new URLSearchParams({
-    q: query,
+    tag: tagId,
+    ...(text === '' ? {} : { q: text }),
     offset: String(offset),
     limit: String(limit),
   })

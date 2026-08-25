@@ -7,8 +7,11 @@ import AutocompleteDropdown from './AutocompleteDropdown.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import SearchResultsList from './SearchResultsList.vue'
+import TagChipRow from './TagChipRow.vue'
+import TagAlbumGrid from '@/domains/tags/ui/TagAlbumGrid.vue'
 import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useSearchPanel } from '../shell/useSearchPanel'
+import { useTagAlbums } from '@/domains/tags/shell/useTagAlbums'
 
 const { isPhone } = useResponsiveLayout()
 
@@ -21,8 +24,11 @@ const {
   searchInputEl,
   showMinLengthHint,
   showLoadingIndicator,
+  showAutocomplete,
   activeIndex,
   showFullResults,
+  activeTagId,
+  selectTag,
   displayedTracks,
   displayedAlbums,
   displayedArtists,
@@ -52,6 +58,17 @@ const {
   startLovedRadioMode,
 } = useSearchPanel()
 
+const {
+  status: tagStatus,
+  errorKind: tagErrorKind,
+  albums: tagAlbums,
+  hasMore: tagHasMore,
+  isLoadingMore: tagIsLoadingMore,
+  resolvingKey: tagResolvingKey,
+  loadMore: loadMoreTagAlbums,
+  handleAlbumClick: handleTagAlbumClick,
+} = useTagAlbums()
+
 // Read per call like `t`: the language lands after setup, and the host default
 // would otherwise group 1,234 into an otherwise German page.
 const locale = (): string => i18nStore.currentLanguage
@@ -62,16 +79,68 @@ const suggestionCountLabel = computed(() => {
 
   return buildCountLabel(count, t('home.suggestionsOne'), t('home.suggestionsOther'), locale())
 })
+
+const paneClass = computed(() =>
+  showFullResults.value
+    ? 'flex-1 min-h-0 overflow-y-auto'
+    : 'flex h-full flex-col items-center justify-center',
+)
+
+const columnClass = computed(() => (showFullResults.value ? 'w-full' : 'w-full max-w-2xl'))
 </script>
 
 <template>
   <div data-testid="search-container" class="flex h-full flex-col p-6">
     <PageHeader v-if="isPhone" :title="t('nav.search')" />
     <h1 v-else class="sr-only">{{ t('nav.search') }}</h1>
-    <!-- Autocomplete Mode -->
-    <div v-if="!showFullResults" class="flex h-full flex-col items-center justify-center">
-      <div class="w-full max-w-2xl">
-        <div class="relative">
+    <div :class="paneClass" :data-testid="showFullResults ? 'full-results-list' : undefined">
+      <div :class="columnClass">
+        <div
+          v-if="showFullResults"
+          data-testid="scroll-header"
+          class="sticky top-0 z-raised mb-4 flex flex-col rounded-xl border border-neutral-200 bg-neutral-50/95 px-3 py-3 shadow-sm backdrop-blur-sm"
+        >
+          <div class="flex items-center gap-3">
+            <button
+              type="button"
+              class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+              data-testid="back-button"
+              @click="backToSearch"
+            >
+              ← {{ t('settings.fullResultsBack') }}
+            </button>
+            <h2 v-if="searchQuery !== ''" class="min-w-0 text-xl font-semibold text-neutral-900">
+              {{ t('home.resultsFor') }} "{{ searchQuery }}"
+            </h2>
+          </div>
+
+          <!-- Genre Radio action for current query -->
+          <div v-if="searchQuery !== ''" class="mt-2 flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="genre-radio-from-search-button"
+              :disabled="genreRadioLoading"
+              class="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
+              @click="handleGenreRadioStart"
+            >
+              {{
+                genreRadioLoading ? t('search.genreRadioSearching') : t('search.genreRadioStart')
+              }}
+              "{{ searchQuery }}"
+            </button>
+            <span
+              v-if="genreRadioError"
+              class="text-xs text-error"
+              data-testid="genre-radio-search-error"
+            >
+              {{ t('artist.genreRadioError') }}
+            </span>
+          </div>
+        </div>
+
+        <TagChipRow class="mb-4" :active-tag-id="activeTagId" @select="selectTag" />
+
+        <div class="relative mb-4">
           <input
             ref="searchInputEl"
             v-model="searchQuery"
@@ -93,6 +162,7 @@ const suggestionCountLabel = computed(() => {
           />
 
           <AutocompleteDropdown
+            v-if="showAutocomplete"
             :suggestions="searchStore.autocompleteSuggestions"
             :is-loading="showLoadingIndicator"
             :is-empty="
@@ -121,7 +191,7 @@ const suggestionCountLabel = computed(() => {
 
         <!-- Results Count (for autocomplete) -->
         <div
-          v-if="searchStore.hasSuggestions"
+          v-if="!showFullResults && searchStore.hasSuggestions"
           class="mt-4 text-center text-sm text-neutral-500"
           aria-live="polite"
           aria-atomic="true"
@@ -131,7 +201,10 @@ const suggestionCountLabel = computed(() => {
         </div>
 
         <!-- Personal Radio — only shown when feature is enabled in settings -->
-        <div v-if="personalRadioEnabled" class="mt-6 flex flex-col items-center gap-2">
+        <div
+          v-if="!showFullResults && personalRadioEnabled"
+          class="mt-6 flex flex-col items-center gap-2"
+        >
           <button
             type="button"
             data-testid="personal-radio-button"
@@ -161,143 +234,116 @@ const suggestionCountLabel = computed(() => {
             {{ t('home.lovedRadioError') }}
           </span>
         </div>
-      </div>
-    </div>
 
-    <!-- Full Results Mode -->
-    <div v-else class="flex-1 min-h-0 overflow-y-auto" data-testid="full-results-list">
-      <div
-        data-testid="scroll-header"
-        class="sticky top-0 z-raised mb-4 flex flex-col rounded-xl border border-neutral-200 bg-neutral-50/95 px-3 py-3 shadow-sm backdrop-blur-sm"
-      >
-        <div class="flex items-center gap-3">
-          <button
-            type="button"
-            class="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-            data-testid="back-button"
-            @click="backToSearch"
-          >
-            ← {{ t('settings.fullResultsBack') }}
-          </button>
-          <h2 class="min-w-0 text-xl font-semibold text-neutral-900">
-            {{ t('home.resultsFor') }} "{{ searchQuery }}"
-          </h2>
-        </div>
+        <template v-if="showFullResults">
+          <TagAlbumGrid
+            v-if="activeTagId !== undefined"
+            :status="tagStatus"
+            :error-kind="tagErrorKind"
+            :albums="tagAlbums"
+            :has-more="tagHasMore"
+            :is-loading-more="tagIsLoadingMore"
+            :resolving-key="tagResolvingKey"
+            @load-more="loadMoreTagAlbums"
+            @album-click="handleTagAlbumClick"
+          />
 
-        <!-- Genre Radio action for current query -->
-        <div class="mt-2 flex items-center gap-2">
-          <button
-            type="button"
-            data-testid="genre-radio-from-search-button"
-            :disabled="genreRadioLoading"
-            class="rounded-full bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition-colors"
-            @click="handleGenreRadioStart"
-          >
-            {{ genreRadioLoading ? t('search.genreRadioSearching') : t('search.genreRadioStart') }}
-            "{{ searchQuery }}"
-          </button>
-          <span
-            v-if="genreRadioError"
-            class="text-xs text-error"
-            data-testid="genre-radio-search-error"
-          >
-            {{ t('artist.genreRadioError') }}
-          </span>
-        </div>
-      </div>
-
-      <!-- Tidal Unavailable Warning -->
-      <div
-        v-if="searchStore.showTidalWarning"
-        class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
-        role="status"
-        aria-live="polite"
-        data-testid="tidal-unavailable-warning"
-      >
-        {{ t('home.tidalUnavailable') }}
-      </div>
-
-      <!-- Loading State -->
-      <div
-        v-if="searchStore.isFullResultsLoading"
-        class="flex min-h-64 items-center justify-center"
-        data-testid="full-results-loading"
-      >
-        <div class="text-center">
-          <LoadingSpinner size="md" color="current" />
-          <p class="mt-4 text-sm text-neutral-500">{{ t('home.searching') }}</p>
-        </div>
-      </div>
-
-      <!-- Error State -->
-      <div
-        v-else-if="searchStore.fullResultsError"
-        class="flex min-h-64 items-center justify-center"
-        data-testid="full-results-error"
-      >
-        <div class="text-center">
-          <p class="text-lg font-medium text-error">
-            {{ searchStore.fullResultsError }}
-          </p>
-          <button
-            type="button"
-            class="mt-4 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
-            @click="handleEnterKey"
-          >
-            {{ t('common.tryAgain') }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div
-        v-else-if="
-          searchStore.fullResults &&
-          searchStore.fullResults.tracks.length === 0 &&
-          searchStore.fullResults.albums.length === 0 &&
-          searchStore.fullResults.artists.length === 0 &&
-          searchStore.fullResults.tags.length === 0
-        "
-        class="flex min-h-64 items-center justify-center"
-        data-testid="empty-state"
-      >
-        <EmptyState
-          :title="t('home.emptyState.title')"
-          :subtitle="t('home.emptyState.description')"
-        >
-          <template #icon>
-            <svg
-              class="h-12 w-12 text-neutral-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
+          <template v-else>
+            <!-- Tidal Unavailable Warning -->
+            <div
+              v-if="searchStore.showTidalWarning"
+              class="mb-4 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning"
+              role="status"
+              aria-live="polite"
+              data-testid="tidal-unavailable-warning"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-              />
-            </svg>
-          </template>
-        </EmptyState>
-      </div>
+              {{ t('home.tidalUnavailable') }}
+            </div>
 
-      <!-- Results List -->
-      <SearchResultsList
-        v-else-if="searchStore.fullResults"
-        :results="displayedTracks"
-        :albums="displayedAlbums"
-        :artists="displayedArtists"
-        :tags="displayedTags"
-        @play="handlePlayTrack"
-        @pause="handlePause"
-        @play-album="handlePlayAlbum"
-        @navigate-artist="handleNavigateArtist"
-        @navigate-album="handleNavigateAlbum"
-        @navigate-tidal-album="handleNavigateTidalAlbum"
-      />
+            <!-- Loading State -->
+            <div
+              v-if="searchStore.isFullResultsLoading"
+              class="flex min-h-64 items-center justify-center"
+              data-testid="full-results-loading"
+            >
+              <div class="text-center">
+                <LoadingSpinner size="md" color="current" />
+                <p class="mt-4 text-sm text-neutral-500">{{ t('home.searching') }}</p>
+              </div>
+            </div>
+
+            <!-- Error State -->
+            <div
+              v-else-if="searchStore.fullResultsError"
+              class="flex min-h-64 items-center justify-center"
+              data-testid="full-results-error"
+            >
+              <div class="text-center">
+                <p class="text-lg font-medium text-error">
+                  {{ searchStore.fullResultsError }}
+                </p>
+                <button
+                  type="button"
+                  class="mt-4 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+                  @click="handleEnterKey"
+                >
+                  {{ t('common.tryAgain') }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div
+              v-else-if="
+                searchStore.fullResults &&
+                searchStore.fullResults.tracks.length === 0 &&
+                searchStore.fullResults.albums.length === 0 &&
+                searchStore.fullResults.artists.length === 0 &&
+                searchStore.fullResults.tags.length === 0
+              "
+              class="flex min-h-64 items-center justify-center"
+              data-testid="empty-state"
+            >
+              <EmptyState
+                :title="t('home.emptyState.title')"
+                :subtitle="t('home.emptyState.description')"
+              >
+                <template #icon>
+                  <svg
+                    class="h-12 w-12 text-neutral-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                    />
+                  </svg>
+                </template>
+              </EmptyState>
+            </div>
+
+            <!-- Results List -->
+            <SearchResultsList
+              v-else-if="searchStore.fullResults"
+              :results="displayedTracks"
+              :albums="displayedAlbums"
+              :artists="displayedArtists"
+              :tags="displayedTags"
+              @play="handlePlayTrack"
+              @pause="handlePause"
+              @play-album="handlePlayAlbum"
+              @navigate-artist="handleNavigateArtist"
+              @navigate-album="handleNavigateAlbum"
+              @navigate-tidal-album="handleNavigateTidalAlbum"
+            />
+          </template>
+        </template>
+      </div>
     </div>
   </div>
 </template>

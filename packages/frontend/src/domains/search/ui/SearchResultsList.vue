@@ -13,6 +13,7 @@ import { createAlsoAvailableText, createTrackAnnouncement } from '@/domains/play
 import { buildCountLabel } from '@/domains/enrichment/core/service'
 import { useI18nStore } from '@/app/i18nStore'
 import { useSearchResultsActions } from '../shell/useSearchResultsActions'
+import { buildSearchRouteQuery } from '../core/route-query'
 
 interface Props {
   results: readonly TrackResult[]
@@ -147,7 +148,7 @@ const router = useRouter()
 // its own — it opens the global Discogs-backed album list for that tag, so
 // this pushes directly rather than emitting for a parent handler to route.
 const handleTagClick = (tag: TagSearchMatch): void => {
-  void router.push({ name: 'tag-albums', query: { q: tag.query } })
+  void router.push({ path: '/', query: buildSearchRouteQuery({ text: '', tagId: tag.query }) })
 }
 
 const tagAlbumCountLabel = (tag: TagSearchMatch): string => {
