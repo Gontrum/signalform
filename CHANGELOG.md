@@ -5,6 +5,33 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-08-25
+
+### Added
+
+- filter what you find by how it was recorded. Nine sound formats — SACD, HDCD,
+  Quadraphonic, QSound among them — sit as a row of chips under the search
+  field, so which tags exist is something you can see rather than something you
+  have to already know. Tap one to browse it, or search first and then tap a
+  chip to narrow those results to a single artist; both halves combine from
+  either direction
+
+### Changed
+
+- tag results are far more precise wherever Discogs indexes the format itself.
+  Asking for SACD used to mean 214,410 free-text hits, most of them noise; it
+  now means 16,005 genuine SACD releases, because the query asks for the format
+  instead of the word. QSound and the other tags that exist only in release
+  notes are unchanged
+- a tag combined with a search is now a single request rather than a filter over
+  an already-truncated sample. Only the first 500 releases of a tag are ever
+  fetched, so narrowing SACD to one artist by hand would have searched an
+  arbitrary three percent and mostly found nothing
+- tags moved onto the search page instead of a page of their own. Existing
+  `/tags` links still open, and the nine offered tags replace free-form tag
+  text — knowing whether Discogs indexes a tag as a format is what makes the
+  precise query possible
+
 ## [1.1.0] - 2026-08-24
 
 ### Added
