@@ -46,6 +46,8 @@ export interface ApiMocks {
   readonly playbackStatus?: JsonObject
   readonly config?: JsonObject
   readonly users?: JsonObject
+  readonly setupDiscover?: JsonObject
+  readonly setupPlayers?: JsonObject
 }
 
 /**
@@ -129,6 +131,19 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
       // behaviour for every test that doesn't opt in via this mock).
       if (pathname === '/api/users' && method === 'GET' && mocks.users) {
         await fulfill200(route, mocks.users)
+        return
+      }
+
+      // Opt-in like mocks.users: unmocked, both fall through to the empty-body
+      // default below and fail their Zod parse in setupApi — the state every
+      // spec that only renders the wizard was written against.
+      if (pathname === '/api/setup/discover' && method === 'GET' && mocks.setupDiscover) {
+        await fulfill200(route, mocks.setupDiscover)
+        return
+      }
+
+      if (pathname === '/api/setup/players' && method === 'GET' && mocks.setupPlayers) {
+        await fulfill200(route, mocks.setupPlayers)
         return
       }
 

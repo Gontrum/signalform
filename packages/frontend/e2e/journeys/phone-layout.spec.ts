@@ -4,7 +4,7 @@
  * Verifies the app layout at 375px (phone) is single-column
  * with no side-by-side panels.
  */
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { setupApiMocks } from '../helpers/mockApi.ts'
 
 test.describe('Phone Layout (375px)', () => {
@@ -278,4 +278,316 @@ test.describe('Phone Layout (375px)', () => {
     await expect(sheet).toBeHidden()
     await expect(page.locator('[data-testid="filter-summary"]')).toBeFocused()
   })
+
+  // Every overflow assertion above measures `document.documentElement`, which is
+  // structurally always 0: the app root is overflow-hidden, so a row that hangs
+  // past its container scrolls an *inner* pane instead. These cases measure the
+  // inner scroll containers.
+  const DELIBERATE_HORIZONTAL_SCROLLERS = [
+    'tag-chip-row',
+    'sort-chip-row',
+    'decade-chip-row',
+    'genre-chips',
+  ] as const
+
+  type HorizontalOverflow = {
+    readonly testId: string
+    readonly className: string
+    readonly overflowPx: number
+  }
+
+  const findHorizontalOverflow = async (page: Page): Promise<readonly HorizontalOverflow[]> =>
+    await page.evaluate(
+      (allowedTestIds: readonly string[]) =>
+        Array.from(document.querySelectorAll('*')).flatMap((element) => {
+          const overflowPx = element.scrollWidth - element.clientWidth
+          if (overflowPx <= 1) {
+            return []
+          }
+
+          // Only elements that can actually scroll: a `truncate` label reports
+          // the very same overflow while `overflow-x: hidden` pins it in place.
+          const overflowX = getComputedStyle(element).overflowX
+          if (overflowX !== 'auto' && overflowX !== 'scroll') {
+            return []
+          }
+
+          const testId = element.getAttribute('data-testid') ?? ''
+          if (allowedTestIds.includes(testId)) {
+            return []
+          }
+
+          return [
+            {
+              testId: testId === '' ? '(no data-testid)' : testId,
+              className: element.getAttribute('class') ?? '',
+              overflowPx,
+            },
+          ]
+        }),
+      [...DELIBERATE_HORIZONTAL_SCROLLERS],
+    )
+
+  const expectNoInnerHorizontalOverflow = async (page: Page, where: string): Promise<void> => {
+    const offenders = await findHorizontalOverflow(page)
+
+    expect(
+      offenders,
+      `${where}: unintended horizontal scrolling in ${offenders
+        .map(
+          (offender) =>
+            `${offender.testId} (+${String(offender.overflowPx)}px, class="${offender.className}")`,
+        )
+        .join(' | ')}`,
+    ).toEqual([])
+  }
+
+  // Long strings on purpose: the short values in `localTrackSearchResponse` fit
+  // a 390px column with room to spare, which is why nothing here noticed the
+  // chip row hanging past the pane.
+  const remasteredSearchResponse = {
+    tracks: [
+      {
+        id: 'track-long-1',
+        title: 'Shine On You Crazy Diamond (Parts I-V) [2011 Remastered Version]',
+        artist: 'The Deodato Symphonic Orchestra & The Nova Vale Ensemble',
+        album: 'Wish You Were Here (50th Anniversary Deluxe Remastered Edition)',
+        url: 'file:///music/shine-on-you-crazy-diamond.flac',
+        source: 'local' as const,
+        duration: 811,
+      },
+    ],
+    albums: [
+      {
+        id: 'album-long-1',
+        albumId: '4711',
+        title: 'The Dark Side of the Moon (2023 Remastered Anniversary Box Set)',
+        artist: 'The Deodato Symphonic Orchestra & The Nova Vale Ensemble',
+        trackCount: 10,
+        coverArtUrl: 'http://localhost:3000/music/1/cover.jpg',
+      },
+    ],
+    artists: [
+      {
+        name: 'The Deodato Symphonic Orchestra & The Nova Vale Ensemble',
+        artistId: 'artist-long-1',
+      },
+    ],
+    query: 'remastered anniversary edition',
+    totalResults: 3,
+  }
+
+  test.describe('no unintended horizontal scrolling on a 390x844 phone', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+
+    // A broad guard over the four routes in their default state. None of them
+    // renders the tag chip row, so all four stayed green while that row hung
+    // past its pane — they cover future regressions, not the one below.
+    const routeReadySelectors = [
+      ['/', 'search-input'],
+      ['/queue', 'queue-view'],
+      ['/library', 'library-view'],
+      ['/settings', 'settings-view'],
+    ] as const
+
+    for (const [path, readyTestId] of routeReadySelectors) {
+      test(`nothing scrolls sideways at ${path}`, async ({ page }) => {
+        await setupApiMocks(page, {})
+        await page.goto(path)
+        await page.waitForSelector(`[data-testid="${readyTestId}"]`)
+
+        await expectNoInnerHorizontalOverflow(page, path)
+      })
+    }
+
+    // The one case that fails without the fix: the tag chip row only sits
+    // inside the full-results pane once a search ran, and no other spec
+    // reaches that state.
+    test('nothing scrolls sideways in the full search results', async ({ page }) => {
+      await setupApiMocks(page, { search: remasteredSearchResponse })
+      await page.goto('/')
+
+      const searchInput = page.getByTestId('search-input')
+      await searchInput.fill('remastered anniversary edition')
+      await searchInput.press('Enter')
+
+      await expect(page.getByTestId('full-results-list')).toBeVisible({ timeout: 5000 })
+      await expect(page.getByTestId('tag-chip-row')).toBeVisible()
+
+      await expectNoInnerHorizontalOverflow(page, 'full search results')
+    })
+  })
+
+  // The vertical counterpart. Same blind spot: `document.documentElement` never
+  // overflows, so a pane that hangs below the fold inside an overflow-hidden
+  // ancestor is invisible to every assertion above — and unreachable to the
+  // user, because a clipped box has no scrollbar and no touch scrolling.
+  type VerticalReach = {
+    readonly top: number
+    readonly bottom: number
+    readonly viewportHeight: number
+    readonly scrollerTestId: string
+    readonly scrollerScrollHeight: number
+    readonly scrollerClientHeight: number
+    readonly unreachableAbovePx: number
+    readonly unreachableBelowPx: number
+  }
+
+  const measureVerticalReach = async (page: Page, selector: string): Promise<VerticalReach> =>
+    await page.evaluate((targetSelector: string) => {
+      const target = document.querySelector(targetSelector)
+      if (!target) {
+        throw new Error(`nothing matches ${targetSelector}`)
+      }
+
+      // A clipped ancestor is still programmatically scrollable, and Playwright's
+      // own scroll-into-view before a click leaves it that way. Rewinding every
+      // one of them — the whole chain up to the document root, not just those
+      // below the nearest scroller — restores the only vertical position a user
+      // can actually produce.
+      const scroller = ((): Element | undefined => {
+        let nearestScroller: Element | undefined
+
+        for (let node = target.parentElement; node !== null; node = node.parentElement) {
+          const overflowY = getComputedStyle(node).overflowY
+          if (overflowY === 'auto' || overflowY === 'scroll') {
+            nearestScroller ??= node
+            continue
+          }
+          node.scrollTop = 0
+        }
+
+        return nearestScroller
+      })()
+
+      const rect = target.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+
+      if (!scroller) {
+        return {
+          top: Math.round(rect.top),
+          bottom: Math.round(rect.bottom),
+          viewportHeight,
+          scrollerTestId: '(nothing scrolls)',
+          scrollerScrollHeight: 0,
+          scrollerClientHeight: 0,
+          unreachableAbovePx: Math.max(0, Math.round(0 - rect.top)),
+          unreachableBelowPx: Math.max(0, Math.round(rect.bottom - viewportHeight)),
+        }
+      }
+
+      const scrollerRect = scroller.getBoundingClientRect()
+      const remainingScroll = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop
+      const visibleTop = Math.max(0, scrollerRect.top)
+      const visibleBottom = Math.min(viewportHeight, scrollerRect.bottom)
+
+      return {
+        top: Math.round(rect.top),
+        bottom: Math.round(rect.bottom),
+        viewportHeight,
+        scrollerTestId: scroller.getAttribute('data-testid') ?? '(no data-testid)',
+        scrollerScrollHeight: scroller.scrollHeight,
+        scrollerClientHeight: scroller.clientHeight,
+        // Both edges measured against the scroll extent the user can reach:
+        // rewinding to the start lifts the top edge by scrollTop, running to
+        // the end lifts the bottom edge by whatever scrolling is left.
+        unreachableAbovePx: Math.max(0, Math.round(visibleTop - (rect.top + scroller.scrollTop))),
+        unreachableBelowPx: Math.max(0, Math.round(rect.bottom - remainingScroll - visibleBottom)),
+      }
+    }, selector)
+
+  const expectVerticallyReachable = async (
+    page: Page,
+    selector: string,
+    where: string,
+  ): Promise<void> => {
+    const reach = await measureVerticalReach(page, selector)
+
+    const detail =
+      `${where}: ${selector} spans ${String(reach.top)}..${String(reach.bottom)}px in a ` +
+      `${String(reach.viewportHeight)}px viewport, nearest scroller "${reach.scrollerTestId}" ` +
+      `(scrollHeight ${String(reach.scrollerScrollHeight)}, clientHeight ` +
+      `${String(reach.scrollerClientHeight)})`
+
+    expect(reach.unreachableBelowPx, `${detail} — cut off below the fold`).toBeLessThanOrEqual(1)
+    expect(reach.unreachableAbovePx, `${detail} — cut off above the fold`).toBeLessThanOrEqual(1)
+  }
+
+  const SETUP_CARD = '[data-testid="setup-wizard"] > div'
+
+  // Four servers, for the same reason as the players below: the discovered
+  // list is what pushes the server step past both phone viewports here, and a
+  // one-entry list would keep it accidentally short.
+  const setupDiscoverResponse = {
+    servers: [
+      { host: '192.168.178.39', port: 9000, name: 'Lyrion Music Server', version: '9.0.1' },
+      { host: '192.168.178.44', port: 9000, name: 'Basement Server', version: '8.5.2' },
+      { host: '192.168.178.51', port: 9000, name: 'Attic Server', version: '8.3.1' },
+      { host: '192.168.178.62', port: 9002, name: 'Garage Server', version: '9.0.0' },
+    ],
+  }
+
+  // Four players: the step is only taller than a landscape phone with a
+  // realistic list, and a one-entry list would keep it accidentally short.
+  const setupPlayersResponse = {
+    players: [
+      { id: 'aa:bb:cc:dd:ee:01', name: 'Living Room', model: 'squeezelite', connected: true },
+      { id: 'aa:bb:cc:dd:ee:02', name: 'Kitchen', model: 'squeezebox radio', connected: true },
+      { id: 'aa:bb:cc:dd:ee:03', name: 'Bedroom', model: 'squeezelite', connected: false },
+      { id: 'aa:bb:cc:dd:ee:04', name: 'Study', model: 'squeezebox touch', connected: true },
+    ],
+  }
+
+  // `min-h-screen` sized the wizard against the viewport instead of against the
+  // fixed-height, overflow-hidden box App.vue gives an immersive route, so
+  // nothing scrolled anywhere and whatever did not fit was simply gone. In
+  // landscape that hit on arrival, in portrait only once the discovered-server
+  // list is on screen — which is why the scan below is not optional.
+  const SETUP_VIEWPORTS = [
+    { width: 375, height: 667 },
+    { width: 667, height: 375 },
+  ] as const
+
+  for (const viewport of SETUP_VIEWPORTS) {
+    const size = `${String(viewport.width)}x${String(viewport.height)}`
+
+    test.describe(`setup wizard fits a ${size} phone`, () => {
+      test.use({ viewport: { width: viewport.width, height: viewport.height } })
+
+      test(`every setup step stays reachable at ${size}`, async ({ page }) => {
+        await setupApiMocks(page, {
+          setupDiscover: setupDiscoverResponse,
+          setupPlayers: setupPlayersResponse,
+        })
+        await page.goto('/setup')
+
+        await expect(page.getByTestId('step-server')).toBeVisible()
+        await expectVerticallyReachable(page, SETUP_CARD, `${size} step server on arrival`)
+
+        // The discovered list is the tallest the server step ever gets, and
+        // scanning is the only way to render it.
+        await page.getByTestId('scan-button').click()
+        await expect(page.getByTestId('discovered-server-item')).toHaveCount(
+          setupDiscoverResponse.servers.length,
+        )
+        await expectVerticallyReachable(page, SETUP_CARD, `${size} step server after scan`)
+
+        // Manual entry stays the path under test: it sits below the discovered
+        // list, so it is only reachable once the taller step scrolls.
+        await page.getByTestId('manual-host-input').fill('192.168.178.39')
+        await page.getByTestId('proceed-to-player-button').click()
+        await expect(page.getByTestId('player-item').first()).toBeVisible()
+        await expectVerticallyReachable(page, SETUP_CARD, `${size} step player`)
+
+        await page.getByTestId('player-item').first().click()
+        await page.getByTestId('proceed-to-keys-button').click()
+        await expect(page.getByTestId('step-keys')).toBeVisible()
+        await expectVerticallyReachable(page, SETUP_CARD, `${size} step keys`)
+
+        await page.getByTestId('save-button').click()
+        await expect(page.getByTestId('step-done')).toBeVisible()
+        await expectVerticallyReachable(page, SETUP_CARD, `${size} step done`)
+      })
+    })
+  }
 })
