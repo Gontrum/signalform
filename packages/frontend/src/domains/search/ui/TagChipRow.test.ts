@@ -73,4 +73,19 @@ describe('TagChipRow', () => {
     expect(rowClass).toContain('overflow-x-auto')
     expect(rowClass).toContain('sm:flex-wrap')
   })
+
+  // The library sheet pads its chip rows with px-4, so there the -mx-4/px-4
+  // bleed cancels out. This row lives in the search panel's p-6 container,
+  // where the same bleed left it hanging 16px past the pane and the results
+  // list turned that overhang into horizontal scrolling.
+  it('does not bleed into the padding of its container', () => {
+    const wrapper = mountRow()
+
+    const rowClass = wrapper.get('[data-testid="tag-chip-row"]').attributes('class') ?? ''
+
+    expect(rowClass).not.toContain('-mx-4')
+    expect(rowClass).not.toContain('px-4')
+    expect(rowClass).not.toContain('sm:mx-0')
+    expect(rowClass).not.toContain('sm:px-0')
+  })
 })

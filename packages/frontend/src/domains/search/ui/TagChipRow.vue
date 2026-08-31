@@ -2,7 +2,7 @@
 import { TAG_VOCABULARY } from '@signalform/shared'
 import { useI18nStore } from '@/app/i18nStore'
 import type { MessageKey } from '@/i18n'
-import { CHIP_ROW_CLASS, chipClass } from '@/platform/ui/chips'
+import { CHIP_ROW_FLUSH_CLASS, chipClass } from '@/platform/ui/chips'
 
 const props = defineProps<{
   readonly activeTagId?: string
@@ -23,7 +23,7 @@ const toggleTag = (tagId: string): void => {
 <template>
   <div
     data-testid="tag-chip-row"
-    :class="CHIP_ROW_CLASS"
+    :class="CHIP_ROW_FLUSH_CLASS"
     role="group"
     :aria-label="t('search.tagFilterLabel')"
   >

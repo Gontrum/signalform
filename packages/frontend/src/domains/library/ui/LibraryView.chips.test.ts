@@ -135,14 +135,8 @@ const CHIP_ROWS = [
 // has always been. `flex-wrap` without the sm: prefix is what put seven rows of
 // genre chips above the album grid on a phone — assert its absence, not just the
 // presence of the scroll classes.
-const NARROW_SCROLL_CLASSES = ['flex', 'overflow-x-auto', '-mx-4', 'px-4', 'py-1'] as const
-const WIDE_WRAP_CLASSES = [
-  'sm:flex-wrap',
-  'sm:overflow-x-visible',
-  'sm:mx-0',
-  'sm:px-0',
-  'sm:py-0',
-] as const
+const NARROW_SCROLL_CLASSES = ['flex', 'overflow-x-auto', 'py-1'] as const
+const WIDE_WRAP_CLASSES = ['sm:flex-wrap', 'sm:overflow-x-visible', 'sm:py-0'] as const
 
 describe('LibraryView — chip rows scroll on narrow viewports', () => {
   beforeEach(setupChipEnv)
@@ -168,6 +162,20 @@ describe('LibraryView — chip rows scroll on narrow viewports', () => {
       const classes = wrapper.find(`[data-testid="${chipTestId}"]`).classes()
 
       expect(classes).toEqual(expect.arrayContaining(['shrink-0', 'whitespace-nowrap']))
+    },
+  )
+
+  // These rows sit inside BottomSheet's px-4, the padding the -mx-4/px-4 pair
+  // cancels against — take the bleed away here and the sheet's chips stop
+  // clipping at the screen edge.
+  it.each(CHIP_ROWS)(
+    'keeps the %s row bleeding into the px-4 sheet padding',
+    async (_label, rowTestId) => {
+      const wrapper = await mountView()
+
+      const classes = wrapper.find(`[data-testid="${rowTestId}"]`).classes()
+
+      expect(classes).toEqual(expect.arrayContaining(['-mx-4', 'px-4', 'sm:mx-0', 'sm:px-0']))
     },
   )
 
