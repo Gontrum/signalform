@@ -5,6 +5,20 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-08-31
+
+### Fixed
+
+- the search results page no longer slides sideways on a phone. The row of tag
+  chips was 32px wider than the column holding it, and because that column
+  scrolls vertically, the browser quietly turned the overhang into horizontal
+  scrolling of the whole page — every search you opened could be pushed 16px off
+  to the side
+- the setup wizard is reachable again on a phone held sideways. It sized itself
+  to the browser window rather than to the space it was actually given, and had
+  nothing to scroll, so the button to continue sat below the edge of the screen
+  with no way to get to it
+
 ## [1.2.0] - 2026-08-25
 
 ### Added
