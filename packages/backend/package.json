@@ -20,7 +20,7 @@
     "fastify": "^5.12.1",
     "socket.io": "^4.8.1",
     "winston": "^3.17.0",
-    "zod": "^4.4.3"
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
