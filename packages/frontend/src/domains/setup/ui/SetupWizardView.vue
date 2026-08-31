@@ -43,11 +43,9 @@ const connectedMessage = computed(() =>
 </script>
 
 <template>
-  <main
-    class="flex min-h-screen items-center justify-center bg-neutral-50 p-6"
-    data-testid="setup-wizard"
-  >
-    <div class="w-full max-w-lg rounded-2xl bg-white p-8 shadow-lg">
+  <main class="flex h-full overflow-y-auto bg-neutral-50 p-6" data-testid="setup-wizard">
+    <!-- m-auto, not items-center: items-center clips an overflowing card's top edge. -->
+    <div class="m-auto w-full max-w-lg rounded-2xl bg-white p-8 shadow-lg">
       <div class="mb-8 flex items-center gap-2" data-testid="step-indicator">
         <div
           v-for="(setupStepName, index) in setupSteps"

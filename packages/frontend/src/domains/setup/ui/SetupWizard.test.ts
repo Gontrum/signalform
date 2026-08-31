@@ -100,6 +100,36 @@ describe('SetupWizard', () => {
     expect(context.wrapper.find('main[data-testid="setup-wizard"]').exists()).toBe(true)
   })
 
+  // jsdom computes no layout, so these two only catch a literal edit of the
+  // class strings — the behaviour they stand for is measured in
+  // e2e/journeys/phone-layout.spec.ts. /setup is an immersive route that
+  // App.vue renders into a fixed-height, overflow-hidden box; `min-h-screen`
+  // measured the viewport instead of that box and made the wizard 57px taller
+  // than its parent in landscape, with nothing scrollable anywhere.
+  it('keeps h-full and overflow-y-auto on the root and no min-h-screen', async () => {
+    const context = await mountWizard()
+
+    const rootClass = context.wrapper.get('[data-testid="setup-wizard"]').attributes('class') ?? ''
+
+    expect(rootClass).toContain('h-full')
+    expect(rootClass).toContain('overflow-y-auto')
+    expect(rootClass).not.toContain('min-h-screen')
+  })
+
+  // items-center inside a scroll container clips the top of an overflowing
+  // child, and the step indicator and heading are what sit there.
+  it('keeps m-auto on the card and no items-center/justify-center on the root', async () => {
+    const context = await mountWizard()
+
+    const rootClass = context.wrapper.get('[data-testid="setup-wizard"]').attributes('class') ?? ''
+    const cardClass =
+      context.wrapper.get('[data-testid="setup-wizard"] > div').attributes('class') ?? ''
+
+    expect(rootClass).not.toContain('items-center')
+    expect(rootClass).not.toContain('justify-center')
+    expect(cardClass).toContain('m-auto')
+  })
+
   it('scan button calls discoverServers', async () => {
     const { discoverServers } = await import('@/platform/api/setupApi')
 
