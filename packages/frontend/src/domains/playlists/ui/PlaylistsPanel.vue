@@ -5,7 +5,9 @@ import { formatSeconds } from '@signalform/shared'
 import { useI18nStore } from '@/app/i18nStore'
 import type { MessageKey } from '@/i18n'
 import type { SavedPlaylist } from '@/platform/api/playlistsApi'
+import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { usePlaylists } from '../shell/usePlaylists'
+import { useTidalPlaylists } from '../shell/useTidalPlaylists'
 
 const i18nStore = useI18nStore()
 const t = (key: MessageKey): string => i18nStore.t(key)
@@ -29,6 +31,21 @@ const {
   loadMoreTracks,
   removeTrack,
 } = usePlaylists()
+
+const {
+  playlists: tidalPlaylists,
+  isLoading: tidalIsLoading,
+  error: tidalError,
+  playingId: tidalPlayingId,
+  expandedId: tidalExpandedId,
+  tracks: tidalTracks,
+  trackCount: tidalTrackCount,
+  isTracksLoading: tidalIsTracksLoading,
+  hasMoreTracks: tidalHasMoreTracks,
+  play: playTidal,
+  toggleTracks: toggleTidalTracks,
+  loadMoreTracks: loadMoreTidalTracks,
+} = useTidalPlaylists()
 
 const errorKey = computed<MessageKey>(() => {
   if (playlistDirMissing.value) {
@@ -208,6 +225,28 @@ const handleRemoveTrack = async (playlistId: string, index: number): Promise<voi
   // when the last track went away or the panel closed.
   const next = trackRemoveEls.get(index) ?? tracksToggleEls.get(playlistId)
   next?.focus()
+}
+
+const tidalTracksPanelId = (id: string): string => `tidal-playlist-tracks-${encodeURIComponent(id)}`
+
+const tidalTracksToggleAriaLabel = (id: string, playlistName: string): string =>
+  (tidalExpandedId.value === id
+    ? t('playlists.tidal.tracksHideAria')
+    : t('playlists.tidal.tracksShowAria')
+  ).replace('{name}', playlistName)
+
+const tidalPlayAriaLabel = (id: string, playlistName: string): string =>
+  (tidalPlayingId.value === id
+    ? t('playlists.tidal.playPendingAria')
+    : t('playlists.tidal.playAria')
+  ).replace('{name}', playlistName)
+
+const tidalTrackCountLabel = computed((): string =>
+  t('playlists.tidal.trackCount').replace('{count}', String(tidalTrackCount.value ?? 0)),
+)
+
+const handleTidalPlay = async (id: string): Promise<void> => {
+  await playTidal(id)
 }
 </script>
 
@@ -486,5 +525,185 @@ const handleRemoveTrack = async (playlistId: string, index: number): Promise<voi
         </div>
       </li>
     </ul>
+
+    <div data-testid="tidal-playlists-section" class="mt-6 border-t border-neutral-200 pt-4">
+      <h3 class="mb-3 text-base font-semibold text-neutral-900">
+        {{ t('playlists.tidal.heading') }}
+      </h3>
+
+      <p
+        v-if="tidalIsLoading"
+        data-testid="tidal-playlists-loading"
+        class="text-sm text-neutral-500"
+      >
+        {{ t('playlists.tidal.loading') }}
+      </p>
+      <p
+        v-else-if="tidalError"
+        data-testid="tidal-playlists-error"
+        role="alert"
+        class="text-sm text-error"
+      >
+        {{ t('playlists.tidal.error') }}
+      </p>
+      <p
+        v-else-if="tidalPlaylists.length === 0"
+        data-testid="tidal-playlists-empty"
+        class="text-sm text-neutral-500"
+      >
+        {{ t('playlists.tidal.empty') }}
+      </p>
+      <ul v-else class="flex flex-col gap-1">
+        <li v-for="playlist in tidalPlaylists" :key="playlist.id" data-testid="tidal-playlist-row">
+          <div class="flex items-center gap-3 rounded-lg px-2 py-1 hover:bg-neutral-50">
+            <img
+              v-if="playlist.coverArtUrl"
+              :src="playlist.coverArtUrl"
+              alt=""
+              class="h-11 w-11 shrink-0 rounded-lg object-cover"
+              loading="lazy"
+            />
+            <div
+              v-else
+              aria-hidden="true"
+              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-400 to-accent-600 text-white"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                />
+              </svg>
+            </div>
+
+            <span class="min-w-0 flex-1">
+              <span
+                data-testid="tidal-playlist-name"
+                class="block truncate text-[15px] font-medium text-neutral-900"
+                >{{ playlist.name }}</span
+              >
+              <span
+                v-if="tidalExpandedId === playlist.id && tidalTrackCount !== undefined"
+                data-testid="tidal-playlist-count"
+                class="block truncate text-xs text-neutral-500"
+                >{{ tidalTrackCountLabel }}</span
+              >
+            </span>
+
+            <div class="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                data-testid="tidal-playlist-tracks-toggle"
+                :aria-label="tidalTracksToggleAriaLabel(playlist.id, playlist.name)"
+                :aria-expanded="tidalExpandedId === playlist.id"
+                :aria-controls="
+                  tidalExpandedId === playlist.id ? tidalTracksPanelId(playlist.id) : undefined
+                "
+                class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-800 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500"
+                @click="toggleTidalTracks(playlist.id)"
+              >
+                <svg
+                  :class="[
+                    'h-5 w-5 transition-transform',
+                    tidalExpandedId === playlist.id ? 'rotate-180' : '',
+                  ]"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                data-testid="tidal-playlist-play"
+                :disabled="tidalPlayingId !== undefined"
+                :aria-label="tidalPlayAriaLabel(playlist.id, playlist.name)"
+                class="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-accent-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="handleTidalPlay(playlist.id)"
+              >
+                <LoadingSpinner
+                  v-if="tidalPlayingId === playlist.id"
+                  size="sm"
+                  color="current"
+                  :announce="false"
+                  aria-hidden="true"
+                />
+                <svg
+                  v-else
+                  class="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-if="tidalExpandedId === playlist.id"
+            :id="tidalTracksPanelId(playlist.id)"
+            data-testid="tidal-playlist-tracks"
+            class="mt-1 border-l-2 border-neutral-200 pl-3"
+          >
+            <p
+              v-if="tidalIsTracksLoading && tidalTracks.length === 0"
+              data-testid="tidal-playlist-tracks-loading"
+              class="px-2 py-2 text-sm text-neutral-500"
+            >
+              {{ t('playlists.tidal.tracksLoading') }}
+            </p>
+            <p
+              v-else-if="tidalTracks.length === 0"
+              data-testid="tidal-playlist-tracks-empty"
+              class="px-2 py-2 text-sm text-neutral-500"
+            >
+              {{ t('playlists.tidal.tracksEmpty') }}
+            </p>
+            <template v-else>
+              <ul class="flex flex-col gap-1">
+                <li
+                  v-for="track in tidalTracks"
+                  :key="track.id"
+                  data-testid="tidal-playlist-track-row"
+                  class="flex items-center justify-between gap-2 rounded-lg px-2 py-1 hover:bg-neutral-50"
+                >
+                  <span
+                    data-testid="tidal-playlist-track-title"
+                    class="min-w-0 flex-1 truncate text-sm text-neutral-900"
+                    >{{ track.title }}</span
+                  >
+                  <span
+                    v-if="track.duration !== undefined"
+                    data-testid="tidal-playlist-track-duration"
+                    class="shrink-0 text-xs tabular-nums text-neutral-500"
+                    >{{ formatSeconds(track.duration) }}</span
+                  >
+                </li>
+              </ul>
+              <button
+                v-if="tidalHasMoreTracks"
+                type="button"
+                data-testid="tidal-playlist-tracks-more"
+                :aria-label="t('playlists.tidal.tracksMore')"
+                :disabled="tidalIsTracksLoading"
+                class="mt-1 min-h-11 w-full rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm text-neutral-600 transition-colors hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-accent-500 disabled:cursor-not-allowed disabled:opacity-50"
+                @click="loadMoreTidalTracks"
+              >
+                {{ t('playlists.tidal.tracksMore') }}
+              </button>
+            </template>
+          </div>
+        </li>
+      </ul>
+    </div>
   </section>
 </template>

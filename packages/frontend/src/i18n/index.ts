@@ -271,6 +271,18 @@ export type MessageKey =
   | 'playlists.tracksEmpty'
   | 'playlists.tracksMore'
   | 'playlists.trackRemoveAria'
+  | 'playlists.tidal.heading'
+  | 'playlists.tidal.loading'
+  | 'playlists.tidal.empty'
+  | 'playlists.tidal.error'
+  | 'playlists.tidal.playAria'
+  | 'playlists.tidal.playPendingAria'
+  | 'playlists.tidal.tracksShowAria'
+  | 'playlists.tidal.tracksHideAria'
+  | 'playlists.tidal.tracksLoading'
+  | 'playlists.tidal.tracksEmpty'
+  | 'playlists.tidal.tracksMore'
+  | 'playlists.tidal.trackCount'
   | 'library.sourceLocal'
   | 'library.sourceTidal'
   | 'artist.tidalHeading'
@@ -620,6 +632,18 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.tracksEmpty': 'This playlist has no tracks',
     'playlists.tracksMore': 'Show more tracks',
     'playlists.trackRemoveAria': 'Remove {title} from playlist {name}',
+    'playlists.tidal.heading': 'On Tidal',
+    'playlists.tidal.loading': 'Loading Tidal playlists…',
+    'playlists.tidal.empty': 'No Tidal playlists found',
+    'playlists.tidal.error': 'Tidal playlists could not be loaded.',
+    'playlists.tidal.playAria': 'Play Tidal playlist {name}',
+    'playlists.tidal.playPendingAria': 'Starting Tidal playlist {name}',
+    'playlists.tidal.tracksShowAria': 'Show tracks of Tidal playlist {name}',
+    'playlists.tidal.tracksHideAria': 'Hide tracks of Tidal playlist {name}',
+    'playlists.tidal.tracksLoading': 'Loading tracks…',
+    'playlists.tidal.tracksEmpty': 'This playlist has no tracks',
+    'playlists.tidal.tracksMore': 'Show more tracks',
+    'playlists.tidal.trackCount': '{count} tracks',
     'library.sourceLocal': 'Local',
     'library.sourceTidal': 'Tidal',
     'artist.tidalHeading': 'On Tidal',
@@ -974,6 +998,18 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.tracksEmpty': 'Diese Playlist enthält keine Titel',
     'playlists.tracksMore': 'Weitere Titel anzeigen',
     'playlists.trackRemoveAria': '{title} aus Playlist {name} entfernen',
+    'playlists.tidal.heading': 'Bei Tidal',
+    'playlists.tidal.loading': 'Tidal-Playlists werden geladen…',
+    'playlists.tidal.empty': 'Keine Tidal-Playlists gefunden',
+    'playlists.tidal.error': 'Tidal-Playlists konnten nicht geladen werden.',
+    'playlists.tidal.playAria': 'Tidal-Playlist {name} abspielen',
+    'playlists.tidal.playPendingAria': 'Tidal-Playlist {name} wird gestartet',
+    'playlists.tidal.tracksShowAria': 'Titel der Tidal-Playlist {name} anzeigen',
+    'playlists.tidal.tracksHideAria': 'Titel der Tidal-Playlist {name} ausblenden',
+    'playlists.tidal.tracksLoading': 'Titel werden geladen…',
+    'playlists.tidal.tracksEmpty': 'Diese Playlist enthält keine Titel',
+    'playlists.tidal.tracksMore': 'Weitere Titel anzeigen',
+    'playlists.tidal.trackCount': '{count} Titel',
     'library.sourceLocal': 'Lokal',
     'library.sourceTidal': 'Tidal',
     'artist.tidalHeading': 'Bei Tidal',

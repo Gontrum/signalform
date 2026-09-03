@@ -11,6 +11,7 @@ import { nextTick, ref } from 'vue'
 import type { Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import type { SavedPlaylist } from '@/platform/api/playlistsApi'
+import type { TidalPlaylist, TidalPlaylistTrack } from '@/platform/api/tidalPlaylistsApi'
 import { useI18nStore } from '@/app/i18nStore'
 import { setupTestEnv } from '@/test-utils'
 
@@ -43,6 +44,34 @@ vi.mock('../shell/usePlaylists', () => ({
   })),
 }))
 
+const tidalPlaylistsRef: Ref<readonly TidalPlaylist[]> = ref([])
+const tidalIsLoadingRef = ref(false)
+const tidalErrorRef = ref(false)
+const tidalPlayingIdRef = ref<string | undefined>(undefined)
+const tidalExpandedIdRef = ref<string | undefined>(undefined)
+const tidalTracksRef: Ref<readonly TidalPlaylistTrack[]> = ref([])
+const tidalTrackCountRef = ref<number | undefined>(undefined)
+const tidalIsTracksLoadingRef = ref(false)
+const tidalHasMoreTracksRef = ref(false)
+
+vi.mock('../shell/useTidalPlaylists', () => ({
+  useTidalPlaylists: vi.fn(() => ({
+    playlists: tidalPlaylistsRef,
+    isLoading: tidalIsLoadingRef,
+    error: tidalErrorRef,
+    playingId: tidalPlayingIdRef,
+    expandedId: tidalExpandedIdRef,
+    tracks: tidalTracksRef,
+    trackCount: tidalTrackCountRef,
+    isTracksLoading: tidalIsTracksLoadingRef,
+    hasMoreTracks: tidalHasMoreTracksRef,
+    fetchList: vi.fn(),
+    play: vi.fn(),
+    toggleTracks: vi.fn(),
+    loadMoreTracks: vi.fn(),
+  })),
+}))
+
 import PlaylistsPanel from './PlaylistsPanel.vue'
 
 const labelOf = (wrapper: ReturnType<typeof mount>, testId: string): string | undefined =>
@@ -56,6 +85,15 @@ describe('PlaylistsPanel – a language switch after mount', () => {
     errorRef.value = false
     playlistDirMissingRef.value = false
     playlistGoneRef.value = false
+    tidalPlaylistsRef.value = []
+    tidalIsLoadingRef.value = false
+    tidalErrorRef.value = false
+    tidalPlayingIdRef.value = undefined
+    tidalExpandedIdRef.value = undefined
+    tidalTracksRef.value = []
+    tidalTrackCountRef.value = undefined
+    tidalIsTracksLoadingRef.value = false
+    tidalHasMoreTracksRef.value = false
   })
 
   // A translator captured at mount (`const t = i18nStore.t`) is what this
@@ -173,6 +211,153 @@ describe('PlaylistsPanel – a language switch after mount', () => {
       expect(wrapper.find('[data-testid="playlists-error"]').text()).toBe(
         'Diese Playlist gibt es im Lyrion Music Server nicht mehr. Die Liste war nicht mehr aktuell.',
       )
+    })
+  })
+
+  describe('the Tidal playlists section', () => {
+    it('re-renders the heading and each state message in the new language', async () => {
+      tidalIsLoadingRef.value = true
+      const loadingWrapper = mount(PlaylistsPanel)
+      expect(loadingWrapper.find('[data-testid="tidal-playlists-loading"]').text()).toBe(
+        'Loading Tidal playlists…',
+      )
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(loadingWrapper.find('[data-testid="tidal-playlists-loading"]').text()).toBe(
+        'Tidal-Playlists werden geladen…',
+      )
+      useI18nStore().setLanguage('en')
+
+      tidalIsLoadingRef.value = false
+      tidalErrorRef.value = true
+      const errorWrapper = mount(PlaylistsPanel)
+      expect(errorWrapper.find('[data-testid="tidal-playlists-error"]').text()).toBe(
+        'Tidal playlists could not be loaded.',
+      )
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(errorWrapper.find('[data-testid="tidal-playlists-error"]').text()).toBe(
+        'Tidal-Playlists konnten nicht geladen werden.',
+      )
+      useI18nStore().setLanguage('en')
+
+      tidalErrorRef.value = false
+      const emptyWrapper = mount(PlaylistsPanel)
+      expect(emptyWrapper.find('[data-testid="tidal-playlists-empty"]').text()).toBe(
+        'No Tidal playlists found',
+      )
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(emptyWrapper.find('[data-testid="tidal-playlists-empty"]').text()).toBe(
+        'Keine Tidal-Playlists gefunden',
+      )
+
+      tidalPlaylistsRef.value = [{ id: '3.0', name: 'Rock Classics', coverArtUrl: '' }]
+      const headingWrapper = mount(PlaylistsPanel)
+      expect(headingWrapper.find('h3').text()).toBe('Bei Tidal')
+      useI18nStore().setLanguage('en')
+      await nextTick()
+      expect(headingWrapper.find('h3').text()).toBe('On Tidal')
+    })
+
+    it('re-renders the play button label with the playlist name, and while starting', async () => {
+      tidalPlaylistsRef.value = [{ id: '3.0', name: 'Rock Classics', coverArtUrl: '' }]
+      const wrapper = mount(PlaylistsPanel)
+
+      expect(wrapper.find('[data-testid="tidal-playlist-play"]').attributes('aria-label')).toBe(
+        'Play Tidal playlist Rock Classics',
+      )
+
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(wrapper.find('[data-testid="tidal-playlist-play"]').attributes('aria-label')).toBe(
+        'Tidal-Playlist Rock Classics abspielen',
+      )
+
+      tidalPlayingIdRef.value = '3.0'
+      await nextTick()
+      expect(wrapper.find('[data-testid="tidal-playlist-play"]').attributes('aria-label')).toBe(
+        'Tidal-Playlist Rock Classics wird gestartet',
+      )
+
+      useI18nStore().setLanguage('en')
+      await nextTick()
+      expect(wrapper.find('[data-testid="tidal-playlist-play"]').attributes('aria-label')).toBe(
+        'Starting Tidal playlist Rock Classics',
+      )
+    })
+
+    it('re-renders the tracks toggle label before and after expanding', async () => {
+      tidalPlaylistsRef.value = [{ id: '3.0', name: 'Rock Classics', coverArtUrl: '' }]
+      const wrapper = mount(PlaylistsPanel)
+
+      expect(
+        wrapper.find('[data-testid="tidal-playlist-tracks-toggle"]').attributes('aria-label'),
+      ).toBe('Show tracks of Tidal playlist Rock Classics')
+
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(
+        wrapper.find('[data-testid="tidal-playlist-tracks-toggle"]').attributes('aria-label'),
+      ).toBe('Titel der Tidal-Playlist Rock Classics anzeigen')
+
+      tidalExpandedIdRef.value = '3.0'
+      await nextTick()
+      expect(
+        wrapper.find('[data-testid="tidal-playlist-tracks-toggle"]').attributes('aria-label'),
+      ).toBe('Titel der Tidal-Playlist Rock Classics ausblenden')
+
+      useI18nStore().setLanguage('en')
+      await nextTick()
+      expect(
+        wrapper.find('[data-testid="tidal-playlist-tracks-toggle"]').attributes('aria-label'),
+      ).toBe('Hide tracks of Tidal playlist Rock Classics')
+    })
+
+    it('re-renders the expanded track panel messages and the count in the new language', async () => {
+      tidalPlaylistsRef.value = [{ id: '3.0', name: 'Rock Classics', coverArtUrl: '' }]
+      tidalExpandedIdRef.value = '3.0'
+      tidalIsTracksLoadingRef.value = true
+      const loadingWrapper = mount(PlaylistsPanel)
+      expect(loadingWrapper.find('[data-testid="tidal-playlist-tracks-loading"]').text()).toBe(
+        'Loading tracks…',
+      )
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(loadingWrapper.find('[data-testid="tidal-playlist-tracks-loading"]').text()).toBe(
+        'Titel werden geladen…',
+      )
+      useI18nStore().setLanguage('en')
+
+      tidalIsTracksLoadingRef.value = false
+      const emptyWrapper = mount(PlaylistsPanel)
+      expect(emptyWrapper.find('[data-testid="tidal-playlist-tracks-empty"]').text()).toBe(
+        'This playlist has no tracks',
+      )
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(emptyWrapper.find('[data-testid="tidal-playlist-tracks-empty"]').text()).toBe(
+        'Diese Playlist enthält keine Titel',
+      )
+      useI18nStore().setLanguage('en')
+
+      tidalTracksRef.value = [
+        { id: 't5', position: 5, title: 'Stairway to Heaven', url: 'tidal://5', coverArtUrl: '' },
+      ]
+      tidalHasMoreTracksRef.value = true
+      tidalTrackCountRef.value = 449
+      const listWrapper = mount(PlaylistsPanel)
+      expect(listWrapper.find('[data-testid="tidal-playlist-tracks-more"]').text()).toBe(
+        'Show more tracks',
+      )
+      expect(listWrapper.find('[data-testid="tidal-playlist-count"]').text()).toBe('449 tracks')
+
+      useI18nStore().setLanguage('de')
+      await nextTick()
+      expect(listWrapper.find('[data-testid="tidal-playlist-tracks-more"]').text()).toBe(
+        'Weitere Titel anzeigen',
+      )
+      expect(listWrapper.find('[data-testid="tidal-playlist-count"]').text()).toBe('449 Titel')
     })
   })
 })
