@@ -13,6 +13,7 @@
  *   library.ts    — playAlbum, playTidalAlbum, getAlbumTracks, getLibraryAlbums, rescan, …
  *   tidal-albums.ts — getTidalAlbums, getTidalAlbumTracks, getTidalArtistAlbums, getTidalFeaturedAlbums
  *   tidal-search.ts — searchTidalArtists
+ *   tidal-playlists.ts — getTidalPlaylists, getTidalPlaylistTracks, playTidalPlaylist
  */
 
 import type { LmsConfig } from "./types.js";
@@ -29,13 +30,18 @@ import {
   createTidalSearchMethods,
   type TidalSearchMethods,
 } from "./tidal-search.js";
+import {
+  createTidalPlaylistsMethods,
+  type TidalPlaylistsMethods,
+} from "./tidal-playlists.js";
 
 type LmsClientMethods = PlaybackMethods &
   QueueMethods &
   ReturnType<typeof createSearchMethods> &
   LibraryMethods &
   TidalAlbumsMethods &
-  TidalSearchMethods;
+  TidalSearchMethods &
+  TidalPlaylistsMethods;
 
 const createLmsClientInternal = (config: LmsConfig): LmsClientMethods => {
   const executeCommand = makeExecuteCommand(config);
@@ -52,6 +58,7 @@ const createLmsClientInternal = (config: LmsConfig): LmsClientMethods => {
     ...createLibraryMethods(deps),
     ...createTidalAlbumsMethods(deps),
     ...createTidalSearchMethods(deps),
+    ...createTidalPlaylistsMethods(deps),
   };
 };
 

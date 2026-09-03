@@ -105,6 +105,11 @@ const createLmsProxy = (): LmsClient => {
     getTidalAlbumParentItems: forwardLmsCall(
       (client) => client.getTidalAlbumParentItems,
     ),
+    getTidalPlaylists: forwardLmsCall((client) => client.getTidalPlaylists),
+    getTidalPlaylistTracks: forwardLmsCall(
+      (client) => client.getTidalPlaylistTracks,
+    ),
+    playTidalPlaylist: forwardLmsCall((client) => client.playTidalPlaylist),
     rescanLibrary: forwardLmsCall((client) => client.rescanLibrary),
     getRescanProgress: forwardLmsCall((client) => client.getRescanProgress),
     clearQueue: forwardLmsCall((client) => client.clearQueue),

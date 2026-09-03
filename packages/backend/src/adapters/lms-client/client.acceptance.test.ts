@@ -2964,6 +2964,214 @@ describe("LMS Client - Acceptance Tests", () => {
     });
   });
 
+  describe("Tidal Playlists (getTidalPlaylists, getTidalPlaylistTracks, playTidalPlaylist)", () => {
+    const givenTidalPlaylistsReturn = (
+      playlists: ReadonlyArray<{
+        readonly id: string;
+        readonly name: string;
+        readonly image?: string;
+      }>,
+      count: number,
+    ): void => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: {
+            loop_loop: playlists.map((p) => ({
+              id: p.id,
+              name: p.name,
+              image: p.image,
+              type: "playlist",
+              isaudio: 1,
+              hasitems: 1,
+            })),
+            count,
+          },
+          id: 1,
+          error: null,
+        }),
+      });
+    };
+
+    const givenTidalPlaylistsReturnNoLoopLoop = (): void => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: {},
+          id: 1,
+          error: null,
+        }),
+      });
+    };
+
+    const givenTidalPlaylistTracksReturn = (
+      tracks: ReadonlyArray<{
+        readonly id: string;
+        readonly name: string;
+        readonly url?: string;
+        readonly isaudio?: number;
+      }>,
+      count: number,
+    ): void => {
+      fetchMock.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          result: {
+            loop_loop: tracks.map((t) => ({
+              id: t.id,
+              name: t.name,
+              url: t.url,
+              type: "audio",
+              isaudio: t.isaudio,
+            })),
+            count,
+          },
+          id: 1,
+          error: null,
+        }),
+      });
+    };
+
+    const whenGettingTidalPlaylists = async (
+      offset: number = 0,
+      limit: number = 50,
+    ): Promise<Awaited<ReturnType<LmsClient["getTidalPlaylists"]>>> => {
+      const client = createLmsClient(defaultConfig);
+      return await client.getTidalPlaylists(offset, limit);
+    };
+
+    const whenGettingTidalPlaylistTracks = async (
+      playlistId: string,
+      offset: number = 0,
+      limit: number = 250,
+    ): Promise<Awaited<ReturnType<LmsClient["getTidalPlaylistTracks"]>>> => {
+      const client = createLmsClient(defaultConfig);
+      return await client.getTidalPlaylistTracks(playlistId, offset, limit);
+    };
+
+    const whenPlayingTidalPlaylist = async (
+      playlistId: string,
+    ): Promise<Awaited<ReturnType<LmsClient["playTidalPlaylist"]>>> => {
+      const client = createLmsClient(defaultConfig);
+      return await client.playTidalPlaylist(playlistId);
+    };
+
+    describe("getTidalPlaylists()", () => {
+      it("sends the exact tidal items command for item_id:3 and returns items + count", async () => {
+        givenTidalPlaylistsReturn(
+          [{ id: "3.0", name: "Bacoben's Top 500 Rock 'n Roll Songs" }],
+          1,
+        );
+
+        const result = await whenGettingTidalPlaylists(0, 50);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.items).toHaveLength(1);
+          expect(result.value.count).toBe(1);
+          expect(result.value.items[0]?.name).toBe(
+            "Bacoben's Top 500 Rock 'n Roll Songs",
+          );
+          expect(result.value.items[0]?.id).toBe("3.0");
+        }
+        const body = getJsonRpcRequestBodyAt(0);
+        expect(body.params[1]).toEqual([
+          "tidal",
+          "items",
+          0,
+          50,
+          "item_id:3",
+          "want_url:1",
+        ]);
+      });
+
+      it("returns ok({ items: [], count: 0 }) when LMS responds with no loop_loop", async () => {
+        givenTidalPlaylistsReturnNoLoopLoop();
+
+        const result = await whenGettingTidalPlaylists(0, 50);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.items).toEqual([]);
+          expect(result.value.count).toBe(0);
+        }
+      });
+
+      it("passes through the LMS error unchanged", async () => {
+        await givenLmsWillReturnApiError(-32600, "Tidal unavailable");
+
+        const result = await whenGettingTidalPlaylists(0, 50);
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.type).toBe("LmsApiError");
+        }
+      });
+    });
+
+    describe("getTidalPlaylistTracks()", () => {
+      it("sends item_id:3.0 and returns tracks with url", async () => {
+        givenTidalPlaylistTracksReturn(
+          [
+            {
+              id: "3.0.0",
+              name: "Stairway to Heaven (Remaster)",
+              url: "tidal://36336297.flc",
+              isaudio: 1,
+            },
+          ],
+          449,
+        );
+
+        const result = await whenGettingTidalPlaylistTracks("3.0", 0, 3);
+
+        expect(result.ok).toBe(true);
+        if (result.ok) {
+          expect(result.value.items).toHaveLength(1);
+          expect(result.value.count).toBe(449);
+          expect(result.value.items[0]?.url).toBe("tidal://36336297.flc");
+        }
+        const body = getJsonRpcRequestBodyAt(0);
+        expect(body.params[1]).toEqual([
+          "tidal",
+          "items",
+          0,
+          3,
+          "item_id:3.0",
+          "want_url:1",
+        ]);
+      });
+    });
+
+    describe("playTidalPlaylist()", () => {
+      it("sends the exact playlist play command with item_id", async () => {
+        givenLmsAcceptsPlaylistCommand();
+
+        const result = await whenPlayingTidalPlaylist("3.0");
+
+        expect(result.ok).toBe(true);
+        const body = getJsonRpcRequestBodyAt(0);
+        expect(body.params[1]).toEqual([
+          "tidal",
+          "playlist",
+          "play",
+          "item_id:3.0",
+        ]);
+      });
+
+      it("passes through the LMS error unchanged without throwing", async () => {
+        await givenLmsWillReturnApiError(-32600, "Playlist not found");
+
+        const result = await whenPlayingTidalPlaylist("3.0");
+
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.type).toBe("LmsApiError");
+        }
+      });
+    });
+  });
+
   describe("Rule 9: Album Track Listing", () => {
     describe("getAlbumTracks()", () => {
       it("returns tracks sorted by track_num for valid album ID", async () => {
