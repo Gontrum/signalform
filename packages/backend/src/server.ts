@@ -11,6 +11,7 @@ import { createMetadataRoute } from "./features/metadata/index.js";
 import { createLibraryRoute } from "./features/library/index.js";
 import { createTidalAlbumsRoute } from "./features/tidal-albums/index.js";
 import { createTidalArtistsRoute } from "./features/tidal-artists/index.js";
+import { createTidalPlaylistsRoute } from "./features/tidal-playlists/index.js";
 import { createArtistRadioRoute } from "./features/artist-radio/index.js";
 import { createGenreRadioRoute } from "./features/genre-radio/index.js";
 import { createPersonalRadioRoute } from "./features/personal-radio/index.js";
@@ -325,6 +326,7 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createLibraryRoute(server, lmsProxy, lmsConfigProxy);
   createTidalAlbumsRoute(server, lmsProxy, lmsConfigProxy);
   createTidalArtistsRoute(server, lmsProxy, lmsConfigProxy);
+  createTidalPlaylistsRoute(server, lmsProxy, lmsConfigProxy);
   createArtistRadioRoute(server, lmsProxy, lastFmClient);
   createGenreRadioRoute(server, lmsProxy, lastFmClient);
   createPersonalRadioRoute(server, lmsProxy, lastFmClient);
