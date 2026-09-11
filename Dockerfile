@@ -3,7 +3,8 @@ FROM node:26-bookworm-slim AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
 
-RUN npm install -g --force corepack@latest && corepack enable && corepack prepare pnpm@11.13.1 --activate
+# Bootstrap only — pnpm switches itself to the packageManager version on use.
+RUN npm install -g pnpm
 
 WORKDIR /workspace
 

@@ -1,2 +1,5 @@
 [tools]
 node = "26"
+# Exakt statt "12": mise kennt npms dist-tags nicht und würde sonst die
+# Vorabversion 12.4.x ziehen statt der stabilen.
+pnpm = "12.3.4"
