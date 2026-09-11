@@ -98,6 +98,14 @@ result`) — that is correct and intentional, not a style violation.
 
 See package-level AGENTS.md for package-specific rules.
 
+## Mobile & PWA
+
+`docs/mobile-pwa.md` is binding for any change that touches layout,
+navigation, or input. It is short and is also the review checklist. The rules
+that get violated most: one vertical scroll container per screen, a new
+destination is a pushed route with a back affordance (never an inline
+expanding block), and `viewport-fit=cover` stays off.
+
 ## Comments
 
 Default: no comment. Prose that only restates the code is noise — rename
