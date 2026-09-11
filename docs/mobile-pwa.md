@@ -36,6 +36,12 @@ compete for height and one collapses.
 Different **axes** are fine — a horizontal carousel inside a vertical scroller
 has no ambiguity. Same axis is not.
 
+A multi-line `<textarea>` is also fine and is not what this rule is about: it
+scrolls its own text, the user put the caret in it deliberately, and it has a
+visible boundary. The rule targets _layout_ containers that scroll page
+content. The e2e scroller census counts declared scrollers, so a textarea does
+not trip it either.
+
 If a section is large enough to need its own scrolling, it is not a section.
 It is a screen. Go to rule 3.
 
@@ -43,11 +49,11 @@ It is a screen. Go to rule 3.
 
 Derived from Apple's HIG, and consistent with what this app already does.
 
-| Use                     | When                                                                                                                     | In this app                                                                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| **Tab**                 | A top-level destination the user returns to constantly.                                                                  | The four items in `BottomNavBar` / `MainNavBar`. Adding a fifth is a real cost — the nav's no-overflow behaviour is under test. |
-| **Push** (route + back) | A destination in a hierarchy. Has depth, may itself contain lists and sub-navigation. The user drills in and comes back. | `/album/:albumId`, `/artist/unified`, `/now-playing`. Use `<PageHeader :show-back="true" />`, which calls `router.back()`.      |
-| **Sheet / modal**       | A self-contained task entered and left, usually ending in commit or cancel. Shallow by definition.                       | Rare here.                                                                                                                      |
+| Use                     | When                                                                                                                     | In this app                                                                                                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Tab**                 | A top-level destination the user returns to constantly.                                                                  | The four items in `BottomNavBar` / `MainNavBar`. Adding a fifth is a real cost — the nav's no-overflow behaviour is under test.          |
+| **Push** (route + back) | A destination in a hierarchy. Has depth, may itself contain lists and sub-navigation. The user drills in and comes back. | `/playlists`, `/album/:albumId`, `/artist/unified`, `/now-playing`. Use `<PageHeader :show-back="true" />`, which calls `router.back()`. |
+| **Sheet / modal**       | A self-contained task entered and left, usually ending in commit or cancel. Shallow by definition.                       | Rare here.                                                                                                                               |
 
 Rules of thumb:
 
@@ -133,6 +139,10 @@ drilling in and coming back is a regression the tests will not catch.
 
 A pushed route leaves screen-reader focus where it was. Move focus to the new
 screen's heading on entry, so a route change is perceivable without sight.
+
+**Applies to new pushed routes.** `PlaylistsView` does this; `AlbumDetailView`,
+`UnifiedArtistView` and `NowPlayingView` predate the rule and do not. That is a
+known gap, not a licence to skip it — fix them when you next touch them.
 
 Use `PageHeader`'s exposed `focusTitle()` — the `<h1>` carries `tabindex="-1"`
 for it. Like rule 4's `:show-back`, this is the one mechanism; do not add a
