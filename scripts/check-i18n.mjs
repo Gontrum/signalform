@@ -33,8 +33,6 @@ const PROPER_NOUNS = [
   "LMS",
   "MAC",
   "FLAC",
-  "Led Zeppelin",
-  "Stairway to Heaven",
 ];
 
 // FCIS puts the substitution in a pure core function often enough that a
@@ -967,6 +965,12 @@ const collectMessages = (block) => {
   return messages;
 };
 
+// Values that are an example rather than prose — a band and song name reads the
+// same in every language. Scoped per key on purpose: putting them in
+// PROPER_NOUNS would strip those words for rules 1, 4 and 6 too, hiding real
+// untranslated English anywhere those words appear.
+const IDENTICAL_BY_DESIGN = new Set(["playlists.import.placeholder"]);
+
 export const findIdenticalTranslationViolations = (file, i18nSource) => {
   const blocks = findTranslationBlocks(i18nSource);
   const english = blocks.get("en");
@@ -977,6 +981,7 @@ export const findIdenticalTranslationViolations = (file, i18nSource) => {
   const violations = [];
   for (const [key, entry] of collectMessages(german)) {
     if (englishMessages.get(key)?.value !== entry.value) continue;
+    if (IDENTICAL_BY_DESIGN.has(key)) continue;
     if (translatableWords(entry.value).length < 2) continue;
     violations.push({
       file,
