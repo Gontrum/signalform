@@ -189,4 +189,46 @@ describe('QueueView – scroll position across navigation', () => {
 
     expect(trackListScrollTop(wrapper)).toBe(0)
   })
+
+  // The pushed screen still shows the bottom navigation, so the trip can end on
+  // a different tab. That arrival wants the current track, not an offset saved
+  // two screens ago.
+  it('does not restore a position when another tab is visited on the way back', async () => {
+    mockGetQueue.mockResolvedValue(makeResponse(25))
+
+    const { router, wrapper } = await mountApp()
+    scrollTrackList(wrapper, 900)
+
+    await navigate(router, '/playlists')
+    // The current track advances while the user is away, so the arrival watcher
+    // really runs on the way back: the store is still warm, and an unchanged
+    // current track would leave it silent whatever the scroll memory says.
+    mockGetQueue.mockResolvedValue(makeResponse(30))
+    await navigate(router, '/library')
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView)
+    scrollIntoView.mockClear()
+    await navigate(router, '/queue')
+
+    expect(trackListScrollTop(wrapper)).toBe(0)
+    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'instant', block: 'center' })
+  })
+
+  // A user who scrolled back to the top before leaving saved the top: reading
+  // that as "nothing saved" would throw them down to the current track.
+  it('keeps the list at the top when the saved position is the top', async () => {
+    mockGetQueue.mockResolvedValue(makeResponse(25))
+
+    const { router, wrapper } = await mountApp()
+    scrollTrackList(wrapper, 900)
+    scrollTrackList(wrapper, 0)
+
+    await navigate(router, '/playlists')
+    mockGetQueue.mockResolvedValue(makeResponse(30))
+    const scrollIntoView = vi.mocked(Element.prototype.scrollIntoView)
+    scrollIntoView.mockClear()
+    await navigate(router, '/queue')
+
+    expect(scrollIntoView).not.toHaveBeenCalledWith({ behavior: 'instant', block: 'center' })
+    expect(trackListScrollTop(wrapper)).toBe(0)
+  })
 })

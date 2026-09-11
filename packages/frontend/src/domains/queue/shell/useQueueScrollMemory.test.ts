@@ -39,6 +39,7 @@ const mountApp = async (): Promise<Router> => {
     [
       { path: '/queue', component: makeQueueHost(), meta: { depth: 1 } },
       { path: '/playlists', component: { template: '<div />' }, meta: { depth: 2 } },
+      { path: '/playlists/:id', component: { template: '<div />' }, meta: { depth: 2 } },
       { path: '/library', component: { template: '<div />' }, meta: { depth: 1 } },
     ],
     '/queue',
@@ -120,11 +121,50 @@ describe('useQueueScrollMemory', () => {
     expect(scrollTopOf(second)).toBe(0)
   })
 
-  it('reports no saved position when the queue was never scrolled', async () => {
+  it('reports no saved position on the first visit of the session', async () => {
+    await mountApp()
+    const first = latestVisit
+
+    expect(first?.hasSavedPosition).toBe(false)
+
+    await renderList(first)
+    expect(scrollTopOf(first)).toBe(0)
+  })
+
+  // The top of the list is a position like any other: treating it as "nothing
+  // saved" would send a user who scrolled back to the top off to the current
+  // track instead of leaving them where they were.
+  it('restores a saved top of 0 rather than reading it as nothing saved', async () => {
     const router = await mountApp()
-    await renderList(latestVisit)
+    const first = latestVisit
+    await renderList(first)
+    scrollTo(first, 1200)
+    scrollTo(first, 0)
 
     await navigate(router, '/playlists')
+    await navigate(router, '/queue')
+
+    const second = latestVisit
+    expect(second?.hasSavedPosition).toBe(true)
+
+    // Displaced first, so the restore has to move the list back to 0 to pass —
+    // a missing restore would leave 500 standing.
+    scrollTo(second, 500)
+    await renderList(second)
+    expect(scrollTopOf(second)).toBe(0)
+  })
+
+  // /playlists keeps the bottom navigation, so the user can leave it for
+  // another tab while the queue is unmounted and no instance is left to drop
+  // the position it recorded.
+  it('forgets the position when the pushed screen is left for another tab', async () => {
+    const router = await mountApp()
+    const first = latestVisit
+    await renderList(first)
+    scrollTo(first, 1200)
+
+    await navigate(router, '/playlists')
+    await navigate(router, '/library')
     await navigate(router, '/queue')
 
     const second = latestVisit
@@ -132,6 +172,25 @@ describe('useQueueScrollMemory', () => {
 
     await renderList(second)
     expect(scrollTopOf(second)).toBe(0)
+  })
+
+  // Guard against over-fixing the detour above: a deeper push is still the
+  // same round trip, and coming back from it is a return.
+  it('keeps the position while the user moves deeper into the pushed stack', async () => {
+    const router = await mountApp()
+    const first = latestVisit
+    await renderList(first)
+    scrollTo(first, 1200)
+
+    await navigate(router, '/playlists')
+    await navigate(router, '/playlists/42')
+    await navigate(router, '/queue')
+
+    const second = latestVisit
+    expect(second?.hasSavedPosition).toBe(true)
+
+    await renderList(second)
+    expect(scrollTopOf(second)).toBe(1200)
   })
 
   // Read-and-clear: without it every later arrival at the queue would keep

@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount, flushPromises } from '@vue/test-utils'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { mount, flushPromises, enableAutoUnmount, type VueWrapper } from '@vue/test-utils'
 import type { Router } from 'vue-router'
 import { createTestRouter, setupTestEnv } from '@/test-utils'
 
@@ -23,8 +23,13 @@ const makeRouter = async (): Promise<Router> =>
     '/playlists',
   )
 
+// Attached to the document because the focus case reads document.activeElement
+// — which means every wrapper has to come down again, or its <h1> is left in
+// the document and the next case's focus assertion is decided by test order.
+enableAutoUnmount(afterEach)
+
 const mountView = async (): Promise<{
-  readonly wrapper: ReturnType<typeof mount>
+  readonly wrapper: VueWrapper
   readonly router: Router
 }> => {
   const router = await makeRouter()
@@ -48,14 +53,22 @@ describe('PlaylistsView', () => {
     expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
   })
 
-  it('titles the screen with the playlists heading in both languages', async () => {
+  // The title itself reads 'Playlists' in both languages, so asserting only it
+  // would pass on any translation at all. The back control is the string on
+  // this screen that actually differs.
+  it('titles the screen and labels its back control in both languages', async () => {
     const { wrapper } = await mountView()
 
     expect(wrapper.find('h1').text()).toBe('Playlists')
+    expect(wrapper.find('[data-testid="page-header-back"]').attributes('aria-label')).toBe('Back')
 
     setupTestEnv().setLanguage('de')
     const german = await mountView()
+
     expect(german.wrapper.find('h1').text()).toBe('Playlists')
+    expect(german.wrapper.find('[data-testid="page-header-back"]').attributes('aria-label')).toBe(
+      'Zurück',
+    )
   })
 
   // Installed as a PWA there is no browser back button, so a pushed route

@@ -827,8 +827,17 @@ test.describe('Phone Layout (375px)', () => {
     const readScrollTop = async (): Promise<number> =>
       await page.getByTestId('queue-track-list').evaluate((el) => el.scrollTop)
 
+    const driftFromSavedPosition = async (): Promise<number> =>
+      Math.abs((await readScrollTop()) - before)
+
     // Polled: the restore can only run once the list has rendered its rows.
-    await expect.poll(readScrollTop).toBeGreaterThan(before - 20)
+    // A band, not a floor: anything that merely lands below the saved offset
+    // also passes an overshoot to the bottom of a 120-row list.
+    await expect
+      .poll(driftFromSavedPosition, {
+        message: 'the queue must come back to the offset it left at, not just to some offset',
+      })
+      .toBeLessThanOrEqual(20)
 
     console.log(
       `phone-layout: queue scrollTop ${String(before)} -> ${String(await readScrollTop())} ` +
