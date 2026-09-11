@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import type { ComponentPublicInstance } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { formatSeconds } from '@signalform/shared'
 import PageHeader from '@/ui/PageHeader.vue'
 import QualityBadge from '@/ui/QualityBadge.vue'
 import Banner from '@/ui/Banner.vue'
 import Popover from '@/ui/Popover.vue'
-import PlaylistsPanel from '@/domains/playlists/ui/PlaylistsPanel.vue'
 import { useI18nStore } from '@/app/i18nStore'
 import { useResponsiveLayout } from '@/app/useResponsiveLayout'
 import { getQueueEntryKey, isRadioTrack as isQueueRadioTrack } from '../core/service'
 import { useQueueDrag } from '../shell/useQueueDrag'
+import { useQueueScrollMemory } from '../shell/useQueueScrollMemory'
 import { useQueueStore } from '../shell/useQueueStore'
 
 const { isPhone } = useResponsiveLayout()
+const router = useRouter()
 
 // Roving-focus handler and template must agree on how to find the list. Its
 // aria-label is translated, so it cannot serve as the selector any more.
@@ -77,12 +80,6 @@ const {
 const clearConfirmPending = ref(false)
 const clearConfirmTimer = ref<ReturnType<typeof setTimeout> | null>(null)
 
-const isPlaylistsOpen = ref(false)
-
-const togglePlaylists = (): void => {
-  isPlaylistsOpen.value = !isPlaylistsOpen.value
-}
-
 const isQueueMenuOpen = ref(false)
 
 const toggleQueueMenu = (): void => {
@@ -93,9 +90,9 @@ const closeQueueMenu = (): void => {
   isQueueMenuOpen.value = false
 }
 
-const handleTogglePlaylistsFromMenu = (): void => {
-  togglePlaylists()
+const handleOpenPlaylists = (): void => {
   closeQueueMenu()
+  void router.push('/playlists')
 }
 
 onMounted(async () => {
@@ -225,7 +222,22 @@ const dragOverlayLabel = computed<string | null>(() =>
 )
 
 const viewRoot = ref<HTMLElement | null>(null)
-const hasScrolledToCurrentOnOpen = ref(false)
+
+const trackListEl = ref<HTMLElement | null>(null)
+
+const setTrackList = (el: Element | ComponentPublicInstance | null): void => {
+  trackListEl.value = el instanceof HTMLElement ? el : null
+  setScrollContainer(el)
+}
+
+const { hasSavedPosition } = useQueueScrollMemory(
+  trackListEl,
+  () => !isLoading.value && tracks.value.length > 0,
+)
+
+// A position carried back from the last visit is the user's own; centring the
+// current track on arrival would silently overwrite it.
+const hasScrolledToCurrentOnOpen = ref(hasSavedPosition)
 
 const currentTrackKey = computed(() => {
   const currentTrack = tracks.value.find((track) => track.isCurrent)
@@ -328,9 +340,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
               role="menuitem"
               data-testid="playlists-toggle"
               class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-left text-sm text-neutral-800 hover:bg-neutral-100 focus:bg-neutral-100 focus:outline-none"
-              :aria-expanded="isPlaylistsOpen ? 'true' : 'false'"
-              :aria-controls="isPlaylistsOpen ? 'playlists-panel-region' : undefined"
-              @click="handleTogglePlaylistsFromMenu"
+              @click="handleOpenPlaylists"
             >
               <span>{{ t('playlists.title') }}</span>
             </button>
@@ -365,8 +375,6 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
     </PageHeader>
 
     <div class="flex min-h-0 flex-1 flex-col px-4 sm:px-6 sm:pt-4">
-      <PlaylistsPanel v-if="isPlaylistsOpen" id="playlists-panel-region" />
-
       <Banner
         v-if="radioUnavailableMessage"
         data-testid="radio-unavailable-banner"
@@ -451,7 +459,7 @@ watch([currentTrackKey, isLoading], async ([key, loading], [previousKey]) => {
         </div>
 
         <ul
-          :ref="setScrollContainer"
+          :ref="setTrackList"
           :class="[
             'min-h-0 flex-1 overflow-y-auto divide-y divide-neutral-100 overscroll-contain pr-1 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-4',
             isJumping ? 'pointer-events-none opacity-60' : '',

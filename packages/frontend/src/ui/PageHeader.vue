@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18nStore } from '@/app/i18nStore'
 
@@ -17,6 +18,17 @@ const t = (key: import('@/i18n').MessageKey): string => i18nStore.t(key)
 const goBack = (): void => {
   router.back()
 }
+
+const titleEl = useTemplateRef<HTMLHeadingElement>('titleEl')
+
+// A pushed route leaves screen-reader focus on the control that opened it, so
+// the screen change is silent; the title is the only element that names the
+// new screen. tabindex="-1" keeps it out of the tab order.
+const focusTitle = (): void => {
+  titleEl.value?.focus()
+}
+
+defineExpose({ focusTitle })
 </script>
 
 <template>
@@ -49,7 +61,11 @@ const goBack = (): void => {
         <path v-else stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
       </svg>
     </button>
-    <h1 class="min-w-0 flex-1 truncate px-1 text-[17px] font-semibold text-neutral-900">
+    <h1
+      ref="titleEl"
+      tabindex="-1"
+      class="min-w-0 flex-1 truncate px-1 text-[17px] font-semibold text-neutral-900 focus:outline-none"
+    >
       {{ title }}
     </h1>
     <div class="flex items-center gap-0.5">

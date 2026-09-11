@@ -87,6 +87,27 @@ describe('PageHeader', () => {
     expect(path.attributes('d')).toBe('M19 9l-7 7-7-7')
   })
 
+  // Pushed routes call this on entry, so a screen change is perceivable
+  // without sight (docs/mobile-pwa.md rule 8).
+  it('exposes focusTitle, which moves focus to the title without adding it to the tab order', async () => {
+    const router = await createTestRouter([{ path: '/', component: PageHeader }], '/')
+    const wrapper = mount(PageHeader, {
+      props: { title: 'Playlists' },
+      attachTo: document.body,
+      global: { plugins: [router] },
+    })
+
+    const title = wrapper.find('h1')
+    expect(title.attributes('tabindex')).toBe('-1')
+    expect(document.activeElement).not.toBe(title.element)
+
+    wrapper.vm.focusTitle()
+
+    expect(document.activeElement).toBe(title.element)
+
+    wrapper.unmount()
+  })
+
   it('renders trailing slot content when provided', async () => {
     const { wrapper } = await mountHeader(
       { title: 'Queue' },

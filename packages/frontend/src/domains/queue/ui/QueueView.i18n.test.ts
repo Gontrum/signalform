@@ -51,13 +51,6 @@ vi.mock('@/platform/api/queueApi', () => ({
   removeMultipleFromQueue: vi.fn(),
 }))
 
-vi.mock('@/domains/playlists/ui/PlaylistsPanel.vue', () => ({
-  default: {
-    name: 'PlaylistsPanel',
-    template: '<div data-testid="playlists-panel-stub" />',
-  },
-}))
-
 import { getQueue, type QueueApiError } from '@/platform/api/queueApi'
 
 const mockGetQueue = vi.mocked(getQueue)

@@ -590,4 +590,249 @@ test.describe('Phone Layout (375px)', () => {
       })
     })
   }
+
+  // The playlists panel used to sit in the same overflow-hidden column as the
+  // queue list, and only the list ever scrolled. A panel taller than that
+  // column had no scrollbar of its own and no ancestor that could scroll it, so
+  // everything past the fold was out of reach; giving the panel its own
+  // scroller then put two of them on one screen. It is a pushed route now.
+  const PLAYLISTS_PANEL = '[data-testid="playlists-panel"]'
+
+  const savedPlaylistsResponse = {
+    playlists: [
+      { id: 'playlist-long', name: 'Sonntagsplatte' },
+      { id: 'playlist-short', name: 'Evening' },
+    ],
+  }
+
+  // 120 tracks: a phone column fits roughly a dozen rows, so anything shorter
+  // would leave the panel accidentally inside the pane and the case would pass
+  // against the unfixed CSS.
+  const longPlaylistTracksResponse = {
+    tracks: Array.from({ length: 120 }, (_, index) => ({
+      index,
+      title: `Saved Track ${String(index + 1)}`,
+      artist: 'Local Artist',
+      album: 'Local Album',
+      duration: 180 + index,
+    })),
+    hasMore: false,
+  }
+
+  const tidalPlaylistsResponse = {
+    playlists: [
+      { id: '3.0', name: 'Tidal Favourites', coverArtUrl: '' },
+      { id: '3.1', name: 'Tidal Evening', coverArtUrl: '' },
+    ],
+  }
+
+  const tidalPlaylistTracksResponse = {
+    tracks: Array.from({ length: 120 }, (_, index) => ({
+      id: `tidal-${String(index)}`,
+      position: index,
+      title: `Tidal Track ${String(index + 1)}`,
+      url: `tidal://track/${String(index)}`,
+      duration: 200 + index,
+      coverArtUrl: '',
+    })),
+    totalCount: 120,
+    hasMore: false,
+  }
+
+  const playlistMocks = {
+    playlists: savedPlaylistsResponse,
+    playlistTracks: longPlaylistTracksResponse,
+    tidalPlaylists: tidalPlaylistsResponse,
+    tidalPlaylistTracks: tidalPlaylistTracksResponse,
+  }
+
+  const longQueueResponse = {
+    tracks: Array.from({ length: 120 }, (_, index) => ({
+      id: `queue-${String(index)}`,
+      position: index + 1,
+      title: `Queue Track ${String(index + 1)}`,
+      artist: 'Local Artist',
+      album: 'Local Album',
+      duration: 180 + index,
+      isCurrent: false,
+      addedBy: 'user' as const,
+    })),
+    radioModeActive: false,
+    radioBoundaryIndex: null,
+  }
+
+  const openPlaylistsScreen = async (page: Page): Promise<void> => {
+    await page.goto('/queue')
+    await page.waitForSelector('[data-testid="queue-view"]')
+
+    await page.getByTestId('queue-menu').click()
+    await page.getByTestId('playlists-toggle').click()
+    await expect(page.getByTestId('playlists-view')).toBeVisible()
+    await expect(page.getByTestId('playlists-panel')).toBeVisible()
+    // The push transition keeps the outgoing queue mounted for its duration,
+    // and its list is a second vertical scroller for as long as it is there.
+    await expect(page.getByTestId('queue-view')).toHaveCount(0)
+  }
+
+  // Declared scrollers, not overflowing ones: an `overflow-y: auto` box that
+  // happens to fit today is still the second scroller the moment one more row
+  // arrives, and that is the state rule 2 of docs/mobile-pwa.md forbids.
+  const findVerticalScrollers = async (page: Page): Promise<readonly string[]> =>
+    await page.evaluate(() =>
+      Array.from(document.querySelectorAll('*')).flatMap((element) => {
+        const overflowY = getComputedStyle(element).overflowY
+        if (overflowY !== 'auto' && overflowY !== 'scroll') {
+          return []
+        }
+        if (element.clientHeight === 0) {
+          return []
+        }
+        return [element.getAttribute('data-testid') ?? `(no data-testid) ${element.className}`]
+      }),
+    )
+
+  // The invariant this whole change exists to restore. Asserted with the
+  // tallest content the screen can render, because a short playlist would let a
+  // second scroller sit there unused and unnoticed.
+  test('the playlists screen has exactly one vertical scroll container', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await page.getByTestId('playlist-tracks-toggle').first().click()
+    await expect(page.getByTestId('playlist-track-row')).toHaveCount(
+      longPlaylistTracksResponse.tracks.length,
+    )
+
+    const scrollers = await findVerticalScrollers(page)
+
+    expect(scrollers, `vertical scrollers on /playlists: ${scrollers.join(' | ')}`).toEqual([
+      'playlists-view',
+    ])
+  })
+
+  test('an expanded saved playlist stays reachable on the playlists screen', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await page.getByTestId('playlist-tracks-toggle').first().click()
+    await expect(page.getByTestId('playlist-track-row')).toHaveCount(
+      longPlaylistTracksResponse.tracks.length,
+    )
+
+    // The panel is plain content now, so its own box may run past the fold —
+    // what has to hold is that the screen's scroller reaches all of it.
+    await expectVerticallyReachable(
+      page,
+      '[data-testid="playlist-track-row"]:last-of-type',
+      'last track of an expanded saved playlist',
+    )
+    await expectVerticallyReachable(
+      page,
+      '[data-testid="playlist-import-section"]',
+      'import section below an expanded saved playlist',
+    )
+
+    // `overflow-y: auto` computes `overflow-x: visible` to `auto` as well, so
+    // any element given a vertical scroller becomes a horizontal one too — a
+    // long track title would then drag the row sideways.
+    await expectNoInnerHorizontalOverflow(page, 'expanded playlists screen')
+  })
+
+  test('an expanded Tidal playlist stays reachable on the playlists screen', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await page.getByTestId('tidal-playlist-tracks-toggle').first().click()
+    await expect(page.getByTestId('tidal-playlist-track-row')).toHaveCount(
+      tidalPlaylistTracksResponse.tracks.length,
+    )
+
+    await expectVerticallyReachable(page, PLAYLISTS_PANEL, 'panel with an expanded Tidal playlist')
+    await expectVerticallyReachable(
+      page,
+      '[data-testid="tidal-playlist-track-row"]:last-of-type',
+      'last track of an expanded Tidal playlist',
+    )
+  })
+
+  // Opened last, at the very bottom of an already-scrolled screen: the import
+  // body is the part most likely to unfold past the scroller's own extent.
+  test('the import body stays reachable at the bottom of a scrolled screen', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await page.getByTestId('playlist-tracks-toggle').first().click()
+    await expect(page.getByTestId('playlist-track-row')).toHaveCount(
+      longPlaylistTracksResponse.tracks.length,
+    )
+
+    await page.getByTestId('playlist-import-toggle').click()
+    await expect(page.getByTestId('playlist-import-submit')).toBeVisible()
+
+    await expectVerticallyReachable(
+      page,
+      '[data-testid="playlist-import-submit"]',
+      'import submit at the bottom of a scrolled screen',
+    )
+  })
+
+  // The menu item that opened the screen keeps focus otherwise, and the
+  // Popover returns focus to its trigger on close — so the order of those two
+  // handlers decides whether the route change is announced at all.
+  test('entering the playlists screen moves focus to its title', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await expect(
+      page.getByTestId('playlists-view').getByRole('heading', { level: 1, name: 'Playlists' }),
+    ).toBeFocused()
+  })
+
+  // Installed as a PWA there is no browser back button: without the header's
+  // own back control this screen is a dead end that costs a force-quit.
+  test('the back control returns from the playlists screen to the queue', async ({ page }) => {
+    await setupApiMocks(page, playlistMocks)
+    await openPlaylistsScreen(page)
+
+    await page.getByTestId('playlists-view').getByTestId('page-header-back').click()
+
+    await expect(page.getByTestId('queue-view')).toBeVisible()
+    await expect(page.getByTestId('playlists-view')).toHaveCount(0)
+    expect(new URL(page.url()).pathname).toBe('/queue')
+  })
+
+  // The queue is remounted on the way back (App.vue keys the routed component
+  // by path), so its scroll position only survives if something saves it.
+  test('the queue keeps its scroll position across a trip to the playlists screen', async ({
+    page,
+  }) => {
+    await setupApiMocks(page, { ...playlistMocks, queue: longQueueResponse })
+    await page.goto('/queue')
+    await expect(page.getByTestId('queue-track')).toHaveCount(longQueueResponse.tracks.length)
+
+    const list = page.getByTestId('queue-track-list')
+    await list.evaluate((el) => {
+      el.scrollTop = 1200
+    })
+    const before = await list.evaluate((el) => el.scrollTop)
+    expect(before, 'the queue must actually be scrolled for this case to prove anything').toBe(1200)
+
+    await page.getByTestId('queue-menu').click()
+    await page.getByTestId('playlists-toggle').click()
+    await expect(page.getByTestId('playlists-view')).toBeVisible()
+
+    await page.getByTestId('playlists-view').getByTestId('page-header-back').click()
+    await expect(page.getByTestId('queue-track')).toHaveCount(longQueueResponse.tracks.length)
+
+    const readScrollTop = async (): Promise<number> =>
+      await page.getByTestId('queue-track-list').evaluate((el) => el.scrollTop)
+
+    // Polled: the restore can only run once the list has rendered its rows.
+    await expect.poll(readScrollTop).toBeGreaterThan(before - 20)
+
+    console.log(
+      `phone-layout: queue scrollTop ${String(before)} -> ${String(await readScrollTop())} ` +
+        'across /playlists',
+    )
+  })
 })

@@ -48,7 +48,15 @@ export interface ApiMocks {
   readonly users?: JsonObject
   readonly setupDiscover?: JsonObject
   readonly setupPlayers?: JsonObject
+  readonly playlists?: JsonObject
+  readonly playlistTracks?: JsonObject
+  readonly tidalPlaylists?: JsonObject
+  readonly tidalPlaylistTracks?: JsonObject
 }
+
+const emptyPlaylistsResponse: JsonObject = { playlists: [] }
+const emptyPlaylistTracksResponse: JsonObject = { tracks: [], hasMore: false }
+const emptyTidalPlaylistTracksResponse: JsonObject = { tracks: [], totalCount: 0, hasMore: false }
 
 /**
  * Register route handlers for all API requests and suppress socket.io.
@@ -144,6 +152,32 @@ export const setupApiMocks = async (page: Page, mocks: ApiMocks = {}): Promise<v
 
       if (pathname === '/api/setup/players' && method === 'GET' && mocks.setupPlayers) {
         await fulfill200(route, mocks.setupPlayers)
+        return
+      }
+
+      // Saved playlists (GET /api/playlists) — the panel only renders rows for a
+      // schema-valid body, so the empty default keeps unrelated specs at the
+      // "no playlists yet" state instead of the generic empty-body fallback.
+      if (pathname === '/api/playlists' && method === 'GET') {
+        await fulfill200(route, mocks.playlists ?? emptyPlaylistsResponse)
+        return
+      }
+
+      // One saved playlist's tracks (GET /api/playlists/:id/tracks)
+      if (/^\/api\/playlists\/[^/]+\/tracks$/.test(pathname) && method === 'GET') {
+        await fulfill200(route, mocks.playlistTracks ?? emptyPlaylistTracksResponse)
+        return
+      }
+
+      // Tidal playlists (GET /api/tidal/playlists)
+      if (pathname === '/api/tidal/playlists' && method === 'GET') {
+        await fulfill200(route, mocks.tidalPlaylists ?? emptyPlaylistsResponse)
+        return
+      }
+
+      // One Tidal playlist's tracks (GET /api/tidal/playlists/:id/tracks)
+      if (/^\/api\/tidal\/playlists\/[^/]+\/tracks$/.test(pathname) && method === 'GET') {
+        await fulfill200(route, mocks.tidalPlaylistTracks ?? emptyTidalPlaylistTracksResponse)
         return
       }
 

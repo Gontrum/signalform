@@ -49,6 +49,7 @@ const routes: readonly RouteCheck[] = [
   { path: '/', testid: 'search-container' },
   { path: '/library', testid: 'library-view' },
   { path: '/queue', testid: 'queue-view' },
+  { path: '/playlists', testid: 'playlists-view' },
   { path: '/settings', testid: 'settings-view' },
   { path: '/setup', testid: 'setup-wizard' },
   // Immersive route — bypasses AppLayout (see App.vue's isImmersiveRoute), so

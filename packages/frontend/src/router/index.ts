@@ -63,6 +63,13 @@ const router = createRouter({
       meta: { depth: 1 },
     },
     {
+      path: '/playlists',
+      name: 'playlists',
+      component: (): Promise<typeof import('../domains/playlists/ui/PlaylistsView.vue')> =>
+        import('../domains/playlists/ui/PlaylistsView.vue'),
+      meta: { depth: 2 },
+    },
+    {
       path: '/library',
       name: 'library',
       component: (): Promise<typeof import('../domains/library/ui/LibraryView.vue')> =>

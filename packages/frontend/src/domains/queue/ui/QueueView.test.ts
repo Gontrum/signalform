@@ -67,15 +67,6 @@ vi.mock('@/platform/api/queueApi', () => ({
   removeMultipleFromQueue: vi.fn(),
 }))
 
-// PlaylistsPanel owns its own data fetching (usePlaylists → playlistsApi). Stub it
-// so QueueView tests stay focused on queue behaviour and make no playlist requests.
-vi.mock('@/domains/playlists/ui/PlaylistsPanel.vue', () => ({
-  default: {
-    name: 'PlaylistsPanel',
-    template: '<div data-testid="playlists-panel-stub" />',
-  },
-}))
-
 import { useQueueStore } from '@/domains/queue/shell/useQueueStore'
 import {
   getQueue,
@@ -199,6 +190,7 @@ const makeQueueRouter = (): ReturnType<typeof createTestRouter> =>
     [
       { path: '/', component: { template: '<div />' } },
       { path: '/queue', name: 'queue', component: { template: '<div />' } },
+      { path: '/playlists', name: 'playlists', component: { template: '<div />' } },
       { path: '/now-playing', name: 'now-playing', component: { template: '<div />' } },
     ],
     '/queue',
@@ -272,7 +264,10 @@ describe('QueueView', () => {
     await flushPromises()
   })
 
-  it('keeps the playlists panel collapsed by default and exposes a toggle', async () => {
+  // Playlists is a pushed destination of its own now, not a block that unfolds
+  // inside this column, so the menu item navigates and carries none of the
+  // aria-expanded/aria-controls that described a disclosure.
+  it('renders the playlists menu item as a navigation item, not a disclosure', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
@@ -282,12 +277,12 @@ describe('QueueView', () => {
 
     const toggle = wrapper.find('[data-testid="playlists-toggle"]')
     expect(toggle.exists()).toBe(true)
-    expect(toggle.attributes('aria-expanded')).toBe('false')
+    expect(toggle.attributes('aria-expanded')).toBeUndefined()
     expect(toggle.attributes('aria-controls')).toBeUndefined()
-    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="playlists-panel"]').exists()).toBe(false)
   })
 
-  it('reveals the playlists panel and marks the toggle expanded on click', async () => {
+  it('navigates to /playlists and closes the menu when the item is chosen', async () => {
     mockGetQueue.mockResolvedValue(makeQueueResponse([]))
 
     const router = await makeQueueRouter()
@@ -296,40 +291,11 @@ describe('QueueView', () => {
     await openQueueMenu(wrapper)
 
     await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
-    await nextTick()
-
-    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
-
-    // Selecting a menu item closes the overflow menu; reopen it to inspect the
-    // toggle's own aria state.
-    await openQueueMenu(wrapper)
-    const toggle = wrapper.find('[data-testid="playlists-toggle"]')
-    expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(toggle.attributes('aria-controls')).toBe('playlists-panel-region')
-  })
-
-  it('collapses the playlists panel again on a second toggle click', async () => {
-    mockGetQueue.mockResolvedValue(makeQueueResponse([]))
-
-    const router = await makeQueueRouter()
-    const wrapper = mount(QueueView, { global: { plugins: [router] } })
     await flushPromises()
 
-    await openQueueMenu(wrapper)
-    await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
-    await nextTick()
-    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(true)
-
-    await openQueueMenu(wrapper)
-    await wrapper.find('[data-testid="playlists-toggle"]').trigger('click')
-    await nextTick()
-
-    expect(wrapper.find('[data-testid="playlists-panel-stub"]').exists()).toBe(false)
-
-    await openQueueMenu(wrapper)
-    expect(wrapper.find('[data-testid="playlists-toggle"]').attributes('aria-expanded')).toBe(
-      'false',
-    )
+    expect(router.currentRoute.value.path).toBe('/playlists')
+    // A menu left open behind the pushed screen would come back on the way home.
+    expect(wrapper.find('[data-testid="playlists-toggle"]').exists()).toBe(false)
   })
 
   // QueueView is a top-level route rendered inside AppLayout's left panel
