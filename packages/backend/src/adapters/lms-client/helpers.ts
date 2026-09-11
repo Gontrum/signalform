@@ -64,9 +64,9 @@ export const sanitizeForItemIdPath = (query: string): string =>
  * trimming, returning the trimmed id on success or an EmptyQueryError
  * (`"{label} cannot be empty"`) otherwise.
  *
- * Shared by library's playAlbum/playTidalAlbum/getAlbumTracks/getArtistAlbums
- * and queue's addAlbumToQueue/addTidalAlbumToQueue — all trim + reject-empty
- * an id the same way before building an LMS command from it.
+ * Shared by library's playAlbum/getAlbumTracks/getArtistAlbums and queue's
+ * addAlbumToQueue — all trim + reject-empty an id the same way before
+ * building an LMS command from it.
  */
 export const validateNonEmptyId = (
   value: string,

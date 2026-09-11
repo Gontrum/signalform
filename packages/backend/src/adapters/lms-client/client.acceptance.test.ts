@@ -2810,156 +2810,30 @@ describe("LMS Client - Acceptance Tests", () => {
     });
 
     describe("playTidalAlbum()", () => {
-      it("fetches tracks via tidal items, clears queue, plays first track, adds rest", async () => {
-        givenTidalAlbumTracksReturn([
-          {
-            id: "4.0.0",
-            name: "Track 1",
-            url: "tidal://111.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-          {
-            id: "4.0.1",
-            name: "Track 2",
-            url: "tidal://222.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-        ]);
-        givenLmsAcceptsPlaylistCommand(); // clear
-        givenLmsAcceptsPlaylistCommand(); // play
-        givenLmsAcceptsPlaylistCommand(); // add track 2
+      it("sends the exact playlist play command with item_id", async () => {
+        givenLmsAcceptsPlaylistCommand();
 
         const result = await whenPlayingTidalAlbum("4.0");
 
-        await thenResultIsSuccess(result);
-        await thenTidalItemsFetchWasSentWithItemId("4.0");
-        await thenPlaylistPlayWasSentWithUrl("tidal://111.flc");
+        expect(result.ok).toBe(true);
+        const body = getJsonRpcRequestBodyAt(0);
+        expect(body.params[1]).toEqual([
+          "tidal",
+          "playlist",
+          "play",
+          "item_id:4.0",
+        ]);
       });
 
-      it("returns EmptyQueryError for empty album ID without calling LMS", async () => {
-        const result = await whenPlayingTidalAlbum("");
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "EmptyQueryError");
-        await thenLmsWasNotCalled();
-      });
-
-      it("returns LmsApiError when album has no playable tracks", async () => {
-        givenTidalAlbumTracksReturn([]);
-
-        const result = await whenPlayingTidalAlbum("4.99");
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "LmsApiError");
-      });
-
-      it("returns NetworkError when track fetch fails", async () => {
-        await givenLmsConnectionWillFail("ECONNREFUSED");
+      it("passes through the LMS error unchanged without throwing", async () => {
+        await givenLmsWillReturnApiError(-32600, "Album not found");
 
         const result = await whenPlayingTidalAlbum("4.0");
 
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "NetworkError");
-      });
-
-      it("returns NetworkError when playlist clear fails after fetching tracks", async () => {
-        givenTidalAlbumTracksReturn([
-          {
-            id: "4.0.0",
-            name: "Track 1",
-            url: "tidal://111.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-        ]);
-        fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
-
-        const result = await whenPlayingTidalAlbum("4.0");
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "NetworkError");
-      });
-
-      it("returns NetworkError when playlist play (first track) fails after clear", async () => {
-        givenTidalAlbumTracksReturn([
-          {
-            id: "4.0.0",
-            name: "Track 1",
-            url: "tidal://111.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-        ]);
-        givenLmsAcceptsPlaylistCommand(); // clear succeeds
-        fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
-
-        const result = await whenPlayingTidalAlbum("4.0");
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "NetworkError");
-      });
-
-      it("returns error when a mid-queue playlist add fails (partial reduce failure)", async () => {
-        givenTidalAlbumTracksReturn([
-          {
-            id: "4.0.0",
-            name: "Track 1",
-            url: "tidal://111.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-          {
-            id: "4.0.1",
-            name: "Track 2",
-            url: "tidal://222.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-          {
-            id: "4.0.2",
-            name: "Track 3",
-            url: "tidal://333.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-        ]);
-        givenLmsAcceptsPlaylistCommand(); // clear succeeds
-        givenLmsAcceptsPlaylistCommand(); // play track 1 succeeds
-        fetchMock.mockRejectedValueOnce(new Error("ECONNREFUSED")); // add track 2 fails
-
-        const result = await whenPlayingTidalAlbum("4.0");
-
-        await thenResultIsError(result);
-        await thenErrorTypeIs(result, "NetworkError");
-      });
-
-      it("works for artist-browse album ID format '6.0.1.0'", async () => {
-        givenTidalAlbumTracksReturn([
-          {
-            id: "6.0.1.0.0",
-            name: "Track 1",
-            url: "tidal://333.flc",
-            isaudio: 1,
-            type: "audio",
-            hasitems: 0,
-          },
-        ]);
-        givenLmsAcceptsPlaylistCommand(); // clear
-        givenLmsAcceptsPlaylistCommand(); // play
-
-        const result = await whenPlayingTidalAlbum("6.0.1.0");
-
-        await thenResultIsSuccess(result);
-        await thenTidalItemsFetchWasSentWithItemId("6.0.1.0");
+        expect(result.ok).toBe(false);
+        if (!result.ok) {
+          expect(result.error.type).toBe("LmsApiError");
+        }
       });
     });
   });
@@ -3328,26 +3202,6 @@ describe("LMS Client - Acceptance Tests", () => {
     expect(body.params[1][2]).toBe(`album_id:${albumId}`);
   };
 
-  const givenTidalAlbumTracksReturn = (
-    tracks: ReadonlyArray<{
-      readonly id: string;
-      readonly name: string;
-      readonly url: string;
-      readonly isaudio: number;
-      readonly type: string;
-      readonly hasitems: number;
-    }>,
-  ): void => {
-    fetchMock.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        result: { loop_loop: tracks, count: tracks.length },
-        id: 1,
-        error: null,
-      }),
-    });
-  };
-
   const givenLmsAcceptsPlaylistCommand = (): void => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
@@ -3360,22 +3214,6 @@ describe("LMS Client - Acceptance Tests", () => {
   ): Promise<Result<void, LmsError>> => {
     const client = createLmsClient(defaultConfig);
     return await client.playTidalAlbum(albumId);
-  };
-
-  const thenTidalItemsFetchWasSentWithItemId = async (
-    albumId: string,
-  ): Promise<void> => {
-    const body = getJsonRpcRequestBodyAt(0);
-    expect(body.params[1][0]).toBe("tidal");
-    expect(body.params[1][1]).toBe("items");
-    expect(body.params[1][4]).toBe(`item_id:${albumId}`);
-  };
-
-  const thenPlaylistPlayWasSentWithUrl = async (
-    trackUrl: string,
-  ): Promise<void> => {
-    const body = getJsonRpcRequestBodyAt(2);
-    expect(body.params[1]).toEqual(["playlist", "play", trackUrl]);
   };
 
   describe("Rule 9: Artist Albums Retrieval", () => {
@@ -4302,90 +4140,31 @@ describe("LMS Client - Acceptance Tests", () => {
   });
 
   describe("Rule 18: addTidalAlbumToQueue — Tidal album queue", () => {
-    it("fetches tracks and adds each sequentially without clearing or playing", async () => {
-      // Mock: tidal items fetch
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: {
-            loop_loop: [
-              {
-                id: "4.0.0",
-                name: "Track 1",
-                url: "tidal://111.flc",
-                isaudio: 1,
-                type: "audio",
-                hasitems: 0,
-              },
-              {
-                id: "4.0.1",
-                name: "Track 2",
-                url: "tidal://222.flc",
-                isaudio: 1,
-                type: "audio",
-                hasitems: 0,
-              },
-            ],
-            count: 2,
-          },
-          id: 1,
-          error: null,
-        }),
-      });
-      // Mock: add track 1
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: {}, id: 1, error: null }),
-      });
-      // Mock: add track 2
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ result: {}, id: 1, error: null }),
-      });
+    it("sends the exact playlist add command with item_id", async () => {
+      givenLmsAcceptsPlaylistCommand();
 
       const client = createLmsClient(defaultConfig);
       const result = await client.addTidalAlbumToQueue("4.0");
 
       expect(result.ok).toBe(true);
-      // 3 total fetch calls: 1 tidal items + 2 add
-      expect(fetchMock.mock.calls).toHaveLength(3);
-      // No clear or play command was sent (only add)
-      const addCall1 = getJsonRpcRequestBodyAt(1);
-      const addCall2 = getJsonRpcRequestBodyAt(2);
-      expect(addCall1.params[1][0]).toBe("playlist");
-      expect(addCall1.params[1][1]).toBe("add");
-      expect(addCall1.params[1][2]).toBe("tidal://111.flc");
-      expect(addCall2.params[1][2]).toBe("tidal://222.flc");
+      const body = getJsonRpcRequestBodyAt(0);
+      expect(body.params[1]).toEqual([
+        "tidal",
+        "playlist",
+        "add",
+        "item_id:4.0",
+      ]);
     });
 
-    it("returns LmsApiError when album has no playable tracks", async () => {
-      fetchMock.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          result: { loop_loop: [], count: 0 },
-          id: 1,
-          error: null,
-        }),
-      });
-
-      const client = createLmsClient(defaultConfig);
-      const result = await client.addTidalAlbumToQueue("4.99");
-
-      expect(result.ok).toBe(false);
-      if (!result.ok) {
-        expect(result.error.type).toBe("LmsApiError");
-      }
-    });
-
-    it("returns NetworkError when track fetch fails", async () => {
-      fetchMock.mockRejectedValueOnce(new TypeError("ECONNREFUSED"));
+    it("passes through the LMS error unchanged without throwing", async () => {
+      await givenLmsWillReturnApiError(-32600, "Album not found");
 
       const client = createLmsClient(defaultConfig);
       const result = await client.addTidalAlbumToQueue("4.0");
 
       expect(result.ok).toBe(false);
       if (!result.ok) {
-        expect(result.error.type).toBe("NetworkError");
+        expect(result.error.type).toBe("LmsApiError");
       }
     });
   });

@@ -277,11 +277,6 @@ describe("POST /api/playback/play-album and the repeat mode", () => {
     vi.fn<(input: unknown, init: unknown) => Promise<unknown>>();
   let server: FastifyInstance;
 
-  const tidalAlbumTracks = [
-    { id: "4.0.0", name: "Opener", url: "tidal://track/1", isaudio: 1 },
-    { id: "4.0.1", name: "Closer", url: "tidal://track/2", isaudio: 1 },
-  ];
-
   const isRecord = (
     value: unknown,
   ): value is Readonly<Record<string, unknown>> =>
@@ -310,14 +305,7 @@ describe("POST /api/playback/play-album and the repeat mode", () => {
   });
 
   const givenLmsAcceptsEveryCommand = (): void => {
-    fetchMock.mockImplementation(async (_input, init) =>
-      commandOfRequestInit(init)[0] === "tidal"
-        ? lmsReplies({
-            loop_loop: tidalAlbumTracks,
-            count: tidalAlbumTracks.length,
-          })
-        : lmsReplies({}),
-    );
+    fetchMock.mockImplementation(async () => lmsReplies({}));
   };
 
   const givenLmsIsUnreachable = (): void => {
@@ -371,10 +359,7 @@ describe("POST /api/playback/play-album and the repeat mode", () => {
 
     expect(response.statusCode).toBe(200);
     expect(commandsSentToLms()).toEqual([
-      ["tidal", "items", 0, 999, "item_id:4.0", "want_url:1"],
-      ["playlist", "clear"],
-      ["playlist", "play", "tidal://track/1"],
-      ["playlist", "add", "tidal://track/2"],
+      ["tidal", "playlist", "play", "item_id:4.0"],
     ]);
     expect(repeatCommandsSentToLms()).toEqual([]);
   });

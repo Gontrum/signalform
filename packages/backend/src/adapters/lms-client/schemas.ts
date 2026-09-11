@@ -7,11 +7,10 @@
  * Functional Core — pure schema definitions with no side effects.
  */
 
-import { ok, err, type Result } from "@signalform/shared";
+import { ok, type Result } from "@signalform/shared";
 import { z } from "zod";
 import { createLmsResultParser, type ExecuteCommand } from "./execute.js";
-import { validateNonEmptyId } from "./helpers.js";
-import type { LmsCommand, LmsError, TidalTrackRaw } from "./types.js";
+import type { LmsCommand, LmsError } from "./types.js";
 
 // Common groups of LMS response fields, spread into the per-command track
 // schemas below to avoid repeating the same field list in every module.
@@ -82,8 +81,8 @@ export const tidalItemSchema = z.object({
 
 /**
  * Parses an LMS `loop_loop` response containing Tidal tracks.
- * Shared by library (playTidalAlbum), queue (addTidalAlbumToQueue),
- * and tidal-albums (getTidalAlbumTracks).
+ * Shared by tidal-playlists (getTidalPlaylistTracks) and
+ * tidal-albums (getTidalAlbumTracks).
  */
 export const tidalTracksPayloadParser = createLmsResultParser(
   z.object({
@@ -155,91 +154,4 @@ export const executeTidalItems = async <T>(
     items: result.value.loop_loop ?? [],
     count: result.value.count ?? 0,
   });
-};
-
-/**
- * Fetches the playable (audio, non-empty-url) tracks of a Tidal browse album
- * via `["tidal", "items", 0, 999, "item_id:{albumId}", "want_url:1"]`.
- *
- * Only used internally by validateAndFetchPlayableTidalAlbumTracks below —
- * not exported, both external call sites (library's playTidalAlbum, queue's
- * addTidalAlbumToQueue) go through the validated entry point.
- */
-const fetchPlayableTidalAlbumTracks = async (
-  executeCommand: ExecuteCommand,
-  albumId: string,
-): Promise<
-  Result<ReadonlyArray<TidalTrackRaw & { readonly url: string }>, LmsError>
-> => {
-  const tracksResult = await executeCommand(
-    ["tidal", "items", 0, 999, `item_id:${albumId}`, "want_url:1"],
-    tidalTracksPayloadParser,
-  );
-
-  if (!tracksResult.ok) {
-    return tracksResult;
-  }
-
-  const allItems = tracksResult.value.loop_loop ?? [];
-  // Type guard narrows url from string|undefined to string, preventing empty-string LMS commands
-  const tracks = allItems.filter(
-    (t): t is TidalTrackRaw & { readonly url: string } =>
-      t.isaudio === 1 && t.url !== undefined && t.url !== "",
-  );
-
-  if (tracks.length === 0) {
-    return err({
-      type: "LmsApiError",
-      code: 0,
-      message: `No playable tracks found for Tidal album ${albumId}`,
-    });
-  }
-
-  return ok(tracks);
-};
-
-/**
- * Validates a raw Tidal album id (non-empty after trim) and then fetches its
- * playable tracks via fetchPlayableTidalAlbumTracks.
- *
- * Shared by library's playTidalAlbum and queue's addTidalAlbumToQueue — both
- * validate + load a Tidal album's tracks identically before diverging (one
- * clears the queue and starts playback, the other only appends).
- */
-export const validateAndFetchPlayableTidalAlbumTracks = async (
-  executeCommand: ExecuteCommand,
-  albumId: string,
-): Promise<
-  Result<ReadonlyArray<TidalTrackRaw & { readonly url: string }>, LmsError>
-> => {
-  const validation = validateNonEmptyId(albumId, "Album ID");
-  if (!validation.ok) {
-    return validation;
-  }
-
-  return fetchPlayableTidalAlbumTracks(executeCommand, validation.value);
-};
-
-/**
- * Adds tracks to the LMS queue sequentially via `["playlist", "add", url]`,
- * stopping at the first failure (functional/no-loop-statements reduce).
- *
- * Shared by library's playTidalAlbum (appends tracks after the first) and
- * queue's addTidalAlbumToQueue (appends all tracks).
- */
-export const appendTracksToQueue = (
-  executeCommand: ExecuteCommand,
-  tracks: ReadonlyArray<{ readonly url: string }>,
-): Promise<Result<void, LmsError>> => {
-  return tracks.reduce<Promise<Result<void, LmsError>>>(
-    async (prevPromise, track) => {
-      const prev = await prevPromise;
-      if (!prev.ok) {
-        return prev;
-      }
-      const result = await executeCommand(["playlist", "add", track.url]);
-      return result.ok ? ok(undefined) : err(result.error);
-    },
-    Promise.resolve(ok(undefined)),
-  );
 };

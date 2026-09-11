@@ -31,8 +31,6 @@ import {
 import {
   trackIdentityFieldsSchema,
   audioQualityFieldsSchema,
-  validateAndFetchPlayableTidalAlbumTracks,
-  appendTracksToQueue,
 } from "./schemas.js";
 
 export type LibraryMethods = {
@@ -280,14 +278,11 @@ const createLibraryMethodsImplementation = (
     },
 
     /**
-     * Play a Tidal album from the browse hierarchy.
+     * Play a Tidal album by replacing the current queue and starting playback.
      *
-     * Live probe (2026-03-15): album_id:{tidalId} returns count:0 (no local album).
-     * item_id:{tidalId} in playlistcontrol context loads wrong (global browse, not Tidal).
-     * Correct approach: fetch tracks via getTidalAlbumTracks, then:
-     *   1. clear queue
-     *   2. ["playlist", "play", tracks[0].url] — loads + starts first track
-     *   3. ["playlist", "add", track.url] — adds subsequent tracks
+     * Uses ["tidal", "playlist", "play", "item_id:{albumId}"] — one LMS command
+     * loads the full album (verified live probe 2026-09-02), replacing the prior
+     * fetch-tracks-then-clear-then-play-then-append sequence.
      *
      * @param albumId - Tidal browse album ID (e.g. "4.0", "6.0.1.0")
      * @returns Result with void or error
@@ -295,45 +290,15 @@ const createLibraryMethodsImplementation = (
     playTidalAlbum: async (
       albumId: string,
     ): Promise<Result<void, LmsError>> => {
-      // Step 1: Validate album id + fetch album tracks
-      const tracksResult = await validateAndFetchPlayableTidalAlbumTracks(
-        executeCommand,
-        albumId,
-      );
-
-      if (!tracksResult.ok) {
-        return tracksResult;
-      }
-
-      const tracks = tracksResult.value;
-
-      // Step 2: Clear queue
-      const clearResult = await executeCommand(["playlist", "clear"]);
-      if (!clearResult.ok) {
-        return clearResult;
-      }
-
-      // Step 3: Load first track (starts playback immediately)
-      // tracks[0] is guaranteed to exist (tracks.length > 0) and url is a string (type guard above)
-      const firstTrackUrl = tracks[0]!.url;
-      const playResult = await executeCommand([
+      const result = await executeCommand([
+        "tidal",
         "playlist",
         "play",
-        firstTrackUrl,
+        `item_id:${albumId}`,
       ]);
-      if (!playResult.ok) {
-        return playResult;
+      if (!result.ok) {
+        return result;
       }
-
-      // Step 4: Append remaining tracks to queue (functional sequential reduce)
-      const appendResult = await appendTracksToQueue(
-        executeCommand,
-        tracks.slice(1),
-      );
-      if (!appendResult.ok) {
-        return appendResult;
-      }
-
       return ok(undefined);
     },
 

@@ -28,8 +28,6 @@ import { createLmsResultParser, type ExecuteDeps } from "./execute.js";
 import {
   numericIdTrackFieldsSchema,
   audioQualityFieldsSchema,
-  validateAndFetchPlayableTidalAlbumTracks,
-  appendTracksToQueue,
 } from "./schemas.js";
 
 export const SAVED_PLAYLISTS_PAGE_LIMIT = 200;
@@ -271,10 +269,9 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     /**
      * Add a Tidal album to the queue without clearing or interrupting playback.
      *
-     * Pattern adapted from playTidalAlbum — key differences:
-     * - NO clearQueue() call
-     * - NO playlist "play" call for first track
-     * - Only sequential playlist "add" calls for all tracks
+     * Uses ["tidal", "playlist", "add", "item_id:{albumId}"] — one LMS command
+     * appends the full album (verified live probe 2026-09-02), replacing the
+     * prior fetch-tracks-then-sequential-add flow.
      *
      * @param albumId - Tidal browse album ID (e.g. "4.0", "6.0.1.0")
      * @returns Result with void or error
@@ -282,18 +279,16 @@ export const createQueueMethods = (deps: ExecuteDeps): QueueMethods => {
     addTidalAlbumToQueue: async (
       albumId: string,
     ): Promise<Result<void, LmsError>> => {
-      // Step 1: Validate album id + fetch album tracks
-      const tracksResult = await validateAndFetchPlayableTidalAlbumTracks(
-        executeCommand,
-        albumId,
-      );
-
-      if (!tracksResult.ok) {
-        return tracksResult;
+      const result = await executeCommand([
+        "tidal",
+        "playlist",
+        "add",
+        `item_id:${albumId}`,
+      ]);
+      if (!result.ok) {
+        return result;
       }
-
-      // Step 2: Add all tracks sequentially (no-loop reduce — functional/no-loop-statements)
-      return appendTracksToQueue(executeCommand, tracksResult.value);
+      return ok(undefined);
     },
 
     clearQueue: async (): Promise<Result<void, LmsError>> => {
