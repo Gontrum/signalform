@@ -52,6 +52,18 @@ vi.mock('../shell/useTidalPlaylists', () => ({
   })),
 }))
 
+// The import section is a child component with its own layout test; it only
+// has to stay mountable here.
+vi.mock('../shell/usePlaylistImport', () => ({
+  usePlaylistImport: vi.fn(() => ({
+    isImporting: ref(false),
+    result: ref(undefined),
+    errorKind: ref(undefined),
+    submitText: vi.fn(),
+    submitLastFm: vi.fn(),
+  })),
+}))
+
 import PlaylistsPanel from './PlaylistsPanel.vue'
 
 // Long enough that four labelled text buttons next to it would leave nothing
@@ -76,6 +88,33 @@ describe('PlaylistsPanel – row layout', () => {
     vi.clearAllMocks()
     playlistsRef.value = twoPlaylists
     tidalPlaylistsRef.value = []
+  })
+
+  // jsdom cannot measure this — the proof is the phone-layout E2E spec. This is
+  // the tripwire for someone giving the panel a scroller again: it is the body
+  // of PlaylistsView now, whose root owns the screen's single vertical
+  // scroller, and a second one on the same axis is the defect this replaced.
+  it('leaves scrolling to the screen instead of owning a scroller', () => {
+    const wrapper = mount(PlaylistsPanel)
+
+    const panelClasses = wrapper.find('[data-testid="playlists-panel"]').classes()
+    const scrollerClasses = ['overflow-y-auto', 'overflow-y-scroll', 'overscroll-contain']
+
+    expect(scrollerClasses.filter((className) => panelClasses.includes(className))).toEqual([])
+  })
+
+  // iOS Safari zooms the whole page when a focused field is under 16px, and the
+  // viewport meta deliberately leaves zoom enabled, so text-sm here is a visible
+  // jump on every tap into the field.
+  it('gives both typed-into fields a 16px font', async () => {
+    const wrapper = mount(PlaylistsPanel)
+
+    expect(wrapper.find('[data-testid="playlist-name-input"]').classes()).toContain('text-base')
+
+    await wrapper.findAll('[data-testid="playlist-rename-button"]')[0]?.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="playlist-rename-input"]').classes()).toContain('text-base')
   })
 
   it('renders the playlist name as the only text in its row', () => {

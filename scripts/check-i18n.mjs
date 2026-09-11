@@ -33,6 +33,8 @@ const PROPER_NOUNS = [
   "LMS",
   "MAC",
   "FLAC",
+  "Led Zeppelin",
+  "Stairway to Heaven",
 ];
 
 // FCIS puts the substitution in a pure core function often enough that a

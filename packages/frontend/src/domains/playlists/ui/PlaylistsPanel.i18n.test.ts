@@ -72,6 +72,18 @@ vi.mock('../shell/useTidalPlaylists', () => ({
   })),
 }))
 
+// The import section is a child component with its own i18n test; it only has
+// to stay mountable here.
+vi.mock('../shell/usePlaylistImport', () => ({
+  usePlaylistImport: vi.fn(() => ({
+    isImporting: ref(false),
+    result: ref(undefined),
+    errorKind: ref(undefined),
+    submitText: vi.fn(),
+    submitLastFm: vi.fn(),
+  })),
+}))
+
 import PlaylistsPanel from './PlaylistsPanel.vue'
 
 const labelOf = (wrapper: ReturnType<typeof mount>, testId: string): string | undefined =>
@@ -254,10 +266,14 @@ describe('PlaylistsPanel – a language switch after mount', () => {
 
       tidalPlaylistsRef.value = [{ id: '3.0', name: 'Rock Classics', coverArtUrl: '' }]
       const headingWrapper = mount(PlaylistsPanel)
-      expect(headingWrapper.find('h3').text()).toBe('Bei Tidal')
+      expect(headingWrapper.find('[data-testid="tidal-playlists-section"] h2').text()).toBe(
+        'Bei Tidal',
+      )
       useI18nStore().setLanguage('en')
       await nextTick()
-      expect(headingWrapper.find('h3').text()).toBe('On Tidal')
+      expect(headingWrapper.find('[data-testid="tidal-playlists-section"] h2').text()).toBe(
+        'On Tidal',
+      )
     })
 
     it('re-renders the play button label with the playlist name, and while starting', async () => {

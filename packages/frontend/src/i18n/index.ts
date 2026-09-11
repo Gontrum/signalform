@@ -283,6 +283,47 @@ export type MessageKey =
   | 'playlists.tidal.tracksEmpty'
   | 'playlists.tidal.tracksMore'
   | 'playlists.tidal.trackCount'
+  | 'playlists.import.heading'
+  | 'playlists.import.placeholder'
+  | 'playlists.import.textAria'
+  | 'playlists.import.hint'
+  | 'playlists.import.submit'
+  | 'playlists.import.running'
+  | 'playlists.import.result'
+  | 'playlists.import.skipped'
+  | 'playlists.import.missingToggle'
+  | 'playlists.import.missingHide'
+  | 'playlists.import.empty'
+  | 'playlists.import.resultNoneResolved'
+  | 'playlists.import.truncated'
+  | 'playlists.import.error'
+  | 'playlists.import.sourceLegend'
+  | 'playlists.import.sourcePaste'
+  | 'playlists.import.sourceLastfm'
+  | 'playlists.import.lastfmKindLabel'
+  | 'playlists.import.lastfmKindTopTracks'
+  | 'playlists.import.lastfmKindLoved'
+  | 'playlists.import.lastfmKindTag'
+  | 'playlists.import.lastfmKindArtist'
+  | 'playlists.import.lastfmKindRecommended'
+  | 'playlists.import.lastfmPeriodLabel'
+  | 'playlists.import.lastfmPeriod7day'
+  | 'playlists.import.lastfmPeriod1month'
+  | 'playlists.import.lastfmPeriod12month'
+  | 'playlists.import.lastfmPeriodOverall'
+  | 'playlists.import.lastfmTagLabel'
+  | 'playlists.import.lastfmTagPlaceholder'
+  | 'playlists.import.lastfmArtistLabel'
+  | 'playlists.import.lastfmArtistPlaceholder'
+  | 'playlists.import.lastfmLimitLabel'
+  | 'playlists.import.saveToggle'
+  | 'playlists.import.saveNameLabel'
+  | 'playlists.import.saveNamePlaceholder'
+  | 'playlists.import.estimate'
+  | 'playlists.import.resultPlaying'
+  | 'playlists.import.resultSaved'
+  | 'playlists.import.errorLastfmNotConfigured'
+  | 'playlists.import.errorLastfmUnavailable'
   | 'library.sourceLocal'
   | 'library.sourceTidal'
   | 'artist.tidalHeading'
@@ -644,6 +685,50 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.tidal.tracksEmpty': 'This playlist has no tracks',
     'playlists.tidal.tracksMore': 'Show more tracks',
     'playlists.tidal.trackCount': '{count} tracks',
+    'playlists.import.heading': 'Build a playlist',
+    'playlists.import.placeholder': 'Led Zeppelin - Stairway to Heaven',
+    'playlists.import.textAria': 'Track list to import',
+    'playlists.import.hint':
+      'One track per line — "Artist - Title". CSV exports work too: Exportify for Spotify, TuneMyMusic for Apple or YouTube Music.',
+    'playlists.import.submit': 'Find & play',
+    'playlists.import.running': 'Searching…',
+    'playlists.import.result': '{imported} of {total} tracks found',
+    'playlists.import.skipped': '{count} lines could not be read',
+    'playlists.import.missingToggle': 'Show {count} tracks that were not found',
+    'playlists.import.missingHide': 'Hide the tracks that were not found',
+    'playlists.import.empty': 'No tracks could be read from this text.',
+    'playlists.import.resultNoneResolved': 'None of these tracks are in your library or on Tidal.',
+    'playlists.import.truncated': 'Only the first {limit} tracks will be imported.',
+    'playlists.import.error': 'The import failed. Please try again.',
+    'playlists.import.sourceLegend': 'Where the tracks come from',
+    'playlists.import.sourcePaste': 'Paste a list',
+    'playlists.import.sourceLastfm': 'From Last.fm',
+    'playlists.import.lastfmKindLabel': 'Source',
+    'playlists.import.lastfmKindTopTracks': 'My top tracks',
+    'playlists.import.lastfmKindLoved': 'My loved tracks',
+    'playlists.import.lastfmKindTag': 'Top tracks for a tag',
+    'playlists.import.lastfmKindArtist': 'Top tracks by an artist',
+    'playlists.import.lastfmKindRecommended': 'Recommended for me',
+    'playlists.import.lastfmPeriodLabel': 'Period',
+    'playlists.import.lastfmPeriod7day': 'Last 7 days',
+    'playlists.import.lastfmPeriod1month': 'Last month',
+    'playlists.import.lastfmPeriod12month': 'Last 12 months',
+    'playlists.import.lastfmPeriodOverall': 'All time',
+    'playlists.import.lastfmTagLabel': 'Tag',
+    'playlists.import.lastfmTagPlaceholder': 'krautrock',
+    'playlists.import.lastfmArtistLabel': 'Artist',
+    'playlists.import.lastfmArtistPlaceholder': 'Radiohead',
+    'playlists.import.lastfmLimitLabel': 'How many tracks',
+    'playlists.import.saveToggle': 'Also save as a playlist',
+    'playlists.import.saveNameLabel': 'Playlist name',
+    'playlists.import.saveNamePlaceholder': 'Road trip',
+    'playlists.import.estimate':
+      'Searching {count} tracks — this can take up to {seconds} seconds.',
+    'playlists.import.resultPlaying': 'Playing now.',
+    'playlists.import.resultSaved': 'Saved as playlist {name}.',
+    'playlists.import.errorLastfmNotConfigured':
+      'Last.fm is not set up for this user. Add a Last.fm username in Settings.',
+    'playlists.import.errorLastfmUnavailable': 'Last.fm could not be reached. Please try again.',
     'library.sourceLocal': 'Local',
     'library.sourceTidal': 'Tidal',
     'artist.tidalHeading': 'On Tidal',
@@ -1010,6 +1095,51 @@ export const messages: Record<Language, Record<MessageKey, string>> = {
     'playlists.tidal.tracksEmpty': 'Diese Playlist enthält keine Titel',
     'playlists.tidal.tracksMore': 'Weitere Titel anzeigen',
     'playlists.tidal.trackCount': '{count} Titel',
+    'playlists.import.heading': 'Playlist zusammenstellen',
+    'playlists.import.placeholder': 'Led Zeppelin - Stairway to Heaven',
+    'playlists.import.textAria': 'Zu importierende Titelliste',
+    'playlists.import.hint':
+      'Ein Titel pro Zeile — "Interpret - Titel". CSV-Exporte funktionieren auch: Exportify für Spotify, TuneMyMusic für Apple oder YouTube Music.',
+    'playlists.import.submit': 'Suchen & abspielen',
+    'playlists.import.running': 'Wird gesucht…',
+    'playlists.import.result': '{imported} von {total} Titeln gefunden',
+    'playlists.import.skipped': '{count} Zeilen waren nicht lesbar',
+    'playlists.import.missingToggle': '{count} nicht gefundene Titel anzeigen',
+    'playlists.import.missingHide': 'Nicht gefundene Titel ausblenden',
+    'playlists.import.empty': 'Aus diesem Text konnten keine Titel gelesen werden.',
+    'playlists.import.resultNoneResolved':
+      'Keiner dieser Titel ist in deiner Bibliothek oder bei Tidal.',
+    'playlists.import.truncated': 'Es werden nur die ersten {limit} Titel importiert.',
+    'playlists.import.error': 'Der Import ist fehlgeschlagen. Bitte erneut versuchen.',
+    'playlists.import.sourceLegend': 'Woher die Titel kommen',
+    'playlists.import.sourcePaste': 'Liste einfügen',
+    'playlists.import.sourceLastfm': 'Von Last.fm',
+    'playlists.import.lastfmKindLabel': 'Quelle',
+    'playlists.import.lastfmKindTopTracks': 'Meine Top-Titel',
+    'playlists.import.lastfmKindLoved': 'Meine Lieblingstitel',
+    'playlists.import.lastfmKindTag': 'Top-Titel zu einem Tag',
+    'playlists.import.lastfmKindArtist': 'Top-Titel eines Interpreten',
+    'playlists.import.lastfmKindRecommended': 'Für mich empfohlen',
+    'playlists.import.lastfmPeriodLabel': 'Zeitraum',
+    'playlists.import.lastfmPeriod7day': 'Letzte 7 Tage',
+    'playlists.import.lastfmPeriod1month': 'Letzter Monat',
+    'playlists.import.lastfmPeriod12month': 'Letzte 12 Monate',
+    'playlists.import.lastfmPeriodOverall': 'Gesamt',
+    'playlists.import.lastfmTagLabel': 'Tag',
+    'playlists.import.lastfmTagPlaceholder': 'krautrock',
+    'playlists.import.lastfmArtistLabel': 'Interpret',
+    'playlists.import.lastfmArtistPlaceholder': 'Radiohead',
+    'playlists.import.lastfmLimitLabel': 'Wie viele Titel',
+    'playlists.import.saveToggle': 'Auch als Playlist speichern',
+    'playlists.import.saveNameLabel': 'Playlist-Name',
+    'playlists.import.saveNamePlaceholder': 'Autofahrt',
+    'playlists.import.estimate': 'Sucht {count} Titel — das kann bis zu {seconds} Sekunden dauern.',
+    'playlists.import.resultPlaying': 'Läuft jetzt.',
+    'playlists.import.resultSaved': 'Als Playlist {name} gespeichert.',
+    'playlists.import.errorLastfmNotConfigured':
+      'Last.fm ist für diesen Nutzer nicht eingerichtet. Trage in den Einstellungen einen Last.fm-Namen ein.',
+    'playlists.import.errorLastfmUnavailable':
+      'Last.fm ist nicht erreichbar. Bitte erneut versuchen.',
     'library.sourceLocal': 'Lokal',
     'library.sourceTidal': 'Tidal',
     'artist.tidalHeading': 'Bei Tidal',

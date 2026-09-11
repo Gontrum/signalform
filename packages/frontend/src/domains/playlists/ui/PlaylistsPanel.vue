@@ -8,6 +8,7 @@ import type { SavedPlaylist } from '@/platform/api/playlistsApi'
 import LoadingSpinner from '@/ui/LoadingSpinner.vue'
 import { usePlaylists } from '../shell/usePlaylists'
 import { useTidalPlaylists } from '../shell/useTidalPlaylists'
+import PlaylistImportSection from './PlaylistImportSection.vue'
 
 const i18nStore = useI18nStore()
 const t = (key: MessageKey): string => i18nStore.t(key)
@@ -23,6 +24,7 @@ const {
   isTracksLoading,
   isRemovingTrack,
   hasMoreTracks,
+  fetchList,
   save,
   load,
   remove,
@@ -251,14 +253,7 @@ const handleTidalPlay = async (id: string): Promise<void> => {
 </script>
 
 <template>
-  <section
-    data-testid="playlists-panel"
-    class="mb-4 rounded-lg border border-neutral-200 bg-white p-4"
-  >
-    <h2 class="mb-3 text-lg font-semibold text-neutral-900">
-      {{ t('playlists.title') }}
-    </h2>
-
+  <section data-testid="playlists-panel">
     <div class="mb-4 flex items-center gap-2">
       <input
         v-model="name"
@@ -266,7 +261,7 @@ const handleTidalPlay = async (id: string): Promise<void> => {
         data-testid="playlist-name-input"
         :placeholder="t('playlists.namePlaceholder')"
         :aria-label="t('playlists.namePlaceholder')"
-        class="min-h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+        class="min-h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
         @keyup.enter="handleSave"
       />
       <button
@@ -298,7 +293,7 @@ const handleTidalPlay = async (id: string): Promise<void> => {
               type="text"
               data-testid="playlist-rename-input"
               :aria-label="renameInputAriaLabel(playlist.name)"
-              class="min-h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
+              class="min-h-11 min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-base text-neutral-900 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:ring-offset-2"
               @keyup.enter="confirmRename(playlist.id)"
               @keydown.esc="closeRename(playlist.id)"
             />
@@ -527,9 +522,9 @@ const handleTidalPlay = async (id: string): Promise<void> => {
     </ul>
 
     <div data-testid="tidal-playlists-section" class="mt-6 border-t border-neutral-200 pt-4">
-      <h3 class="mb-3 text-base font-semibold text-neutral-900">
+      <h2 class="mb-3 text-base font-semibold text-neutral-900">
         {{ t('playlists.tidal.heading') }}
-      </h3>
+      </h2>
 
       <p
         v-if="tidalIsLoading"
@@ -705,5 +700,7 @@ const handleTidalPlay = async (id: string): Promise<void> => {
         </li>
       </ul>
     </div>
+
+    <PlaylistImportSection @saved="fetchList" />
   </section>
 </template>
