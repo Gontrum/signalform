@@ -76,3 +76,8 @@ export { nextShuffleMode, nextRepeatMode } from "./playbackModes.js";
 export type { TagQueryMode, TagDescriptor } from "./tags.js";
 
 export { TAG_VOCABULARY, findTag } from "./tags.js";
+
+// Track list parsing (pasted text, CSV exports, m3u)
+export type { ParsedTrack, ParseResult } from "./trackListParsing.js";
+
+export { parseTrackList } from "./trackListParsing.js";

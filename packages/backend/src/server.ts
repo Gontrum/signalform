@@ -34,6 +34,10 @@ import { createLastFmLoveRoute } from "./features/lastfm-love/index.js";
 import { createLmsWakeRoute } from "./features/lms-wake/index.js";
 import { createSleepTimerRoute } from "./features/sleep-timer/index.js";
 import { createPlaylistsRoute } from "./features/playlists/index.js";
+import {
+  createPlaylistImportRoute,
+  createLastFmPlaylistRoute,
+} from "./features/playlist-import/index.js";
 import { createScrobbler } from "./features/scrobbling/index.js";
 import {
   createUsersRoute,
@@ -358,6 +362,8 @@ export const createServer = async (): Promise<FastifyInstance> => {
   createSleepTimerRoute(server, lmsProxy);
 
   createPlaylistsRoute(server, lmsProxy);
+  createPlaylistImportRoute(server, lmsProxy);
+  createLastFmPlaylistRoute(server, lmsProxy, lastFmClient);
 
   createUsersRoute(server);
   registerActiveListenerClaim(server);
