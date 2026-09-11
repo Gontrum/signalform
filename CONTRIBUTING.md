@@ -10,8 +10,8 @@ git clone https://github.com/YOUR-USERNAME/signalform.git
 cd signalform
 git remote add upstream https://github.com/Gontrum/signalform.git
 
-# 2. Install (requires Node.js >= 22, pnpm via Corepack)
-corepack enable
+# 2. Install (requires Node.js >= 26; `mise install` provides node and pnpm)
+mise install
 pnpm install
 
 # 3. Start dev servers

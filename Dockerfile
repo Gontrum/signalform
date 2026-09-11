@@ -3,8 +3,9 @@ FROM node:26-bookworm-slim AS build
 ENV PNPM_HOME="/pnpm"
 ENV PATH="${PNPM_HOME}:${PATH}"
 
-# Bootstrap only — pnpm switches itself to the packageManager version on use.
-RUN npm install -g pnpm
+# Pinned so a release image cannot silently change package manager; pnpm still
+# switches itself to the packageManager version for the install below.
+RUN npm install -g pnpm@12.3.4
 
 WORKDIR /workspace
 

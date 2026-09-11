@@ -6,8 +6,8 @@
 
 command -v pnpm >/dev/null 2>&1 && exit 0
 
-echo "pnpm not on PATH — known mise/corepack shim issue. Restore with:
-export PATH=\"\$HOME/.local/share/mise/installs/node/24.18.0/bin:\$PATH\"
-corepack enable --install-directory \"\$HOME/.local/share/mise/installs/node/24.18.0/bin\"
-(check 'mise ls' if the active node version differs)" >&2
+echo "pnpm not on PATH. node and pnpm are mise tools here (.mise.toml); a
+non-interactive shell does not load 'mise activate' from ~/.zshrc. Restore with:
+export PATH=\"\$HOME/.local/share/mise/shims:\$PATH\"
+(or 'mise install' if the tool itself is missing)" >&2
 exit 0
