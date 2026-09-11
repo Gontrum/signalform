@@ -192,3 +192,22 @@ test("rule 7 accepts a value whose words are all placeholders", () => {
     [],
   );
 });
+
+// The exemption is per key, not per word: the same band-and-song example under
+// any other key must still be reported. Widening PROPER_NOUNS instead would
+// have hidden those words from rules 1, 4 and 6 as well.
+test("rule 7 exempts only the key on the allowlist", () => {
+  const value = "Led Zeppelin - Stairway to Heaven";
+  const entries = [
+    ["playlists.import.placeholder", value],
+    ["playlists.import.hint", value],
+  ];
+
+  const violations = findIdenticalTranslationViolations(
+    "i18n/index.ts",
+    i18n(entries, entries),
+  );
+
+  assert.equal(violations.length, 1);
+  assert.match(violations[0].expression, /playlists\.import\.hint/);
+});
