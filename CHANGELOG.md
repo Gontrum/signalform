@@ -5,6 +5,17 @@ All notable changes to Signalform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-11-12
+
+### Fixed
+
+- radio follows what you are actually listening to again. Once you had started
+  Personal, Genre or Loved Radio, that mode quietly stayed in charge after you
+  moved on, so an album of Fleetwood Mac could run out into punk picked from your
+  listening history. Playing an album, a track or an artist radio now hands radio
+  back to the music that is playing, and starting one radio mode no longer
+  leaves an earlier one in the way
+
 ## [1.2.1] - 2026-08-31
 
 ### Fixed
