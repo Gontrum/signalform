@@ -26,7 +26,10 @@ import {
 } from "../../../infrastructure/websocket/index.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
-import { annotateRadioQueueTracks } from "../../radio-mode/shell/radio-state.js";
+import {
+  annotateRadioQueueTracks,
+  clearRadioModeContexts,
+} from "../../radio-mode/shell/radio-state.js";
 
 const PlayAlbumRequestSchema = z.object({
   albumId: z.string().min(1, "Album ID is required"),
@@ -60,6 +63,7 @@ const playUrlsSequentially = async (
       errorMessages.play,
     );
   }
+  clearRadioModeContexts();
 
   const addResult = await addUrlsSequentially(lmsClient, restUrls);
 
@@ -268,6 +272,7 @@ export const registerTidalRoutes = (
           { albumId },
         );
       }
+      clearRadioModeContexts();
 
       const duration = Date.now() - startTime;
       request.log.info({ albumId, duration }, "Album playback started");

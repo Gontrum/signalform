@@ -6,7 +6,7 @@
  * convention (see e.g. genre-radio/shell/route.integration.test.ts).
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ok } from "@signalform/shared";
 import type { AudioQuality } from "@signalform/shared";
 import { createLmsClient } from "../../../adapters/lms-client/index.js";
@@ -17,6 +17,14 @@ import type {
 } from "../../../adapters/lms-client/index.js";
 import { resolvePlayableUrls, playAndQueue } from "./start-pipeline.js";
 import type { StartPipelineDeps } from "./start-pipeline.js";
+import {
+  getRadioQueueState,
+  resetRadioRuntimeState,
+  setGenreRadioContext,
+  setLovedRadioContext,
+  setPersonalRadioContext,
+  setRadioRecentArtists,
+} from "./radio-state.js";
 
 const defaultLmsConfig: LmsConfig = {
   host: "localhost",
@@ -199,6 +207,32 @@ describe("resolvePlayableUrls", () => {
 });
 
 describe("playAndQueue", () => {
+  beforeEach(() => {
+    resetRadioRuntimeState();
+  });
+
+  it("drops every stale radio mode context and keeps the recent artists", async () => {
+    setGenreRadioContext({ genreName: "jazz", page: 3 });
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Misfits"],
+      neighbours: [],
+      cycle: 1,
+    });
+    setLovedRadioContext({ username: "testuser" });
+    setRadioRecentArtists(["Fleetwood Mac"]);
+
+    await playAndQueue({ lmsClient: createMockLmsClient() }, [
+      "file:///first.flac",
+    ]);
+
+    const state = getRadioQueueState();
+    expect(state.genreRadioContext).toBeUndefined();
+    expect(state.personalRadioContext).toBeUndefined();
+    expect(state.lovedRadioContext).toBeUndefined();
+    expect(state.recentArtists).toEqual(["Fleetwood Mac"]);
+  });
+
   it("calls lmsClient.play with the first URL, then addToQueue for the rest in order", async () => {
     const mockLmsClient = createMockLmsClient();
     const deps: StartPipelineDeps = { lmsClient: mockLmsClient };

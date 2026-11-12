@@ -13,6 +13,7 @@
 import type { LmsClient } from "../../../adapters/lms-client/index.js";
 import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
 import { artistMatches, selectBestTrackUrl } from "../core/track-selection.js";
+import { clearRadioModeContexts } from "./radio-state.js";
 
 export type StartPipelineDeps = {
   readonly lmsClient: LmsClient;
@@ -75,6 +76,7 @@ export const playAndQueue = async (
 ): Promise<void> => {
   const { lmsClient } = deps;
   recordUserTransportCommand();
+  clearRadioModeContexts();
   await lmsClient.play(playableUrls[0]!);
   await playableUrls.slice(1).reduce<Promise<void>>(async (prev, url) => {
     await prev;

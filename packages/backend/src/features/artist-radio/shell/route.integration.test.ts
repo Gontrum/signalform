@@ -10,6 +10,13 @@ import type {
   SearchResult,
 } from "../../../adapters/lms-client/index.js";
 import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
+import {
+  getRadioQueueState,
+  resetRadioRuntimeState,
+  setGenreRadioContext,
+  setLovedRadioContext,
+  setPersonalRadioContext,
+} from "../../radio-mode/shell/radio-state.js";
 
 const defaultLmsConfig: LmsConfig = {
   host: "localhost",
@@ -315,5 +322,96 @@ describe("POST /api/artist-radio/start", () => {
     const parsed = parseJson(response.body);
     expect(isRecord(parsed) ? parsed["tracksAdded"] : undefined).toBe(2);
     expect(mockLmsClient.play).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("POST /api/artist-radio/start and stale radio mode contexts", () => {
+  let server: FastifyInstance;
+  let mockLmsClient: MockLmsClient;
+  let mockLastFmClient: MockLastFmClient;
+
+  const personalContext = {
+    username: "testuser",
+    seedArtists: ["Misfits"],
+    neighbours: [],
+    cycle: 1,
+  };
+
+  const start = async (): Promise<number> => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/artist-radio/start",
+      payload: { artistName: "Fleetwood Mac" },
+    });
+    return response.statusCode;
+  };
+
+  beforeEach(async () => {
+    resetRadioRuntimeState();
+    setGenreRadioContext({ genreName: "punk", page: 3 });
+    setPersonalRadioContext(personalContext);
+    setLovedRadioContext({ username: "testuser" });
+    mockLmsClient = createMockLmsClient();
+    mockLastFmClient = createMockLastFmClient();
+    mockLastFmClient.getArtistTopTracks.mockResolvedValue(
+      ok([makeTopTrack("Dreams", "Fleetwood Mac")]),
+    );
+    mockLmsClient.search.mockResolvedValue(
+      ok({
+        tracks: [makeSearchResult("file:///dreams.flac", "Fleetwood Mac")],
+        tidalAvailable: true,
+      }),
+    );
+    server = Fastify({ logger: false });
+    createArtistRadioRoute(server, mockLmsClient, mockLastFmClient);
+    await server.ready();
+  });
+
+  afterEach(async () => {
+    await server.close();
+    resetRadioRuntimeState();
+  });
+
+  it("clears all three contexts when the start plays", async () => {
+    expect(await start()).toBe(200);
+
+    const state = getRadioQueueState();
+    expect(state.genreRadioContext).toBeUndefined();
+    expect(state.personalRadioContext).toBeUndefined();
+    expect(state.lovedRadioContext).toBeUndefined();
+  });
+
+  it("keeps the contexts when nothing playable is found (404)", async () => {
+    mockLmsClient.search.mockResolvedValue(
+      ok({ tracks: [], tidalAvailable: true }),
+    );
+
+    expect(await start()).toBe(404);
+
+    const state = getRadioQueueState();
+    expect(state.genreRadioContext).toEqual({ genreName: "punk", page: 3 });
+    expect(state.personalRadioContext).toEqual(personalContext);
+    expect(state.lovedRadioContext).toEqual({ username: "testuser" });
+  });
+
+  it("keeps the contexts when LMS refuses to play (503)", async () => {
+    mockLmsClient.play.mockResolvedValue(
+      err({ type: "NetworkError", message: "ECONNREFUSED" }),
+    );
+
+    expect(await start()).toBe(503);
+
+    expect(getRadioQueueState().personalRadioContext).toEqual(personalContext);
+  });
+
+  it("keeps the contexts on a validation error (400)", async () => {
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/artist-radio/start",
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(getRadioQueueState().personalRadioContext).toEqual(personalContext);
   });
 });

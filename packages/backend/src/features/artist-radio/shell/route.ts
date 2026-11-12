@@ -5,6 +5,7 @@ import type { LastFmClient } from "../../../adapters/lastfm-client/index.js";
 import { buildArtistRadioSeeds } from "../core/service.js";
 import { normalizeArtist } from "../../../infrastructure/normalizeArtist.js";
 import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
+import { clearRadioModeContexts } from "../../radio-mode/shell/radio-state.js";
 
 const StartArtistRadioBodySchema = z.object({
   artistName: z.string().trim().min(1, "Artist name is required"),
@@ -122,6 +123,7 @@ export const createArtistRadioRoute = (
           code: "LMS_UNREACHABLE",
         });
       }
+      clearRadioModeContexts();
 
       await Promise.all(
         playableUrls.slice(1).map((url) => lmsClient.addToQueue(url)),

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { QueueTrack } from "@signalform/shared";
 import {
   annotateRadioQueueTracks,
+  clearRadioModeContexts,
   clearRadioQueueRuntimeState,
   getRadioQueueState,
   incrementGenreRadioPage,
@@ -9,8 +10,14 @@ import {
   recordExplicitRadioTracks,
   resetRadioRuntimeState,
   setGenreRadioContext,
+  setLovedRadioContext,
   setPersonalRadioContext,
+  setRadioBoundaryIndex,
+  setRadioModeEnabledState,
   setRadioQueueEntries,
+  setRadioRecentArtists,
+  setRequestedRadioModeEnabledState,
+  setSuppressedQueueEnd,
 } from "./radio-state.js";
 import {
   getQueueTrackRepeatKey,
@@ -320,5 +327,86 @@ describe("personal radio context", () => {
     });
     setPersonalRadioContext(undefined);
     expect(getRadioQueueState().personalRadioContext).toBeUndefined();
+  });
+});
+
+describe("clearing the radio mode contexts", () => {
+  const setAllContexts = (): void => {
+    setGenreRadioContext({ genreName: "jazz", page: 3 });
+    setPersonalRadioContext({
+      username: "testuser",
+      seedArtists: ["Misfits"],
+      neighbours: [],
+      cycle: 1,
+    });
+    setLovedRadioContext({ username: "testuser" });
+  };
+
+  const queueEntry = {
+    position: 4,
+    repeatKey: "repeat-key",
+    signature: "signature",
+  };
+
+  beforeEach(() => {
+    resetRadioRuntimeState();
+  });
+
+  it("clearRadioModeContexts clears all three contexts", () => {
+    setAllContexts();
+
+    clearRadioModeContexts();
+
+    const state = getRadioQueueState();
+    expect(state.genreRadioContext).toBeUndefined();
+    expect(state.personalRadioContext).toBeUndefined();
+    expect(state.lovedRadioContext).toBeUndefined();
+  });
+
+  it("clearRadioModeContexts leaves every other piece of radio state untouched", () => {
+    setAllContexts();
+    setRadioModeEnabledState(false);
+    setRequestedRadioModeEnabledState(true);
+    setRadioRecentArtists(["Fleetwood Mac", "Misfits"]);
+    setRadioBoundaryIndex(4);
+    setRadioQueueEntries([queueEntry]);
+    setSuppressedQueueEnd({ trackId: "t1", artist: "A", title: "T" });
+
+    clearRadioModeContexts();
+
+    const state = getRadioQueueState();
+    expect(state.isEnabled).toBe(false);
+    expect(state.requestedEnabledState).toBe(true);
+    expect(state.recentArtists).toEqual(["Fleetwood Mac", "Misfits"]);
+    expect(state.radioBoundaryIndex).toBe(4);
+    expect(state.radioQueueEntries).toEqual([queueEntry]);
+    expect(state.suppressedQueueEnd).toEqual({
+      trackId: "t1",
+      artist: "A",
+      title: "T",
+    });
+  });
+
+  it("clearRadioQueueRuntimeState still clears contexts and queue state but keeps isEnabled", () => {
+    setAllContexts();
+    setRadioModeEnabledState(false);
+    setRequestedRadioModeEnabledState(true);
+    setRadioRecentArtists(["Fleetwood Mac"]);
+    setRadioBoundaryIndex(4);
+    setRadioQueueEntries([queueEntry]);
+    setSuppressedQueueEnd({ trackId: "t1", artist: "A", title: "T" });
+
+    clearRadioQueueRuntimeState();
+
+    const state = getRadioQueueState();
+    expect(state.genreRadioContext).toBeUndefined();
+    expect(state.personalRadioContext).toBeUndefined();
+    expect(state.lovedRadioContext).toBeUndefined();
+    expect(state.recentArtists).toEqual([]);
+    expect(state.radioBoundaryIndex).toBeNull();
+    expect(state.radioQueueEntries).toEqual([]);
+    expect(state.suppressedQueueEnd).toBeUndefined();
+    expect(state.requestedEnabledState).toBeUndefined();
+    expect(state.isEnabled).toBe(false);
   });
 });

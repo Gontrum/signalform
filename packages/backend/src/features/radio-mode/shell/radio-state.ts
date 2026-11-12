@@ -178,15 +178,18 @@ export const setRadioProcessing = (isProcessing: boolean): void =>
 export const setSuppressedQueueEnd = (
   suppression: SuppressedQueueEnd | undefined,
 ): void => radioState.setSuppressedQueueEnd(suppression);
+export const clearRadioModeContexts = (): void => {
+  radioState.setGenreRadioContext(undefined);
+  radioState.setPersonalRadioContext(undefined);
+  radioState.setLovedRadioContext(undefined);
+};
 export const clearRadioQueueRuntimeState = (): void => {
   radioState.setBoundaryIndex(null);
   radioState.setQueueEntries([]);
   radioState.setRecentArtists([]);
   radioState.setSuppressedQueueEnd(undefined);
   radioState.setRequestedEnabledState(undefined);
-  radioState.setGenreRadioContext(undefined);
-  radioState.setPersonalRadioContext(undefined);
-  radioState.setLovedRadioContext(undefined);
+  clearRadioModeContexts();
 };
 
 export const setGenreRadioContext = (

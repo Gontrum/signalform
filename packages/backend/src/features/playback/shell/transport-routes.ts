@@ -16,6 +16,7 @@ import {
 } from "../core/error-mappers.js";
 import { sendLmsError } from "../../../infrastructure/http-errors.js";
 import { recordUserTransportCommand } from "../../../infrastructure/transport-commands.js";
+import { clearRadioModeContexts } from "../../radio-mode/shell/radio-state.js";
 
 const PlayRequestSchema = z.object({
   trackUrl: z.string().min(1, "Track URL is required"),
@@ -99,6 +100,7 @@ export const registerTransportRoutes = (
           "LMS playback failed",
         );
       }
+      clearRadioModeContexts();
 
       const duration = Date.now() - startTime;
       request.log.info({ trackUrl, duration }, "Playback started successfully");
